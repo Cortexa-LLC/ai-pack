@@ -53,9 +53,9 @@ Each language follows its community's established indentation standards:
 - 4-space indentation (PEP 8 mandatory)
 
 **[lang-javascript.md](.clinerules/lang-javascript.md)** - JavaScript/TypeScript:
-- Airbnb and Google JavaScript Style Guides
-- TypeScript best practices and type safety
-- 2-space indentation (industry standard)
+- Microsoft TypeScript Coding Guidelines
+- Double quotes, prefer undefined over null, no I prefix
+- 2-space indentation (JavaScript ecosystem standard)
 
 **[lang-java.md](.clinerules/lang-java.md)** - Java guidelines:
 - Oracle Java Code Conventions

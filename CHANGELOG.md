@@ -11,11 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Language-Specific Indentation Standards:** Each language now follows its community's standard
   - C++: 2 spaces (Google C++ Style Guide)
   - Python: 4 spaces (PEP 8 mandatory)
-  - JavaScript/TypeScript: 2 spaces (Airbnb/Google/Prettier)
+  - JavaScript/TypeScript: 2 spaces (Microsoft TypeScript Guidelines adapted)
   - Java: 4 spaces (Oracle Java Conventions)
   - Kotlin: 4 spaces (Kotlin Coding Conventions)
 - **lang-python.md:** Python best practices stub (PEP 8, type hints)
-- **lang-javascript.md:** JavaScript/TypeScript guidelines stub (Airbnb, TypeScript)
+- **lang-javascript.md:** JavaScript/TypeScript guidelines following Microsoft TypeScript Coding Guidelines with 2-space indentation
+  - Double quotes for strings
+  - Prefer undefined over null
+  - No I prefix for interfaces
+  - One declaration per variable statement
+  - Arrow functions over anonymous expressions
 - **lang-java.md:** Java guidelines stub (Oracle, Effective Java, Spring)
 - **lang-kotlin.md:** Kotlin conventions stub (JetBrains, Coroutines, Android)
 - **Two-Tier Rule System:** Documentation for shared vs project-specific rules
@@ -24,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Updated company references to "Cortexa LLC" (full company name)
 - Enhanced README with language-specific indentation table
+- **lang-javascript.md:** Switched from Airbnb/Google style guides to Microsoft TypeScript Coding Guidelines (with 2-space indentation adaptation)
 
 ---
 
