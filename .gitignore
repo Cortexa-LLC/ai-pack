@@ -1,0 +1,39 @@
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Editor and IDE Files
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+*~
+.project
+.settings/
+.classpath
+
+# Temporary Files
+*.tmp
+*.bak
+*.log
+*.cache
+
+# Project-specific (if testing integration)
+/test-projects/
+/scratch/
+
+# Don't ignore .clinerules (that's our content!)
+!.clinerules/
+
+# Project-specific rule files (each project adds their own)
+PROJECT-*.md
+project-*.md
+*-overrides.md
+*-project.md
