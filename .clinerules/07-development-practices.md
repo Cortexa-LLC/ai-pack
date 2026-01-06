@@ -307,3 +307,89 @@ Inadvertent   "What's layering?"  "Now we know how we
 - Generic names like "data", "info", "manager", "handler"
 
 **Reference:** [Two Hard Things](https://martinfowler.com/bliki/TwoHardThings.html)
+
+## Git Commit Message Guidelines
+
+**Core Principle:** Commit messages are documentation for future maintainers. Write them clearly, concisely, and without unnecessary formatting.
+
+### Required Format
+
+**Structure:**
+```
+Short summary line (50-72 characters)
+
+Detailed explanation of what changed and why (if needed).
+Wrap at 72 characters per line.
+
+Additional paragraphs as needed.
+```
+
+### Strict Rules
+
+**DO:**
+- Use plain ASCII text only
+- Start with a capitalized imperative verb (Add, Fix, Update, Remove, Refactor)
+- Keep summary line under 72 characters
+- Separate summary from body with blank line
+- Wrap body text at 72 characters
+- Explain what and why, not how
+- Reference issue/ticket numbers if applicable
+
+**DO NOT:**
+- Use unicode characters or emoji
+- Add tool signature footers like "Generated with [Tool]"
+- Use markdown links or formatting in commit messages
+- Write vague messages like "fix bug" or "update code"
+- Include timestamps (git tracks this)
+
+**ACCEPTABLE:**
+- Co-Authored-By trailers for pair programming or AI assistance
+
+### Examples
+
+**Good:**
+```
+Refactor authentication module to use dependency injection
+
+Replaced global singleton pattern with constructor injection to improve
+testability and follow SOLID principles. Updated tests to use mocks
+instead of real authentication service.
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+```
+
+**Bad (vague with tool signature):**
+```
+Update auth stuff
+
+Made some changes to authentication. Should work better now.
+
+Generated with [Claude Code](https://claude.com/claude-code)
+```
+
+**Bad (unicode characters):**
+```
+Fix authentication bug
+
+- Add proper token validation
+- Update error handling
+- Improve logging
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+```
+
+### Rationale
+
+**Plain text ensures:**
+- Universal readability across all terminals and git clients
+- No encoding issues in different environments
+- Clean git logs that can be parsed by tools
+- Professional appearance in all contexts
+
+**No tool signature footers because:**
+- Commit messages document code changes, not the tools used
+- Footer clutter reduces readability
+- Tools change over time; the change itself matters
+- Co-Authored-By is acceptable for attribution, not tool advertising
+
+**Reference:** Industry standard practices and [Git documentation](https://git-scm.com/book/en/v2/Distributed-Git-Contributing-to-a-Project)
