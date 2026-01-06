@@ -82,17 +82,55 @@ Interface and API design principles:
 - Interface Design Checklist
 - Common API Design Mistakes
 
-### lang-cpp.md
-C++ language-specific best practices:
-- **Scott Meyers' Effective C++** - 55 specific ways to improve C++ programs
-- **C++ Core Guidelines** - ISO C++ Standards Committee official guidelines
-- RAII and Resource Management
-- Rule of Zero/Three/Five
-- Smart Pointers (unique_ptr, shared_ptr, weak_ptr)
-- Move Semantics and Modern C++ (C++11/14/17/20)
-- Constructors, Destructors, and Assignment Operators
-- Templates and Generic Programming
-- Quick Reference Checklist
+### C++ Language-Specific Rules (Multi-File Series)
+
+C++ best practices organized across six focused files:
+
+#### lang-cpp-basics.md
+Fundamentals and resource management:
+- Formatting standards (2-space indentation for C++)
+- Language basics and const correctness
+- Constructors, destructors, and assignment operators
+- RAII (Resource Acquisition Is Initialization)
+- Smart pointers and resource management
+
+#### lang-cpp-design.md
+Design and implementation principles:
+- Interface design and declarations
+- Pass-by-reference vs pass-by-value
+- Encapsulation and data member access
+- Exception safety guarantees
+- Compilation dependencies and the pimpl idiom
+
+#### lang-cpp-advanced.md
+Advanced OOP and templates:
+- Inheritance hierarchies and polymorphism
+- Virtual functions and alternatives
+- Template programming fundamentals
+- Custom new/delete operators
+- Standard library familiarity
+
+#### lang-cpp-modern.md
+Modern C++ features (C++11/14/17/20):
+- Move semantics and rvalue references
+- Lambda expressions and auto keyword
+- Smart pointer best practices
+- Range-based for loops
+- Modern threading and concurrency
+
+#### lang-cpp-guidelines.md
+C++ Core Guidelines from ISO C++:
+- Comprehensive guidelines from the C++ Standards Committee
+- Enum, constants, and immutability patterns
+- Template and generic programming patterns
+- Performance guidelines
+- Standard library usage
+
+#### lang-cpp-reference.md
+Quick reference checklist:
+- Condensed best practices for daily use
+- Common patterns and anti-patterns
+- Quick decision guides
 
 ## How to Use These Rules
 
