@@ -60,18 +60,30 @@ indent_size = 4
 - Refactoring existing code (add tests first if missing)
 - API and interface design
 
-### Test Coverage Guidelines
+### Test Coverage and Quality Standards
 
-**Rule:** Aim for test coverage in the upper 80-90% range, understanding the law of diminishing returns.
+**Rule:** Maintain 80-90% code coverage with all tests passing. Test failures are not acceptable.
 
-**Key Principles:**
+**Critical Requirements:**
+
+**All Tests Must Pass:**
+- Zero tolerance for failing tests in the codebase
+- A failing test indicates either a bug in the code or a bug in the test
+- Fix failing tests immediately - do not commit or deploy with failing tests
+- If a test is failing, either:
+  - Fix the code to make the test pass
+  - Fix the test if it's incorrectly written
+  - Remove the test only if it's testing deprecated behavior
+- Ignoring or skipping failing tests erodes confidence in the entire test suite
+
+**Code Coverage Target: 80-90%**
 
 > "Test coverage is a useful tool for finding untested parts of a codebase. Test coverage is of little use as a numeric statement of how good your tests are." - Martin Fowler
 
-**Target: Upper 80-90% through thoughtful testing**
 - This range naturally emerges from comprehensive TDD practices
 - NOT a hard target to game with low-quality tests
 - Focus on meaningful test quality, not hitting numbers
+- Coverage measures what code is executed, not whether tests are effective
 
 **The Law of Diminishing Returns:**
 - Pursuing 100% coverage often wastes effort on trivial code
@@ -80,12 +92,20 @@ indent_size = 4
 - Suspiciously perfect 100% suggests "teaching to the test"
 
 **Good Test Suites Ensure:**
+- All tests pass 100% of the time (zero failures)
 - Bugs rarely escape to production
 - Developers refactor confidently without fear
-- Critical business logic has thorough coverage
+- Critical business logic has thorough coverage (80-90% code coverage)
 - Edge cases and error conditions are validated
 
 **Warning Signs:**
+
+*Failing or Ignored Tests (critical issue):*
+- Any test failures in the codebase
+- Skipped or disabled tests that aren't being fixed
+- Tests marked as "TODO" or "FIXME" indefinitely
+- Culture of accepting "flaky" tests
+- These indicate serious quality problems
 
 *Too Little Coverage (< 50%):*
 - Frequent production bugs
@@ -126,6 +146,7 @@ indent_size = 4
 These general rules establish the foundation for all development:
 1. **No tabs, always spaces** - Consistent formatting everywhere
 2. **TDD for all new code** - Design through tests, quality by default
-3. **Target 80-90% coverage naturally** - Comprehensive testing without gaming metrics
+3. **All tests must pass** - Zero tolerance for test failures
+4. **Target 80-90% code coverage** - Comprehensive testing without gaming metrics
 
 Apply these principles universally, then layer on language-specific guidelines as appropriate.

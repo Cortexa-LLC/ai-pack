@@ -12,7 +12,7 @@ This repository serves as a centralized, reusable set of coding standards that c
 
 ### Universal Standards
 
-- **[00-general-rules.md](00-general-rules.md)** - Universal rules: No tabs (spaces only), TDD workflow, test coverage guidelines (80-90%)
+- **[00-general-rules.md](00-general-rules.md)** - Universal rules: No tabs (spaces only), TDD workflow, all tests must pass (zero tolerance for failures), 80-90% code coverage target
 
 ### Core Design Principles
 

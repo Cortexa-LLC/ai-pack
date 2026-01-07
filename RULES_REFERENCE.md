@@ -8,7 +8,8 @@ This `.clinerules` folder contains comprehensive guidelines based on Martin Fowl
 Universal standards that apply to all code regardless of language:
 - No Tabs - Always Use Spaces (consistent formatting everywhere)
 - Test-Driven Development (TDD) workflow for all new code
-- Test Coverage Guidelines (target 80-90% through thoughtful testing)
+- All Tests Must Pass (zero tolerance for test failures)
+- Code Coverage Target (80-90% through thoughtful testing)
 - Law of Diminishing Returns in test coverage
 
 ### 01-design-principles.md
@@ -165,7 +166,8 @@ These rules are automatically processed by Claude Code and inform code review, r
 **Universal Standards:**
 - Never use tabs, always use spaces - Consistent formatting everywhere
 - Always use TDD for new code - Design through tests, quality by default
-- Target 80-90% test coverage naturally - Comprehensive testing without gaming metrics
+- All tests must pass - Zero tolerance for test failures
+- Target 80-90% code coverage - Comprehensive testing without gaming metrics
 
 **Beck's Four Rules (Priority Order):**
 1. Passes the tests
