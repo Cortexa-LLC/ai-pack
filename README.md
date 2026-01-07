@@ -10,6 +10,10 @@ This repository serves as a centralized, reusable set of coding standards that c
 
 ## Contents
 
+### Universal Standards
+
+- **[00-general-rules.md](.clinerules/00-general-rules.md)** - Universal rules: No tabs (spaces only), TDD workflow, test coverage guidelines (80-90%)
+
 ### Core Design Principles
 
 - **[01-design-principles.md](.clinerules/01-design-principles.md)** - Beck's Four Rules of Simple Design, Tell Don't Ask, Dependency Injection, and Seams for Testability

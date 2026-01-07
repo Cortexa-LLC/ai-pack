@@ -4,6 +4,13 @@ This `.clinerules` folder contains comprehensive guidelines based on Martin Fowl
 
 ## Contents
 
+### 00-general-rules.md
+Universal standards that apply to all code regardless of language:
+- No Tabs - Always Use Spaces (consistent formatting everywhere)
+- Test-Driven Development (TDD) workflow for all new code
+- Test Coverage Guidelines (target 80-90% through thoughtful testing)
+- Law of Diminishing Returns in test coverage
+
 ### 01-design-principles.md
 Core design principles that form the foundation of clean code:
 - Beck's Four Rules of Simple Design
@@ -154,6 +161,11 @@ These rules are automatically processed by Claude Code and inform code review, r
 - Apply incrementally as you learn
 
 ## Key Principles Summary
+
+**Universal Standards:**
+- Never use tabs, always use spaces - Consistent formatting everywhere
+- Always use TDD for new code - Design through tests, quality by default
+- Target 80-90% test coverage naturally - Comprehensive testing without gaming metrics
 
 **Beck's Four Rules (Priority Order):**
 1. Passes the tests
