@@ -29,9 +29,6 @@ Desktop.ini
 /test-projects/
 /scratch/
 
-# Don't ignore .clinerules (that's our content!)
-!.clinerules/
-
 # Project-specific rule files (each project adds their own)
 PROJECT-*.md
 project-*.md

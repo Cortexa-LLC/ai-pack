@@ -12,26 +12,26 @@ This repository serves as a centralized, reusable set of coding standards that c
 
 ### Universal Standards
 
-- **[00-general-rules.md](.clinerules/00-general-rules.md)** - Universal rules: No tabs (spaces only), TDD workflow, test coverage guidelines (80-90%)
+- **[00-general-rules.md](00-general-rules.md)** - Universal rules: No tabs (spaces only), TDD workflow, test coverage guidelines (80-90%)
 
 ### Core Design Principles
 
-- **[01-design-principles.md](.clinerules/01-design-principles.md)** - Beck's Four Rules of Simple Design, Tell Don't Ask, Dependency Injection, and Seams for Testability
-- **[02-solid-principles.md](.clinerules/02-solid-principles.md)** - Complete SOLID principles with practical examples and code smells
-- **[03-refactoring.md](.clinerules/03-refactoring.md)** - Code smells catalog and refactoring techniques
-- **[04-testing.md](.clinerules/04-testing.md)** - Test Pyramid, test doubles, and testing best practices
-- **[05-architecture.md](.clinerules/05-architecture.md)** - Bounded Contexts and architectural patterns
-- **[06-code-review-checklist.md](.clinerules/06-code-review-checklist.md)** - Comprehensive code review guidelines
+- **[01-design-principles.md](01-design-principles.md)** - Beck's Four Rules of Simple Design, Tell Don't Ask, Dependency Injection, and Seams for Testability
+- **[02-solid-principles.md](02-solid-principles.md)** - Complete SOLID principles with practical examples and code smells
+- **[03-refactoring.md](03-refactoring.md)** - Code smells catalog and refactoring techniques
+- **[04-testing.md](04-testing.md)** - Test Pyramid, test doubles, and testing best practices
+- **[05-architecture.md](05-architecture.md)** - Bounded Contexts and architectural patterns
+- **[06-code-review-checklist.md](06-code-review-checklist.md)** - Comprehensive code review guidelines
 
 ### Development Practices
 
-- **[07-development-practices.md](.clinerules/07-development-practices.md)** - YAGNI, Frequency Reduces Difficulty, Continuous Integration, Technical Debt, Refactoring
-- **[08-deployment-patterns.md](.clinerules/08-deployment-patterns.md)** - Feature Toggles, Blue-Green Deployment, Canary Release, Parallel Change
-- **[09-system-evolution.md](.clinerules/09-system-evolution.md)** - Strangler Fig, Sacrificial Architecture, MonolithFirst, Semantic Diffusion
+- **[07-development-practices.md](07-development-practices.md)** - YAGNI, Frequency Reduces Difficulty, Continuous Integration, Technical Debt, Refactoring
+- **[08-deployment-patterns.md](08-deployment-patterns.md)** - Feature Toggles, Blue-Green Deployment, Canary Release, Parallel Change
+- **[09-system-evolution.md](09-system-evolution.md)** - Strangler Fig, Sacrificial Architecture, MonolithFirst, Semantic Diffusion
 
 ### API and Interface Design
 
-- **[10-api-design.md](.clinerules/10-api-design.md)** - Command Query Separation, Naming conventions, API design principles
+- **[10-api-design.md](10-api-design.md)** - Command Query Separation, Naming conventions, API design principles
 
 ### Language-Specific Guidelines
 
@@ -39,35 +39,35 @@ Each language follows its community's established indentation standards:
 
 | Language | Indentation | File |
 |----------|-------------|------|
-| C++ | 2 spaces | [lang-cpp.md](.clinerules/lang-cpp.md) |
-| Python | 4 spaces | [lang-python.md](.clinerules/lang-python.md) |
-| JavaScript/TypeScript | 2 spaces | [lang-javascript.md](.clinerules/lang-javascript.md) |
-| Java | 4 spaces | [lang-java.md](.clinerules/lang-java.md) |
-| Kotlin | 4 spaces | [lang-kotlin.md](.clinerules/lang-kotlin.md) |
+| C++ | 2 spaces | [lang-cpp.md](lang-cpp.md) |
+| Python | 4 spaces | [lang-python.md](lang-python.md) |
+| JavaScript/TypeScript | 2 spaces | [lang-javascript.md](lang-javascript.md) |
+| Java | 4 spaces | [lang-java.md](lang-java.md) |
+| Kotlin | 4 spaces | [lang-kotlin.md](lang-kotlin.md) |
 
-**[lang-cpp.md](.clinerules/lang-cpp.md)** - Comprehensive C++ guidelines:
+**[lang-cpp.md](lang-cpp.md)** - Comprehensive C++ guidelines:
 - All 55 items from Scott Meyers' *Effective C++*
 - C++ Core Guidelines (P, F, I, C, R, ES, E, CP, Enum, Con, T, Per, SF, SL sections)
 - Modern C++17/20 best practices
 - 2-space indentation (Google C++ Style Guide)
 
-**[lang-python.md](.clinerules/lang-python.md)** - Python best practices:
+**[lang-python.md](lang-python.md)** - Python best practices:
 - PEP 8, PEP 20 (Zen of Python)
 - Type hints and modern Python features
 - 4-space indentation (PEP 8 mandatory)
 
-**[lang-javascript.md](.clinerules/lang-javascript.md)** - JavaScript/TypeScript:
+**[lang-javascript.md](lang-javascript.md)** - JavaScript/TypeScript:
 - Microsoft TypeScript Coding Guidelines
 - Double quotes, prefer undefined over null, no I prefix
 - 2-space indentation (JavaScript ecosystem standard)
 
-**[lang-java.md](.clinerules/lang-java.md)** - Java guidelines:
+**[lang-java.md](lang-java.md)** - Java guidelines:
 - Oracle Java Code Conventions
 - Effective Java (Joshua Bloch)
 - Spring Framework patterns
 - 4-space indentation (Oracle standard)
 
-**[lang-kotlin.md](.clinerules/lang-kotlin.md)** - Kotlin conventions:
+**[lang-kotlin.md](lang-kotlin.md)** - Kotlin conventions:
 - Kotlin Coding Conventions (JetBrains)
 - Coroutines and Flow patterns
 - Android best practices
@@ -114,8 +114,8 @@ cp -r /path/to/clean-code-standards/.clinerules your-project/.clinerules
 
 These standards are designed to work with Claude Code and other AI assistants that support `.clinerules`:
 
-1. Add this repository as a submodule or link in your project
-2. The `.clinerules` folder will be automatically discovered by Claude Code
+1. Add this repository as a submodule to `.clinerules/` in your project
+2. The rule files will be automatically discovered by Claude Code
 3. AI assistants will apply these standards during code generation and review
 
 ## Project-Specific Customization
@@ -200,10 +200,11 @@ After setup, your project's `.clinerules/` contains both shared and project file
 
 ```
 .clinerules/                              # Git submodule + project files
-├── README.md                            # Shared (from submodule)
+├── 00-general-rules.md                  # Shared (from submodule)
 ├── 01-design-principles.md              # Shared (from submodule)
 ├── 02-solid-principles.md               # Shared (from submodule)
-├── lang-cpp.md                          # Shared (from submodule)
+├── lang-cpp-basics.md                   # Shared (from submodule)
+├── RULES_REFERENCE.md                   # Shared (from submodule)
 ├── PROJECT-README.md                    # Project-specific (your file)
 ├── PROJECT-sourcerer.md                 # Project-specific (your file)
 └── PROJECT-architecture.md              # Project-specific (your file)
@@ -280,19 +281,28 @@ clean-code-standards/
 ├── README.md                          # This file
 ├── LICENSE                            # MIT License
 ├── .gitignore                         # Git ignore rules
-└── .clinerules/                       # Standards directory
-    ├── README.md                      # Quick reference guide
-    ├── 01-design-principles.md        # Core design principles
-    ├── 02-solid-principles.md         # SOLID principles
-    ├── 03-refactoring.md              # Refactoring guidelines
-    ├── 04-testing.md                  # Testing standards
-    ├── 05-architecture.md             # Architecture patterns
-    ├── 06-code-review-checklist.md    # Review checklist
-    ├── 07-development-practices.md    # Development workflow
-    ├── 08-deployment-patterns.md      # Deployment strategies
-    ├── 09-system-evolution.md         # System evolution
-    ├── 10-api-design.md               # API design principles
-    └── lang-cpp.md                    # C++ specific guidelines
+├── RULES_REFERENCE.md                 # Quick reference guide
+├── 00-general-rules.md                # Universal standards
+├── 01-design-principles.md            # Core design principles
+├── 02-solid-principles.md             # SOLID principles
+├── 03-refactoring.md                  # Refactoring guidelines
+├── 04-testing.md                      # Testing standards
+├── 05-architecture.md                 # Architecture patterns
+├── 06-code-review-checklist.md        # Review checklist
+├── 07-development-practices.md        # Development workflow
+├── 08-deployment-patterns.md          # Deployment strategies
+├── 09-system-evolution.md             # System evolution
+├── 10-api-design.md                   # API design principles
+├── lang-cpp-basics.md                 # C++ basics
+├── lang-cpp-design.md                 # C++ design patterns
+├── lang-cpp-advanced.md               # C++ advanced topics
+├── lang-cpp-modern.md                 # Modern C++ features
+├── lang-cpp-guidelines.md             # C++ Core Guidelines
+├── lang-cpp-reference.md              # C++ quick reference
+├── lang-python.md                     # Python guidelines
+├── lang-javascript.md                 # JavaScript/TypeScript
+├── lang-java.md                       # Java guidelines
+└── lang-kotlin.md                     # Kotlin guidelines
 ```
 
 ## Versioning
