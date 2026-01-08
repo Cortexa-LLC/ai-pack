@@ -8,7 +8,7 @@ This guide explains how to implement the two-tier rule system (shared + project-
 
 ```
 your-project/
-├── .clinerules/                          # Git submodule (shared standards)
+├── .ai-pack/                          # Git submodule (shared standards)
 │   ├── 01-design-principles.md          # Tier 1: Shared
 │   ├── 02-solid-principles.md           # Tier 1: Shared
 │   ├── lang-cpp.md                      # Tier 1: Shared
@@ -22,25 +22,25 @@ your-project/
 **Key Design:**
 - **Submodule files:** Tracked by `Cortexa-LLC/clean-code` repository
 - **PROJECT-*.md files:** Tracked by your project repository (git-ignored by submodule)
-- **Both discovered by Claude Code:** Automatically reads all `.md` files in `.clinerules/`
+- **Both discovered by Claude Code:** Automatically reads all `.md` files in `.ai-pack/`
 
 ## How Claude Code Discovers Both Tiers
 
 **Claude Code automatically:**
 
-1. **Scans `.clinerules/` directory** for all `.md` files
+1. **Scans `.ai-pack/` directory** for all `.md` files
 2. **Reads shared standards** from submodule files (no `PROJECT-` prefix)
 3. **Reads project-specific rules** from `PROJECT-*.md` files
 4. **Applies both during code generation and review**
 
-**No configuration needed!** Just place files in `.clinerules/` and Claude finds them.
+**No configuration needed!** Just place files in `.ai-pack/` and Claude finds them.
 
 ### Example Discovery Process
 
 When Claude Code starts in a project with this structure:
 
 ```
-.clinerules/
+.ai-pack/
 ├── 01-design-principles.md    # ✅ Discovered: Shared
 ├── 02-solid-principles.md     # ✅ Discovered: Shared
 ├── lang-cpp.md                # ✅ Discovered: Shared (2-space indentation)
@@ -64,7 +64,7 @@ When Claude Code starts in a project with this structure:
 cd your-project
 
 # Add clean-code as submodule
-git submodule add git@github.com:Cortexa-LLC/clean-code.git .clinerules
+git submodule add git@github.com:Cortexa-LLC/clean-code.git .ai-pack
 
 # Initialize submodule
 git submodule update --init --recursive
@@ -120,28 +120,28 @@ cat > docs/project-rules/PROJECT-yourproject.md << 'EOF'
 EOF
 ```
 
-Copy to `.clinerules/` for Claude Code to discover:
+Copy to `.ai-pack/` for Claude Code to discover:
 
 ```bash
-cp docs/project-rules/PROJECT-*.md .clinerules/
+cp docs/project-rules/PROJECT-*.md .ai-pack/
 ```
 
 ### Step 3: Commit Project Files
 
 ```bash
 # Stage submodule and project files
-git add .gitmodules .clinerules docs/project-rules/
+git add .gitmodules .ai-pack docs/project-rules/
 
 # Commit
 git commit -m "Add two-tier coding standards
 
 - Add Cortexa LLC clean code standards as submodule
 - Add project-specific rules in docs/project-rules/
-- Working copies in .clinerules/ for Claude Code discovery
+- Working copies in .ai-pack/ for Claude Code discovery
 - Setup two-tier rule system"
 ```
 
-**Note:** The `PROJECT-*.md` files in `.clinerules/` are git-ignored by the submodule and not tracked by your project repository. They are working copies for Claude Code to discover. The version-controlled source is in `docs/project-rules/`.
+**Note:** The `PROJECT-*.md` files in `.ai-pack/` are git-ignored by the submodule and not tracked by your project repository. They are working copies for Claude Code to discover. The version-controlled source is in `docs/project-rules/`.
 
 ### Step 4: Push
 
@@ -166,30 +166,30 @@ git push origin main
 
 **Your Project Repository:**
 - Tracks: `.gitmodules` (submodule configuration)
-- Tracks: `.clinerules` as a submodule reference (commit hash)
+- Tracks: `.ai-pack` as a submodule reference (commit hash)
 - Tracks: `PROJECT-*.md` files in a separate directory (e.g., `docs/project-rules/`)
-- **Important:** Git submodules don't allow tracking files inside the submodule directory from the parent repository. Store `PROJECT-*.md` files elsewhere in your project (like `docs/project-rules/`) and copy them to `.clinerules/` as working files for Claude Code to discover.
+- **Important:** Git submodules don't allow tracking files inside the submodule directory from the parent repository. Store `PROJECT-*.md` files elsewhere in your project (like `docs/project-rules/`) and copy them to `.ai-pack/` as working files for Claude Code to discover.
 
 ### How Updates Work
 
 **Updating Shared Standards:**
 ```bash
 # Pull latest shared standards
-git submodule update --remote .clinerules
+git submodule update --remote .ai-pack
 
 # Commit the submodule update
-git add .clinerules
+git add .ai-pack
 git commit -m "Update to latest clean code standards"
 git push
 ```
 
 **Updating Project Rules:**
 ```bash
-# Edit working files in .clinerules/
-vim .clinerules/PROJECT-yourproject.md
+# Edit working files in .ai-pack/
+vim .ai-pack/PROJECT-yourproject.md
 
 # Copy updated files back to version-controlled location
-cp .clinerules/PROJECT-*.md docs/project-rules/
+cp .ai-pack/PROJECT-*.md docs/project-rules/
 
 # Commit changes
 git add docs/project-rules/PROJECT-*.md
@@ -197,7 +197,7 @@ git commit -m "Update project-specific rules"
 git push
 ```
 
-**Note:** The `PROJECT-*.md` files in `.clinerules/` are working copies that Claude Code discovers. The version-controlled copies live in `docs/project-rules/` (or similar directory in your project).
+**Note:** The `PROJECT-*.md` files in `.ai-pack/` are working copies that Claude Code discovers. The version-controlled copies live in `docs/project-rules/` (or similar directory in your project).
 
 ### Verification Commands
 
@@ -206,15 +206,15 @@ git push
 git submodule status
 
 # See what's tracked by project
-git status .clinerules/
+git status .ai-pack/
 
 # See what's tracked by submodule
-cd .clinerules
+cd .ai-pack
 git status
 cd ..
 
 # List all files Claude Code will see
-ls -la .clinerules/*.md
+ls -la .ai-pack/*.md
 ```
 
 ## Example: Sourcerer Project
@@ -259,11 +259,11 @@ The shared standards define language-specific indentation:
 
 **Solution:**
 1. Ensure files are named `PROJECT-*.md`
-2. Ensure files are in `.clinerules/` directory (working copies)
+2. Ensure files are in `.ai-pack/` directory (working copies)
 3. Verify files are plain Markdown (`.md` extension)
 4. If missing, copy from version-controlled location:
    ```bash
-   cp docs/project-rules/PROJECT-*.md .clinerules/
+   cp docs/project-rules/PROJECT-*.md .ai-pack/
    ```
 5. Restart Claude Code
 
@@ -274,13 +274,13 @@ The shared standards define language-specific indentation:
 **Solution:**
 ```bash
 # Update submodule to latest
-git submodule update --remote .clinerules
+git submodule update --remote .ai-pack
 
 # Or manually:
-cd .clinerules
+cd .ai-pack
 git pull origin main
 cd ..
-git add .clinerules
+git add .ai-pack
 git commit -m "Update submodule"
 ```
 
@@ -292,7 +292,7 @@ git commit -m "Update submodule"
 1. Ensure submodule's `.gitignore` contains `PROJECT-*.md`
 2. Remove from submodule tracking:
    ```bash
-   cd .clinerules
+   cd .ai-pack
    git rm --cached PROJECT-*.md
    cd ..
    ```
@@ -304,11 +304,11 @@ git commit -m "Update submodule"
 **Solution:**
 ```bash
 # Reset submodule to remote state
-cd .clinerules
+cd .ai-pack
 git fetch origin
 git reset --hard origin/main
 cd ..
-git add .clinerules
+git add .ai-pack
 git commit -m "Reset submodule to latest"
 ```
 
@@ -321,21 +321,21 @@ All Cortexa LLC projects can share the same submodule:
 ```bash
 # Project A
 cd project-a
-git submodule add git@github.com:Cortexa-LLC/clean-code.git .clinerules
+git submodule add git@github.com:Cortexa-LLC/clean-code.git .ai-pack
 mkdir -p docs/project-rules
 cat > docs/project-rules/PROJECT-project-a.md << 'EOF'
 # Project A specific rules
 EOF
-cp docs/project-rules/PROJECT-*.md .clinerules/
+cp docs/project-rules/PROJECT-*.md .ai-pack/
 
 # Project B
 cd ../project-b
-git submodule add git@github.com:Cortexa-LLC/clean-code.git .clinerules
+git submodule add git@github.com:Cortexa-LLC/clean-code.git .ai-pack
 mkdir -p docs/project-rules
 cat > docs/project-rules/PROJECT-project-b.md << 'EOF'
 # Project B specific rules
 EOF
-cp docs/project-rules/PROJECT-*.md .clinerules/
+cp docs/project-rules/PROJECT-*.md .ai-pack/
 ```
 
 Both projects:
@@ -350,7 +350,7 @@ Both projects:
 git clone git@github.com:Cortexa-LLC/clean-code.git /tmp/test-standards
 
 # Add your project files
-cat > /tmp/test-standards/.clinerules/PROJECT-test.md << 'EOF'
+cat > /tmp/test-standards/.ai-pack/PROJECT-test.md << 'EOF'
 # Test rules
 EOF
 

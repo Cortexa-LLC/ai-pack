@@ -6,7 +6,7 @@ A curated collection of clean code principles, design patterns, and language-spe
 
 ## Overview
 
-This repository serves as a centralized, reusable set of coding standards that can be integrated into any project via Git submodules, symbolic links, or direct inclusion. These standards are designed to work seamlessly with AI coding assistants like Claude Code through `.clinerules` integration.
+This repository serves as a centralized, reusable set of coding standards that can be integrated into any project via Git submodules, symbolic links, or direct inclusion. These standards are designed to work seamlessly with AI coding assistants like Claude Code through `.ai-pack` integration.
 
 ## Contents
 
@@ -81,7 +81,7 @@ Add these standards to your project as a submodule:
 
 ```bash
 cd your-project
-git submodule add https://github.com/Cortexa-LLC/clean-code-standards .clinerules
+git submodule add https://github.com/Cortexa-LLC/clean-code-standards .ai-pack
 git submodule update --init --recursive
 ```
 
@@ -89,7 +89,7 @@ Update standards in your project:
 
 ```bash
 git submodule update --remote
-git add .clinerules
+git add .ai-pack
 git commit -m "Update clean code standards"
 ```
 
@@ -99,7 +99,7 @@ Create a symbolic link to a single shared copy:
 
 ```bash
 cd your-project
-ln -s /path/to/clean-code-standards/.clinerules .clinerules
+ln -s /path/to/clean-code-standards/.ai-pack .ai-pack
 ```
 
 ### Option 3: Direct Copy (For Standalone Projects)
@@ -107,14 +107,14 @@ ln -s /path/to/clean-code-standards/.clinerules .clinerules
 Copy the standards directly into your project:
 
 ```bash
-cp -r /path/to/clean-code-standards/.clinerules your-project/.clinerules
+cp -r /path/to/clean-code-standards/.ai-pack your-project/.ai-pack
 ```
 
 ## Integration with AI Assistants
 
-These standards are designed to work with Claude Code and other AI assistants that support `.clinerules`:
+These standards are designed to work with Claude Code and other AI assistants that support `.ai-pack`:
 
-1. Add this repository as a submodule to `.clinerules/` in your project
+1. Add this repository as a submodule to `.ai-pack/` in your project
 2. The rule files will be automatically discovered by Claude Code
 3. AI assistants will apply these standards during code generation and review
 
@@ -138,7 +138,7 @@ This repository supports a **two-tier approach** for managing shared and project
 
 ### How to Add Project-Specific Rules
 
-When you add this repository as a submodule to `.clinerules/`, you can also add project-specific rule files directly to the same directory. These files are git-ignored by the submodule but tracked in your project repository.
+When you add this repository as a submodule to `.ai-pack/`, you can also add project-specific rule files directly to the same directory. These files are git-ignored by the submodule but tracked in your project repository.
 
 **Naming Convention for Project Files:**
 - `PROJECT-*.md` - Project-specific rules (e.g., `PROJECT-sourcerer.md`)
@@ -148,10 +148,10 @@ When you add this repository as a submodule to `.clinerules/`, you can also add 
 
 ```bash
 # Add submodule
-git submodule add git@github.com:Cortexa-LLC/clean-code.git .clinerules
+git submodule add git@github.com:Cortexa-LLC/clean-code.git .ai-pack
 
 # Add project-specific rules to the same directory
-cat > .clinerules/PROJECT-README.md << 'EOF'
+cat > .ai-pack/PROJECT-README.md << 'EOF'
 # Sourcerer Coding Standards
 
 This project uses a **two-tier rule system**:
@@ -167,7 +167,7 @@ All files without `PROJECT-` prefix come from the Cortexa clean-code standards.
 EOF
 
 # Add your project rules
-cat > .clinerules/PROJECT-sourcerer.md << 'EOF'
+cat > .ai-pack/PROJECT-sourcerer.md << 'EOF'
 # Sourcerer-Specific Rules
 
 ## Formatting
@@ -180,26 +180,26 @@ cat > .clinerules/PROJECT-sourcerer.md << 'EOF'
 EOF
 
 # Commit project files (submodule files are not committed to parent)
-git add .clinerules/PROJECT-*.md
+git add .ai-pack/PROJECT-*.md
 git commit -m "Add project-specific coding rules"
 ```
 
 ### How AI Assistants Discover Both Tiers
 
 **Claude Code and similar tools automatically:**
-1. ✅ Read all `.md` files in `.clinerules/` directory
+1. ✅ Read all `.md` files in `.ai-pack/` directory
 2. ✅ Include both submodule files (shared standards)
 3. ✅ Include project-specific files (PROJECT-*.md pattern)
 4. ✅ Apply both sets of rules during code generation and review
 
-**No additional configuration needed!** Just place your project files in `.clinerules/` with the `PROJECT-` prefix.
+**No additional configuration needed!** Just place your project files in `.ai-pack/` with the `PROJECT-` prefix.
 
 ### Example Directory Structure
 
-After setup, your project's `.clinerules/` contains both shared and project files:
+After setup, your project's `.ai-pack/` contains both shared and project files:
 
 ```
-.clinerules/                              # Git submodule + project files
+.ai-pack/                              # Git submodule + project files
 ├── 00-general-rules.md                  # Shared (from submodule)
 ├── 01-design-principles.md              # Shared (from submodule)
 ├── 02-solid-principles.md               # Shared (from submodule)
@@ -247,7 +247,7 @@ Add automated checks based on these standards:
 - name: Check code compliance
   run: |
     # Run linters configured per these standards
-    clang-tidy --config-file=.clinerules/clang-tidy-config
+    clang-tidy --config-file=.ai-pack/clang-tidy-config
 ```
 
 ### Team Onboarding

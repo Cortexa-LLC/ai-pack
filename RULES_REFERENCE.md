@@ -1,6 +1,6 @@
 # Clean Code Rules - Martin Fowler Principles
 
-This `.clinerules` folder contains comprehensive guidelines based on Martin Fowler's principles from [martinfowler.com](https://martinfowler.com), covering SOLID principles, design patterns, refactoring techniques, and testability.
+This `.ai-pack` folder contains comprehensive guidelines based on Martin Fowler's principles from [martinfowler.com](https://martinfowler.com), covering SOLID principles, design patterns, refactoring techniques, and testability.
 
 ## Contents
 

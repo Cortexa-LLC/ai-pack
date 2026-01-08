@@ -104,7 +104,7 @@ You should see:
 
    Add to your project as a Git submodule:
    ```bash
-   git submodule add https://github.com/Cortexa-LLC/clean-code-standards .clinerules
+   git submodule add https://github.com/Cortexa-LLC/clean-code-standards .ai-pack
    ```
 
    See the [README](https://github.com/Cortexa-LLC/clean-code-standards#readme) for full documentation.
@@ -154,14 +154,14 @@ Now update your Sourcerer project to use this as a submodule:
 ```bash
 cd ~/Projects/Vintage/tools/sourcerer
 
-# Remove existing .clinerules if it exists
-rm -rf .clinerules
+# Remove existing .ai-pack if it exists
+rm -rf .ai-pack
 
 # Add as submodule
-git submodule add https://github.com/Cortexa-LLC/clean-code-standards .clinerules
+git submodule add https://github.com/Cortexa-LLC/clean-code-standards .ai-pack
 
 # Commit the submodule
-git add .clinerules .gitmodules
+git add .ai-pack .gitmodules
 git commit -m "Add clean code standards as submodule"
 ```
 
@@ -186,8 +186,8 @@ In projects using the submodule:
 
 ```bash
 # Update to latest standards
-git submodule update --remote .clinerules
-git add .clinerules
+git submodule update --remote .ai-pack
+git add .ai-pack
 git commit -m "Update clean code standards to v1.1.0"
 ```
 
