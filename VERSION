@@ -1,0 +1,25 @@
+Version: 1.0.0
+Release Date: 2026-01-07
+Codename: Foundation
+Status: Stable
+Compatibility: ai-pack 1.x
+
+## Release Notes
+
+This is the foundational release of the ai-pack framework, introducing a comprehensive multi-agent AI workflow system alongside established clean-code standards.
+
+### New Features
+- Multi-agent workflow framework with gates, roles, workflows, and task-packet templates
+- Quality gates for controlling and validating agent actions
+- Role definitions for orchestrator, worker, and reviewer agents
+- Structured workflows for standard, feature, bugfix, refactor, and research tasks
+- Task-packet templates for structured task management
+
+### Clean Code Standards
+- Universal design principles and SOLID principles
+- Language-specific guidelines for C++, Python, JavaScript, Java, and Kotlin
+- Comprehensive refactoring, testing, and architecture guidance
+- Deployment patterns and development best practices
+
+## Version History
+- 1.0.0 (2026-01-07): Initial release with AI workflow framework

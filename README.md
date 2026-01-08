@@ -6,7 +6,179 @@ A curated collection of clean code principles, design patterns, and language-spe
 
 ## Overview
 
-This repository serves as a centralized, reusable set of coding standards that can be integrated into any project via Git submodules, symbolic links, or direct inclusion. These standards are designed to work seamlessly with AI coding assistants like Claude Code through `.ai-pack` integration.
+This repository serves as a centralized, reusable set of coding standards AND a comprehensive AI agent workflow framework. It provides both:
+
+1. **Clean Code Standards** - Industry-leading coding principles and practices
+2. **AI Workflow Framework** - Structured processes for AI agent-based development
+
+These standards are designed to work seamlessly with AI coding assistants like Claude Code through `.ai-pack` integration.
+
+---
+
+## AI Workflow Framework
+
+The AI Workflow Framework provides structured processes, roles, and templates for AI agent-based software development. It ensures quality, consistency, and proper governance throughout the development lifecycle.
+
+### Framework Components
+
+#### 🚦 Gates - Quality Controls
+Quality gates define rules and constraints that govern what actions are permitted. Located in `gates/`:
+
+- **[00-global-gates.md](gates/00-global-gates.md)** - Universal rules (safety, quality, communication)
+- **[10-persistence.md](gates/10-persistence.md)** - File operations and state management rules
+- **[20-tool-policy.md](gates/20-tool-policy.md)** - Tool usage policies and approvals
+- **[30-verification.md](gates/30-verification.md)** - Verification and validation requirements
+
+#### 👥 Roles - Agent Personas
+Roles define different agent personas with specific responsibilities. Located in `roles/`:
+
+- **[orchestrator.md](roles/orchestrator.md)** - High-level coordinator, delegates work, monitors progress
+- **[worker.md](roles/worker.md)** - Implementation specialist, writes code, creates tests
+- **[reviewer.md](roles/reviewer.md)** - Quality assurance, code review, standards compliance
+
+#### 🔄 Workflows - Development Processes
+Workflows define structured processes for different types of work. Located in `workflows/`:
+
+- **[standard.md](workflows/standard.md)** - General workflow for any task
+- **[feature.md](workflows/feature.md)** - Adding new functionality
+- **[bugfix.md](workflows/bugfix.md)** - Fixing defects
+- **[refactor.md](workflows/refactor.md)** - Improving code structure
+- **[research.md](workflows/research.md)** - Investigating and understanding code
+
+#### 📋 Task-Packet Templates
+Structured templates for organizing work through all phases. Located in `templates/task-packet/`:
+
+- **[00-contract.md](templates/task-packet/00-contract.md)** - Task definition and acceptance criteria
+- **[10-plan.md](templates/task-packet/10-plan.md)** - Implementation plan
+- **[20-work-log.md](templates/task-packet/20-work-log.md)** - Execution log and progress tracking
+- **[30-review.md](templates/task-packet/30-review.md)** - Review findings and feedback
+- **[40-acceptance.md](templates/task-packet/40-acceptance.md)** - Sign-off and completion
+
+### Deployment Model
+
+The ai-pack framework is designed for the following structure in your projects:
+
+```
+your-project/
+├── .ai-pack/                        # Git submodule (read-only shared pack)
+│   ├── quality/                     # Clean code standards
+│   ├── gates/                       # Quality gates
+│   ├── roles/                       # Agent roles
+│   ├── workflows/                   # Development workflows
+│   └── templates/                   # Task-packet templates
+│
+├── .ai/                             # Local workspace (your project)
+│   ├── tasks/                       # Active task packets
+│   │   └── 2026-01-07_feature-x/   # Example task
+│   │       ├── 00-contract.md      # From template
+│   │       ├── 10-plan.md          # From template
+│   │       ├── 20-work-log.md      # From template
+│   │       ├── 30-review.md        # From template
+│   │       └── 40-acceptance.md    # From template
+│   └── repo-overrides.md           # Optional project-specific deltas
+│
+└── CLAUDE.md                        # Bootstrap instructions for AI
+```
+
+**Key Concepts:**
+- **`.ai-pack/`** - Git submodule containing shared standards and framework (this repository) - READ-ONLY
+- **`.ai/`** - Local workspace in your project for task state and overrides - PROJECT-SPECIFIC
+- **`CLAUDE.md`** - Bootstrap instructions at project root (copy from `templates/CLAUDE.md`)
+- **Task packets** - Instances of templates created in `.ai/tasks/` for each task
+- **Repo overrides** - Project-specific customizations to shared standards
+
+**Critical Invariants:**
+- ✅ Task packets go in `.ai/tasks/` (never in `.ai-pack/`)
+- ✅ `.ai-pack/` is read-only shared framework
+- ✅ `.ai/tasks/` preserved during framework updates
+- ✅ Framework improvements happen in ai-pack repo (not ad hoc in projects)
+
+### Quick Start
+
+#### 1. Add Framework to Your Project
+
+```bash
+# Add ai-pack as submodule
+cd your-project
+git submodule add https://github.com/Cortexa-LLC/ai-pack .ai-pack
+git submodule update --init --recursive
+
+# Create local workspace
+mkdir -p .ai/tasks
+
+# Copy bootstrap template to project root
+cp .ai-pack/templates/CLAUDE.md ./CLAUDE.md
+
+# Customize CLAUDE.md with project-specific details
+# (Edit project name, tech stack, key files, etc.)
+```
+
+#### 2. Create a Task Packet
+
+When starting a new task, create a task packet from templates:
+
+```bash
+# Create task directory
+TASK_ID=$(date +%Y-%m-%d)_feature-name
+mkdir -p .ai/tasks/$TASK_ID
+
+# Copy templates
+cp .ai-pack/templates/task-packet/00-contract.md .ai/tasks/$TASK_ID/
+cp .ai-pack/templates/task-packet/10-plan.md .ai/tasks/$TASK_ID/
+cp .ai-pack/templates/task-packet/20-work-log.md .ai/tasks/$TASK_ID/
+cp .ai-pack/templates/task-packet/30-review.md .ai/tasks/$TASK_ID/
+cp .ai-pack/templates/task-packet/40-acceptance.md .ai/tasks/$TASK_ID/
+```
+
+#### 3. Follow the Workflow
+
+1. **Define** - Fill out `00-contract.md` with requirements
+2. **Plan** - Create implementation plan in `10-plan.md`
+3. **Execute** - Implement while updating `20-work-log.md`
+4. **Review** - Conduct review, document in `30-review.md`
+5. **Accept** - Complete acceptance checklist in `40-acceptance.md`
+
+### Use Cases
+
+**Multi-Agent Development:**
+- Orchestrator agent coordinates complex features
+- Worker agents implement specific components
+- Reviewer agents ensure quality and compliance
+
+**Structured Task Management:**
+- Clear contracts define expectations upfront
+- Plans document approach before implementation
+- Work logs track progress and decisions
+- Reviews ensure quality
+- Acceptance provides formal sign-off
+
+**Quality Governance:**
+- Gates enforce safety and quality rules
+- Workflows ensure consistent processes
+- Templates provide structured documentation
+- Standards guide implementation
+
+**Knowledge Capture:**
+- Task packets document complete history
+- Decisions and rationale preserved
+- Lessons learned captured
+- Future reference enabled
+
+### Integration with Clean Code Standards
+
+The AI Workflow Framework and Clean Code Standards work together:
+
+- **Gates** enforce the standards defined in `quality/clean-code/`
+- **Workflows** reference standards for implementation guidance
+- **Reviewer role** validates compliance with standards
+- **Task packets** document adherence to standards
+
+**Navigation:**
+- Clean code standards: `quality/clean-code/` directory
+- Workflow framework: `gates/`, `roles/`, `workflows/`, `templates/` directories
+- Quick access to standards: `quality/engineering-standards.md`
+
+---
 
 ## Contents
 
