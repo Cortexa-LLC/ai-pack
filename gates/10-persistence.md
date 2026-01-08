@@ -154,7 +154,6 @@ END WHEN
 
 <detailed description>
 
-🤖 Generated with Claude Code
 Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 ```
 
@@ -166,6 +165,27 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 - `docs`: Documentation
 - `style`: Formatting changes
 - `chore`: Build/tooling changes
+
+**Commit Message Rules (STRICT):**
+```
+✅ DO:
+- Plain ASCII text only
+- Start with capitalized imperative verb
+- Keep summary under 72 characters
+- Co-Authored-By trailers acceptable
+
+❌ NEVER:
+- Use unicode characters or emoji (no 🤖 ✨ ✅ etc.)
+- Add tool signatures ("Generated with [Tool]")
+- Use markdown links in commit messages
+- Write vague messages ("fix bug", "update code")
+```
+
+**Rationale:**
+- Commit messages document changes, not tools used
+- Plain text ensures universal readability
+- No encoding issues across environments
+- Professional appearance in all contexts
 
 **Prohibited Git Operations:**
 ```bash
