@@ -143,29 +143,34 @@ END WHEN
 
 ### File Operations
 ```
-✅ CAN:
+✅ CAN (no approval needed):
 - Read any file
 - Edit files for assigned task
-- Create files when truly necessary
-- Run tests
-- Run builds
-- Commit changes (with proper messages)
+- Create files when clearly needed for task
+- Run tests (ctest, pytest, jest, gtest executables, etc.)
+- Run builds (cmake --build, make, ninja, npm build, etc.)
+- Run coverage tools (gcov, lcov, coverage)
+- Run linters/formatters in check mode
+- Commit changes (with proper messages, when appropriate)
 
-❌ MUST NOT:
-- Delete files without approval
+❌ MUST NOT (requires approval):
+- Delete files
 - Make changes outside task scope
 - Create unnecessary files
 - Modify core architecture without guidance
-- Make breaking changes without approval
+- Make breaking changes
+- Install packages
 ```
 
 ### Testing
 ```
-✅ CAN:
+✅ CAN (no approval needed):
 - Write unit tests
 - Write integration tests
-- Run test suites
+- Run test suites (any test runner, any flags)
+- Run specific tests (--gtest_filter, -k, etc.)
 - Check coverage
+- Generate coverage reports
 - Fix failing tests
 
 ❌ MUST NOT:
@@ -173,6 +178,7 @@ END WHEN
 - Ignore failing tests
 - Remove tests without rationale
 - Accept coverage below target
+- Commit with failing tests
 ```
 
 ### Decision Authority

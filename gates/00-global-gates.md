@@ -76,6 +76,7 @@ END BEFORE
 - The approach is well-established
 - You're confident in the solution
 - Following explicit user instructions
+- Running non-destructive commands (tests, builds, coverage, etc.)
 
 **Implementation:**
 ```

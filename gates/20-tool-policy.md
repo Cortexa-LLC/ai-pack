@@ -120,11 +120,30 @@ These can be used without asking:
 - Read         - reading files
 - Glob         - finding files
 - Grep         - searching content
-- Bash(ls)     - listing directories
-- Bash(wc)     - counting lines
-- Bash(find)   - finding files (prefer Glob)
 - WebFetch     - fetching web content (specific domains)
 - WebSearch    - searching web
+
+✅ Pre-approved Bash commands (read-only/non-destructive):
+- ls, pwd, cd  - navigation and listing
+- cat, head, tail, wc - file viewing (prefer Read tool)
+- find, grep   - searching (prefer Glob/Grep tools)
+- git status, git diff, git log - git inspection
+- which, whereis - finding executables
+
+✅ Pre-approved development commands (non-destructive):
+Build/Test/Coverage:
+- cmake, make, ninja - building code
+- cmake --build <dir> - building projects
+- ctest, pytest, jest, cargo test, go test, npm test - running tests
+- ./build*/test_* --gtest_* - running specific test executables
+- gcov, lcov, coverage - generating coverage reports
+- clang-format --dry-run, black --check - checking formatting
+
+Inspection/Analysis:
+- clang-tidy, pylint, eslint - linting (read-only mode)
+- valgrind, lldb --batch, gdb --batch - debugging tools
+- nm, objdump, readelf - binary inspection
+- tree, du, df - filesystem info
 ```
 
 ### Approval Required
@@ -132,12 +151,16 @@ These can be used without asking:
 These require user permission:
 ```
 ⚠️ Ask before using:
-- Write        - creating new files (unless clearly needed)
-- Edit         - modifying files (verify intent)
+- Write        - creating new files (unless clearly needed for task)
+- Edit         - modifying files (unless clearly part of task)
 - Bash(rm)     - deleting files
 - Bash(mv)     - moving files
-- Bash(git)    - git operations (except status/diff/log)
+- Bash(cp)     - copying files (may create new files)
+- git add, git commit, git push - git write operations
+- Package installation (npm install, pip install, cargo add, etc.)
+- Configuration changes (settings, environment variables)
 - Any destructive operation
+- Any operation that modifies state
 ```
 
 ### Prohibited Without Explicit Request
