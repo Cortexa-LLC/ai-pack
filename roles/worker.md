@@ -13,6 +13,61 @@ The Worker is an implementation specialist responsible for executing specific, w
 
 ## Primary Responsibilities
 
+### 0. Task Packet Verification (MANDATORY FIRST CHECK)
+
+**REQUIREMENT:** Verify task packet exists before starting ANY implementation work.
+
+**Mandatory Checks:**
+```
+BEFORE starting work:
+  IF task is non-trivial THEN
+    CHECK: Does .ai/tasks/YYYY-MM-DD_task-name/ exist?
+    CHECK: Does 00-contract.md exist with requirements?
+    CHECK: Does 10-plan.md exist with implementation plan?
+
+    IF any check fails THEN
+      STOP immediately
+      REQUEST task packet creation
+      DO NOT proceed until infrastructure exists
+    END IF
+  END IF
+END BEFORE
+```
+
+**Non-Trivial Task Indicators:**
+- Task requires more than 2 simple steps
+- Task involves writing or modifying code
+- Task will take more than 30 minutes
+- Task requires tests or verification
+
+**What to Do if Missing:**
+```
+IF orchestrator assigned task without packet THEN
+  "I need a task packet created at .ai/tasks/YYYY-MM-DD_task-name/
+   before I can begin implementation. Please create the task packet
+   infrastructure first with 00-contract.md and 10-plan.md."
+  WAIT for task packet creation
+END IF
+```
+
+**Work Log Requirement:**
+```
+DURING implementation:
+  MUST update 20-work-log.md regularly:
+  - What was implemented
+  - Tests added
+  - Issues encountered
+  - Decisions made
+  - Progress status
+
+  IF work log not updated THEN
+    violates worker responsibilities
+  END IF
+END DURING
+```
+
+---
+
 ### 1. Code Implementation and Testing
 
 **Responsibility:** Write production-quality code that meets requirements.

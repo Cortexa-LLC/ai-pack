@@ -9,6 +9,44 @@ Global gates define universal rules and constraints that apply to all AI agent w
 
 ## Core Principles
 
+### 0. Task Packet Infrastructure (MANDATORY)
+
+**Rule:** All non-trivial tasks MUST have task packet infrastructure before implementation.
+
+**Requirement:**
+```
+BEFORE starting implementation:
+  IF task is non-trivial THEN
+    REQUIRE: .ai/tasks/YYYY-MM-DD_task-name/ exists
+    REQUIRE: 00-contract.md filled out
+    REQUIRE: 10-plan.md created
+
+    IF requirements not met THEN
+      STOP all work
+      CREATE task packet infrastructure FIRST
+      ONLY THEN proceed
+    END IF
+  END IF
+END BEFORE
+```
+
+**Non-Trivial Task Definition:**
+- Requires more than 2 simple steps
+- Involves writing or modifying code
+- Takes more than 30 minutes
+- Requires tests or verification
+
+**Why This Gate Exists:**
+- Ensures clear requirements before work begins
+- Provides audit trail of decisions
+- Enables proper task coordination
+- Prevents scope creep and confusion
+- Documents acceptance criteria upfront
+
+**Enforcement:** This gate CANNOT be bypassed. Task packets are mandatory infrastructure.
+
+---
+
 ### 1. Safety First
 
 **Rule:** Never perform destructive operations without explicit user approval.

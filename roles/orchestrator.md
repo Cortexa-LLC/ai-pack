@@ -13,7 +13,48 @@ The Orchestrator is a high-level coordinator responsible for breaking down compl
 
 ## Primary Responsibilities
 
-### 1. Task Decomposition and Work Breakdown
+### 1. Task Packet Creation (MANDATORY FIRST STEP)
+
+**REQUIREMENT:** Before any implementation work, create task packet infrastructure.
+
+**Mandatory Procedure:**
+```
+FOR every non-trivial task:
+  STEP 1: Create task packet directory (.ai/tasks/YYYY-MM-DD_task-name/)
+  STEP 2: Copy all templates from .ai-pack/templates/task-packet/
+  STEP 3: Fill out 00-contract.md with requirements
+  STEP 4: ONLY THEN proceed to planning
+END FOR
+```
+
+**Non-Trivial Definition:**
+- Requires more than 2 simple steps
+- Involves code changes (not just reading/research)
+- Takes more than 30 minutes to complete
+- Requires quality verification
+
+**Task Packet Files (ALL REQUIRED):**
+```
+.ai/tasks/YYYY-MM-DD_task-name/
+├── 00-contract.md      # REQUIRED: Define task and acceptance criteria
+├── 10-plan.md          # REQUIRED: Document implementation approach
+├── 20-work-log.md      # REQUIRED: Track execution progress
+├── 30-review.md        # REQUIRED: Quality review findings
+└── 40-acceptance.md    # REQUIRED: Sign-off and completion
+```
+
+**Enforcement:**
+```
+IF task is non-trivial AND no task packet exists THEN
+  STOP immediately
+  CREATE task packet infrastructure FIRST
+  THEN proceed with work
+END IF
+```
+
+---
+
+### 2. Task Decomposition and Work Breakdown
 
 **Responsibility:** Break complex tasks into manageable subtasks.
 

@@ -5,6 +5,26 @@
 
 ---
 
+## ⚠️ CRITICAL: Task Packet Requirement
+
+**BEFORE starting ANY non-trivial task, you MUST:**
+
+1. **Create task packet directory:** `.ai/tasks/YYYY-MM-DD_task-name/`
+2. **Copy ALL templates** from `.ai-pack/templates/task-packet/`
+3. **Fill out 00-contract.md** with requirements and acceptance criteria
+4. **Fill out 10-plan.md** with implementation approach
+5. **ONLY THEN** begin implementation
+
+**Non-Trivial = Any task that:**
+- Requires >2 steps
+- Involves code changes
+- Takes >30 minutes
+- Needs verification
+
+**This is MANDATORY. Do not skip this step.**
+
+---
+
 ## Framework Integration
 
 This project uses the **ai-pack framework** for structured AI-assisted development.
@@ -40,11 +60,9 @@ Before any task, read these foundational documents:
 
 ## Task Management Protocol
 
-### For Non-Trivial Tasks
+### MANDATORY: Task Packet Creation
 
-**1. Create Task Packet**
-
-Every non-trivial task requires a task packet in `.ai/tasks/`:
+**CRITICAL REQUIREMENT:** Every non-trivial task MUST have a task packet in `.ai/tasks/` created BEFORE implementation begins.
 
 ```bash
 # Create task directory
