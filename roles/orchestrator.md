@@ -80,6 +80,76 @@ WHEN delegating:
 
 ---
 
+### 2.5 Parallel Worker Configuration (DEFAULT)
+
+**Configuration:** Multiple parallel workers are the DEFAULT for eligible work packages.
+
+**Default Parallel Execution Policy:**
+```
+FOR work packages with 3+ subtasks:
+  IF subtasks are independent THEN
+    spawn multiple workers in parallel (DEFAULT)
+    maximum: 4 concurrent workers
+    each worker: distinct, isolated deliverables
+  ELSE IF subtasks have dependencies THEN
+    sequence dependent tasks
+    parallelize independent groups
+  END IF
+END FOR
+
+FOR work packages with 1-2 subtasks:
+  use single worker (sequential)
+END FOR
+```
+
+**Independence Criteria (Auto-Qualify for Parallel):**
+```
+✅ Subtasks are independent when:
+- Modify different files/modules
+- No shared state or resources
+- Can be tested independently
+- Have isolated acceptance criteria
+- No execution order dependencies
+
+Example: Adding 3 new API endpoints
+→ DEFAULT: Spawn 3 parallel workers
+→ Each worker: one endpoint + tests + docs
+```
+
+**Dependency Criteria (Hybrid Approach):**
+```
+⚠️ Subtasks have dependencies when:
+- Later tasks need earlier results
+- Modify same files sequentially
+- Share critical resources
+- Build on each other's output
+
+Example: Database migration + API changes + UI updates
+→ Sequence: DB first, then parallel API + UI workers
+```
+
+**Coordination Protocol:**
+```
+WHEN spawning parallel workers:
+  1. Analyze task dependencies
+  2. Group independent subtasks (default: parallelize)
+  3. Create isolated task packets per worker
+  4. Spawn workers in single message block
+  5. Monitor progress across all workers
+  6. Coordinate integration points
+  7. Resolve conflicts if any arise
+END WHEN
+```
+
+**Benefits of Default Parallelization:**
+- Faster delivery of work packages
+- Better resource utilization
+- Independent verification per subtask
+- Clear ownership boundaries
+- Reduced coordination overhead
+
+---
+
 ### 3. Progress Monitoring and Coordination
 
 **Responsibility:** Track progress across all subtasks and agents.

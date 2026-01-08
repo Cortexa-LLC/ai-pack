@@ -154,6 +154,7 @@ git diff main           # current changes
 □ Note dependencies on externals
 □ Plan for testing
 □ Consider documentation needs
+□ Determine parallel execution strategy (DEFAULT)
 ```
 
 **Effort Levels:**
@@ -162,6 +163,42 @@ git diff main           # current changes
 - Medium: Multiple files, some complexity
 - Large: Significant changes, architectural impact
 - Very Large: Major refactoring or feature
+
+**Parallel Execution Strategy (DEFAULT):**
+```
+IF 3+ independent subtasks THEN
+  DEFAULT: Plan for parallel worker execution
+
+  Strategy:
+  1. Identify independent work units
+  2. Assign one worker per unit (max 4)
+  3. Create isolated task packets
+  4. Define clear handoff points
+  5. Plan integration testing
+
+  Benefits:
+  - Faster delivery
+  - Independent verification
+  - Clear ownership
+  - Reduced bottlenecks
+
+ELSE IF 1-2 subtasks OR strong dependencies THEN
+  Use sequential single-worker approach
+
+END IF
+```
+
+**Parallelization Decision Matrix:**
+```
+Work Package Type          | Default Strategy
+---------------------------|------------------
+3+ independent modules     | Parallel (DEFAULT)
+3+ API endpoints          | Parallel (DEFAULT)
+3+ similar components     | Parallel (DEFAULT)
+Sequential migrations     | Sequential
+Tightly coupled changes   | Sequential
+Single complex feature    | Sequential
+```
 
 ---
 
@@ -380,18 +417,39 @@ END FOR
 
 ### Orchestrator
 - **Phase 1:** Coordinate understanding
-- **Phase 2:** Validate plan
-- **Phase 3:** Monitor progress
-- **Phase 4:** Verify completion
+- **Phase 2:** Validate plan and determine parallel execution (DEFAULT)
+- **Phase 3:** Monitor progress across parallel workers
+- **Phase 4:** Verify completion and coordinate integration
+
+**Parallel Coordination Responsibilities:**
+```
+When using parallel workers (DEFAULT for 3+ subtasks):
+- Spawn workers in single message block
+- Track progress independently per worker
+- Coordinate integration points
+- Resolve conflicts between parallel streams
+- Ensure overall coherence
+- Verify cross-cutting concerns
+```
 
 ### Worker
 - **Phase 1:** Explore and understand
 - **Phase 2:** Develop plan
-- **Phase 3:** Implement solution
+- **Phase 3:** Implement solution (potentially in parallel with others)
 - **Phase 4:** Self-review
 
+**Parallel Worker Responsibilities:**
+```
+When working in parallel with other workers:
+- Own isolated deliverable
+- Avoid modifying files owned by other workers
+- Communicate dependency needs early
+- Complete independently
+- Flag integration concerns
+```
+
 ### Reviewer
-- **Phase 4:** Conduct formal review
+- **Phase 4:** Conduct formal review (may review parallel streams independently)
 
 ---
 

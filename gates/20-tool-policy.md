@@ -160,7 +160,7 @@ These require user permission:
 **Limits:**
 - **File reads:** Read whole files when possible; use offset/limit only for very large files
 - **Search operations:** Use appropriate scope (don't search entire filesystem unnecessarily)
-- **Parallel operations:** Reasonable limit (3-5 parallel operations maximum)
+- **Parallel operations:** Reasonable limit (4-5 parallel operations maximum)
 - **Agent spawning:** Use Task tool judiciously; prefer direct operations for simple tasks
 
 **Guidelines:**
@@ -276,12 +276,47 @@ General-purpose agent:
   DON'T USE FOR: Simple operations available directly
 ```
 
-### Agent Limits
+### Agent Limits and Default Configuration
+
+**DEFAULT CONFIGURATION: Parallel agents for work packages**
+
 ```
-- Maximum concurrent agents: 3 (prefer fewer)
-- Launch agents in parallel when possible
+Agent Spawning Policy:
+- Default: Parallel workers for 3+ independent subtasks
+- Maximum concurrent agents: 4
+- Launch agents in single message block for true parallelism
 - Resume agents when continuing their work
 - Don't spawn agent for tasks you can do directly
+
+Configuration Rules:
+✅ ALWAYS parallelize when:
+   - 3+ independent subtasks identified
+   - Subtasks touch different files/modules
+   - No cross-subtask dependencies
+   - Each has isolated acceptance criteria
+
+⚠️ SEQUENCE when:
+   - Subtasks have execution dependencies
+   - Same files modified by multiple subtasks
+   - Results needed for subsequent tasks
+
+🔧 HYBRID approach when:
+   - Mix of dependent and independent tasks
+   - Parallelize independent groups
+   - Sequence dependent chains
+```
+
+**Parallel Launch Pattern:**
+```
+// Correct: Single message with multiple Task calls
+Task(worker, subtask1) + Task(worker, subtask2) + Task(worker, subtask3)
+→ All 3 spawn truly in parallel
+
+// Incorrect: Sequential messages
+Task(worker, subtask1)
+[wait for result]
+Task(worker, subtask2)
+→ Serial execution, slower
 ```
 
 ---

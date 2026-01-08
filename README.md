@@ -33,8 +33,11 @@ Quality gates define rules and constraints that govern what actions are permitte
 Roles define different agent personas with specific responsibilities. Located in `roles/`:
 
 - **[orchestrator.md](roles/orchestrator.md)** - High-level coordinator, delegates work, monitors progress
+  - **DEFAULT:** Uses parallel workers for 3+ independent subtasks (max 4 concurrent)
 - **[worker.md](roles/worker.md)** - Implementation specialist, writes code, creates tests
 - **[reviewer.md](roles/reviewer.md)** - Quality assurance, code review, standards compliance
+
+**Configuration:** See **[PARALLEL-WORKERS-CONFIG.md](PARALLEL-WORKERS-CONFIG.md)** for parallel execution defaults
 
 #### 🔄 Workflows - Development Processes
 Workflows define structured processes for different types of work. Located in `workflows/`:
