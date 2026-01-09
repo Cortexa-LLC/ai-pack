@@ -1,7 +1,7 @@
 # Engineering Standards Quick Reference
 
-**Version:** 1.0.0
-**Last Updated:** 2026-01-07
+**Version:** 1.1.0
+**Last Updated:** 2026-01-08
 
 This document serves as an entrypoint and navigation guide to the comprehensive clean-code standards maintained in this repository.
 
@@ -31,6 +31,7 @@ Start here for fundamental design and development principles:
 ### Development Practices
 - **[07-development-practices.md](clean-code/07-development-practices.md)** - YAGNI, Frequency Reduces Difficulty, CI/CD
 - **[09-system-evolution.md](clean-code/09-system-evolution.md)** - Managing technical debt and system growth
+- **[11-documentation-standards.md](clean-code/11-documentation-standards.md)** - Inline docs, Markdown+Mermaid, ADRs
 
 ## Language-Specific Guidelines
 
@@ -71,6 +72,9 @@ Choose the guide for your programming language:
 
 **Deploy safely**
 → Learn deployment patterns in [08-deployment-patterns.md](clean-code/08-deployment-patterns.md)
+
+**Document complex code**
+→ See [11-documentation-standards.md](clean-code/11-documentation-standards.md) for inline docs, Markdown+Mermaid, and ADRs
 
 **Work with a specific language**
 → See language-specific guides above
