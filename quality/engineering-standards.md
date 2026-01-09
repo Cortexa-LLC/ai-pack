@@ -27,6 +27,7 @@ Start here for fundamental design and development principles:
 - **[05-architecture.md](clean-code/05-architecture.md)** - Bounded Contexts and architectural patterns
 - **[08-deployment-patterns.md](clean-code/08-deployment-patterns.md)** - Feature Toggles, Blue-Green, Canary Release
 - **[10-api-design.md](clean-code/10-api-design.md)** - Command Query Separation, API naming conventions
+- **[12-graphql-federation.md](clean-code/12-graphql-federation.md)** - Federated GraphQL schema design, entity modeling, performance optimization
 
 ### Development Practices
 - **[07-development-practices.md](clean-code/07-development-practices.md)** - YAGNI, Frequency Reduces Difficulty, CI/CD
@@ -66,6 +67,9 @@ Choose the guide for your programming language:
 
 **Design an API**
 → Check [10-api-design.md](clean-code/10-api-design.md) for best practices
+
+**Design a Federated GraphQL schema**
+→ See [12-graphql-federation.md](clean-code/12-graphql-federation.md) for federation patterns
 
 **Review code**
 → Use [06-code-review-checklist.md](clean-code/06-code-review-checklist.md)
