@@ -1,4 +1,4 @@
-# Parallel Workers Configuration
+# Parallel Engineers Configuration
 
 **Version:** 1.1.0
 **Last Updated:** 2026-01-08
@@ -8,7 +8,7 @@
 
 ## Overview
 
-The ai-pack framework **automatically enforces** the use of **multiple parallel workers** for resolving work packages when criteria are met. This enforcement ensures optimal delivery speed and resource utilization while maintaining quality and coordination.
+The ai-pack framework **automatically enforces** the use of **multiple parallel engineers** for resolving work packages when criteria are met. This enforcement ensures optimal delivery speed and resource utilization while maintaining quality and coordination.
 
 **Enforcement Mechanism:** [Execution Strategy Gate](gates/25-execution-strategy.md)
 
@@ -34,17 +34,17 @@ IF criteria met AND orchestrator uses sequential THEN
 END IF
 ```
 
-**Maximum Parallel Workers:** 5 concurrent agents
+**Maximum Parallel Engineers:** 5 concurrent agents
 
 **Launch Pattern:** Single message block (true parallelism) - REQUIRED, not optional
 
-**Shared Context:** All workers operate in same source repository, build folders, and working directory
+**Shared Context:** All engineers operate in same source repository, build folders, and working directory
 
 ---
 
 ## Configuration Rules
 
-### When Parallel Workers Are Used (DEFAULT)
+### When Parallel Engineers Are Used (DEFAULT)
 
 ```
 Work Package Type                    | Strategy          | Workers
@@ -104,7 +104,7 @@ FUNCTION delegate_work_package_ENFORCED(work_package):
   shared_context_conflicts = assess_shared_context(subtasks)
 
   IF subtasks.count >= 3 AND are_independent(subtasks) AND no_context_conflicts THEN
-    // ENFORCED: Must spawn parallel workers (not optional)
+    // ENFORCED: Must spawn parallel engineers (not optional)
     ASSERT parallel_execution_required("3+ independent subtasks with manageable context")
 
     workers = []
@@ -170,7 +170,7 @@ Each Worker Must:
 
 **Shared Context Constraints (CRITICAL):**
 ```
-All parallel workers share:
+All parallel engineers share:
 - Source repository (single git working directory)
 - Build folders (no deletion/recreation allowed)
 - Coverage data files (merge, don't overwrite)
@@ -248,7 +248,7 @@ Each parallel worker gets isolated task packet:
 ✓ No dependencies between endpoints
 ✓ Each has isolated acceptance criteria
 
-→ AUTOMATIC: Spawn 3 parallel workers (up to 4 if more endpoints)
+→ AUTOMATIC: Spawn 3 parallel engineers (up to 4 if more endpoints)
 
 Worker 1: Implement user profile API + tests
 Worker 2: Implement notifications API + tests
@@ -304,7 +304,7 @@ Worker 1: Complete entire refactoring sequentially
 
 ## Performance Benefits
 
-### Expected Improvements with Parallel Workers
+### Expected Improvements with Parallel Engineers
 
 ```
 Metric                        | Sequential | Parallel (4 workers) | Improvement
@@ -374,7 +374,7 @@ END IF
 
 ---
 
-## Quality Assurance with Parallel Workers
+## Quality Assurance with Parallel Engineers
 
 ### Testing Strategy
 
@@ -461,7 +461,7 @@ Single worker will complete subtasks sequentially:
 ```
 v1.0.0 - 2026-01-07
 - Initial configuration
-- Set parallel workers as default for 3+ independent subtasks
+- Set parallel engineers as default for 3+ independent subtasks
 - Maximum 3 concurrent workers
 - Documented decision criteria and examples
 ```

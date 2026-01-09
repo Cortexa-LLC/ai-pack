@@ -1,11 +1,11 @@
-# Worker Role
+# Engineer Role
 
 **Version:** 1.0.0
-**Last Updated:** 2026-01-07
+**Last Updated:** 2026-01-08
 
 ## Role Overview
 
-The Worker is an implementation specialist responsible for executing specific, well-defined tasks. Workers write code, create tests, fix bugs, and document their work following established patterns and standards.
+The Engineer is an implementation specialist responsible for executing specific, well-defined tasks. Engineers write code, create tests, fix bugs, and document their work following established patterns and standards.
 
 **Key Metaphor:** Skilled craftsperson - takes clear specifications, implements with quality, reports progress.
 
@@ -61,7 +61,7 @@ DURING implementation:
   - Progress status
 
   IF work log not updated THEN
-    violates worker responsibilities
+    violates engineer responsibilities
   END IF
 END DURING
 ```
@@ -558,7 +558,7 @@ Work Log Entry:
 
 ## Success Criteria
 
-A Worker is successful when:
+An Engineer is successful when:
 - ✓ Task completed per acceptance criteria
 - ✓ All tests passing
 - ✓ Code coverage meets target

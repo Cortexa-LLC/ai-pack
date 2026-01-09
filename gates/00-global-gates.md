@@ -318,11 +318,13 @@ If a global gate is violated:
 These global gates integrate with:
 - **[Persistence Gates](10-persistence.md)** - File operation specifics
 - **[Tool Policy Gates](20-tool-policy.md)** - Tool usage rules
+- **[Execution Strategy Gate](25-execution-strategy.md)** - Parallel execution enforcement
 - **[Verification Gates](30-verification.md)** - Quality checks
+- **[Code Quality Review Gate](35-code-quality-review.md)** - Mandatory Tester and Reviewer validation for code changes
 
 All specialized gates must comply with these global principles.
 
 ---
 
-**Last reviewed:** 2026-01-07
+**Last reviewed:** 2026-01-08
 **Next review:** Quarterly or when adding new gate types

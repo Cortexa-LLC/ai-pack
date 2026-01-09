@@ -359,6 +359,135 @@ BEFORE proceeding to delegation:
 
 ---
 
+### 2.7 Bug Investigation Delegation Strategy
+
+**RESPONSIBILITY:** Determine whether to delegate bug to Inspector or directly to Engineer.
+
+**Decision Criteria:**
+```
+WHEN bug reported:
+  assess_bug_complexity()
+
+  IF bug is complex OR root cause unclear THEN
+    RECOMMENDED: Delegate to Inspector
+    Pattern:
+      inspector = Task(inspector_role, "Investigate [BUG-ID]")
+      wait_for_rca()
+      engineer = Task(engineer_role, "Fix [BUG-ID] per task packet")
+
+  ELSE IF bug is simple OR root cause obvious THEN
+    ACCEPTABLE: Delegate directly to Engineer
+    Pattern:
+      engineer = Task(engineer_role, "Fix [BUG-ID] following bugfix workflow")
+  END IF
+```
+
+**Bug Complexity Indicators:**
+```
+✅ Delegate to Inspector when:
+- Root cause unknown
+- Bug is intermittent or hard to reproduce
+- Multiple potential causes
+- Similar bugs may exist elsewhere
+- Investigation requires forensic analysis
+- User report lacks detail
+
+✅ Delegate directly to Engineer when:
+- Bug is obvious (typo, simple logic error)
+- Root cause immediately apparent
+- Fix is straightforward
+- No investigation needed
+```
+
+---
+
+### 2.8 Feature Planning Delegation Strategy
+
+**RESPONSIBILITY:** Determine whether to delegate feature to Product Manager or directly to Engineer.
+
+**Decision Criteria:**
+```
+WHEN large feature requested:
+  assess_feature_complexity()
+
+  IF feature is large OR requirements unclear THEN
+    RECOMMENDED: Delegate to Product Manager
+    Pattern:
+      pm = Task(pm_role, "Define requirements for [FEATURE]")
+      wait_for_prd()
+      [Optional] architect = Task(architect_role, "Design [FEATURE]")
+      engineer = Task(engineer_role, "Implement [USER-STORY]")
+
+  ELSE IF feature is small AND requirements clear THEN
+    ACCEPTABLE: Delegate directly to Engineer
+    Pattern:
+      engineer = Task(engineer_role, "Implement [FEATURE] following feature workflow")
+  END IF
+```
+
+**Feature Complexity Indicators:**
+```
+✅ Delegate to PM when:
+- Large feature with multiple components
+- Requirements unclear or incomplete
+- Success metrics undefined
+- Multiple potential approaches
+- Stakeholder alignment needed
+- User needs analysis required
+
+✅ Delegate directly to Engineer when:
+- Small, focused feature
+- Requirements clear and complete
+- Straightforward implementation
+- Pattern already established
+```
+
+---
+
+### 2.9 Architecture Design Delegation Strategy
+
+**RESPONSIBILITY:** Determine whether to delegate architecture design to Architect.
+
+**Decision Criteria:**
+```
+WHEN feature requires technical design:
+  assess_architecture_needs()
+
+  IF architecture design needed THEN
+    RECOMMENDED: Delegate to Architect
+    Pattern:
+      architect = Task(architect_role, "Design architecture for [FEATURE]")
+      wait_for_architecture_doc()
+      engineer = Task(engineer_role, "Implement per architecture spec")
+
+  ELSE IF following existing patterns THEN
+    ACCEPTABLE: Skip Architect, delegate to Engineer
+    Pattern:
+      engineer = Task(engineer_role, "Implement [FEATURE] following existing patterns")
+  END IF
+```
+
+**Architecture Design Indicators:**
+```
+✅ Delegate to Architect when:
+- New architecture patterns needed
+- Significant system changes
+- Multiple system integration
+- Performance/scale requirements
+- Data model changes needed
+- Technology decisions required
+- Technical feasibility uncertain
+
+✅ Skip Architect when:
+- Simple CRUD following existing patterns
+- Architecture already well-defined
+- No new integrations or components
+- Following established patterns
+- Low technical complexity
+```
+
+---
+
 ### 3. Progress Monitoring and Coordination
 
 **Responsibility:** Track progress across all subtasks and agents.
@@ -441,7 +570,7 @@ Resolution:
 
 ### 5. Quality Assurance Oversight
 
-**Responsibility:** Ensure work meets quality standards.
+**Responsibility:** Ensure work meets quality standards through mandatory reviews and verification.
 
 **Quality Gates:**
 ```
@@ -449,7 +578,9 @@ BEFORE marking complete:
   ✓ All subtasks completed
   ✓ All tests passing
   ✓ Code coverage meets target
-  ✓ Review findings addressed
+  ✓ Tester validation: APPROVED (MANDATORY for code changes)
+  ✓ Reviewer validation: APPROVED (MANDATORY for code changes)
+  ✓ All review findings addressed
   ✓ Documentation complete
   ✓ Acceptance criteria met
 ```
@@ -460,6 +591,189 @@ BEFORE marking complete:
 - Ensure standards compliance
 - Verify documentation
 - Validate against requirements
+- Coordinate mandatory reviews for code changes
+
+---
+
+#### 5.1 MANDATORY Code Quality Review Coordination
+
+**ENFORCEMENT:** For all work packages involving code changes, orchestrator MUST coordinate mandatory validation by Tester and Reviewer agents. This is enforced by the **[Code Quality Review Gate](../gates/35-code-quality-review.md)**.
+
+**Trigger Condition:**
+```
+IF work package includes code changes THEN
+  REQUIRE Tester validation (TDD and test sufficiency)
+  REQUIRE Reviewer validation (code quality and standards)
+  BLOCK completion until both validations pass
+END IF
+```
+
+**Mandatory Review Procedure:**
+```
+STEP 1: Detect code changes
+  code_changes = identify_modified_code_files(work_package)
+
+  IF code_changes present THEN
+    proceed to STEP 2
+  ELSE
+    skip review gate (documentation-only changes)
+  END IF
+
+STEP 2: Delegate to Tester agent (MANDATORY)
+  tester = Task(
+    subagent_type="general-purpose",
+    prompt="You are the Tester role from .ai-pack/roles/tester.md.
+            Validate TDD compliance and test sufficiency.
+            Focus: TDD process, coverage (80-90%), test quality.
+            Report findings in .ai/tasks/${task_id}/30-review.md"
+  )
+
+  tester_result = wait_for_completion(tester)
+
+  IF tester_result == "CHANGES REQUIRED" THEN
+    coordinate_test_fixes()
+    resubmit_to_tester()
+  END IF
+
+STEP 3: Delegate to Reviewer agent (MANDATORY)
+  reviewer = Task(
+    subagent_type="general-purpose",
+    prompt="You are the Reviewer role from .ai-pack/roles/reviewer.md.
+            Review code quality and standards compliance.
+            Focus: code quality, architecture, security, documentation.
+            Report findings in .ai/tasks/${task_id}/30-review.md"
+  )
+
+  reviewer_result = wait_for_completion(reviewer)
+
+  IF reviewer_result == "CHANGES REQUESTED" THEN
+    coordinate_code_fixes()
+    resubmit_to_tester()  // Verify tests still pass
+    resubmit_to_reviewer()
+  END IF
+
+STEP 4: Verify both validations passed
+  IF tester_approved AND reviewer_approved THEN
+    GATE PASSED
+    proceed_to_acceptance()
+  ELSE
+    GATE BLOCKED
+    WORK STATUS = INCOMPLETE
+    report_blocking_issues()
+  END IF
+```
+
+**Review Orchestration Strategy:**
+
+**Sequential Review (Recommended):**
+```
+Execute reviews sequentially to optimize feedback cycle:
+  1. Tester validation FIRST
+     - Catches test issues early
+     - Ensures tests pass before code review
+
+  2. Fix test issues if found
+     - Worker addresses Tester findings
+     - Re-validate with Tester
+
+  3. Reviewer validation AFTER tests validated
+     - Reviewer sees code with validated tests
+     - More efficient review process
+
+  4. Fix code issues if found
+     - Worker addresses Reviewer findings
+     - Re-validate with Tester (tests still pass?)
+     - Re-validate with Reviewer
+```
+
+**Parallel Review (Alternative):**
+```
+Execute reviews in parallel for faster feedback:
+  Launch both in single message block:
+    - Task(tester, "Validate TDD and tests")
+    - Task(reviewer, "Review code quality")
+
+  Consolidate feedback and coordinate fixes
+
+  Use when: High confidence in test quality
+```
+
+**Enforcement Rules:**
+```
+RULE 1: Cannot skip reviews for code changes
+  IF code changes present AND reviews not performed THEN
+    GATE VIOLATION: "Code Quality Review Gate - Reviews required"
+    BLOCK work acceptance
+  END IF
+
+RULE 2: Work incomplete if reviews fail
+  IF Tester verdict == "CHANGES REQUIRED" THEN
+    WORK INCOMPLETE
+    REQUIRE fixes for Critical/Major findings
+  END IF
+
+  IF Reviewer verdict == "CHANGES REQUESTED" THEN
+    WORK INCOMPLETE
+    REQUIRE fixes for Critical/Major findings
+  END IF
+
+RULE 3: Both validations must pass
+  IF NOT (tester_approved AND reviewer_approved) THEN
+    WORK STATUS = INCOMPLETE
+    BLOCK acceptance
+    BLOCK sign-off
+  END IF
+```
+
+**Blocking Conditions (Work Incomplete):**
+```
+❌ From Tester:
+- TDD not followed
+- Coverage < 80%
+- Tests failing
+- Critical logic untested (<95%)
+- Error handling untested (<90%)
+- Integration points untested (<100%)
+- Flaky tests
+
+❌ From Reviewer:
+- Security vulnerabilities
+- Major standards violations
+- Architecture violations
+- Poor error handling
+- Acceptance criteria not met
+```
+
+**Documentation Requirements:**
+```
+All review findings MUST be documented in:
+  .ai/tasks/${task_id}/30-review.md
+
+Required sections:
+  - Tester Validation (verdict, findings, status)
+  - Reviewer Validation (verdict, findings, status)
+  - Combined Result (overall verdict, blocking issues, next steps)
+```
+
+**Gate Compliance Verification:**
+```
+BEFORE marking work complete, verify:
+  □ Code changes identified
+  □ Tester delegated and completed (if code changes)
+  □ Tester verdict: APPROVED
+  □ Reviewer delegated and completed (if code changes)
+  □ Reviewer verdict: APPROVED
+  □ All blocking issues resolved
+  □ 30-review.md complete
+  □ Ready for acceptance
+
+IF all verified AND both approved THEN
+  PASS Code Quality Review Gate
+ELSE
+  FAIL Code Quality Review Gate
+  WORK INCOMPLETE
+END IF
+```
 
 ---
 
@@ -507,7 +821,8 @@ Request: [What you need from user]
 ```
 ✅ CAN:
 - Launch Worker agents for implementation
-- Launch Reviewer agents for quality assurance
+- Launch Tester agents for TDD validation (MANDATORY for code changes)
+- Launch Reviewer agents for code quality review (MANDATORY for code changes)
 - Launch Explore agents for research
 - Launch Plan agents for design
 - Run multiple agents in parallel

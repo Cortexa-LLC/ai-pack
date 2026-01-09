@@ -406,17 +406,18 @@ Blockers:
 
 ## Phase 4: Review
 
-**Objective:** Verify quality and ensure acceptance criteria met.
+**Objective:** Verify quality through mandatory reviews and ensure acceptance criteria met.
 
 ### Activities
 
-#### 4.1 Quality Verification
+#### 4.1 Worker Self-Review
 ```
-□ Run full test suite
+□ Run full test suite locally
 □ Check test coverage
 □ Verify build succeeds
 □ Run linters
 □ Check for security issues
+□ Basic quality self-assessment
 ```
 
 **Verification Commands:**
@@ -424,17 +425,6 @@ Blockers:
 npm run build         # verify build
 npm run lint          # check code style
 npm run test:coverage # verify coverage
-```
-
----
-
-#### 4.2 Standards Compliance
-```
-□ Code follows style guide
-□ Design principles applied
-□ Patterns consistent
-□ Documentation adequate
-□ No code smells
 ```
 
 **Self-Review Checklist:**
@@ -445,35 +435,207 @@ npm run test:coverage # verify coverage
 
 ---
 
-#### 4.3 User Acceptance
+#### 4.2 Tester Validation (MANDATORY for Code Changes)
+
+**ENFORCEMENT:** Orchestrator MUST delegate to Tester agent for all work packages involving code changes. Enforced by **[Code Quality Review Gate](../gates/35-code-quality-review.md)**.
+
+**Tester Responsibilities:**
+```
+□ Validate TDD process compliance (RED-GREEN-REFACTOR)
+□ Verify test coverage meets targets (80-90%)
+□ Assess test quality and reliability
+□ Verify test type coverage (unit/integration/e2e)
+□ Check test scenarios (happy/edge/error cases)
+□ Provide verdict: APPROVED or CHANGES REQUIRED
+```
+
+**Tester Delegation (Orchestrator):**
+```
+IF work includes code changes THEN
+  tester = Task(
+    subagent_type="general-purpose",
+    prompt="You are the Tester role. Validate TDD compliance and test sufficiency.
+            Focus: TDD process, coverage (80-90%), test quality.
+            Report in .ai/tasks/${task_id}/30-review.md"
+  )
+
+  tester_result = wait_for_completion(tester)
+
+  IF tester_result == "CHANGES REQUIRED" THEN
+    coordinate_test_fixes()
+    resubmit_to_tester()
+  END IF
+END IF
+```
+
+**Tester Blocking Conditions:**
+```
+❌ WORK INCOMPLETE if:
+- TDD not followed
+- Coverage < 80%
+- Tests failing
+- Critical logic untested (<95%)
+- Error handling untested (<90%)
+- Integration points untested (<100%)
+- Flaky tests present
+```
+
+---
+
+#### 4.3 Test Issue Resolution (IF NEEDED)
+
+**Trigger:** Tester verdict == "CHANGES REQUIRED"
+
+**Resolution Process:**
+```
+□ Worker reviews Tester findings
+□ Worker addresses Critical findings (mandatory)
+□ Worker addresses Major findings (mandatory)
+□ Worker re-runs tests and coverage
+□ Worker requests Tester re-validation
+□ Repeat until Tester verdict: APPROVED
+```
+
+**Status:** Work remains INCOMPLETE until Tester approves
+
+---
+
+#### 4.4 Reviewer Validation (MANDATORY for Code Changes)
+
+**ENFORCEMENT:** Orchestrator MUST delegate to Reviewer agent for all work packages involving code changes. Enforced by **[Code Quality Review Gate](../gates/35-code-quality-review.md)**.
+
+**Reviewer Responsibilities:**
+```
+□ Review code quality against standards
+□ Verify architecture consistency
+□ Assess security concerns
+□ Evaluate documentation adequacy
+□ Check acceptance criteria met
+□ Provide verdict: APPROVED or CHANGES REQUESTED
+```
+
+**Reviewer Delegation (Orchestrator):**
+```
+IF work includes code changes THEN
+  reviewer = Task(
+    subagent_type="general-purpose",
+    prompt="You are the Reviewer role. Review code quality and standards.
+            Focus: quality, architecture, security, documentation.
+            Report in .ai/tasks/${task_id}/30-review.md"
+  )
+
+  reviewer_result = wait_for_completion(reviewer)
+
+  IF reviewer_result == "CHANGES REQUESTED" THEN
+    coordinate_code_fixes()
+    resubmit_to_tester()    // Verify tests still pass
+    resubmit_to_reviewer()
+  END IF
+END IF
+```
+
+**Reviewer Blocking Conditions:**
+```
+❌ WORK INCOMPLETE if:
+- Security vulnerabilities
+- Major standards violations
+- Architecture violations
+- Poor error handling
+- Missing critical tests
+- Acceptance criteria not met
+```
+
+---
+
+#### 4.5 Code Issue Resolution (IF NEEDED)
+
+**Trigger:** Reviewer verdict == "CHANGES REQUESTED"
+
+**Resolution Process:**
+```
+□ Worker reviews Reviewer findings
+□ Worker addresses Critical findings (mandatory)
+□ Worker addresses Major findings (mandatory)
+□ Worker re-runs all tests (verify still passing)
+□ Worker requests Tester re-validation (ensure tests still pass)
+□ Worker requests Reviewer re-validation
+□ Repeat until Reviewer verdict: APPROVED
+```
+
+**Status:** Work remains INCOMPLETE until Reviewer approves
+
+---
+
+#### 4.6 User Acceptance
+
+**Prerequisites:**
+```
+✓ Tester validation: APPROVED (if code changes)
+✓ Reviewer validation: APPROVED (if code changes)
+✓ All blocking issues resolved
+```
+
+**User Acceptance Verification:**
 ```
 □ All acceptance criteria met
 □ Requirements satisfied
 □ Edge cases handled
 □ Error cases handled
 □ User expectations met
+□ Documentation complete
 ```
 
-**Acceptance Verification:**
+**Acceptance Process:**
 ```
 FOR each acceptance criterion:
   verify implemented
   verify tested
   verify working correctly
 END FOR
+
+IF all criteria met THEN
+  user_approval = confirm_with_user()
+END IF
 ```
 
 ---
 
 ### Exit Criteria (Gate: Accepted)
 
+**UPDATED Exit Criteria:**
 ```
-✓ Quality verification complete
+✓ Worker self-review complete
+✓ Tester validation: APPROVED (MANDATORY for code changes)
+✓ Reviewer validation: APPROVED (MANDATORY for code changes)
+✓ All Critical/Major findings resolved
+✓ Tests passing (100%)
+✓ Coverage meets target (80-90%)
 ✓ Standards compliance verified
 ✓ All acceptance criteria met
 ✓ User approved (if applicable)
-✓ Documentation complete
-✓ Task complete
+✓ Documentation complete (30-review.md, 40-acceptance.md)
+✓ Task complete and signed off
+```
+
+**Blocking Conditions (Gate Fails):**
+```
+❌ Cannot proceed to acceptance if:
+- Code changes present AND Tester not invoked
+- Code changes present AND Reviewer not invoked
+- Tester verdict: CHANGES REQUIRED (unresolved)
+- Reviewer verdict: CHANGES REQUESTED (unresolved)
+- Blocking issues unresolved
+- Acceptance criteria not met
+```
+
+**Work Status:**
+```
+IF Tester OR Reviewer has blocking issues THEN
+  WORK STATUS = INCOMPLETE
+  BLOCK acceptance
+  BLOCK sign-off
+  REQUIRE fixes and re-validation
+END IF
 ```
 
 ---
@@ -484,7 +646,17 @@ END FOR
 - **Phase 1:** Coordinate understanding
 - **Phase 2:** Validate plan and determine parallel execution (DEFAULT)
 - **Phase 3:** Monitor progress across parallel workers
-- **Phase 4:** Verify completion and coordinate integration
+- **Phase 4:** Coordinate mandatory reviews (Tester + Reviewer) and verify completion
+
+**Phase 4 Review Coordination (MANDATORY for code changes):**
+```
+When code changes present:
+- Delegate to Tester agent (TDD and test validation)
+- Delegate to Reviewer agent (code quality validation)
+- Coordinate issue resolution if either finds blocking issues
+- Verify both validations pass before acceptance
+- Block completion if either validation fails
+```
 
 **Parallel Coordination Responsibilities:**
 ```
@@ -501,7 +673,16 @@ When using parallel workers (DEFAULT for 3+ subtasks):
 - **Phase 1:** Explore and understand
 - **Phase 2:** Develop plan
 - **Phase 3:** Implement solution (potentially in parallel with others)
-- **Phase 4:** Self-review
+- **Phase 4:** Self-review, address Tester/Reviewer findings
+
+**Phase 4 Responsibilities:**
+```
+- Complete self-review (tests, coverage, linters)
+- Address Tester findings (if any)
+- Address Reviewer findings (if any)
+- Re-validate until both approve
+- Update 30-review.md with resolution
+```
 
 **Parallel Worker Responsibilities:**
 ```
@@ -513,8 +694,37 @@ When working in parallel with other workers:
 - Flag integration concerns
 ```
 
+### Tester
+- **Phase 4:** Validate TDD compliance and test sufficiency (MANDATORY for code changes)
+
+**Tester Responsibilities:**
+```
+For all work packages with code changes:
+- Verify TDD process followed (RED-GREEN-REFACTOR)
+- Validate test coverage (80-90% overall, 95%+ critical logic)
+- Assess test quality (clarity, independence, reliability)
+- Verify test type coverage (unit/integration/e2e pyramid)
+- Check test scenarios (happy/edge/error cases)
+- Document findings in 30-review.md
+- Provide verdict: APPROVED or CHANGES REQUIRED
+- Re-validate after fixes if changes required
+```
+
 ### Reviewer
-- **Phase 4:** Conduct formal review (may review parallel streams independently)
+- **Phase 4:** Review code quality and standards (MANDATORY for code changes)
+
+**Reviewer Responsibilities:**
+```
+For all work packages with code changes:
+- Review code against quality standards
+- Verify architecture consistency
+- Assess security concerns
+- Evaluate documentation adequacy
+- Check acceptance criteria met
+- Document findings in 30-review.md
+- Provide verdict: APPROVED or CHANGES REQUESTED
+- Re-validate after fixes if changes requested
+```
 
 ---
 
@@ -542,6 +752,13 @@ When working in parallel with other workers:
 - Pre-implementation checks (Phase 1)
 - Mid-implementation validation (Phase 3)
 - Post-implementation verification (Phase 4)
+
+### Code Quality Review Gate (Phase 4 - NEW)
+- Tester validation mandatory for code changes
+- Reviewer validation mandatory for code changes
+- Both must approve before acceptance
+- Work incomplete if either finds blocking issues
+- See [Code Quality Review Gate](../gates/35-code-quality-review.md)
 
 ---
 

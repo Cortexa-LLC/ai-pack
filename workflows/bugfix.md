@@ -29,6 +29,39 @@ The Bugfix Workflow is specialized for identifying, analyzing, and fixing defect
 
 **Objective:** Understand, reproduce, and assess the bug.
 
+**DELEGATION STRATEGY:**
+
+**Option A: Delegate to Inspector (Recommended for Complex Bugs)**
+```
+IF bug is complex OR root cause unclear THEN
+  Orchestrator delegates to Inspector
+  Inspector conducts RCA
+  Inspector creates task packet for Engineer
+  Orchestrator delegates to Engineer with task packet
+END IF
+```
+
+**Option B: Engineer Self-Investigation (For Simple Bugs)**
+```
+IF bug is simple OR root cause obvious THEN
+  Orchestrator delegates to Engineer
+  Engineer follows bugfix workflow phases 1-4
+END IF
+```
+
+**Selection Criteria:**
+- **Complex bug → Inspector:**
+  - Root cause unknown
+  - Intermittent or hard to reproduce
+  - Similar bugs may exist
+  - Investigation requires forensic analysis
+- **Simple/obvious bug → Engineer directly:**
+  - Bug is obvious (typo, simple logic error)
+  - Root cause immediately apparent
+  - Fix is straightforward
+
+---
+
 #### 1.1 Bug Understanding
 ```
 □ What is the expected behavior?

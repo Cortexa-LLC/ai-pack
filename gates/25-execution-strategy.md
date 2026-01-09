@@ -576,7 +576,7 @@ This gate is successful when:
 - **[Orchestrator Role](../roles/orchestrator.md)** - Section 2.5: Mandatory Parallel Execution Analysis
 - **[Tool Policy Gate](20-tool-policy.md)** - Section 7: Agent Spawning Policy
 - **[Standard Workflow](../workflows/standard.md)** - Phase 2.4: Execution Strategy Determination
-- **[Parallel Workers Config](../PARALLEL-WORKERS-CONFIG.md)** - Enforced Configuration Details
+- **[Parallel Workers Config](../PARALLEL-ENGINEERS-CONFIG.md)** - Enforced Configuration Details
 
 ---
 

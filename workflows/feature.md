@@ -25,6 +25,68 @@ The Feature Workflow is specialized for adding new functionality to a system. It
 
 ## Feature-Specific Phases
 
+### Phase 0: Product Definition & Architecture Design (For Large/Complex Features)
+
+**TRIGGER:** Large feature OR unclear requirements OR significant technical complexity
+
+**DELEGATION STRATEGY:**
+
+**Step 0.1: Product Definition (Optional - for large features)**
+```
+IF feature is large OR requirements unclear THEN
+  Orchestrator delegates to Product Manager
+  PM creates PRD
+  PM defines epics and user stories
+  PM consults with Architect (if complex)
+  PM delivers requirements package
+
+  THEN proceed to Phase 0.2 or Phase 1 with clear requirements
+END IF
+```
+
+**Step 0.2: Architecture Design (Optional - for complex features)**
+```
+IF feature requires architecture design THEN
+  Orchestrator delegates to Architect
+  Architect reviews PRD (if exists)
+  Architect designs system architecture
+  Architect defines API contracts and data models
+  Architect creates ADRs for key decisions
+  Architect delivers architecture documentation
+
+  THEN proceed to Phase 1 with technical design
+END IF
+```
+
+**Selection Criteria:**
+
+**Delegate to Product Manager when:**
+- Large feature with multiple components
+- Requirements unclear or incomplete
+- Success metrics undefined
+- Multiple potential approaches
+- Stakeholder alignment needed
+
+**Delegate to Architect when:**
+- New architecture patterns needed
+- Significant system changes
+- Multiple system integration
+- Performance/scale requirements
+- Data model changes needed
+- Technology decisions required
+
+**Skip Phase 0 when:**
+- Feature is small and straightforward
+- Requirements are clear and complete
+- Following established patterns
+- No architectural changes needed
+
+**Deliverables from Phase 0:**
+- **From PM (if invoked):** PRD, epics, user stories with acceptance criteria
+- **From Architect (if invoked):** Architecture document, API specifications, data models, ADRs
+
+---
+
 ### Phase 1: Feature Discovery & Scoping
 
 **Objective:** Fully understand the feature and its implications.

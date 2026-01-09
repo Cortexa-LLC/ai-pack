@@ -27,8 +27,9 @@ Quality gates define rules and constraints that govern what actions are permitte
 - **[00-global-gates.md](gates/00-global-gates.md)** - Universal rules (safety, quality, communication)
 - **[10-persistence.md](gates/10-persistence.md)** - File operations and state management rules
 - **[20-tool-policy.md](gates/20-tool-policy.md)** - Tool usage policies and approvals
-- **[25-execution-strategy.md](gates/25-execution-strategy.md)** - **MANDATORY** execution strategy analysis and parallel worker enforcement
+- **[25-execution-strategy.md](gates/25-execution-strategy.md)** - **MANDATORY** execution strategy analysis and parallel engineer enforcement
 - **[30-verification.md](gates/30-verification.md)** - Verification and validation requirements
+- **[35-code-quality-review.md](gates/35-code-quality-review.md)** - **MANDATORY** Tester and Reviewer validation for all code changes
 
 #### 👥 Roles - Agent Personas
 Roles define different agent personas with specific responsibilities. Located in `roles/`:
@@ -36,10 +37,31 @@ Roles define different agent personas with specific responsibilities. Located in
 - **[orchestrator.md](roles/orchestrator.md)** - High-level coordinator, delegates work, monitors progress
   - **ENFORCED:** Automatically analyzes and applies parallel execution for 3+ independent subtasks (max 5 concurrent)
   - **MANDATORY:** Must complete execution strategy analysis before delegation (enforced by [Execution Strategy Gate](gates/25-execution-strategy.md))
-- **[worker.md](roles/worker.md)** - Implementation specialist, writes code, creates tests
+  - **MANDATORY:** Must delegate to Tester and Reviewer for all code changes (enforced by [Code Quality Review Gate](gates/35-code-quality-review.md))
+- **[engineer.md](roles/engineer.md)** - Implementation specialist, writes code, creates tests
+  - Executes specific tasks following TDD workflow and established patterns
+- **[inspector.md](roles/inspector.md)** - Bug investigation specialist, conducts root cause analysis
+  - **Investigates:** Bug reports, reproduces issues, identifies root cause
+  - **Delivers:** RCA document, task packet for Engineer, regression test specifications
+  - **Optional:** Invoked by Orchestrator for complex bugs or directly by user
+- **[product-manager.md](roles/product-manager.md)** - Requirements specialist, creates PRDs and user stories
+  - **Defines:** Product requirements, success metrics, epics and user stories (JIRA-style)
+  - **Collaborates:** Works with Engineers and Architect on technical feasibility and breakdown
+  - **Delivers:** PRD, epics, user stories with acceptance criteria
+  - **Optional:** Invoked by Orchestrator for large features or directly by user
+- **[architect.md](roles/architect.md)** - Technical design specialist, system architecture and design
+  - **Designs:** System architecture, API specifications, data models, technology choices
+  - **Collaborates:** Works with Product Manager on feasibility, Engineers on implementation
+  - **Delivers:** Architecture documents, API specs, data models, ADRs
+  - **Optional:** Invoked by Orchestrator for complex features requiring architectural design
+- **[tester.md](roles/tester.md)** - Testing specialist, validates TDD compliance and test sufficiency
+  - **ENFORCED:** Mandatory validation for all code changes
+  - **Validates:** TDD process, coverage (80-90%), test quality, test scenarios
 - **[reviewer.md](roles/reviewer.md)** - Quality assurance, code review, standards compliance
+  - **ENFORCED:** Mandatory validation for all code changes
+  - **Reviews:** Code quality, architecture, security, documentation
 
-**Configuration:** See **[PARALLEL-WORKERS-CONFIG.md](PARALLEL-WORKERS-CONFIG.md)** for enforced parallel execution details
+**Configuration:** See **[PARALLEL-ENGINEERS-CONFIG.md](PARALLEL-ENGINEERS-CONFIG.md)** for enforced parallel execution details
 
 #### 🔄 Workflows - Development Processes
 Workflows define structured processes for different types of work. Located in `workflows/`:
@@ -147,7 +169,7 @@ cp .ai-pack/templates/task-packet/40-acceptance.md .ai/tasks/$TASK_ID/
 
 **Multi-Agent Development:**
 - Orchestrator agent coordinates complex features
-- Worker agents implement specific components
+- Engineer agents implement specific components
 - Reviewer agents ensure quality and compliance
 
 **Structured Task Management:**
