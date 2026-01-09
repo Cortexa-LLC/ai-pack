@@ -371,6 +371,149 @@ After:  Confirm state consistent
 
 ---
 
+## Planning Artifact Persistence
+
+### 11. Artifact Repository Persistence
+
+**Rule:** Planning artifacts (PRDs, architecture docs, retrospectives) MUST be persisted to the repository when transitioning from planning to implementation/completion.
+
+**Rationale:**
+- Captures "why" decisions for future reference
+- Provides long-term knowledge preservation
+- Enables team onboarding and context understanding
+- Creates single source of truth for requirements and designs
+- Supports traceability from requirements through implementation
+
+**Artifact Types and Destinations:**
+
+```
+Product Manager Artifacts:
+  .ai/tasks/[feature-id]/prd.md           → docs/product/[feature-name]/prd.md
+  .ai/tasks/[feature-id]/epics.md         → docs/product/[feature-name]/epics.md
+  .ai/tasks/[feature-id]/user-stories.md  → docs/product/[feature-name]/user-stories.md
+
+Architect Artifacts:
+  .ai/tasks/[feature-id]/architecture.md  → docs/architecture/[feature-name]/architecture.md
+  .ai/tasks/[feature-id]/api-spec.md      → docs/architecture/[feature-name]/api-spec.md
+  .ai/tasks/[feature-id]/data-models.md   → docs/architecture/[feature-name]/data-models.md
+  .ai/tasks/[feature-id]/adrs/adr-NNN-*.md → docs/adr/adr-NNN-*.md
+
+Inspector Artifacts:
+  .ai/tasks/[bug-id]/retrospective.md     → docs/investigations/[bug-id]-[description].md
+```
+
+**Persistence Triggers:**
+
+```
+WHEN Product Manager phase completes THEN
+  persist PRD, epics, user stories to docs/product/[feature-name]/
+  commit with message: "Add product requirements for [feature-name]"
+END WHEN
+
+WHEN Architect phase completes THEN
+  persist architecture docs to docs/architecture/[feature-name]/
+  persist ADRs to docs/adr/
+  commit with message: "Add architecture design for [feature-name]"
+END WHEN
+
+WHEN bug fix verified and accepted THEN
+  persist retrospective to docs/investigations/
+  commit with message: "Add retrospective for [bug-id]: [description]"
+END WHEN
+```
+
+**Cross-Reference Requirements:**
+
+```
+Architecture documents MUST reference PRDs:
+  # Architecture Design: Billing System
+
+  **Based on:** docs/product/billing-system/prd.md
+
+  [rest of document...]
+
+Implementation commits SHOULD reference requirements:
+  feat: Add billing API endpoints
+
+  Implements requirements from docs/architecture/billing-system/api-spec.md
+
+  Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+```
+
+**Verification Checklist:**
+
+```
+Before marking planning phase complete:
+  ✓ Artifacts moved from .ai/tasks/ to docs/
+  ✓ docs/product/ updated (if PM phase occurred)
+  ✓ docs/architecture/ updated (if Architect phase occurred)
+  ✓ docs/adr/ updated (if ADRs created)
+  ✓ docs/investigations/ updated (if retrospective completed)
+  ✓ Cross-references added where appropriate
+  ✓ Changes committed to repository
+  ✓ Commit message follows format standards
+```
+
+**Directory Structure Standards:**
+
+```
+docs/
+├── product/
+│   └── [feature-name]/
+│       ├── prd.md
+│       ├── epics.md
+│       └── user-stories.md
+├── architecture/
+│   └── [feature-name]/
+│       ├── architecture.md
+│       ├── api-spec.md
+│       └── data-models.md
+├── adr/
+│   ├── NNN-decision-title.md  (sequential numbering across project)
+│   └── README.md              (index of all ADRs)
+└── investigations/
+    ├── BUG-ID-description.md
+    └── README.md              (index by root cause category)
+```
+
+**Temporary vs Permanent:**
+
+```
+.ai/tasks/               → Temporary work-in-progress (not committed)
+docs/                    → Permanent documentation (committed)
+
+.ai/tasks/[task-id]/     → Deleted after task completion
+docs/product/            → Long-lived product requirements
+docs/architecture/       → Long-lived technical designs
+docs/investigations/     → Long-lived learning and patterns
+docs/adr/                → Long-lived decision records
+```
+
+**Enforcement:**
+
+This gate is MANDATORY for:
+- Product Manager role after deliverables approved
+- Architect role after deliverables approved
+- Inspector role after bug fix verified
+- Orchestrator role to verify persistence occurred
+
+**Violation Consequences:**
+- Planning artifacts lost when .ai/tasks/ cleaned up
+- Loss of institutional knowledge
+- No traceability from requirements to implementation
+- Future teams lack context for decisions
+- Repeat past mistakes due to missing retrospectives
+
+**References:**
+- [Product Manager Role](../roles/product-manager.md) - Section: "Artifact Persistence to Repository"
+- [Architect Role](../roles/architect.md) - Section: "Artifact Persistence to Repository"
+- [Inspector Role](../roles/inspector.md) - Section: "Artifact Persistence to Repository"
+- [Feature Workflow](../workflows/feature.md) - Phase 0: Artifact persistence
+- [Bugfix Workflow](../workflows/bugfix.md) - Post-Fix: Retrospective persistence
+- [Standard Workflow](../workflows/standard.md) - Section: "Artifact Persistence"
+
+---
+
 ## Integration
 
 Persistence gates integrate with:

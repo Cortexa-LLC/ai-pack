@@ -104,7 +104,7 @@ your-project/
 │   └── templates/                   # Task-packet templates
 │
 ├── .ai/                             # Local workspace (your project)
-│   ├── tasks/                       # Active task packets
+│   ├── tasks/                       # Active task packets (temporary)
 │   │   └── 2026-01-07_feature-x/   # Example task
 │   │       ├── 00-contract.md      # From template
 │   │       ├── 10-plan.md          # From template
@@ -113,12 +113,32 @@ your-project/
 │   │       └── 40-acceptance.md    # From template
 │   └── repo-overrides.md           # Optional project-specific deltas
 │
+├── docs/                            # Permanent documentation (committed)
+│   ├── product/                     # Product requirements
+│   │   └── [feature-name]/
+│   │       ├── prd.md               # Product Requirements Document
+│   │       ├── epics.md             # Epic definitions
+│   │       └── user-stories.md      # User stories with acceptance criteria
+│   ├── architecture/                # Technical design
+│   │   └── [feature-name]/
+│   │       ├── architecture.md      # System architecture
+│   │       ├── api-spec.md          # API specifications
+│   │       └── data-models.md       # Data models and schemas
+│   ├── adr/                         # Architecture Decision Records
+│   │   ├── 001-decision-title.md    # Sequentially numbered
+│   │   ├── 002-decision-title.md
+│   │   └── README.md                # Index of all ADRs
+│   └── investigations/              # Bug retrospectives
+│       ├── BUG-123-description.md
+│       └── README.md                # Index by root cause category
+│
 └── CLAUDE.md                        # Bootstrap instructions for AI
 ```
 
 **Key Concepts:**
 - **`.ai-pack/`** - Git submodule containing shared standards and framework (this repository) - READ-ONLY
-- **`.ai/`** - Local workspace in your project for task state and overrides - PROJECT-SPECIFIC
+- **`.ai/`** - Local workspace in your project for task state and overrides - PROJECT-SPECIFIC, TEMPORARY
+- **`docs/`** - Permanent documentation repository - PROJECT-SPECIFIC, COMMITTED
 - **`CLAUDE.md`** - Bootstrap instructions at project root (copy from `templates/CLAUDE.md`)
 - **Task packets** - Instances of templates created in `.ai/tasks/` for each task
 - **Repo overrides** - Project-specific customizations to shared standards
@@ -128,6 +148,54 @@ your-project/
 - ✅ `.ai-pack/` is read-only shared framework
 - ✅ `.ai/tasks/` preserved during framework updates
 - ✅ Framework improvements happen in ai-pack repo (not ad hoc in projects)
+- ✅ Planning artifacts persisted to `docs/` when transitioning to implementation
+- ✅ `.ai/tasks/` is temporary, `docs/` is permanent
+
+### Artifact Persistence Pattern
+
+AI-Pack enforces a **two-tier documentation system**:
+
+**Temporary: `.ai/tasks/`** (Work-in-Progress)
+- Active task packets during development
+- Draft plans, work logs, review notes
+- Cleaned up after task completion
+- NOT committed to long-term repository
+
+**Permanent: `docs/`** (Long-Lived Documentation)
+- Product requirements (PRDs, epics, user stories)
+- Architecture designs (system docs, API specs, data models)
+- Architecture Decision Records (ADRs)
+- Bug investigation retrospectives
+- COMMITTED to repository for long-term reference
+
+**Persistence Triggers:**
+
+When planning phases complete and work transitions to implementation, artifacts MUST be persisted:
+
+```
+Product Manager Phase Complete:
+  .ai/tasks/[id]/prd.md          → docs/product/[feature-name]/prd.md
+  .ai/tasks/[id]/epics.md        → docs/product/[feature-name]/epics.md
+  .ai/tasks/[id]/user-stories.md → docs/product/[feature-name]/user-stories.md
+
+Architect Phase Complete:
+  .ai/tasks/[id]/architecture.md → docs/architecture/[feature-name]/architecture.md
+  .ai/tasks/[id]/api-spec.md     → docs/architecture/[feature-name]/api-spec.md
+  .ai/tasks/[id]/data-models.md  → docs/architecture/[feature-name]/data-models.md
+  .ai/tasks/[id]/adrs/adr-*.md   → docs/adr/adr-NNN-*.md
+
+Bug Fix Verified:
+  .ai/tasks/[id]/retrospective.md → docs/investigations/BUG-ID-description.md
+```
+
+**Why This Matters:**
+- **Long-term knowledge**: PRDs and architecture docs referenced for years
+- **Team onboarding**: New developers understand "why" behind decisions
+- **Traceability**: Clear chain from requirements → design → implementation
+- **Organizational learning**: Bug patterns inform systemic improvements
+- **Version control**: Track evolution of requirements and designs
+
+**Enforcement:** See [10-persistence.md](gates/10-persistence.md) - Section 11: "Artifact Repository Persistence"
 
 ### Quick Start
 
