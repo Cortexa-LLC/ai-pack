@@ -422,22 +422,61 @@ WHEN bug fix verified and accepted THEN
 END WHEN
 ```
 
-**Cross-Reference Requirements:**
+**Cross-Reference Requirements (MANDATORY):**
+
+All persisted artifacts MUST include a "Related Documents" section to enable traceability:
 
 ```
-Architecture documents MUST reference PRDs:
-  # Architecture Design: Billing System
+PRD (docs/product/[feature-name]/prd.md):
+  ## Related Documents
+  - Architecture: [Link to docs/architecture/[feature-name]/]
+  - User Stories: [Link to epics.md and user-stories.md]
+  - ADRs: [Links to relevant ADRs]
 
-  **Based on:** docs/product/billing-system/prd.md
+Architecture Doc (docs/architecture/[feature-name]/architecture.md):
+  ## Related Documents
+  - PRD: [Link to docs/product/[feature-name]/prd.md]
+  - User Stories: [Link to docs/product/[feature-name]/user-stories.md]
+  - Related ADRs:
+    - [ADR-NNN: Decision Title](../adr/NNN-decision-title.md)
+  - Implementation: [Will be referenced by Engineers]
 
-  [rest of document...]
+Bug Retrospective (docs/investigations/[bug-id]-description.md):
+  ## Related Documents
+  - Architecture: [Link to relevant architecture docs]
+  - ADRs: [Link to relevant ADRs explaining design decisions]
+  - Similar Bugs: [Links to related retrospectives]
+  - Original Bug Report: [Reference]
 
-Implementation commits SHOULD reference requirements:
-  feat: Add billing API endpoints
+Implementation (code comments and commits):
+  // Implements: docs/architecture/billing-system/api-spec.md
+  // Requirement: FR-123 from docs/product/billing-system/prd.md
 
-  Implements requirements from docs/architecture/billing-system/api-spec.md
+  git commit message:
+    feat: Add billing API endpoints
 
-  Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+    Implements requirements from docs/architecture/billing-system/api-spec.md
+    Addresses FR-1, FR-2 from docs/product/billing-system/prd.md
+
+    Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+```
+
+**Traceability Chain:**
+```
+PRD (Requirements) → Architecture (Design) → Implementation (Code) → Tests (Verification) → Requirements (Validation)
+```
+
+**Cross-Reference Verification:**
+```
+WHEN verifying artifact persistence:
+  CHECK for "Related Documents" section
+  VERIFY links are valid and correct
+  VERIFY bidirectional references (PRD ↔ Architecture)
+  IF missing or incomplete THEN
+    REQUEST specialist to add cross-references
+    BLOCK implementation until added
+  END IF
+END WHEN
 ```
 
 **Verification Checklist:**

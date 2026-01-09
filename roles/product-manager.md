@@ -533,13 +533,24 @@ WHEN Product Manager deliverables approved THEN
     .ai/tasks/[feature-id]/technical-consultation.md (if applicable)
       → docs/product/[feature-name]/technical-consultation.md
 
-  STEP 3: Update references
+  STEP 3: Add cross-references to documents (MANDATORY)
+    Update PRD with "Related Documents" section:
+      ## Related Documents
+      - Architecture: [Will be linked after architecture phase]
+      - User Stories: See epics.md and user-stories.md in this directory
+      - ADRs: [Will be linked after architecture phase]
+
+    This enables traceability:
+      PRD → Architecture → Implementation → Tests
+
     IF Architect phase follows THEN
-      inform Architect of docs/ location
+      inform Architect: "PRD persisted to docs/product/[feature-name]/
+                        Please reference it in your architecture docs."
     END IF
 
     IF Engineer phase follows THEN
-      inform Engineer of docs/ location
+      inform Engineer: "Requirements in docs/product/[feature-name]/
+                       Please reference PRD in implementation work."
     END IF
 
   STEP 4: Commit to repository

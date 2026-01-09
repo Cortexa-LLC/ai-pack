@@ -703,10 +703,38 @@ WHEN Architect deliverables approved THEN
     .ai/tasks/[feature-id]/adrs/adr-001-*.md
       → docs/adr/adr-001-*.md
 
-  STEP 3: Create cross-references
+  STEP 3: Create cross-references (MANDATORY)
+    Update architecture.md with "Related Documents" section:
+      ## Related Documents
+      - PRD: [Link to docs/product/[feature-name]/prd.md]
+      - User Stories: [Link to docs/product/[feature-name]/user-stories.md]
+      - Related ADRs:
+        - [ADR-NNN: Decision Title](../adr/NNN-decision-title.md)
+      - Implementation: [Will be referenced by Engineers in code/task packets]
+
+    Update API spec with cross-references:
+      Reference PRD requirements that drive each endpoint/interface
+
+    Update data models with cross-references:
+      Reference PRD requirements that drive each data structure
+
+    Update each ADR with cross-references:
+      - PRD requirement addressed
+      - Architecture document context
+      - Related ADRs (if any)
+
+    This enables traceability:
+      PRD → Architecture → ADRs → Implementation → Tests
+
     IF PRD exists in docs/product/[feature-name]/ THEN
-      add reference in architecture.md header:
-      "Based on: docs/product/[feature-name]/prd.md"
+      ALSO update PRD to link back to architecture:
+        Edit docs/product/[feature-name]/prd.md
+        Update "Related Documents" section with architecture links
+    END IF
+
+    IF Engineer phase follows THEN
+      inform Engineer: "Architecture in docs/architecture/[feature-name]/
+                       Please reference architecture docs in your implementation."
     END IF
 
   STEP 4: Commit to repository

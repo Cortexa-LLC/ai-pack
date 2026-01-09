@@ -68,6 +68,93 @@ END DURING
 
 ---
 
+### 0.6 Planning Artifact Reference (FIRST STEP)
+
+**REQUIREMENT:** Before implementation, check for persisted planning artifacts that provide context.
+
+**Where to Find Requirements and Design Context:**
+```
+BEFORE implementing:
+  CHECK for persisted planning artifacts in docs/
+
+  IF feature-related work THEN
+    CHECK docs/product/[feature-name]/ for:
+      - PRD (Product Requirements Document)
+      - Epics and user stories
+      - Original requirements and acceptance criteria
+      - Success metrics
+
+    CHECK docs/architecture/[feature-name]/ for:
+      - Architecture documents
+      - API specifications
+      - Data models
+      - Component diagrams
+
+    CHECK docs/adr/ for:
+      - Architecture Decision Records
+      - Technical decisions and rationale
+      - Trade-offs considered
+  END IF
+
+  IF bug-related work THEN
+    CHECK docs/investigations/ for:
+      - Related bug retrospectives
+      - Similar bug patterns
+      - Known issues in the area
+      - Lessons learned from previous fixes
+  END IF
+
+  These documents answer:
+    - WHY decisions were made
+    - WHAT requirements exist
+    - HOW the system is designed
+    - WHAT patterns to follow
+END BEFORE
+```
+
+**Documentation Location Quick Reference:**
+```
+docs/
+├── product/[feature-name]/      - Requirements, PRDs, user stories
+├── architecture/[feature-name]/ - Technical design, APIs, data models
+├── adr/                         - Architecture Decision Records
+└── investigations/              - Bug retrospectives, lessons learned
+```
+
+**Integration with Task Packet:**
+```
+Task packet (.ai/tasks/YYYY-MM-DD_task-name/) contains:
+  - 00-contract.md: Immediate task requirements
+  - 10-plan.md: Implementation approach for this task
+
+Persisted artifacts (docs/) contain:
+  - Long-term product requirements
+  - System architecture and design
+  - Historical context and decisions
+  - Organizational learning
+
+BOTH are important:
+  - Read task packet for WHAT to do now
+  - Read persisted docs for WHY and HOW context
+```
+
+**When Artifacts Don't Exist:**
+```
+IF no planning artifacts found AND task is non-trivial THEN
+  This may indicate:
+    - New feature area (no prior docs expected)
+    - Small enhancement (docs not needed)
+    - Legacy code without documentation
+
+  IF uncertain about requirements or design THEN
+    REQUEST clarification from Orchestrator
+    MAY need Product Manager or Architect involvement
+  END IF
+END IF
+```
+
+---
+
 ### 1. Code Implementation and Testing
 
 **Responsibility:** Write production-quality code that meets requirements.

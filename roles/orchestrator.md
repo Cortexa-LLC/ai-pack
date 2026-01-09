@@ -488,6 +488,225 @@ WHEN feature requires technical design:
 
 ---
 
+### 2.10 MANDATORY Artifact Persistence Enforcement
+
+**ENFORCEMENT:** When Product Manager, Architect, or Inspector completes their planning phase, orchestrator MUST verify artifacts are persisted to repository before proceeding to implementation. This is enforced by the **[Artifact Persistence Gate](../gates/10-persistence.md#11-artifact-repository-persistence)**.
+
+**Trigger Conditions:**
+```
+WHEN specialist completes planning phase:
+  IF Product Manager delivered PRD/requirements THEN
+    REQUIRE persistence to docs/product/[feature-name]/
+  END IF
+
+  IF Architect delivered architecture/design THEN
+    REQUIRE persistence to docs/architecture/[feature-name]/
+    REQUIRE ADRs to docs/adr/
+  END IF
+
+  IF Inspector delivered bug retrospective THEN
+    REQUIRE persistence to docs/investigations/
+  END IF
+
+  BLOCK progression to implementation until persistence verified
+```
+
+**Mandatory Verification Procedure:**
+```
+AFTER specialist completes work:
+  STEP 1: Remind specialist to persist artifacts
+    "Your planning deliverables need to be persisted to the repository.
+     Please commit your [PRD/Architecture/Retrospective] to docs/[location]
+     before we proceed to implementation."
+
+  STEP 2: Wait for persistence confirmation
+    specialist_confirms_persistence()
+
+  STEP 3: Verify artifacts exist in repository
+    VERIFY files exist in docs/
+    VERIFY files are committed (not just created)
+    VERIFY cross-references present (see section 2.11)
+
+  STEP 4: IF verification fails THEN
+    BLOCK implementation
+    REQUEST specialist to complete persistence
+    RE-VERIFY until successful
+  END IF
+
+  STEP 5: ONLY AFTER artifacts persisted THEN
+    proceed_to_implementation_phase()
+  END IF
+```
+
+**Persistence Locations by Role:**
+```
+Product Manager artifacts → docs/product/[feature-name]/
+  - prd.md
+  - epics.md
+  - user-stories.md
+
+Architect artifacts → docs/architecture/[feature-name]/
+  - architecture.md
+  - api-spec.md
+  - data-models.md
+
+Architect ADRs → docs/adr/
+  - NNN-decision-title.md
+
+Inspector retrospectives → docs/investigations/
+  - BUG-###-description.md
+```
+
+**Why Enforcement is Critical:**
+```
+WITHOUT enforcement:
+  ❌ Specialists forget to persist (rush to implementation)
+  ❌ Planning work lost when .ai/tasks/ cleaned up
+  ❌ Engineers lack context during implementation
+  ❌ Future teams can't understand decisions
+
+WITH enforcement:
+  ✅ Planning artifacts always committed
+  ✅ Engineers have full context
+  ✅ Organizational knowledge preserved
+  ✅ Traceability maintained
+  ✅ Decision history available
+```
+
+**Communication Pattern:**
+```
+WHEN specialist completes planning:
+  orchestrator_message = "
+    [Role] has completed [deliverable].
+
+    CHECKPOINT: Artifact Persistence Required
+
+    [Role], please persist your deliverables to the repository:
+    - Location: docs/[specific-path]/
+    - Files: [list expected files]
+    - Ensure cross-references included
+    - Commit with meaningful message
+
+    I will verify persistence before delegating to Engineers.
+  "
+
+  WAIT FOR confirmation
+
+  verify_artifacts_committed()
+
+  IF verified THEN
+    "Artifact persistence verified. Proceeding to implementation phase."
+    delegate_to_engineer()
+  ELSE
+    "Artifact persistence incomplete. Please commit artifacts before proceeding."
+    BLOCK implementation
+  END IF
+```
+
+**Gate Compliance Checklist:**
+```
+BEFORE delegating implementation work:
+  □ Planning phase completed
+  □ Specialist delivered artifacts
+  □ Persistence reminder sent
+  □ Specialist confirmed persistence
+  □ Artifacts exist in docs/
+  □ Artifacts committed to repository
+  □ Cross-references present
+  □ Files follow naming conventions
+
+  IF all checked THEN
+    PASS artifact persistence gate
+    PROCEED to implementation
+  ELSE
+    FAIL artifact persistence gate
+    BLOCK implementation
+    REQUIRE persistence completion
+  END IF
+```
+
+**Exception Handling:**
+```
+IF specialist cannot persist (technical issue) THEN
+  orchestrator_may_persist_on_behalf()
+  VERIFY with specialist that content is correct
+  THEN proceed
+END IF
+
+IF specialist unclear on format THEN
+  PROVIDE template reference from .ai-pack/templates/
+  GUIDE specialist through persistence
+END IF
+```
+
+---
+
+### 2.11 Cross-Reference and Traceability Verification
+
+**REQUIREMENT:** When verifying artifact persistence, ensure documents cross-reference each other to maintain traceability.
+
+**Traceability Chain:**
+```
+PRD (Product Requirements)
+  ↓ references in
+Architecture Document
+  ↓ references in
+Implementation (code comments, task packets)
+  ↓ references in
+Tests (test documentation)
+  ↓ validates
+Requirements (closing the loop)
+```
+
+**Mandatory Cross-References:**
+```
+Architecture documents MUST reference:
+  - PRD that defines requirements
+  - User stories being addressed
+  - Related ADRs
+
+Implementation (code/task packets) MUST reference:
+  - Architecture documents followed
+  - PRD requirements addressed
+  - User stories completed
+
+Bug retrospectives MUST reference:
+  - Related architecture documents
+  - Similar past bugs (if any)
+  - Lessons learned from investigations index
+```
+
+**Verification Procedure:**
+```
+WHEN verifying artifact persistence:
+  STEP 1: Check primary artifact exists
+  STEP 2: Check for cross-reference section
+  STEP 3: Verify links to related documents
+
+  Required cross-reference format:
+    ## Related Documents
+    - PRD: [Link to docs/product/[feature]/prd.md]
+    - Architecture: [Link to docs/architecture/[feature]/architecture.md]
+    - ADRs: [Links to relevant ADRs]
+    - User Stories: [Links to specific stories]
+
+  IF cross-references missing THEN
+    REQUEST specialist to add them
+    RE-VERIFY before proceeding
+  END IF
+```
+
+**Benefits of Cross-Referencing:**
+```
+✅ Trace requirements through design to code
+✅ Understand dependencies between documents
+✅ Navigate documentation efficiently
+✅ Impact analysis when changes needed
+✅ Verify completeness (all requirements addressed)
+```
+
+---
+
 ### 3. Progress Monitoring and Coordination
 
 **Responsibility:** Track progress across all subtasks and agents.

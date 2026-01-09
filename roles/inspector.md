@@ -348,13 +348,26 @@ WHEN bug fix verified and accepted THEN
     - Lessons learned
     - Similar bugs prevented
 
-  STEP 3: Add metadata to retrospective
+  STEP 3: Add metadata and cross-references to retrospective (MANDATORY)
     Add header with:
     - Bug ID and severity
     - Date reported and resolved
     - Systems/components affected
     - Root cause category (null reference, race condition, validation, etc.)
     - Related bugs (if any)
+
+    Add "Related Documents" section:
+      ## Related Documents
+      - Architecture: [Link to docs/architecture/[feature-name]/ if relevant]
+      - ADRs: [Link to relevant ADRs that explain design decisions]
+      - Similar Bugs:
+        - [BUG-###: Description](./BUG-###-description.md)
+      - Original Bug Report: [Link or reference]
+
+    This enables:
+      - Understanding design context for the bug
+      - Identifying patterns across similar bugs
+      - Tracing from bug back to original requirements/design
 
   STEP 4: Update investigations index
     IF docs/investigations/README.md exists THEN
