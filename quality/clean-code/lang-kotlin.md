@@ -1,6 +1,6 @@
 # Kotlin Language-Specific Rules
 
-> Based on Kotlin Coding Conventions (JetBrains official) and Android Kotlin Style Guide
+> Based on Kotlin Coding Conventions (JetBrains official), Android Kotlin Style Guide, and SonarQube code quality rules
 
 ## Formatting Standards (Kotlin Specific)
 
@@ -9,11 +9,12 @@
 This follows the official Kotlin Coding Conventions from JetBrains and is the standard across the Kotlin ecosystem including Android development.
 
 **Note:** Cortexa LLC uses **language-specific indentation standards**:
-- **C++**: 2 spaces (see lang-cpp.md)
-- **Python**: 4 spaces (see lang-python.md)
-- **JavaScript/TypeScript**: 2 spaces (see lang-javascript.md)
-- **Java**: 4 spaces (see lang-java.md)
-- **Kotlin**: 4 spaces (this document)
+- **C++**: 2 spaces (Google C++ Style Guide)
+- **C#**: 4 spaces (Microsoft standard)
+- **Java**: 2 spaces (Cortexa LLC override)
+- **JavaScript/TypeScript**: 2 spaces (ecosystem standard)
+- **Kotlin**: 4 spaces (JetBrains standard)
+- **Python**: 4 spaces (PEP 8 mandatory)
 
 **Example:**
 ```kotlin
@@ -349,6 +350,158 @@ class UserViewModel(
 
 ---
 
+## Code Quality: SonarQube Enforcement
+
+**MANDATORY:** All Kotlin code must pass SonarQube's default Kotlin rules for code smell detection.
+
+### SonarQube Integration
+
+**Official Reference:** https://rules.sonarsource.com/kotlin/
+
+SonarQube provides automated static code analysis with **174 total rules** organized into:
+
+| Category | Count | Focus |
+|----------|-------|-------|
+| **Code Smell** | 86 | Quality and maintainability issues |
+| **Vulnerability** | 42 | Security exploits and weaknesses |
+| **Bug** | 27 | Logic errors and runtime failures |
+| **Security Hotspot** | 19 | Sensitive operations requiring review |
+
+### Critical Security Vulnerabilities (Top Priority)
+
+**All 42 vulnerability rules are MANDATORY:**
+
+- **Mobile Database Encryption:** Encryption keys must not be disclosed in mobile applications
+- **Hard-coded Credentials:** Never embed passwords, API keys, tokens, or secrets in code
+- **SSL/TLS Verification:** Server hostnames must be verified during SSL/TLS connections
+- **Weak Cryptography:** Use strong cipher algorithms (AES-256, RSA-2048+)
+- **Android Permissions:** Request minimal necessary permissions, document security-sensitive ones
+- **Biometric Authentication:** Implement proper biometric authentication with crypto objects
+- **WebView Security:** Disable JavaScript and file access unless required, validate content
+- **SQL Injection:** Use parameterized queries, never string concatenation
+- **Path Traversal:** Validate file paths to prevent directory traversal
+- **Insecure Random:** Use SecureRandom for cryptographic purposes
+
+### Critical Bug Detection (27 Rules)
+
+**All bug rules are MANDATORY:**
+
+- **Return Value Validation:** Check return values from file operations and synchronization primitives
+- **Array Equality in Data Classes:** Override equals in data classes containing array fields
+- **Regex Validity:** Ensure regular expressions are syntactically correct
+- **Null Safety:** Use safe calls (?.) and null checks properly
+- **Type Casting:** Verify types before casting using smart casts or safe casts (as?)
+- **Coroutine Context:** Use appropriate dispatcher (IO, Main, Default) for operations
+- **StateFlow Updates:** Update StateFlow.value atomically to prevent race conditions
+- **Resource Management:** Close resources properly (use 'use' function for AutoCloseable)
+- **Infinite Loops:** Ensure loop termination conditions are reachable
+- **Concurrent Modification:** Don't modify collections while iterating
+
+### Code Quality Standards (86 Code Smell Rules)
+
+**Key code smell rules for maintainability:**
+
+#### Complexity Management
+- **Cognitive Complexity:** Functions should maintain reasonable complexity thresholds (max 15)
+- **Function Length:** Decompose overly long functions for readability (max 50 lines)
+- **Parameter Count:** Limit function parameters (max 5, use data classes for more)
+
+#### Kotlin Idioms
+- **Immutability:** Prefer `val` over `var` for immutable properties
+- **Data Classes:** Use data classes for DTOs and simple value objects
+- **Sealed Classes:** Use sealed classes for restricted type hierarchies
+- **Extension Functions:** Prefer extension functions over utility classes
+- **Scope Functions:** Use appropriate scope functions (let, run, with, apply, also)
+
+#### Coroutines Best Practices
+- **Structured Concurrency:** Use coroutineScope for structured concurrency
+- **Exception Handling:** Handle exceptions in coroutines appropriately
+- **Flow Collection:** Collect flows in appropriate lifecycle scopes
+- **Cancellation:** Support cancellation in long-running operations
+
+#### Android-Specific
+- **Lifecycle Awareness:** Use lifecycle-aware components (ViewModel, LiveData, Flow)
+- **Memory Leaks:** Avoid memory leaks (clear listeners, cancel coroutines)
+- **Main Thread:** Don't perform heavy operations on the main thread
+- **Context References:** Avoid holding references to Activity/Fragment contexts
+
+### Configuration
+
+Add SonarQube to your Kotlin project:
+
+**Gradle (Kotlin DSL):**
+```kotlin
+plugins {
+    id("org.sonarqube") version "4.0.0.2929"
+}
+
+sonar {
+    properties {
+        property("sonar.projectKey", "your-project-key")
+        property("sonar.organization", "cortexa")
+        property("sonar.host.url", "https://sonarqube.cortexa.com")
+        property("sonar.kotlin.source.version", "1.9")
+    }
+}
+```
+
+**Gradle (Groovy):**
+```groovy
+plugins {
+    id "org.sonarqube" version "4.0.0.2929"
+}
+
+sonar {
+    properties {
+        property "sonar.projectKey", "your-project-key"
+        property "sonar.organization", "cortexa"
+        property "sonar.host.url", "https://sonarqube.cortexa.com"
+        property "sonar.kotlin.source.version", "1.9"
+    }
+}
+```
+
+### Running SonarQube Analysis
+
+```bash
+# Gradle
+./gradlew sonarqube
+
+# With authentication token
+./gradlew sonarqube -Dsonar.login=your-token
+
+# Android project
+./gradlew sonarqube -Dsonar.androidLint.reportPaths=build/reports/lint-results.xml
+```
+
+### Quality Gate Requirements
+
+All code must meet these thresholds:
+- **New Code Coverage:** ≥ 80%
+- **Duplicated Lines:** < 3%
+- **Maintainability Rating:** A
+- **Reliability Rating:** A
+- **Security Rating:** A
+- **Security Hotspots Reviewed:** 100%
+- **Blocker/Critical Issues:** 0
+
+### IDE Integration
+
+**Android Studio / IntelliJ IDEA:**
+```
+Settings → Plugins → Install "SonarLint"
+Settings → Tools → SonarLint → Bind to SonarQube/SonarCloud
+Configure connection and bind to your project
+```
+
+**SonarLint Real-time Analysis:**
+- Provides immediate feedback while coding
+- Highlights issues with quick fixes
+- Syncs with SonarQube server rules
+- Shows issue descriptions and remediation guidance
+
+---
+
 ## TODO: Full Kotlin Guidelines
 
 This file will be expanded to include:
@@ -365,4 +518,4 @@ This file will be expanded to include:
 
 ---
 
-**For now, always use 4-space indentation per Kotlin Coding Conventions. Full guidelines coming soon.**
+**For now, always use 4-space indentation per Kotlin Coding Conventions. All code must pass SonarQube's default Kotlin rules. Full guidelines coming soon.**

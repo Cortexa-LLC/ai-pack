@@ -240,9 +240,10 @@ Each language follows its community's established indentation standards:
 | Language | Indentation | File |
 |----------|-------------|------|
 | C++ | 2 spaces | [lang-cpp.md](quality/clean-code/lang-cpp-basics.md) |
+| C# | 4 spaces | [lang-csharp.md](quality/clean-code/lang-csharp.md) |
 | Python | 4 spaces | [lang-python.md](quality/clean-code/lang-python.md) |
 | JavaScript/TypeScript | 2 spaces | [lang-javascript.md](quality/clean-code/lang-javascript.md) |
-| Java | 4 spaces | [lang-java.md](quality/clean-code/lang-java.md) |
+| Java | 2 spaces | [lang-java.md](quality/clean-code/lang-java.md) |
 | Kotlin | 4 spaces | [lang-kotlin.md](quality/clean-code/lang-kotlin.md) |
 
 **[C++ Guidelines](quality/clean-code/lang-cpp-basics.md)** - Comprehensive C++ guidelines:
@@ -251,6 +252,13 @@ Each language follows its community's established indentation standards:
 - Modern C++17/20 best practices
 - 2-space indentation (Google C++ Style Guide)
 - See also: [lang-cpp-design.md](quality/clean-code/lang-cpp-design.md), [lang-cpp-advanced.md](quality/clean-code/lang-cpp-advanced.md), [lang-cpp-modern.md](quality/clean-code/lang-cpp-modern.md), [lang-cpp-guidelines.md](quality/clean-code/lang-cpp-guidelines.md), [lang-cpp-reference.md](quality/clean-code/lang-cpp-reference.md)
+
+**[C# Guidelines](quality/clean-code/lang-csharp.md)** - C# and .NET best practices:
+- Microsoft C# Coding Conventions
+- StyleCop Analyzers (mandatory)
+- Modern C# 12 features
+- Async/await patterns
+- 4-space indentation (Microsoft standard)
 
 **[Python Guidelines](quality/clean-code/lang-python.md)** - Python best practices:
 - PEP 8, PEP 20 (Zen of Python)
@@ -263,16 +271,18 @@ Each language follows its community's established indentation standards:
 - 2-space indentation (JavaScript ecosystem standard)
 
 **[Java Guidelines](quality/clean-code/lang-java.md)** - Java guidelines:
-- Oracle Java Code Conventions
+- Google Java Style Guide (with Cortexa LLC override for indentation)
 - Effective Java (Joshua Bloch)
 - Spring Framework patterns
-- 4-space indentation (Oracle standard)
+- SonarQube default Java rules (mandatory)
+- 2-space indentation (Cortexa LLC override)
 
 **[Kotlin Guidelines](quality/clean-code/lang-kotlin.md)** - Kotlin conventions:
 - Kotlin Coding Conventions (JetBrains)
+- SonarQube default Kotlin rules (mandatory)
 - Coroutines and Flow patterns
 - Android best practices
-- 4-space indentation (Kotlin standard)
+- 4-space indentation (JetBrains standard)
 
 ### Integration with AI Workflow Framework
 
@@ -500,6 +510,7 @@ ai-pack/
         ├── lang-cpp-modern.md         # Modern C++ features
         ├── lang-cpp-guidelines.md     # C++ Core Guidelines
         ├── lang-cpp-reference.md      # C++ quick reference
+        ├── lang-csharp.md             # C# guidelines
         ├── lang-python.md             # Python guidelines
         ├── lang-javascript.md         # JavaScript/TypeScript
         ├── lang-java.md               # Java guidelines
