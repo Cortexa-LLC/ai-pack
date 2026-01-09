@@ -79,12 +79,48 @@ Phase 1: Understanding → Phase 2: Planning → Phase 3: Implementation → Pha
 □ Understand user context
 □ Identify constraints
 □ Note technical debt in area
+□ Check for persisted planning artifacts (see below)
 ```
 
 **Commands:**
 ```bash
 git log --oneline -20  # recent changes
 git diff main           # current changes
+```
+
+**Check for Planning Artifacts:**
+```
+IF task relates to existing feature/architecture THEN
+  Check docs/product/[feature-name]/ for:
+  - PRD (Product Requirements Document)
+  - Epics and user stories
+  - Original requirements
+
+  Check docs/architecture/[feature-name]/ for:
+  - Architecture documents
+  - API specifications
+  - Data models
+
+  Check docs/adr/ for:
+  - Architecture Decision Records
+  - Technical decisions and rationale
+
+  Check docs/investigations/ for:
+  - Related bug retrospectives
+  - Known issues and patterns
+
+  These documents provide context on WHY decisions were made,
+  WHAT requirements exist, and HOW the system is designed.
+END IF
+```
+
+**Documentation Location Reference:**
+```
+docs/
+├── product/[feature-name]/      - PRDs, requirements, user stories
+├── architecture/[feature-name]/ - Technical design, APIs, data models
+├── adr/                         - Architecture Decision Records
+└── investigations/              - Bug retrospectives, lessons learned
 ```
 
 ---
@@ -260,6 +296,69 @@ Subtasks | Independence | Dependencies | Strategy    | Required
 
 IF all checked THEN proceed to implementation
 ELSE complete missing analysis
+```
+
+---
+
+#### 2.5 Artifact Persistence Checkpoint (IF SPECIALISTS USED)
+
+**GATE CHECKPOINT:** [Artifact Persistence Gate](../gates/10-persistence.md#11-artifact-repository-persistence)
+
+**TRIGGER:** Planning involved Product Manager, Architect, or Inspector roles.
+
+**REQUIREMENT:** Before proceeding to implementation, verify planning artifacts persisted to repository.
+
+**Verification Procedure:**
+```
+IF Product Manager OR Architect OR Inspector involved THEN
+  STEP 1: Remind specialist to persist artifacts
+    Orchestrator: "Planning deliverables must be persisted to docs/
+                   before we proceed to implementation."
+
+  STEP 2: Verify artifacts committed
+    CHECK docs/product/[feature-name]/ (if PM involved)
+    CHECK docs/architecture/[feature-name]/ (if Architect involved)
+    CHECK docs/adr/ (if Architect involved)
+    CHECK docs/investigations/ (if Inspector involved)
+
+  STEP 3: Verify cross-references present
+    Artifacts must reference related documents
+    See Orchestrator role section 2.11 for details
+
+  STEP 4: IF verification fails THEN
+    BLOCK implementation
+    REQUIRE persistence completion
+    RE-VERIFY before proceeding
+  END IF
+
+  STEP 5: ONLY AFTER verified THEN
+    proceed_to_implementation()
+  END IF
+END IF
+```
+
+**Enforcement:**
+```
+GATE BLOCKS implementation if:
+  ❌ Planning artifacts not committed to docs/
+  ❌ Cross-references missing
+  ❌ Files don't follow naming conventions
+  ❌ Specialist hasn't confirmed persistence
+
+GATE PASSES when:
+  ✅ All artifacts committed to repository
+  ✅ Cross-references present
+  ✅ Files properly named and located
+  ✅ Specialist confirmed persistence
+```
+
+**Why This Checkpoint:**
+```
+- Planning artifacts document decisions for years
+- Engineers need context during implementation
+- Future teams need to understand "why"
+- Version control tracks evolution
+- Single source of truth for specifications
 ```
 
 ---
@@ -644,9 +743,19 @@ END IF
 
 ### Orchestrator
 - **Phase 1:** Coordinate understanding
-- **Phase 2:** Validate plan and determine parallel execution (DEFAULT)
+- **Phase 2:** Validate plan, determine parallel execution (DEFAULT), and enforce artifact persistence
 - **Phase 3:** Monitor progress across parallel workers
 - **Phase 4:** Coordinate mandatory reviews (Tester + Reviewer) and verify completion
+
+**Phase 2 Artifact Persistence Enforcement (MANDATORY if specialists used):**
+```
+When Product Manager, Architect, or Inspector involved:
+- Remind specialist to persist deliverables to docs/
+- Verify artifacts committed to repository
+- Verify cross-references present in artifacts
+- Block implementation until persistence verified
+- See Orchestrator role sections 2.10 and 2.11 for details
+```
 
 **Phase 4 Review Coordination (MANDATORY for code changes):**
 ```
@@ -844,6 +953,80 @@ Phase 4 (Review):
                                                    ↓
                                             [TASK COMPLETE]
 ```
+
+---
+
+## Artifact Persistence
+
+**Principle:** Planning artifacts (requirements, designs, retrospectives) must be persisted to the repository when they transition from planning to implementation/completion.
+
+### When to Persist Artifacts
+
+**After Product Manager Phase:**
+- PRDs, epics, user stories → `docs/product/[feature-name]/`
+- See [Product Manager Role](../roles/product-manager.md) for details
+
+**After Architect Phase:**
+- Architecture docs, API specs, data models → `docs/architecture/[feature-name]/`
+- ADRs → `docs/adr/`
+- See [Architect Role](../roles/architect.md) for details
+
+**After Bug Fix and Verification:**
+- Bug investigation retrospectives → `docs/investigations/`
+- See [Inspector Role](../roles/inspector.md) for details
+
+### Why This Matters
+
+**Long-Term Value:**
+- Documents capture decisions for years, not just current work
+- Engineers reference these during implementation
+- Future teams understand context for "why" decisions were made
+- Version control tracks evolution of requirements and design
+- Single source of truth for product and technical specifications
+
+**Temporary vs Permanent:**
+```
+.ai/tasks/                    → Temporary work-in-progress
+docs/                         → Permanent, committed documentation
+
+.ai/tasks/[task-id]/          → Active work, deleted after completion
+docs/product/[feature]/       → Long-lived requirements
+docs/architecture/[feature]/  → Long-lived technical design
+docs/investigations/          → Long-lived learning and patterns
+docs/adr/                     → Long-lived decision records
+```
+
+### Repository Structure
+
+```
+project-root/
+├── docs/
+│   ├── product/
+│   │   └── [feature-name]/
+│   │       ├── prd.md
+│   │       ├── epics.md
+│   │       └── user-stories.md
+│   ├── architecture/
+│   │   └── [feature-name]/
+│   │       ├── architecture.md
+│   │       ├── api-spec.md
+│   │       └── data-models.md
+│   ├── adr/
+│   │   ├── 001-decision-title.md
+│   │   ├── 002-decision-title.md
+│   │   └── README.md
+│   └── investigations/
+│       ├── BUG-123-description.md
+│       ├── BUG-456-description.md
+│       └── README.md
+└── .ai/
+    └── tasks/ (temporary, not committed)
+```
+
+**Note:** Detailed persistence procedures are documented in:
+- [Feature Workflow](feature.md) - Phase 0 artifact persistence
+- [Bugfix Workflow](bugfix.md) - Retrospective persistence
+- Individual role documents (Product Manager, Architect, Inspector)
 
 ---
 
