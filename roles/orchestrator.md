@@ -444,6 +444,73 @@ WHEN large feature requested:
 
 ---
 
+### 2.8a UX Design Delegation Strategy
+
+**RESPONSIBILITY:** Determine whether to delegate UX design to Designer.
+
+**Decision Criteria:**
+```
+WHEN user-facing feature requested:
+  assess_ux_needs()
+
+  IF significant UI/UX work needed THEN
+    RECOMMENDED: Delegate to Designer
+    Pattern:
+      designer = Task(designer_role, "Design UX for [FEATURE]")
+      wait_for_design_specs()
+      [Optional] architect = Task(architect_role, "Design technical architecture")
+      engineer = Task(engineer_role, "Implement per design specs")
+
+  ELSE IF minor UI changes OR following existing patterns THEN
+    ACCEPTABLE: Skip Designer, delegate to Engineer
+    Pattern:
+      engineer = Task(engineer_role, "Implement [FEATURE] following existing UI patterns")
+  END IF
+```
+
+**UX Design Indicators:**
+```
+✅ Delegate to Designer when:
+- User-facing feature with significant UI
+- New user workflows or customer journeys
+- Complex forms or interactions
+- Multiple user roles with different needs
+- Customer experience mapping needed
+- Significant UX changes to existing features
+- Accessibility requirements critical
+- Mobile app development (iOS/Android)
+- Product owner explicitly requests UX design
+- Responsive web application
+
+✅ Skip Designer when:
+- Backend-only changes (APIs, services)
+- Simple CRUD following existing UI patterns
+- Bug fixes with no UX changes
+- Minor styling or text changes
+- Internal tools with no usability concerns
+- Performance optimizations
+- Infrastructure changes
+```
+
+**Collaboration Pattern:**
+```
+Typical flow for user-facing features:
+  1. Product Manager defines requirements (WHAT and WHY)
+  2. Designer creates user flows and wireframes (HOW USERS INTERACT)
+  3. Architect designs technical implementation (HOW SYSTEM WORKS)
+  4. Engineer implements solution (BUILDS IT)
+
+Designer provides:
+  - User research summary
+  - User flows and journey maps
+  - Wireframes (HTML format for web/iOS/Android)
+  - Design specifications
+  - Accessibility requirements
+  - Platform-specific UX guidance
+```
+
+---
+
 ### 2.9 Architecture Design Delegation Strategy
 
 **RESPONSIBILITY:** Determine whether to delegate architecture design to Architect.
@@ -490,13 +557,18 @@ WHEN feature requires technical design:
 
 ### 2.10 MANDATORY Artifact Persistence Enforcement
 
-**ENFORCEMENT:** When Product Manager, Architect, or Inspector completes their planning phase, orchestrator MUST verify artifacts are persisted to repository before proceeding to implementation. This is enforced by the **[Artifact Persistence Gate](../gates/10-persistence.md#11-artifact-repository-persistence)**.
+**ENFORCEMENT:** When Product Manager, Designer, Architect, or Inspector completes their planning phase, orchestrator MUST verify artifacts are persisted to repository before proceeding to implementation. This is enforced by the **[Artifact Persistence Gate](../gates/10-persistence.md#11-artifact-repository-persistence)**.
 
 **Trigger Conditions:**
 ```
 WHEN specialist completes planning phase:
   IF Product Manager delivered PRD/requirements THEN
     REQUIRE persistence to docs/product/[feature-name]/
+  END IF
+
+  IF Designer delivered UX designs/wireframes THEN
+    REQUIRE persistence to docs/design/[feature-name]/
+    REQUIRE wireframes (HTML) to docs/design/[feature-name]/wireframes/
   END IF
 
   IF Architect delivered architecture/design THEN
@@ -544,6 +616,12 @@ Product Manager artifacts → docs/product/[feature-name]/
   - prd.md
   - epics.md
   - user-stories.md
+
+Designer artifacts → docs/design/[feature-name]/
+  - user-research.md
+  - user-flows.md
+  - design-specs.md
+  - wireframes/*.html (HTML wireframes for web/iOS/Android)
 
 Architect artifacts → docs/architecture/[feature-name]/
   - architecture.md
@@ -649,6 +727,8 @@ END IF
 ```
 PRD (Product Requirements)
   ↓ references in
+Design (UX Workflows and Wireframes)
+  ↓ references in
 Architecture Document
   ↓ references in
 Implementation (code comments, task packets)
@@ -660,12 +740,19 @@ Requirements (closing the loop)
 
 **Mandatory Cross-References:**
 ```
+Design documents MUST reference:
+  - PRD that defines requirements
+  - User stories being addressed
+  - Architecture docs (if created after design)
+
 Architecture documents MUST reference:
   - PRD that defines requirements
+  - Design specifications (wireframes, UX flows)
   - User stories being addressed
   - Related ADRs
 
 Implementation (code/task packets) MUST reference:
+  - Design specifications followed (wireframe HTML files)
   - Architecture documents followed
   - PRD requirements addressed
   - User stories completed
@@ -686,6 +773,7 @@ WHEN verifying artifact persistence:
   Required cross-reference format:
     ## Related Documents
     - PRD: [Link to docs/product/[feature]/prd.md]
+    - Design: [Link to docs/design/[feature]/ with wireframes]
     - Architecture: [Link to docs/architecture/[feature]/architecture.md]
     - ADRs: [Links to relevant ADRs]
     - User Stories: [Links to specific stories]

@@ -58,9 +58,14 @@ Roles define different agent personas with specific responsibilities. Located in
   - **Collaborates:** Works with Engineers and Architect on technical feasibility and breakdown
   - **Delivers:** PRD, epics, user stories with acceptance criteria
   - **Optional:** Invoked by Orchestrator for large features or directly by user
+- **[designer.md](roles/designer.md)** - UX specialist, creates user flows and wireframes for value stream delivery
+  - **Designs:** User workflows, journey maps, wireframes (HTML for web/iOS/Android), design specifications
+  - **Collaborates:** Works with Product Manager on requirements, Architect on feasibility
+  - **Delivers:** User research, user flows, wireframes, design specs, accessibility requirements
+  - **Optional:** Invoked by Orchestrator for user-facing features with significant UI/UX work
 - **[architect.md](roles/architect.md)** - Technical design specialist, system architecture and design
   - **Designs:** System architecture, API specifications, data models, technology choices
-  - **Collaborates:** Works with Product Manager on feasibility, Engineers on implementation
+  - **Collaborates:** Works with Product Manager and Designer on feasibility, Engineers on implementation
   - **Delivers:** Architecture documents, API specs, data models, ADRs
   - **Optional:** Invoked by Orchestrator for complex features requiring architectural design
 - **[tester.md](roles/tester.md)** - Testing specialist, validates TDD compliance and test sufficiency
@@ -119,6 +124,15 @@ your-project/
 │   │       ├── prd.md               # Product Requirements Document
 │   │       ├── epics.md             # Epic definitions
 │   │       └── user-stories.md      # User stories with acceptance criteria
+│   ├── design/                      # UX design and wireframes
+│   │   └── [feature-name]/
+│   │       ├── user-research.md     # User research and insights
+│   │       ├── user-flows.md        # User flows and journey maps
+│   │       ├── design-specs.md      # Design specifications
+│   │       └── wireframes/          # HTML wireframes (viewable in browser)
+│   │           ├── wireframe-web.html
+│   │           ├── wireframe-ios.html
+│   │           └── wireframe-android.html
 │   ├── architecture/                # Technical design
 │   │   └── [feature-name]/
 │   │       ├── architecture.md      # System architecture

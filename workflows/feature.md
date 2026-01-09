@@ -44,11 +44,28 @@ IF feature is large OR requirements unclear THEN
 END IF
 ```
 
+**Step 0.1a: UX Design (Optional - for user-facing features)**
+```
+IF feature has significant UI/UX work THEN
+  Orchestrator delegates to Designer
+  Designer reviews PRD (if exists)
+  Designer conducts user research
+  Designer creates user flows and journey maps
+  Designer creates wireframes (HTML format for web/iOS/Android)
+  Designer creates design specifications
+  Designer specifies accessibility requirements
+  Designer delivers design documentation
+
+  THEN proceed to Phase 0.2 or Phase 1 with design specs
+END IF
+```
+
 **Step 0.2: Architecture Design (Optional - for complex features)**
 ```
 IF feature requires architecture design THEN
   Orchestrator delegates to Architect
   Architect reviews PRD (if exists)
+  Architect reviews Design specs (if exist)
   Architect designs system architecture
   Architect defines API contracts and data models
   Architect creates ADRs for key decisions
@@ -67,6 +84,17 @@ END IF
 - Multiple potential approaches
 - Stakeholder alignment needed
 
+**Delegate to Designer when:**
+- User-facing feature with significant UI
+- New user workflows or customer journeys
+- Complex forms or interactions
+- Multiple user roles with different needs
+- Customer experience mapping needed
+- Accessibility requirements critical
+- Mobile app development (iOS/Android)
+- Responsive web application
+- Product owner explicitly requests UX design
+
 **Delegate to Architect when:**
 - New architecture patterns needed
 - Significant system changes
@@ -80,9 +108,11 @@ END IF
 - Requirements are clear and complete
 - Following established patterns
 - No architectural changes needed
+- No significant UI/UX work needed
 
 **Deliverables from Phase 0:**
 - **From PM (if invoked):** PRD, epics, user stories with acceptance criteria
+- **From Designer (if invoked):** User research, user flows, wireframes (HTML), design specs, accessibility requirements
 - **From Architect (if invoked):** Architecture document, API specifications, data models, ADRs
 
 **CRITICAL: Artifact Persistence**
@@ -94,6 +124,12 @@ WHEN Product Manager phase complete:
   persist artifacts to docs/product/[feature-name]/
   commit: PRD, epics, user stories
   see roles/product-manager.md "Artifact Persistence" section
+
+WHEN Designer phase complete:
+  persist artifacts to docs/design/[feature-name]/
+  persist wireframes to docs/design/[feature-name]/wireframes/
+  commit: User research, user flows, wireframes (HTML), design specs
+  see roles/designer.md "Artifact Persistence" section
 
 WHEN Architect phase complete:
   persist artifacts to docs/architecture/[feature-name]/
@@ -107,6 +143,7 @@ WHY:
   - Future teams need context for "why" decisions were made
   - Version control tracks requirement/design evolution
   - Single source of truth for product and technical specifications
+  - HTML wireframes can be opened in browser for easy review
 ```
 
 **Repository Structure After Phase 0:**
@@ -117,6 +154,14 @@ project-root/
 │   │   ├── prd.md
 │   │   ├── epics.md
 │   │   └── user-stories.md
+│   ├── design/[feature-name]/
+│   │   ├── user-research.md
+│   │   ├── user-flows.md
+│   │   ├── design-specs.md
+│   │   └── wireframes/
+│   │       ├── wireframe-web.html
+│   │       ├── wireframe-ios.html
+│   │       └── wireframe-android.html
 │   ├── architecture/[feature-name]/
 │   │   ├── architecture.md
 │   │   ├── api-spec.md
