@@ -29,6 +29,9 @@ Desktop.ini
 /test-projects/
 /scratch/
 
+# Local workspace and context (not in repository)
+.ai/
+
 # Project-specific rule files (each project adds their own)
 PROJECT-*.md
 project-*.md

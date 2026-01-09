@@ -299,47 +299,82 @@ General-purpose agent:
   DON'T USE FOR: Simple operations available directly
 ```
 
-### Agent Limits and Default Configuration
+### Agent Limits and Enforced Configuration
 
-**DEFAULT CONFIGURATION: Parallel agents for work packages**
+**ENFORCED POLICY: Automatic parallelization analysis for work packages**
+
+**This policy is enforced by:** [Execution Strategy Gate](25-execution-strategy.md)
 
 ```
-Agent Spawning Policy:
-- Default: Parallel workers for 3+ independent subtasks
-- Maximum concurrent agents: 4
-- Launch agents in single message block for true parallelism
+Agent Spawning Policy (ENFORCED):
+- MANDATORY: Analyze parallelization for 3+ subtasks
+- MANDATORY: Spawn parallel workers when criteria met
+- Maximum concurrent agents: 5
+- REQUIRED: Launch agents in single message block (true parallelism)
 - Resume agents when continuing their work
 - Don't spawn agent for tasks you can do directly
 
-Configuration Rules:
-✅ ALWAYS parallelize when:
+Enforcement Rules:
+✅ MANDATORY parallel execution when:
    - 3+ independent subtasks identified
    - Subtasks touch different files/modules
    - No cross-subtask dependencies
    - Each has isolated acceptance criteria
+   - Shared context constraints respected
 
-⚠️ SEQUENCE when:
+   IF above criteria met AND orchestrator proceeds sequentially THEN
+     GATE VIOLATION (Execution Strategy Gate)
+     REQUIRE documented justification OR
+     REQUIRE switch to parallel execution
+   END IF
+
+⚠️ SEQUENCE when (must justify):
    - Subtasks have execution dependencies
    - Same files modified by multiple subtasks
    - Results needed for subsequent tasks
+   - Shared context conflicts cannot be resolved
 
 🔧 HYBRID approach when:
    - Mix of dependent and independent tasks
-   - Parallelize independent groups
-   - Sequence dependent chains
+   - MANDATORY: Parallelize independent groups
+   - REQUIRED: Sequence only dependent chains
 ```
 
-**Parallel Launch Pattern:**
+**Shared Context Requirements (CRITICAL):**
 ```
-// Correct: Single message with multiple Task calls
+Parallel workers operate in SHARED context:
+
+✅ SHARED resources (all workers use same):
+   - Source repository (no per-worker branches)
+   - Build folders (no deletion/recreation)
+   - Coverage data (merge, don't overwrite)
+   - Test databases (coordinate access)
+
+❌ FORBIDDEN during parallel execution:
+   - Deleting build folders
+   - Removing coverage files
+   - Creating per-worker git branches
+   - Destructive git operations
+   - Context-invalidating operations
+
+⚠️ REQUIRES COORDINATION:
+   - Build operations
+   - Coverage report generation
+   - Database migrations
+   - Git commits
+```
+
+**Parallel Launch Pattern (ENFORCED):**
+```
+// CORRECT: Single message with multiple Task calls
 Task(worker, subtask1) + Task(worker, subtask2) + Task(worker, subtask3)
-→ All 3 spawn truly in parallel
+→ All 3 spawn truly in parallel (REQUIRED for 3+ independent)
 
-// Incorrect: Sequential messages
+// INCORRECT: Sequential messages (GATE VIOLATION if applicable)
 Task(worker, subtask1)
 [wait for result]
 Task(worker, subtask2)
-→ Serial execution, slower
+→ Serial execution - only acceptable if justified
 ```
 
 ---

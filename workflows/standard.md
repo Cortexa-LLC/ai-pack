@@ -164,40 +164,102 @@ git diff main           # current changes
 - Large: Significant changes, architectural impact
 - Very Large: Major refactoring or feature
 
-**Parallel Execution Strategy (DEFAULT):**
-```
-IF 3+ independent subtasks THEN
-  DEFAULT: Plan for parallel worker execution
+---
 
-  Strategy:
+#### 2.4 Execution Strategy Determination (MANDATORY)
+
+**GATE CHECKPOINT:** [Execution Strategy Analysis](../gates/25-execution-strategy.md)
+
+**REQUIREMENT:** Before proceeding to implementation, orchestrator MUST analyze and document execution strategy.
+
+**Trigger:** Any work package with 2+ subtasks
+
+**Mandatory Analysis Procedure:**
+```
+STEP 1: Count subtasks and assess independence
+  - List all subtasks with files they modify
+  - Identify which subtasks are independent
+  - Document dependencies between subtasks
+
+STEP 2: Evaluate for parallel execution
+  IF 3+ independent subtasks THEN
+    REQUIRED: Plan parallel execution (not optional)
+    Workers: min(independent_count, 5)
+    Launch: Single message block with multiple Task() calls
+  ELSE IF mix of independent and dependent THEN
+    REQUIRED: Plan hybrid execution
+    Phase 1: Sequential for dependent chain
+    Phase 2: Parallel for independent group
+  ELSE
+    Sequential execution acceptable
+  END IF
+
+STEP 3: Consider shared context constraints
+  ✅ SHARED: Source repo, build folders, coverage data
+  ❌ FORBIDDEN: Deleting builds, per-worker branches
+  ⚠️ COORDINATE: Build ops, coverage merging, migrations
+
+STEP 4: Document strategy decision
+  Write analysis to task packet 10-plan.md:
+  - Subtask inventory
+  - Independence assessment
+  - Strategy choice (PARALLEL/SEQUENTIAL/HYBRID)
+  - Rationale
+  - Worker assignment plan
+  - Shared context coordination plan
+```
+
+**Parallel Execution Strategy (ENFORCED):**
+```
+FOR 3+ independent subtasks:
+  MANDATORY: Parallel worker execution
+
+  Implementation:
   1. Identify independent work units
-  2. Assign one worker per unit (max 4)
-  3. Create isolated task packets
-  4. Define clear handoff points
+  2. Assign one worker per unit (max 5)
+  3. Assign different files to each worker
+  4. Define shared context coordination
   5. Plan integration testing
 
+  Launch Pattern:
+  Single message with multiple Task() calls:
+  - Task(worker, "subtask 1 description")
+  - Task(worker, "subtask 2 description")
+  - Task(worker, "subtask 3 description")
+
   Benefits:
-  - Faster delivery
+  - 3-4x faster delivery
   - Independent verification
   - Clear ownership
-  - Reduced bottlenecks
+  - Enforced parallelization
 
-ELSE IF 1-2 subtasks OR strong dependencies THEN
-  Use sequential single-worker approach
-
-END IF
+FOR 1-2 subtasks OR strong dependencies:
+  Sequential single-worker approach acceptable
 ```
 
-**Parallelization Decision Matrix:**
+**Strategy Decision Matrix:**
 ```
-Work Package Type          | Default Strategy
----------------------------|------------------
-3+ independent modules     | Parallel (DEFAULT)
-3+ API endpoints          | Parallel (DEFAULT)
-3+ similar components     | Parallel (DEFAULT)
-Sequential migrations     | Sequential
-Tightly coupled changes   | Sequential
-Single complex feature    | Sequential
+Subtasks | Independence | Dependencies | Strategy    | Required
+---------|--------------|--------------|-------------|----------
+3+       | All          | None         | PARALLEL    | Mandatory
+3+       | Mixed        | Some         | HYBRID      | Mandatory
+3+       | None         | Strong       | SEQUENTIAL  | Justified
+1-2      | Any          | Any          | SEQUENTIAL  | Default
+```
+
+**Gate Compliance Checklist:**
+```
+□ Subtask count determined
+□ Independence assessed for each
+□ Dependencies identified
+□ Shared context constraints evaluated
+□ Strategy determined (PARALLEL/SEQUENTIAL/HYBRID)
+□ Rationale documented
+□ Worker assignments planned
+□ Launch pattern defined
+
+IF all checked THEN proceed to implementation
+ELSE complete missing analysis
 ```
 
 ---
@@ -237,6 +299,9 @@ Risks and Mitigation:
 ✓ Steps well-defined
 ✓ Risks identified and mitigated
 ✓ Testing strategy planned
+✓ Execution strategy determined (PARALLEL/SEQUENTIAL/HYBRID)
+✓ Shared context constraints evaluated
+✓ Worker assignment plan documented
 ✓ Plan approved (for non-trivial tasks)
 ```
 

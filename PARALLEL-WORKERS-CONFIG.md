@@ -1,34 +1,44 @@
 # Parallel Workers Configuration
 
-**Version:** 1.0.0
-**Last Updated:** 2026-01-07
-**Status:** DEFAULT CONFIGURATION
+**Version:** 1.1.0
+**Last Updated:** 2026-01-08
+**Status:** ENFORCED CONFIGURATION
 
 ---
 
 ## Overview
 
-The ai-pack framework is **configured by default** to use **multiple parallel workers** for resolving work packages. This configuration optimizes delivery speed and resource utilization while maintaining quality and coordination.
+The ai-pack framework **automatically enforces** the use of **multiple parallel workers** for resolving work packages when criteria are met. This enforcement ensures optimal delivery speed and resource utilization while maintaining quality and coordination.
+
+**Enforcement Mechanism:** [Execution Strategy Gate](gates/25-execution-strategy.md)
 
 ---
 
-## Default Configuration
+## Enforced Configuration
 
-### Automatic Parallelization
+### Automatic Parallelization Analysis
 
-**ENABLED BY DEFAULT** for work packages meeting these criteria:
+**MANDATORY ANALYSIS** for work packages with 2+ subtasks. **ENFORCED PARALLEL EXECUTION** when criteria are met:
 
 ```
-✅ AUTO-PARALLEL when:
+✅ MANDATORY PARALLEL EXECUTION when ALL of:
 - 3 or more independent subtasks identified
 - Subtasks modify different files/modules
 - No cross-subtask dependencies
 - Each subtask has isolated acceptance criteria
+- Shared context constraints can be managed
+
+IF criteria met AND orchestrator uses sequential THEN
+  GATE VIOLATION (Execution Strategy Gate)
+  REQUIRE documented justification
+END IF
 ```
 
-**Maximum Parallel Workers:** 4 concurrent agents
+**Maximum Parallel Workers:** 5 concurrent agents
 
-**Launch Pattern:** Single message block (true parallelism)
+**Launch Pattern:** Single message block (true parallelism) - REQUIRED, not optional
+
+**Shared Context:** All workers operate in same source repository, build folders, and working directory
 
 ---
 
@@ -39,11 +49,11 @@ The ai-pack framework is **configured by default** to use **multiple parallel wo
 ```
 Work Package Type                    | Strategy          | Workers
 -------------------------------------|-------------------|----------
-3+ independent API endpoints         | Parallel (DEFAULT)| 2-4
-3+ independent modules/components    | Parallel (DEFAULT)| 2-4
-3+ similar features (no dependencies)| Parallel (DEFAULT)| 2-4
-Multiple bug fixes (different areas) | Parallel (DEFAULT)| 2-4
-Independent refactoring tasks        | Parallel (DEFAULT)| 2-4
+3+ independent API endpoints         | Parallel (DEFAULT)| 2-5
+3+ independent modules/components    | Parallel (DEFAULT)| 2-5
+3+ similar features (no dependencies)| Parallel (DEFAULT)| 2-5
+Multiple bug fixes (different areas) | Parallel (DEFAULT)| 2-5
+Independent refactoring tasks        | Parallel (DEFAULT)| 2-5
 ```
 
 ### When Sequential Execution Is Used
@@ -75,39 +85,68 @@ Example: Database migration + 3 new API endpoints
 
 ## Orchestrator Behavior
 
-### Default Delegation Pattern
+### Enforced Delegation Pattern
 
-The Orchestrator role automatically applies parallel execution for eligible work packages:
+The Orchestrator role MUST analyze and apply appropriate execution strategy. This is enforced by the Execution Strategy Gate:
 
 ```pseudocode
-FUNCTION delegate_work_package(work_package):
+FUNCTION delegate_work_package_ENFORCED(work_package):
+  // MANDATORY GATE: Execution Strategy Analysis
   subtasks = analyze_and_decompose(work_package)
 
-  IF subtasks.count >= 3 AND are_independent(subtasks) THEN
-    // DEFAULT: Spawn parallel workers
+  // GATE REQUIREMENT: Must complete analysis for 2+ subtasks
+  IF subtasks.count >= 2 THEN
+    ENFORCE execution_strategy_gate_analysis(subtasks)
+    // Gate blocks until analysis documented
+  END IF
+
+  // Analysis includes shared context evaluation
+  shared_context_conflicts = assess_shared_context(subtasks)
+
+  IF subtasks.count >= 3 AND are_independent(subtasks) AND no_context_conflicts THEN
+    // ENFORCED: Must spawn parallel workers (not optional)
+    ASSERT parallel_execution_required("3+ independent subtasks with manageable context")
+
     workers = []
-    FOR each subtask in subtasks.take(4):
+    FOR each subtask in subtasks.take(5):  // Max 5 workers
       workers.append(spawn_worker(subtask))
     END FOR
 
-    // Launch all workers in single message block
-    launch_parallel(workers)
+    // REQUIRED: Launch all workers in single message block
+    launch_in_single_message(workers)  // True parallelism
     monitor_parallel_progress(workers)
+    coordinate_shared_context(workers)
 
-  ELSE IF has_dependencies(subtasks) THEN
-    // Hybrid: sequence + parallel
+  ELSE IF has_dependencies(subtasks) OR has_context_conflicts THEN
+    // ENFORCED: Hybrid approach for mixed scenarios
     dependent_chain = extract_dependencies(subtasks)
     independent_group = extract_independent(subtasks)
 
+    // Sequence dependent tasks first
     execute_sequential(dependent_chain)
-    launch_parallel(independent_group)
+
+    // THEN parallelize independent tasks
+    IF independent_group.count >= 3 THEN
+      ENFORCE parallel_execution(independent_group)
+    END IF
 
   ELSE
-    // Sequential for small/coupled tasks
+    // Sequential acceptable for 1-2 subtasks or strong coupling
+    DOCUMENT_RATIONALE("Sequential justified: " + reason)
     execute_sequential(subtasks)
   END IF
+
+  // Gate verification
+  VERIFY_STRATEGY_MATCHES_DOCUMENTED()
 END FUNCTION
 ```
+
+**Key Enforcement Points:**
+- ✅ Analysis MANDATORY for 2+ subtasks
+- ✅ Parallel execution REQUIRED for 3+ independent subtasks
+- ✅ Single message launch ENFORCED (not sequential spawning)
+- ✅ Shared context constraints EVALUATED
+- ✅ Strategy/execution match VERIFIED
 
 ---
 
@@ -125,6 +164,31 @@ Each Worker Must:
 ✓ Complete with own tests and verification
 ✓ Flag integration concerns early
 ✓ Communicate dependency needs proactively
+✓ Respect shared context constraints (no build deletion, etc.)
+✓ Coordinate shared resource access
+```
+
+**Shared Context Constraints (CRITICAL):**
+```
+All parallel workers share:
+- Source repository (single git working directory)
+- Build folders (no deletion/recreation allowed)
+- Coverage data files (merge, don't overwrite)
+- Test databases (coordinate access)
+- Configuration files
+
+Workers MUST NOT:
+- Delete or recreate build folders
+- Remove coverage data
+- Create per-worker git branches
+- Perform destructive git operations
+- Invalidate shared context for other workers
+
+Workers MUST coordinate:
+- Build operations (avoid conflicts)
+- Coverage generation (merge results)
+- Database access (use different schemas if needed)
+- Git commits (timing and conflict resolution)
 ```
 
 ### Orchestrator Coordination Responsibilities

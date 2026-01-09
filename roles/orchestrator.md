@@ -121,31 +121,52 @@ WHEN delegating:
 
 ---
 
-### 2.5 Parallel Worker Configuration (DEFAULT)
+### 2.5 MANDATORY Parallel Execution Analysis
 
-**Configuration:** Multiple parallel workers are the DEFAULT for eligible work packages.
+**ENFORCEMENT:** Execution strategy analysis is MANDATORY before delegating any work package with 2+ subtasks. This is enforced by the **[Execution Strategy Gate](../gates/25-execution-strategy.md)**.
 
-**Default Parallel Execution Policy:**
+**MANDATORY PROCEDURE:**
+```
+BEFORE delegating work with 2+ subtasks:
+  STEP 1: MUST complete execution strategy analysis
+  STEP 2: MUST document parallelization decision
+  STEP 3: MUST spawn workers according to strategy
+  STEP 4: ONLY THEN proceed with delegation
+
+  IF analysis skipped THEN
+    GATE VIOLATION (25-execution-strategy.md)
+    HALT execution
+    REQUIRE analysis completion
+  END IF
+END BEFORE
+```
+
+**Automatic Parallelization Requirements:**
 ```
 FOR work packages with 3+ subtasks:
-  IF subtasks are independent THEN
-    spawn multiple workers in parallel (DEFAULT)
-    maximum: 4 concurrent workers
-    each worker: distinct, isolated deliverables
-  ELSE IF subtasks have dependencies THEN
-    sequence dependent tasks
-    parallelize independent groups
-  END IF
+  STEP 1: Assess independence
+  STEP 2: IF subtasks are independent THEN
+            REQUIRED: Spawn parallel workers (not optional)
+            REQUIRED: Launch in single message block
+            Maximum: 5 concurrent workers
+            Each worker: distinct, isolated deliverable
+          ELSE IF subtasks have dependencies THEN
+            REQUIRED: Hybrid approach
+            Sequence dependent chain
+            Parallelize independent groups
+          END IF
 END FOR
 
 FOR work packages with 1-2 subtasks:
-  use single worker (sequential)
+  Use single worker (sequential approach acceptable)
 END FOR
+
+ENFORCEMENT: Cannot default to sequential for 3+ independent subtasks without documented justification.
 ```
 
-**Independence Criteria (Auto-Qualify for Parallel):**
+**Independence Criteria (Mandatory Parallel Trigger):**
 ```
-✅ Subtasks are independent when:
+✅ Subtasks are independent when ALL of:
 - Modify different files/modules
 - No shared state or resources
 - Can be tested independently
@@ -153,11 +174,12 @@ END FOR
 - No execution order dependencies
 
 Example: Adding 3 new API endpoints
-→ DEFAULT: Spawn 3 parallel workers
+→ MANDATORY: Spawn 3 parallel workers (gate enforced)
 → Each worker: one endpoint + tests + docs
+→ Launch: Single message with 3 Task() calls
 ```
 
-**Dependency Criteria (Hybrid Approach):**
+**Dependency Criteria (Hybrid Approach Required):**
 ```
 ⚠️ Subtasks have dependencies when:
 - Later tasks need earlier results
@@ -165,29 +187,175 @@ Example: Adding 3 new API endpoints
 - Share critical resources
 - Build on each other's output
 
-Example: Database migration + API changes + UI updates
-→ Sequence: DB first, then parallel API + UI workers
+Example: Database migration + 3 API changes
+→ REQUIRED: Hybrid strategy
+→ Phase 1: DB migration (sequential)
+→ Phase 2: 3 parallel workers for APIs
 ```
 
-**Coordination Protocol:**
+**Mandatory Coordination Protocol:**
 ```
-WHEN spawning parallel workers:
-  1. Analyze task dependencies
-  2. Group independent subtasks (default: parallelize)
-  3. Create isolated task packets per worker
-  4. Spawn workers in single message block
+WHEN spawning parallel workers (REQUIRED for 3+ independent):
+  1. MUST analyze task dependencies (gate requirement)
+  2. MUST group independent subtasks for parallel execution
+  3. MUST create isolated task packets per worker
+  4. MUST spawn all workers in single message block
   5. Monitor progress across all workers
   6. Coordinate integration points
   7. Resolve conflicts if any arise
+
+  IF sequential execution used instead THEN
+    REQUIRE documented justification
+    REPORT to execution strategy gate
+  END IF
 END WHEN
 ```
 
-**Benefits of Default Parallelization:**
-- Faster delivery of work packages
-- Better resource utilization
-- Independent verification per subtask
+**Enforcement Benefits:**
+- Automatic faster delivery (3-4x speedup)
+- Guaranteed resource utilization
+- Enforced independent verification
 - Clear ownership boundaries
-- Reduced coordination overhead
+- No manual reminder needed
+
+---
+
+### 2.6 Mandatory Execution Strategy Analysis Procedure
+
+**REQUIREMENT:** Before delegating work, orchestrator MUST explicitly perform and document execution strategy analysis.
+
+**Analysis Template (MANDATORY):**
+```markdown
+## Execution Strategy Analysis
+
+### Subtask Inventory
+1. [Subtask name] - Files: [list] - Independent: [yes/no]
+2. [Subtask name] - Files: [list] - Independent: [yes/no]
+3. [Subtask name] - Files: [list] - Independent: [yes/no]
+
+### Independence Assessment
+- Total subtasks: [N]
+- Independent: [M]
+- Dependencies: [describe or "none"]
+- File conflicts: [list or "none"]
+
+### Strategy Decision
+**Strategy:** PARALLEL | SEQUENTIAL | HYBRID
+**Rationale:** [Explain decision based on analysis]
+
+### Implementation Plan
+**Workers:** [N workers]
+**Launch:** [Single message | Sequential | Hybrid phases]
+**Coordination:** [Integration points and conflict resolution]
+```
+
+**Decision Procedure:**
+```
+STEP 1: Identify all subtasks
+  - List each subtask with files it will modify
+  - Note acceptance criteria for each
+
+STEP 2: Assess independence
+  FOR each subtask pair (A, B):
+    IF different files AND no shared resources THEN
+      mark A and B as independent
+    ELSE
+      mark dependency or conflict
+    END IF
+  END FOR
+
+STEP 3: Count independent subtasks
+  independent_count = count(independent_subtasks)
+
+STEP 4: Determine strategy
+  IF independent_count >= 3 THEN
+    strategy = "PARALLEL"
+    rationale = "3+ independent subtasks qualify for parallel execution"
+    workers = min(independent_count, 5)
+  ELSE IF independent_count >= 2 AND has_dependencies THEN
+    strategy = "HYBRID"
+    rationale = "Mix of independent and dependent subtasks"
+  ELSE
+    strategy = "SEQUENTIAL"
+    rationale = "Too few independent subtasks OR strong dependencies"
+  END IF
+
+STEP 5: Document decision
+  Write analysis to task packet 10-plan.md
+  Include strategy, rationale, and worker plan
+
+STEP 6: Execute according to strategy
+  IF strategy = "PARALLEL" THEN
+    spawn N workers in single message block
+  ELSE IF strategy = "HYBRID" THEN
+    execute dependent chain, then spawn parallel workers
+  ELSE IF strategy = "SEQUENTIAL" THEN
+    spawn single worker
+  END IF
+```
+
+**Shared Context Requirements (CRITICAL):**
+```
+WHEN parallel workers operate on same codebase:
+  ✅ SHARED contexts (all workers use same):
+     - Source repository (no branching per worker)
+     - Build folders (no deletion/recreation)
+     - Test databases (coordinate access)
+     - Coverage data (merge, don't overwrite)
+     - Git working directory
+
+  ❌ FORBIDDEN operations during parallel execution:
+     - Deleting build folders
+     - Removing coverage data
+     - Creating per-worker branches
+     - Destructive git operations (reset, force push)
+     - Operations that invalidate other workers' context
+
+  ⚠️ COORDINATION required for:
+     - Build operations (may need sequential or isolated targets)
+     - Coverage report generation (merge results)
+     - Database migrations (sequence these)
+     - Shared resource access
+```
+
+**Documentation Requirements:**
+```
+Analysis MUST be documented in:
+  PRIMARY: Task packet .ai/tasks/*/10-plan.md
+  OR: Orchestrator output before delegation
+  OR: Work package contract
+
+Documentation MUST include:
+  ✓ Subtask count and inventory
+  ✓ Independence assessment
+  ✓ Dependency identification
+  ✓ Strategy decision (PARALLEL/SEQUENTIAL/HYBRID)
+  ✓ Justification for chosen strategy
+  ✓ Worker spawning plan
+  ✓ Coordination approach
+  ✓ Shared context considerations
+```
+
+**Gate Compliance:**
+```
+BEFORE proceeding to delegation:
+  VERIFY:
+    □ Subtasks identified and counted
+    □ Independence assessed
+    □ Dependencies documented
+    □ Strategy determined
+    □ Rationale documented
+    □ Shared context conflicts identified
+    □ Worker plan created
+
+  IF all verified THEN
+    PASS execution strategy gate
+    PROCEED with delegation
+  ELSE
+    FAIL execution strategy gate
+    COMPLETE missing analysis
+  END IF
+```
 
 ---
 

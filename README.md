@@ -27,17 +27,19 @@ Quality gates define rules and constraints that govern what actions are permitte
 - **[00-global-gates.md](gates/00-global-gates.md)** - Universal rules (safety, quality, communication)
 - **[10-persistence.md](gates/10-persistence.md)** - File operations and state management rules
 - **[20-tool-policy.md](gates/20-tool-policy.md)** - Tool usage policies and approvals
+- **[25-execution-strategy.md](gates/25-execution-strategy.md)** - **MANDATORY** execution strategy analysis and parallel worker enforcement
 - **[30-verification.md](gates/30-verification.md)** - Verification and validation requirements
 
 #### 👥 Roles - Agent Personas
 Roles define different agent personas with specific responsibilities. Located in `roles/`:
 
 - **[orchestrator.md](roles/orchestrator.md)** - High-level coordinator, delegates work, monitors progress
-  - **DEFAULT:** Uses parallel workers for 3+ independent subtasks (max 4 concurrent)
+  - **ENFORCED:** Automatically analyzes and applies parallel execution for 3+ independent subtasks (max 5 concurrent)
+  - **MANDATORY:** Must complete execution strategy analysis before delegation (enforced by [Execution Strategy Gate](gates/25-execution-strategy.md))
 - **[worker.md](roles/worker.md)** - Implementation specialist, writes code, creates tests
 - **[reviewer.md](roles/reviewer.md)** - Quality assurance, code review, standards compliance
 
-**Configuration:** See **[PARALLEL-WORKERS-CONFIG.md](PARALLEL-WORKERS-CONFIG.md)** for parallel execution defaults
+**Configuration:** See **[PARALLEL-WORKERS-CONFIG.md](PARALLEL-WORKERS-CONFIG.md)** for enforced parallel execution details
 
 #### 🔄 Workflows - Development Processes
 Workflows define structured processes for different types of work. Located in `workflows/`:
