@@ -508,6 +508,108 @@ Contents:
 
 ---
 
+## Artifact Persistence to Repository
+
+**Critical:** When Product Manager phase completes and work transitions to implementation, planning artifacts MUST be persisted to the repository for long-term reference.
+
+### Persistence Procedure
+
+```
+WHEN Product Manager deliverables approved THEN
+  STEP 1: Create repository documentation structure
+    mkdir -p docs/product/[feature-name]/
+    mkdir -p docs/adr/ (if doesn't exist)
+
+  STEP 2: Move artifacts from .ai/tasks/ to docs/
+    .ai/tasks/[feature-id]/prd.md
+      → docs/product/[feature-name]/prd.md
+
+    .ai/tasks/[feature-id]/epics.md
+      → docs/product/[feature-name]/epics.md
+
+    .ai/tasks/[feature-id]/user-stories.md
+      → docs/product/[feature-name]/user-stories.md
+
+    .ai/tasks/[feature-id]/technical-consultation.md (if applicable)
+      → docs/product/[feature-name]/technical-consultation.md
+
+  STEP 3: Update references
+    IF Architect phase follows THEN
+      inform Architect of docs/ location
+    END IF
+
+    IF Engineer phase follows THEN
+      inform Engineer of docs/ location
+    END IF
+
+  STEP 4: Commit to repository
+    git add docs/product/[feature-name]/
+    git commit -m "Add product requirements for [feature-name]"
+
+  STEP 5: Keep .ai/tasks/ for active work
+    .ai/tasks/ remains for task packets, active work, temporary artifacts
+    docs/ contains approved, permanent documentation
+END
+```
+
+### Documentation Structure
+
+```
+project-root/
+├── docs/
+│   ├── product/
+│   │   ├── billing-system/
+│   │   │   ├── prd.md
+│   │   │   ├── epics.md
+│   │   │   ├── user-stories.md
+│   │   │   └── technical-consultation.md
+│   │   ├── notification-service/
+│   │   │   ├── prd.md
+│   │   │   ├── epics.md
+│   │   │   └── user-stories.md
+│   │   └── README.md (index of all PRDs)
+│   └── ...
+└── .ai/
+    └── tasks/ (temporary, not committed)
+```
+
+### Why This Matters
+
+**Product Requirements are Long-Lived:**
+- PRDs document product decisions for years
+- Engineers reference PRDs during implementation
+- Future maintainers need context for "why" decisions were made
+- Onboarding new team members requires product history
+- Post-mortems and retrospectives reference original requirements
+
+**Version Control Benefits:**
+- Track requirement changes over time
+- See what was committed to originally
+- Identify scope creep or requirement drift
+- Maintain single source of truth
+- Enable collaboration via pull requests
+
+### Communication Pattern
+
+**Upon persistence:**
+```
+"Product requirements have been committed to repository.
+
+Location: docs/product/[feature-name]/
+
+Artifacts:
+✓ PRD: docs/product/[feature-name]/prd.md
+✓ Epics: docs/product/[feature-name]/epics.md
+✓ User Stories: docs/product/[feature-name]/user-stories.md
+
+These documents now serve as the authoritative product specification
+for this feature.
+
+[Next role] can reference these documents during [architecture/implementation]."
+```
+
+---
+
 ## Integration with Workflows
 
 ### New Product Feature Workflow

@@ -675,6 +675,146 @@ Contents:
 
 ---
 
+## Artifact Persistence to Repository
+
+**Critical:** When Architect phase completes and work transitions to implementation, architecture artifacts MUST be persisted to the repository for long-term reference and team alignment.
+
+### Persistence Procedure
+
+```
+WHEN Architect deliverables approved THEN
+  STEP 1: Create repository documentation structure
+    mkdir -p docs/architecture/[feature-name]/
+    mkdir -p docs/adr/ (if doesn't exist)
+
+  STEP 2: Move artifacts from .ai/tasks/ to docs/
+    .ai/tasks/[feature-id]/architecture.md
+      → docs/architecture/[feature-name]/architecture.md
+
+    .ai/tasks/[feature-id]/api-spec.md
+      → docs/architecture/[feature-name]/api-spec.md
+
+    .ai/tasks/[feature-id]/data-models.md
+      → docs/architecture/[feature-name]/data-models.md
+
+    .ai/tasks/[feature-id]/feasibility.md (if applicable)
+      → docs/architecture/[feature-name]/feasibility-assessment.md
+
+    .ai/tasks/[feature-id]/adrs/adr-001-*.md
+      → docs/adr/adr-001-*.md
+
+  STEP 3: Create cross-references
+    IF PRD exists in docs/product/[feature-name]/ THEN
+      add reference in architecture.md header:
+      "Based on: docs/product/[feature-name]/prd.md"
+    END IF
+
+  STEP 4: Commit to repository
+    git add docs/architecture/[feature-name]/
+    git add docs/adr/ (if new ADRs)
+    git commit -m "Add architecture design for [feature-name]"
+
+  STEP 5: Keep .ai/tasks/ for active work
+    .ai/tasks/ remains for task packets, Engineer work-in-progress
+    docs/ contains approved, permanent technical design
+END
+```
+
+### Documentation Structure
+
+```
+project-root/
+├── docs/
+│   ├── architecture/
+│   │   ├── billing-system/
+│   │   │   ├── architecture.md
+│   │   │   ├── api-spec.md
+│   │   │   ├── data-models.md
+│   │   │   └── feasibility-assessment.md
+│   │   ├── notification-service/
+│   │   │   ├── architecture.md
+│   │   │   ├── api-spec.md
+│   │   │   └── data-models.md
+│   │   └── README.md (index of all designs)
+│   ├── adr/
+│   │   ├── 001-use-graphql-federation.md
+│   │   ├── 002-postgresql-for-transactions.md
+│   │   ├── 003-event-sourcing-for-billing.md
+│   │   └── README.md (ADR index)
+│   ├── product/
+│   │   └── ... (from Product Manager)
+│   └── ...
+└── .ai/
+    └── tasks/ (temporary, not committed)
+```
+
+### ADR Numbering Convention
+
+```
+ADR Naming: adr-NNN-title-in-kebab-case.md
+
+Examples:
+- docs/adr/001-use-graphql-federation.md
+- docs/adr/002-postgresql-for-transactions.md
+- docs/adr/003-microservices-architecture.md
+
+ADR numbers are sequential across entire project, not per-feature.
+Check existing ADRs to determine next number.
+```
+
+### Why This Matters
+
+**Architecture Decisions are Critical:**
+- Architecture documents explain system design for years
+- Engineers reference API specs during implementation
+- Data models become source of truth for database changes
+- ADRs prevent repeating past discussions
+- New team members understand architectural context
+- Audits and compliance require architecture documentation
+
+**Long-Term Value:**
+- Onboarding: New developers learn system design
+- Maintenance: Future changes consider original constraints
+- Debugging: Architecture docs help diagnose integration issues
+- Evolution: ADRs show why current state exists
+- Compliance: Documentation for security/regulatory audits
+
+**Version Control Benefits:**
+- Track architecture evolution over time
+- Review architecture changes via pull requests
+- See what was committed vs what was built
+- Enable team collaboration on design
+- Maintain audit trail of decisions
+
+### Communication Pattern
+
+**Upon persistence:**
+```
+"Architecture design has been committed to repository.
+
+Location: docs/architecture/[feature-name]/
+
+Artifacts:
+✓ Architecture: docs/architecture/[feature-name]/architecture.md
+✓ API Specification: docs/architecture/[feature-name]/api-spec.md
+✓ Data Models: docs/architecture/[feature-name]/data-models.md
+✓ ADRs: docs/adr/[list-of-adr-numbers].md
+
+Engineers can now reference these documents during implementation.
+API specifications and data models serve as the authoritative technical
+design for this feature."
+```
+
+**When referencing Product Requirements:**
+```
+"Architecture design based on Product Requirements:
+  PRD: docs/product/[feature-name]/prd.md
+
+Cross-reference added to architecture.md header."
+```
+
+---
+
 ## Integration with Workflows
 
 ### Feature Development Workflow with Architect

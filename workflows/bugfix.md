@@ -35,7 +35,7 @@ The Bugfix Workflow is specialized for identifying, analyzing, and fixing defect
 ```
 IF bug is complex OR root cause unclear THEN
   Orchestrator delegates to Inspector
-  Inspector conducts RCA
+  Inspector conducts investigation and retrospective
   Inspector creates task packet for Engineer
   Orchestrator delegates to Engineer with task packet
 END IF
@@ -468,6 +468,67 @@ Result: Issue resolved, no recurrence
 
 ---
 
+## Post-Fix: Retrospective Artifact Persistence
+
+**CRITICAL:** After bug is fixed and verified, bug investigation retrospective MUST be persisted to repository for organizational learning.
+
+### When to Persist Retrospective
+
+```
+WHEN bug fix verified and accepted THEN
+  IF Inspector was used THEN
+    Inspector persists retrospective to docs/investigations/
+  ELSE IF Engineer did investigation THEN
+    Engineer (or Orchestrator) persists retrospective to docs/investigations/
+  END IF
+
+  persist: Retrospective document with lessons learned
+  commit: Add to investigation knowledge base
+  see roles/inspector.md "Artifact Persistence" section
+END
+```
+
+### Why This Matters
+
+**Organizational Learning:**
+- Captures knowledge about system failure modes
+- Patterns emerge across multiple bug investigations
+- Prevents repeating same bugs
+- Informs architecture improvements
+
+**Pattern Detection:**
+- Categorized retrospectives reveal systemic issues
+- Multiple similar bugs → systemic improvement needed
+- Retrospective index helps diagnose similar symptoms faster
+
+**Repository Structure After Bugfix:**
+```
+project-root/
+├── docs/
+│   ├── investigations/
+│   │   ├── BUG-123-null-pointer-in-payment.md
+│   │   ├── BUG-145-race-condition-order-processing.md
+│   │   └── README.md (index by root cause category)
+│   └── ...
+└── .ai/
+    └── tasks/ (temporary work-in-progress)
+```
+
+**Communication Pattern:**
+```
+"Bug fix complete and retrospective committed to repository.
+
+Location: docs/investigations/[bug-id]-[description].md
+
+Root Cause: [Brief explanation]
+Category: [Pattern category]
+Lessons Learned: [Summary]
+
+This retrospective is now part of the organizational knowledge base."
+```
+
+---
+
 ## Success Criteria
 
 A bugfix is complete when:
@@ -481,6 +542,7 @@ A bugfix is complete when:
 ✓ Bug verified fixed
 ✓ Documentation complete
 ✓ Lessons learned captured
+✓ Retrospective persisted to docs/investigations/ (for non-trivial bugs)
 ```
 
 ---

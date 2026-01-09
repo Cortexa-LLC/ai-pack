@@ -85,6 +85,48 @@ END IF
 - **From PM (if invoked):** PRD, epics, user stories with acceptance criteria
 - **From Architect (if invoked):** Architecture document, API specifications, data models, ADRs
 
+**CRITICAL: Artifact Persistence**
+
+When Phase 0 completes and implementation begins, planning artifacts MUST be persisted to repository:
+
+```
+WHEN Product Manager phase complete:
+  persist artifacts to docs/product/[feature-name]/
+  commit: PRD, epics, user stories
+  see roles/product-manager.md "Artifact Persistence" section
+
+WHEN Architect phase complete:
+  persist artifacts to docs/architecture/[feature-name]/
+  persist ADRs to docs/adr/
+  commit: Architecture docs, API specs, data models, ADRs
+  see roles/architect.md "Artifact Persistence" section
+
+WHY:
+  - Planning artifacts document decisions for years
+  - Engineers reference docs during implementation
+  - Future teams need context for "why" decisions were made
+  - Version control tracks requirement/design evolution
+  - Single source of truth for product and technical specifications
+```
+
+**Repository Structure After Phase 0:**
+```
+project-root/
+├── docs/
+│   ├── product/[feature-name]/
+│   │   ├── prd.md
+│   │   ├── epics.md
+│   │   └── user-stories.md
+│   ├── architecture/[feature-name]/
+│   │   ├── architecture.md
+│   │   ├── api-spec.md
+│   │   └── data-models.md
+│   └── adr/
+│       └── NNN-[decision-title].md
+└── .ai/
+    └── tasks/ (work-in-progress, temporary)
+```
+
 ---
 
 ### Phase 1: Feature Discovery & Scoping

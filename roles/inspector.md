@@ -9,7 +9,7 @@ The Inspector is a bug investigation specialist responsible for analyzing bug re
 
 **Key Metaphor:** Detective and forensic analyst - investigates evidence, identifies root cause, builds case for resolution.
 
-**Key Distinction:** Inspector INVESTIGATES bugs, Engineer FIXES them. Inspector delivers RCA + task packet.
+**Key Distinction:** Inspector INVESTIGATES bugs, Engineer FIXES them. Inspector delivers retrospective + task packet.
 
 ---
 
@@ -44,11 +44,11 @@ STEP 3: Gather diagnostic evidence
 
 ---
 
-### 2. Root Cause Analysis (RCA)
+### 2. Root Cause Analysis and Retrospective
 
 **Responsibility:** Identify the underlying cause of the bug, not just symptoms.
 
-**RCA Investigation Methodology:**
+**Investigation Methodology:**
 ```
 STEP 1: Code path tracing
   FOR each reproduction:
@@ -79,9 +79,9 @@ STEP 4: Determine why tests missed it
   - Recent regression?
 ```
 
-**RCA Document Template:**
+**Retrospective Document Template:**
 ```markdown
-## Root Cause Analysis: [BUG-ID]
+## Bug Investigation Retrospective: [BUG-ID]
 
 **Bug Summary:** [Brief description]
 
@@ -165,17 +165,17 @@ Attachments:
   - Reproduction test case
   - Diagnostic logs
   - Stack traces
-  - RCA document
+  - Retrospective document
 ```
 
 **Engineer Delegation Pattern:**
 ```
-AFTER RCA complete:
-  create_task_packet(bug_id, rca_findings)
+AFTER retrospective complete:
+  create_task_packet(bug_id, findings)
 
   engineer = Task(
     subagent_type="engineer",
-    prompt="Fix bug [BUG-ID] per RCA and task packet.
+    prompt="Fix bug [BUG-ID] per retrospective and task packet.
             Root cause: [summary]
             Fix approach: [recommended approach]
             Task packet: .ai/tasks/[bug-id]/
@@ -292,9 +292,9 @@ STEP 4: Document findings
 
 ### Required Deliverables
 
-**1. Root Cause Analysis Document**
+**1. Bug Investigation Retrospective**
 ```markdown
-Location: .ai/tasks/[bug-id]/rca.md
+Location: .ai/tasks/[bug-id]/retrospective.md
 
 Contents:
 - Bug summary and reproduction
@@ -313,7 +313,7 @@ Files:
 - 00-contract.md (bug fix requirements)
 - 10-plan.md (fix approach and considerations)
 - reproduction-test.{ext} (failing test)
-- rca.md (root cause analysis)
+- retrospective.md (bug investigation retrospective)
 ```
 
 **3. Regression Test Specifications**
@@ -322,6 +322,171 @@ Document in 00-contract.md:
 - Test scenarios required
 - Coverage expectations
 - Example test cases
+```
+
+---
+
+## Artifact Persistence to Repository
+
+**Critical:** After bug is fixed and verified, retrospective documents should be persisted to the repository for organizational learning and pattern detection.
+
+### Persistence Procedure
+
+```
+WHEN bug fix verified and accepted THEN
+  STEP 1: Create repository documentation structure
+    mkdir -p docs/investigations/
+
+  STEP 2: Move retrospective from .ai/tasks/ to docs/
+    .ai/tasks/[bug-id]/retrospective.md
+      → docs/investigations/[bug-id]-[short-description].md
+
+    Include in the retrospective:
+    - Original bug report summary
+    - Root cause analysis
+    - Fix approach taken
+    - Lessons learned
+    - Similar bugs prevented
+
+  STEP 3: Add metadata to retrospective
+    Add header with:
+    - Bug ID and severity
+    - Date reported and resolved
+    - Systems/components affected
+    - Root cause category (null reference, race condition, validation, etc.)
+    - Related bugs (if any)
+
+  STEP 4: Update investigations index
+    IF docs/investigations/README.md exists THEN
+      add entry for this retrospective
+      categorize by root cause pattern
+    ELSE
+      create README.md with retrospective index
+    END IF
+
+  STEP 5: Commit to repository
+    git add docs/investigations/[bug-id]-*.md
+    git add docs/investigations/README.md
+    git commit -m "Add retrospective for [bug-id]: [brief description]"
+
+  STEP 6: Clean up .ai/tasks/
+    task packet and work-in-progress artifacts can be archived/deleted
+    permanent retrospective is now in docs/
+END
+```
+
+### Documentation Structure
+
+```
+project-root/
+├── docs/
+│   ├── investigations/
+│   │   ├── BUG-123-null-pointer-in-payment.md
+│   │   ├── BUG-145-race-condition-order-processing.md
+│   │   ├── BUG-167-validation-bypass-in-auth.md
+│   │   ├── README.md (index by root cause category)
+│   │   └── patterns/
+│   │       ├── null-reference-bugs.md
+│   │       ├── race-conditions.md
+│   │       └── validation-failures.md
+│   ├── architecture/
+│   │   └── ... (from Architect)
+│   ├── product/
+│   │   └── ... (from Product Manager)
+│   └── ...
+└── .ai/
+    └── tasks/ (temporary, not committed)
+```
+
+### Retrospective Document Format
+
+```markdown
+# Bug Investigation Retrospective: [BUG-ID] - [Short Description]
+
+**Status:** Resolved
+**Severity:** [Critical | High | Medium | Low]
+**Reported:** 2026-01-09
+**Resolved:** 2026-01-10
+**Systems Affected:** [List of systems/components]
+**Root Cause Category:** [e.g., Null Reference, Race Condition, Validation]
+
+## Bug Summary
+[Brief description of the bug and its impact]
+
+## Root Cause
+[Detailed explanation of the underlying cause]
+
+## Fix Applied
+[Description of the fix that was implemented]
+**Implementation:** [Link to PR or commit]
+
+## Why Tests Missed It
+[Explanation of test coverage gap]
+
+## Lessons Learned
+- [Lesson 1]
+- [Lesson 2]
+
+## Similar Bugs Prevented
+[List of similar patterns identified and addressed]
+
+## Related Issues
+- [BUG-XXX]: [Relationship]
+```
+
+### Why This Matters
+
+**Organizational Learning:**
+- Retrospectives capture knowledge about system failure modes
+- Patterns emerge across multiple bug investigations
+- New team members learn from past mistakes
+- Prevents repeating same bugs
+- Informs architecture and design improvements
+
+**Pattern Detection:**
+- Categorized retrospectives reveal systemic issues
+- Multiple null reference bugs → need better null safety
+- Multiple race conditions → need better concurrency design
+- Multiple validation bugs → need stronger input validation framework
+
+**Compliance and Audits:**
+- Security bugs require documented retrospectives for compliance
+- Incident reports reference retrospective documents
+- Post-mortems link to technical retrospectives
+- Audit trails for critical bugs
+
+**Future Reference:**
+- Similar symptoms → check retrospective index for known patterns
+- Architecture decisions reference past bugs prevented
+- Refactoring prioritized based on retrospective patterns
+
+### Communication Pattern
+
+**Upon persistence:**
+```
+"Bug investigation retrospective has been committed to repository.
+
+Location: docs/investigations/[bug-id]-[description].md
+
+Summary:
+- Root Cause: [Brief explanation]
+- Category: [Pattern category]
+- Fix Applied: [Summary]
+- Similar Bugs Prevented: [Count]
+
+This retrospective is now part of the organizational knowledge base
+and can be referenced when similar symptoms appear."
+```
+
+**When patterns emerge:**
+```
+"Retrospective complete for [BUG-ID].
+
+NOTICE: This is the [N]th bug in category [category].
+Recommend reviewing pattern document:
+  docs/investigations/patterns/[category].md
+
+Consider systemic improvement to prevent recurrence."
 ```
 
 ---
@@ -351,7 +516,7 @@ Root Cause: [concise explanation]
 
 Fix Strategy: [recommended approach]
 
-Task packet created at: .ai/tasks/[bug-id]/
+Task packet and retrospective created at: .ai/tasks/[bug-id]/
 Ready to delegate to Engineer for implementation.
 
 [If similar bugs found]:
@@ -474,7 +639,7 @@ An Inspector is successful when:
 - ✓ Task packet enables Engineer to fix without clarification
 - ✓ Regression test prevents recurrence
 - ✓ Similar bugs identified proactively
-- ✓ RCA document clear and actionable
+- ✓ Retrospective document clear and actionable
 - ✓ Fix strategy sound and low-risk
 
 ---
