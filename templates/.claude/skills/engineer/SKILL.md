@@ -26,6 +26,164 @@ Implement high-quality code following test-driven development and clean code pri
 
 Use these tools proactively - don't ask permission, just use them to complete the task.
 
+## Error Handling and Retry Protocol (CRITICAL)
+
+**When operations fail, follow this protocol:**
+
+### 1. Automatic Retry (First 3 Attempts)
+
+If any operation fails (Write, Edit, Bash, etc.):
+
+```
+Attempt 1: Operation failed
+  ↓
+Wait 2 seconds, retry with same parameters
+  ↓
+Attempt 2: Still failed
+  ↓
+Re-read the file (might have changed), adjust operation
+  ↓
+Attempt 3: Still failed
+  ↓
+Proceed to diagnosis
+```
+
+**Common retry strategies:**
+- **Write/Edit failures**: Re-read file, check if content changed
+- **Bash failures**: Check error message, adjust command
+- **Build failures**: Read error output, fix issue
+- **Test failures**: Read test output, fix implementation
+
+### 2. Diagnose the Problem (Attempts 4-5)
+
+After 3 failed attempts, investigate:
+
+```bash
+# For file operations
+Read <file>  # Check current state
+git status   # Check if file locked/modified
+
+# For build failures
+cat <error_log>  # Full error details
+grep "error" <output>  # Find specific errors
+
+# For test failures
+Read <test_file>  # Understand what's being tested
+Read <implementation>  # Check implementation
+```
+
+**Try alternative approach:**
+- Different tool (Write vs Edit)
+- Smaller change (break into parts)
+- Different order (dependency issue)
+
+### 3. Escalate to Coordinator (After 5 Attempts)
+
+If problem persists after 5 attempts:
+
+```
+⚠️ ESCALATION TO COORDINATOR
+
+Issue: [SPECIFIC PROBLEM]
+Operation: [WHAT YOU'RE TRYING TO DO]
+Attempts: 5 failed attempts
+Symptoms: [ERROR MESSAGES/BEHAVIOR]
+
+What I've tried:
+1. [First approach and result]
+2. [Second approach and result]
+3. [Alternative approach and result]
+
+Suspected causes:
+- [Possible cause 1]
+- [Possible cause 2]
+
+Requesting guidance on how to proceed.
+```
+
+**Coordinator can help with:**
+- Coordination conflicts (another agent editing same file)
+- Missing context (need info from another agent)
+- Architectural decisions (unclear how to proceed)
+- Resource issues (permissions, dependencies)
+
+### 4. Document in Work Log
+
+Update `.ai/tasks/*/20-work-log.md` with:
+
+```markdown
+## [TIMESTAMP] - BLOCKER ENCOUNTERED
+
+**Issue:** [Problem description]
+**Attempts:** 5 retries over [duration]
+**Impact:** Cannot complete [task]
+**Status:** ESCALATED to Coordinator
+
+**Details:**
+[Error messages, symptoms, what was tried]
+
+**Waiting for:** Coordinator guidance
+```
+
+### Common Failure Scenarios
+
+**File Write/Edit Failures:**
+```
+Cause: File changed by another agent
+Retry: Re-read file, recompute changes, retry
+Escalate: If file keeps changing (coordination needed)
+```
+
+**Build Failures:**
+```
+Cause: Compilation errors, missing dependencies
+Retry: Fix errors shown in output, rebuild
+Escalate: If error unclear or dependency missing
+```
+
+**Test Failures:**
+```
+Cause: Implementation bug, test bug, flaky test
+Retry: Fix implementation, re-run tests
+Escalate: If test expectations unclear
+```
+
+**Git Conflicts:**
+```
+Cause: Another agent committed to same area
+Retry: Pull latest, resolve conflicts, retry
+Escalate: If conflict resolution unclear
+```
+
+**Permission Errors:**
+```
+Cause: File permissions, access restrictions
+Retry: Check permissions, try alternative path
+Escalate: Need elevated access or configuration
+```
+
+**Timeout/Slowness:**
+```
+Cause: Large operation, system load, network
+Retry: Break into smaller operations, retry
+Escalate: If systematic performance issue
+```
+
+## Never Give Up Silently
+
+**❌ DON'T:**
+- Fail silently and move on
+- Skip implementation due to errors
+- Report "done" when blocked
+- Assume someone else will fix it
+
+**✅ DO:**
+- Retry with different approaches
+- Diagnose the root cause
+- Document the blocker
+- Escalate to Coordinator
+- Update work log with status
+
 ## Critical: Read These First
 
 Before coding, read:

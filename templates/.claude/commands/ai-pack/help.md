@@ -15,12 +15,18 @@ Example: `/ai-pack task-init add-login`
 **`/ai-pack task-status`**
 Show current task progress and status.
 
+**`/ai-pack agents`**
+Show active agents, their roles, and task assignments.
+
 ---
 
 ### Role Selection
 
 **`/ai-pack orchestrate`**
 Coordinate complex multi-step tasks (3+ subtasks, parallel execution).
+
+**`/ai-pack coordinate`**
+Monitor active agents and intervene when stuck or blocked.
 
 **`/ai-pack engineer`**
 Implement well-defined tasks with clear requirements.
