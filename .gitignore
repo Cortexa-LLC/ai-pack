@@ -19,6 +19,9 @@ Desktop.ini
 .settings/
 .classpath
 
+# Exception: Allow templates/.claude/ (these are templates for consumer projects)
+!templates/.claude/
+
 # Temporary Files
 *.tmp
 *.bak

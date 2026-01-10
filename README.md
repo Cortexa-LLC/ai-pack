@@ -383,6 +383,37 @@ The Clean Code Standards and AI Workflow Framework work together:
 
 ## Usage
 
+### Quick Start with Claude Code Integration
+
+**Recommended setup for projects using Claude Code:**
+
+```bash
+# 1. Add ai-pack as submodule
+cd your-project
+git submodule add https://github.com/Cortexa-LLC/ai-pack .ai-pack
+git submodule update --init --recursive
+
+# 2. Run automated setup (creates .claude/ integration)
+python3 .ai-pack/templates/.claude-setup.py
+
+# 3. Copy and customize project CLAUDE.md
+cp .ai-pack/templates/CLAUDE.md .
+# Edit CLAUDE.md with project-specific context
+
+# 4. Commit the integration
+git add .ai-pack .claude/ .ai/ CLAUDE.md
+git commit -m "Add ai-pack framework with Claude Code integration"
+```
+
+**What you get:**
+- ✅ `/ai-pack` slash commands for task management and role selection
+- ✅ Auto-triggered Skills for Orchestrator and Engineer roles
+- ✅ Enforcement hooks that block violations (task packet gate)
+- ✅ Modular rules auto-loaded for all files
+- ✅ Complete framework integration in Claude Code
+
+See: [Claude Code Integration](#claude-code-integration) for details
+
 ### Option 1: Git Submodule (Recommended for Teams)
 
 Add these standards to your project as a submodule:
@@ -418,13 +449,111 @@ Copy the standards directly into your project:
 cp -r /path/to/ai-pack .ai-pack
 ```
 
-## Integration with AI Assistants
+## Claude Code Integration
 
-AI-Pack is designed to work with Claude Code and other AI assistants that support `.ai-pack`:
+AI-Pack includes **native Claude Code integration** with commands, skills, rules, and hooks that enforce framework standards automatically.
+
+### Integration Components
+
+Located in `templates/.claude/`:
+
+1. **Slash Commands** (`commands/ai-pack/`)
+   - `/ai-pack task-init <name>` - Create task packets
+   - `/ai-pack task-status` - Check progress
+   - `/ai-pack orchestrate` - Assume Orchestrator role
+   - `/ai-pack engineer` - Assume Engineer role
+   - `/ai-pack test` - Validate tests (MANDATORY)
+   - `/ai-pack review` - Code review (MANDATORY)
+   - `/ai-pack inspect` - Bug investigation
+   - `/ai-pack architect` - Architecture design
+   - `/ai-pack designer` - UX workflows
+   - `/ai-pack pm` - Product requirements
+   - `/ai-pack help` - Show all commands
+
+2. **Skills** (`skills/`)
+   - Auto-triggered Orchestrator and Engineer roles
+   - Activate based on keywords in user requests
+   - Provide role-specific guidance automatically
+
+3. **Rules** (`rules/`)
+   - Modular rules auto-loaded for all files
+   - Gates, task packets, and workflows enforced
+   - Reduces token usage vs reading full docs
+
+4. **Hooks** (`hooks/`)
+   - Python enforcement scripts (cross-platform)
+   - Task packet gate blocks implementation work
+   - Configured via `settings.json`
+
+### Setup for Consumer Projects
+
+Run the automated setup script after adding ai-pack as a submodule:
+
+```bash
+# After: git submodule add <url> .ai-pack
+python3 .ai-pack/templates/.claude-setup.py
+```
+
+This creates:
+```
+project-root/
+├── .claude/              # Claude Code integration
+│   ├── commands/ai-pack/ # Slash commands
+│   ├── skills/           # Auto-triggered roles
+│   ├── rules/            # Modular rules
+│   ├── hooks/            # Enforcement scripts
+│   └── settings.json     # Hook configuration
+├── .ai/                  # Project workspace
+│   ├── tasks/            # Task packets
+│   └── repo-overrides.md # Project-specific rules
+└── CLAUDE.md             # Project context (copy from templates/)
+```
+
+### Enforcement Layers
+
+1. **Passive Documentation** - `CLAUDE.md` in project root
+2. **Active Rules** - `.claude/rules/*.md` auto-loaded
+3. **Auto-Triggered Skills** - Activate on keywords
+4. **Manual Commands** - `/ai-pack <command>` explicit invocation
+5. **Hook Enforcement** - Blocks gate violations (Python scripts)
+
+### Example: How Enforcement Works
+
+**User:** "Implement the login feature"
+
+**What happens:**
+1. ✅ **Hook fires** - `check-task-packet.py` verifies task packet exists
+2. ✅ **Skill activates** - Engineer skill provides TDD guidance
+3. ✅ **Rules apply** - Gates and standards enforced
+4. ✅ **Commands available** - `/ai-pack test` when ready
+
+**If no task packet:**
+```
+⚠️  GATE VIOLATION: No Task Packet
+
+Before implementation, create a task packet:
+  /ai-pack task-init <task-name>
+
+This is MANDATORY for all non-trivial tasks.
+```
+
+### Documentation
+
+- **Setup Guide:** [templates/.claude/README.md](templates/.claude/README.md)
+- **Commands:** [templates/.claude/commands/ai-pack/](templates/.claude/commands/ai-pack/)
+- **Skills:** [templates/.claude/skills/README.md](templates/.claude/skills/README.md)
+- **Rules:** [templates/.claude/rules/README.md](templates/.claude/rules/README.md)
+- **Hooks:** [templates/.claude/hooks/README.md](templates/.claude/hooks/README.md)
+
+## Integration with Other AI Assistants
+
+AI-Pack is designed to work with AI assistants that support `.ai-pack`:
 
 1. Add this repository as a submodule to `.ai-pack/` in your project
-2. The framework files will be automatically discovered by Claude Code
+2. The framework files will be automatically discovered
 3. AI assistants will apply these standards and workflows during development
+
+**For Claude Code:** Use the automated setup above for native integration.
 
 ## Project-Specific Customization
 
@@ -565,6 +694,14 @@ ai-pack/
 │
 ├── templates/                         # Reusable templates
 │   ├── CLAUDE.md                      # Bootstrap template
+│   ├── .claude-setup.py               # Automated setup script
+│   ├── .claude/                       # Claude Code integration templates
+│   │   ├── commands/ai-pack/          # Slash commands
+│   │   ├── skills/                    # Auto-triggered roles
+│   │   ├── rules/                     # Modular rules
+│   │   ├── hooks/                     # Enforcement scripts
+│   │   ├── settings.json              # Hook configuration
+│   │   └── README.md                  # Integration docs
 │   └── task-packet/                   # Task packet templates
 │       ├── 00-contract.md             # Task definition
 │       ├── 10-plan.md                 # Implementation plan

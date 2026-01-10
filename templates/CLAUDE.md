@@ -9,11 +9,21 @@
 
 **BEFORE starting ANY non-trivial task, you MUST:**
 
-1. **Create task packet directory:** `.ai/tasks/YYYY-MM-DD_task-name/`
-2. **Copy ALL templates** from `.ai-pack/templates/task-packet/`
-3. **Fill out 00-contract.md** with requirements and acceptance criteria
-4. **Fill out 10-plan.md** with implementation approach
-5. **ONLY THEN** begin implementation
+```bash
+# Use the ai-pack command
+/ai-pack task-init <task-name>
+```
+
+This will:
+1. Create task packet directory: `.ai/tasks/YYYY-MM-DD_task-name/`
+2. Copy ALL templates from `.ai-pack/templates/task-packet/`
+3. Set up contract, plan, work log, review, and acceptance documents
+
+**Then fill out:**
+- `00-contract.md` - Requirements and acceptance criteria
+- `10-plan.md` - Implementation approach
+
+**ONLY THEN begin implementation.**
 
 **Non-Trivial = Any task that:**
 - Requires >2 steps
@@ -21,7 +31,7 @@
 - Takes >30 minutes
 - Needs verification
 
-**This is MANDATORY. Do not skip this step.**
+**This is MANDATORY and enforced by hooks.**
 
 ---
 
@@ -34,11 +44,53 @@ This project uses the **ai-pack framework** for structured AI-assisted developme
 ```
 project-root/
 ├── .ai-pack/           # Git submodule (read-only shared framework)
+│   ├── gates/          # Quality gates
+│   ├── roles/          # Agent roles
+│   ├── workflows/      # Development workflows
+│   ├── templates/      # Task-packet templates
+│   └── quality/        # Clean code standards
 ├── .ai/                # Local workspace (project-specific)
 │   ├── tasks/          # Active task packets
-│   └── repo-overrides.md  # Optional project-specific rules
+│   └── repo-overrides.md  # Project-specific rules
+├── .claude/            # Claude Code integration (auto-loaded)
+│   ├── commands/ai-pack/  # Slash commands
+│   ├── skills/         # Auto-triggered roles
+│   ├── rules/          # Modular rules
+│   ├── hooks/          # Enforcement scripts
+│   └── settings.json   # Hook configuration
 └── CLAUDE.md           # This file
 ```
+
+---
+
+## Claude Code Integration
+
+This project includes **Claude Code integration** with commands, skills, and hooks that enforce ai-pack standards.
+
+### Available Commands
+
+Type `/ai-pack` to see all commands:
+
+```bash
+/ai-pack help              # Show all commands
+/ai-pack task-init <name>  # Create task packet
+/ai-pack task-status       # Check progress
+/ai-pack orchestrate       # Complex coordination
+/ai-pack engineer          # Direct implementation
+/ai-pack test              # Validate tests
+/ai-pack review            # Code review
+/ai-pack inspect           # Bug investigation
+/ai-pack architect         # Architecture design
+/ai-pack designer          # UX workflows
+/ai-pack pm                # Product requirements
+```
+
+**Automatic Enforcement:**
+- Task packet gate enforced via hooks
+- Rules auto-loaded for all files
+- Skills auto-trigger based on keywords
+
+See: [.claude/README.md](.claude/README.md) for details
 
 ---
 

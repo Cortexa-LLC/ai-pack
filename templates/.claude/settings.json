@@ -1,0 +1,17 @@
+{
+  "description": "AI-Pack Framework Configuration for Claude Code",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "description": "Enforce task packet gate before implementation work",
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/check-task-packet.py"
+          }
+        ]
+      }
+    ]
+  }
+}
