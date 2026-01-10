@@ -167,6 +167,139 @@ Error Handling:
 
 ---
 
+### C# Code Quality Checklist (MANDATORY)
+
+**REQUIREMENT:** All C# code MUST pass modern .NET tooling checks (2026 standard).
+
+```
+C# Modern Tooling Enforcement (ALL MANDATORY):
+
+Formatting Verification:
+[ ] Run: dotnet csharpier . --check
+[ ] Expected: "All files are formatted correctly."
+[ ] If fails: Code not formatted - REJECT immediately
+
+Build Verification:
+[ ] Run: dotnet build /warnaserror
+[ ] Expected: "Build succeeded. 0 Warning(s) 0 Error(s)"
+[ ] If fails: Analyzer violations present - REJECT immediately
+
+Configuration Files:
+[ ] .editorconfig present with analyzer severity configuration
+[ ] .csharpierrc.json present with formatting settings
+[ ] Project file has EnableNETAnalyzers=true
+[ ] Project file has EnforceCodeStyleInBuild=true
+[ ] Project file includes CSharpier.MSBuild package
+[ ] Project file includes Roslynator.Analyzers package
+
+.NET Analyzer Rules (IDE*, CA*):
+[ ] No IDE* violations (code style, naming, preferences)
+[ ] No CA1* violations (design rules)
+[ ] No CA2* violations (reliability rules)
+[ ] No CA3* violations (security rules)
+[ ] No CA5* violations (security data flow)
+[ ] All violations either fixed or have justified suppressions
+
+Roslynator Rules (RCS*):
+[ ] No RCS1* violations (simplification)
+[ ] No RCS2* violations (readability)
+[ ] No RCS3* violations (performance)
+[ ] No RCS4* violations (design)
+[ ] No RCS5* violations (maintainability)
+[ ] Code uses modern C# patterns
+
+CSharpier Formatting:
+[ ] Consistent 4-space indentation
+[ ] Allman brace style enforced
+[ ] Proper line breaks and wrapping
+[ ] Trailing commas in collections
+[ ] Consistent spacing throughout
+[ ] No manual formatting issues
+
+Code Quality:
+[ ] No obsolete patterns (e.g., StyleCop.Analyzers)
+[ ] Modern C# features used appropriately
+[ ] Pattern matching used where beneficial
+[ ] LINQ queries optimized
+[ ] Async/await patterns correct
+```
+
+**Build Verification Commands:**
+```bash
+# MUST pass before approval
+
+# Step 1: Check formatting
+$ dotnet csharpier . --check
+Expected: All files are formatted correctly.
+
+# Step 2: Build with enforcement
+$ dotnet build /warnaserror
+Expected: Build succeeded.
+             0 Warning(s)
+             0 Error(s)
+```
+
+**Critical Violations (Automatic CHANGES REQUESTED):**
+```
+❌ Formatting check fails - MAJOR
+  Action: Run dotnet csharpier . and resubmit
+
+❌ Build has analyzer violations - MAJOR
+  Action: Fix all violations, dotnet build /warnaserror must pass
+
+❌ StyleCop.Analyzers package present - MAJOR
+  Action: Remove obsolete package, use modern stack
+
+❌ Missing configuration files - MAJOR
+  Action: Add .editorconfig, .csharpierrc.json
+
+❌ .NET Analyzers not enabled - MAJOR
+  Action: Set EnableNETAnalyzers=true
+
+❌ Missing CSharpier or Roslynator - MAJOR
+  Action: Add required NuGet packages
+```
+
+**Suppression Review:**
+```
+IF analyzer suppression found THEN
+  [ ] Suppression has valid justification comment
+  [ ] Alternative solutions considered
+  [ ] Suppression scope minimal (prefer method over class)
+  [ ] Technical reason documented
+
+  IF no valid justification THEN
+    Request: Remove suppression and fix violation
+  END IF
+END IF
+```
+
+**Modern Stack Verification:**
+```
+✅ CORRECT Modern Stack (2026):
+<PropertyGroup>
+  <EnableNETAnalyzers>true</EnableNETAnalyzers>
+  <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+  <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+</PropertyGroup>
+
+<ItemGroup>
+  <PackageReference Include="CSharpier.MSBuild" Version="0.27.0" />
+  <PackageReference Include="Roslynator.Analyzers" Version="4.12.0" />
+</ItemGroup>
+
+❌ OBSOLETE (Reject if found):
+<ItemGroup>
+  <PackageReference Include="StyleCop.Analyzers" Version="*" />
+</ItemGroup>
+```
+
+**Reference Documents:**
+- Full modern tooling guide: `quality/clean-code/csharp-modern-tooling.md`
+- C# standards: `quality/clean-code/lang-csharp.md`
+
+---
+
 ### Testing Checklist
 
 ```
@@ -261,12 +394,15 @@ Action: MUST fix before approval
 **Major:**
 ```
 - Standards violations
+- [C# ONLY] CSharpier formatting failures (dotnet csharpier . --check fails)
+- [C# ONLY] .NET Analyzer violations (dotnet build /warnaserror fails)
+- [C# ONLY] Obsolete tooling (StyleCop.Analyzers package present)
 - Code quality issues
 - Missing tests for critical paths
 - Poor error handling
 - Significant code smells
 
-Action: SHOULD fix before approval
+Action: MUST fix before approval (for C# tooling violations)
 ```
 
 **Minor:**
@@ -335,6 +471,8 @@ See: src/validation/userValidator.js for similar pattern."
 ✓ No critical findings
 ✓ Major findings addressed
 ✓ Standards compliance verified
+✓ [C# ONLY] Formatting check passes: dotnet csharpier . --check
+✓ [C# ONLY] Build passes: dotnet build /warnaserror (zero warnings)
 ✓ Documentation adequate
 ```
 
@@ -366,6 +504,9 @@ Great work on the error handling and test coverage!
 ❌ Tests failing
 ❌ Coverage below target
 ❌ Major standards violations
+❌ [C# ONLY] Formatting check fails (dotnet csharpier . --check)
+❌ [C# ONLY] Build has violations (dotnet build /warnaserror fails)
+❌ [C# ONLY] Obsolete tooling present (StyleCop.Analyzers)
 ❌ Security issues
 ❌ Acceptance criteria not met
 ```
@@ -418,6 +559,7 @@ The Reviewer role enforces all standards from:
 - quality/clean-code/04-testing.md
 - quality/clean-code/06-code-review-checklist.md
 - quality/clean-code/lang-*.md (language-specific)
+- quality/clean-code/csharp-modern-tooling.md (C# MANDATORY - 2026 standard)
 ```
 
 ### Review Process Integration
@@ -480,6 +622,9 @@ But these don't block approval - great work!"
 ❌ Test failures
 ❌ Low coverage (<80%)
 ❌ Standards violations
+❌ [C# ONLY] Formatting failures (dotnet csharpier . --check fails)
+❌ [C# ONLY] Analyzer violations (dotnet build /warnaserror fails)
+❌ [C# ONLY] StyleCop.Analyzers package present (obsolete)
 ❌ Requirements not met
 ❌ Architecture violations
 ```

@@ -127,6 +127,7 @@ PROCEDURE delegate_to_reviewer:
   STEP 1: Create reviewer task description
     focus_areas = [
       "Code quality against standards",
+      "[C# ONLY] Modern tooling enforcement (CSharpier + .NET Analyzers + Roslynator)",
       "Architecture consistency",
       "Security concerns",
       "Documentation adequacy"
@@ -265,6 +266,9 @@ ENFORCEMENT:
 ❌ BLOCKERS (work incomplete):
 - Critical security vulnerabilities
 - Major standards violations
+- [C# ONLY] Formatting check fails (dotnet csharpier . --check)
+- [C# ONLY] Build has violations (dotnet build /warnaserror fails)
+- [C# ONLY] Obsolete tooling present (StyleCop.Analyzers)
 - Architecture violations
 - Poor error handling
 - Missing critical tests
@@ -491,6 +495,9 @@ Issues that MUST be fixed before approval:
 
 ❌ MAJOR (blocks acceptance):
 - Standards violations (significant)
+- [C# ONLY] CSharpier formatting failures
+- [C# ONLY] .NET Analyzer violations (dotnet build /warnaserror)
+- [C# ONLY] Obsolete tooling (StyleCop.Analyzers package)
 - Architecture violations
 - Missing tests for critical paths
 - Poor error handling

@@ -388,6 +388,8 @@ END WHILE
 ✓ All tests passing (100%)
 ✓ Code coverage 80-90%
 ✓ Code follows standards
+✓ [C# ONLY] Code formatted: dotnet csharpier . (zero errors)
+✓ [C# ONLY] Build passes: dotnet build /warnaserror (zero warnings)
 ✓ No TODO/FIXME left unaddressed
 ✓ Work log updated
 ✓ Commit messages clear
@@ -479,6 +481,198 @@ Dependency Inversion:  Depend on abstractions, not concretions
 ❌ Data clumps
 ❌ Primitive obsession
 ```
+
+---
+
+### C# Code Quality (MANDATORY)
+
+**REQUIREMENT:** All C# code MUST use modern .NET tooling stack (2026 standard).
+
+**Modern C# Tooling Stack:**
+```
+1. CSharpier - Automatic code formatting
+2. .NET Analyzers - Built-in quality rules (IDE*, CA*)
+3. Roslynator - 500+ comprehensive analyzers
+4. EditorConfig - Rule severity configuration
+```
+
+**Pre-Commit Workflow:**
+```
+BEFORE committing C# code:
+
+STEP 1: Format code automatically
+  $ dotnet csharpier .
+  ✅ MUST complete without errors
+
+STEP 2: Build with analyzer enforcement
+  $ dotnet build /warnaserror
+  ✅ MUST pass with zero warnings/errors
+
+STEP 3: Run tests
+  $ dotnet test
+  ✅ MUST pass 100%
+
+IF any step fails THEN
+  FIX immediately
+  DO NOT commit code with violations
+  DO NOT skip formatting or analyzer checks
+END IF
+```
+
+**What Each Tool Enforces:**
+
+**CSharpier (Formatting):**
+- Consistent indentation (4 spaces)
+- Brace placement (Allman style)
+- Line breaks and wrapping
+- Trailing commas in collections
+- Spacing around operators
+- **Zero configuration - just run it**
+
+**.NET Analyzers (Quality):**
+- IDE* rules: Code style, naming, preferences
+- CA* rules: Design, reliability, security, performance
+- Built into .NET SDK (no extra package)
+- Configured via .editorconfig
+
+**Roslynator (Comprehensive):**
+- RCS1*: Code simplification
+- RCS2*: Readability improvements
+- RCS3*: Performance optimizations
+- RCS4*: Design patterns
+- RCS5*: Maintainability
+- 500+ actively-maintained rules
+
+**Build Enforcement:**
+```bash
+# Local development - MUST pass before commit
+dotnet csharpier .
+dotnet build /warnaserror
+
+# Expected output:
+# CSharpier: Formatted X files
+# Build succeeded.
+#     0 Warning(s)
+#     0 Error(s)
+```
+
+**Common Violations and Fixes:**
+
+**Formatting Not Applied:**
+```csharp
+// ❌ VIOLATION: Not formatted
+public class Example{
+public void Method(int x,string y){
+if(x>0){
+DoSomething(x,y);
+}}}
+
+// ✅ CORRECT: Run dotnet csharpier .
+public class Example
+{
+    public void Method(int x, string y)
+    {
+        if (x > 0)
+        {
+            DoSomething(x, y);
+        }
+    }
+}
+```
+
+**Analyzer Violation (CA1031):**
+```csharp
+// ❌ VIOLATION: Catching general exception
+try
+{
+    ProcessData();
+}
+catch (Exception ex)  // CA1031: Do not catch general exception types
+{
+    Log(ex);
+}
+
+// ✅ CORRECT: Catch specific exceptions
+try
+{
+    ProcessData();
+}
+catch (IOException ex)
+{
+    Log(ex);
+}
+catch (ArgumentException ex)
+{
+    Log(ex);
+}
+```
+
+**Roslynator Violation (RCS1179):**
+```csharp
+// ❌ VIOLATION: Unnecessary assignment
+bool result;
+if (condition)
+{
+    result = true;
+}
+else
+{
+    result = false;
+}
+return result;
+
+// ✅ CORRECT: Direct return
+return condition;
+```
+
+**Configuration Files Required:**
+```
+Project Root:
+├── .editorconfig           # Analyzer severity configuration
+├── .csharpierrc.json       # CSharpier settings
+└── src/
+    └── MyProject.csproj    # EnableNETAnalyzers=true
+```
+
+**Project File Requirements:**
+```xml
+<PropertyGroup>
+  <!-- .NET Analyzers (MANDATORY) -->
+  <EnableNETAnalyzers>true</EnableNETAnalyzers>
+  <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+  <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+  <!-- Treat warnings as errors -->
+  <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'">true</TreatWarningsAsErrors>
+</PropertyGroup>
+
+<ItemGroup>
+  <!-- CSharpier -->
+  <PackageReference Include="CSharpier.MSBuild" Version="0.27.0" />
+
+  <!-- Roslynator -->
+  <PackageReference Include="Roslynator.Analyzers" Version="4.12.0" />
+</ItemGroup>
+```
+
+**Why NOT StyleCop.Analyzers:**
+```
+❌ StyleCop.Analyzers (OBSOLETE):
+- Last stable release: 2018 (8 years old)
+- Beta stuck since 2016
+- Not Microsoft-supported
+- Superseded by modern .NET tooling
+
+✅ Modern Stack (2026):
+- CSharpier: Actively maintained (2024+)
+- .NET Analyzers: Built into SDK
+- Roslynator: 500+ modern rules, active development
+- Industry standard, Microsoft-endorsed
+```
+
+**Reference:**
+- Full documentation: `quality/clean-code/csharp-modern-tooling.md`
+- C# standards: `quality/clean-code/lang-csharp.md`
 
 ---
 
