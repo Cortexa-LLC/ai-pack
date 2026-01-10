@@ -209,17 +209,27 @@ See individual README files in each directory for details.
 
 ### Updating ai-pack Framework
 
+**For existing projects with Claude Code integration:**
+
 ```bash
 # Update submodule to latest
 git submodule update --remote .ai-pack
 
-# Re-run setup to get new templates
-python3 .ai-pack/templates/.claude-setup.py
+# Run UPDATE script (preserves customizations)
+python3 .ai-pack/templates/.claude-update.py
 
 # Commit updates
-git add .ai-pack .claude/
-git commit -m "Update ai-pack framework"
+git add .claude/
+git commit -m "Update ai-pack Claude Code integration"
 ```
+
+The update script:
+- Updates all framework files (commands, skills, rules, hooks)
+- **Preserves** your custom commands, skills, rules, hooks
+- Creates backup before updating (`.claude.backup.TIMESTAMP/`)
+- Handles settings.json merge if you've customized it
+
+**First time adding integration?** Use `.claude-setup.py` instead (see "Setup for New Projects" above).
 
 ### Testing Setup
 

@@ -537,6 +537,28 @@ Before implementation, create a task packet:
 This is MANDATORY for all non-trivial tasks.
 ```
 
+### Updating Existing Projects
+
+If your project already has ai-pack and you want to add/update Claude Code integration:
+
+```bash
+# 1. Update ai-pack submodule
+git submodule update --remote .ai-pack
+
+# 2. Run update script (preserves customizations)
+python3 .ai-pack/templates/.claude-update.py
+
+# 3. Commit updates
+git add .claude/
+git commit -m "Update ai-pack Claude Code integration"
+```
+
+The update script:
+- ✅ Updates all framework files (commands, skills, rules, hooks)
+- ✅ Preserves custom commands, skills, rules you've added
+- ✅ Creates backup before updating
+- ✅ Handles settings.json merge if customized
+
 ### Documentation
 
 - **Setup Guide:** [templates/.claude/README.md](templates/.claude/README.md)
