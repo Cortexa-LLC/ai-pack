@@ -24,6 +24,30 @@ Before proceeding, read:
 3. `.ai-pack/gates/35-code-quality-review.md` - Quality gates
 4. `.ai/tasks/*/00-contract.md` - Current task requirements
 
+## How to Delegate (CRITICAL)
+
+**Use the Task tool to spawn specialist agents:**
+
+```python
+# Spawn Engineer for implementation
+Task(subagent_type="general-purpose",
+     description="Implement login feature",
+     prompt="Act as Engineer role. Implement the login feature with TDD...")
+
+# Spawn Reviewer for code review
+Task(subagent_type="general-purpose",
+     description="Review login implementation",
+     prompt="Act as Reviewer role. Review the login implementation...")
+```
+
+**For parallel execution (3+ independent subtasks):**
+```python
+# Launch multiple agents in SINGLE message
+Task(...) + Task(...) + Task(...)  # All in same response
+```
+
+See: `.ai-pack/gates/25-execution-strategy.md` for parallel execution requirements
+
 ## Workflow Phases
 
 ### Phase 1: Task Analysis
