@@ -254,9 +254,15 @@ class Calculator:
 
 **Run test - it should PASS**
 
-### REFACTOR - Clean Up Code
+### REFACTOR - Clean Up Code (MANDATORY - DO NOT SKIP)
 
+**⚠️ CRITICAL: The REFACTOR step is MANDATORY and must NOT be skipped!**
+
+After getting tests to pass (GREEN), you MUST refactor for:
+
+**1. Code Quality:**
 ```python
+# Add type hints
 class Calculator:
     def calculate_total(self, items: List[Item]) -> Decimal:
         """Calculate total price of items.
@@ -270,11 +276,107 @@ class Calculator:
         return sum(item.price for item in items)
 ```
 
-**Run test - still PASSES**
+**2. Remove Duplication:**
+```python
+# Before refactor - duplication
+def calculate_total_with_tax(items):
+    total = sum(item.price for item in items)
+    return total * 1.08
+
+def calculate_total_with_discount(items, discount):
+    total = sum(item.price for item in items)
+    return total * (1 - discount)
+
+# After refactor - extract common logic
+def _calculate_subtotal(items):
+    return sum(item.price for item in items)
+
+def calculate_total_with_tax(items):
+    return _calculate_subtotal(items) * 1.08
+
+def calculate_total_with_discount(items, discount):
+    return _calculate_subtotal(items) * (1 - discount)
+```
+
+**3. Improve Names:**
+```python
+# Before
+def calc(x, y):
+    return x + y
+
+# After
+def calculate_item_total(base_price, quantity):
+    return base_price * quantity
+```
+
+**4. Extract Methods:**
+```python
+# Before - complex method
+def process_order(order):
+    if order.items:
+        total = sum(item.price for item in order.items)
+        if order.has_discount:
+            total *= 0.9
+        if order.location == "CA":
+            total *= 1.08
+        order.total = total
+        order.save()
+        send_email(order.customer.email, f"Order total: {total}")
+
+# After - extracted methods
+def process_order(order):
+    total = self._calculate_order_total(order)
+    self._save_order(order, total)
+    self._notify_customer(order, total)
+
+def _calculate_order_total(self, order):
+    subtotal = sum(item.price for item in order.items)
+    return self._apply_adjustments(subtotal, order)
+
+def _apply_adjustments(self, subtotal, order):
+    if order.has_discount:
+        subtotal *= 0.9
+    if order.location == "CA":
+        subtotal *= 1.08
+    return subtotal
+```
+
+**5. Identify Opportunities for Improvement:**
+
+**AFTER EACH REFACTOR, ASK YOURSELF:**
+- Can this be simplified further?
+- Is there duplication I can eliminate?
+- Are there magic numbers that should be constants?
+- Can this logic be extracted to a helper?
+- Would a different data structure be clearer?
+- Is this code easy to test?
+- Would splitting this file improve organization?
+
+**Document opportunities in work log:**
+```markdown
+## Refactoring Opportunities Identified
+- [ ] Extract validation logic to separate validator class
+- [ ] Consider caching calculation results for repeated calls
+- [ ] User model has grown to 500 lines - consider splitting
+```
+
+**Run all tests after refactoring - they MUST still PASS**
+
+**❌ DO NOT SKIP REFACTOR:**
+- "I'll refactor later" → Technical debt accumulates
+- "It's good enough" → System becomes unmaintainable
+- "Tests pass, ship it" → Misses continual improvement
+
+**✅ ALWAYS REFACTOR:**
+- Tests pass → Time to improve
+- Every cycle → Compound improvements
+- Document opportunities → Track for future work
 
 ### REPEAT
 
-Continue RED-GREEN-REFACTOR for each requirement.
+Continue **RED-GREEN-REFACTOR** for each requirement.
+
+**Each cycle MUST include all three steps. Skipping REFACTOR is a failure to follow TDD properly.**
 
 ## Phase 2: Implementation Standards
 
