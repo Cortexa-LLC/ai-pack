@@ -130,8 +130,20 @@ Task(subagent_type="general-purpose", prompt="Act as Engineer, implement feature
 Task(subagent_type="general-purpose", prompt="Act as Engineer, implement feature C per task packet .ai/tasks/2026-01-10_feature-c/")
 ```
 
+**Start coordination timer (for parallel agents):**
+
+When spawning 2+ parallel agents, start the coordination timer:
+
+```bash
+# Start 30-second check-in timer in background
+bash .claude/scripts/coordination-timer.sh 30 1200 &
+```
+
+This creates a checkpoint file that triggers periodic coordination check-ins every 30 seconds.
+
 **Monitor progress:**
 - Check work logs (`.ai/tasks/*/20-work-log.md`)
+- Check coordination checkpoint: `cat .claude/.coordination-checkpoint`
 - Resolve blockers
 - Coordinate handoffs
 

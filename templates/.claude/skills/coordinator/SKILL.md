@@ -34,20 +34,59 @@ This skill activates when:
 
 ## Periodic Check-in Schedule
 
-**Every 15 minutes:**
-```
-1. Check agent status: /ai-pack agents
-2. Read work logs for updates
-3. Check git commits
-4. Identify any blocked/stuck agents
-5. Intervene if needed
-6. Report status
+**Coordination Timer System:**
+
+The Orchestrator starts a background timer when spawning parallel agents:
+```bash
+bash .claude/scripts/coordination-timer.sh 30 1200 &
 ```
 
-**After 10 minutes of silence from any agent:**
+This creates checkpoint file: `.claude/.coordination-checkpoint`
+
+**Check for coordination trigger:**
+```bash
+# Run the coordination trigger checker
+python3 .claude/scripts/check-coordination-trigger.py
 ```
-ALERT: Agent appears stuck or blocked
-ACTION REQUIRED: Investigate and guide
+
+If a checkpoint has been reached, you'll see:
+```
+🚨 COORDINATION CHECK-IN REQUIRED
+Checkpoint: 3
+Timestamp: 2026-01-10 14:45:00
+⏰ Coordination checkpoint 3 triggered
+```
+
+**Every checkpoint (default: 30 seconds):**
+```
+1. Check coordination trigger: cat .claude/.coordination-checkpoint
+2. Check agent status: /ai-pack agents
+3. Read work logs for updates
+4. Check git commits
+5. Identify any blocked/stuck agents
+6. Intervene if needed
+7. Report status
+```
+
+**Manual check (without timer):**
+```
+# If no timer running, check manually by reading work logs
+Read .ai/tasks/*/20-work-log.md
+
+# Look for last update timestamp
+# If >10 minutes old, agent may be stuck
+```
+
+**After 2-3 minutes of silence from any agent:**
+```
+ALERT: Agent may be stuck or blocked
+ACTION REQUIRED: Check work log and investigate
+```
+
+**After 5+ minutes of silence:**
+```
+CRITICAL: Agent appears stuck or blocked
+ACTION REQUIRED: Intervene immediately and guide
 ```
 
 ## Tool Permissions
