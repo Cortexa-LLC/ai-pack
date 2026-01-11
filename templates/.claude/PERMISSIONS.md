@@ -73,7 +73,7 @@ These operations require explicit user approval:
 ## Default Mode
 
 ```json
-"defaultMode": "accept"
+"defaultMode": "dontAsk"
 ```
 
 This setting enables auto-approval of operations in the `allow` list (including Write and Edit) for smoother workflow. With this mode, any operation explicitly listed in the `allow` array will be auto-approved without prompting.
