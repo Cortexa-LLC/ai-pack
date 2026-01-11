@@ -19,7 +19,8 @@ These operations are pre-approved and won't prompt for confirmation:
 ### Safe Bash Commands
 - ✅ **mkdir, cp, mv** - File system operations
 - ✅ **ls, cat, pwd, echo, which, cd, test** - Read-only utilities and navigation
-- ✅ **npm, dotnet, jest, pytest, tsc** - Build/test/package managers
+- ✅ **npm** - All npm commands (install, sync, ci, test, run, build, etc.)
+- ✅ **dotnet, jest, pytest, tsc** - Build/test tools
 - ✅ **cargo, go, gradle, mvn** - Additional language tooling
 - ✅ **node, python, python3** - Script execution
 
@@ -218,8 +219,13 @@ Task(subagent_type="general-purpose",
 ### Auto-Approved ✅
 ```bash
 # Development workflow - no prompts
+npm install
+npm sync
+npm ci
 npm test
+npm run build
 dotnet build
+dotnet restore
 python script.py
 mkdir src/components
 cat README.md
