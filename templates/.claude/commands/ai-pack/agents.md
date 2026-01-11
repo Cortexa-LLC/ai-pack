@@ -188,16 +188,47 @@ When multiple agents are active:
 - **Execution Strategy Gate:** [.ai-pack/gates/25-execution-strategy.md](../../.ai-pack/gates/25-execution-strategy.md)
 - **Parallel Workers Config:** [.ai-pack/PARALLEL-ENGINEERS-CONFIG.md](../../.ai-pack/PARALLEL-ENGINEERS-CONFIG.md)
 
+## How to Execute This Command
+
+**CRITICAL: Check infrastructure exists first!**
+
+This command requires the ai-pack infrastructure to be deployed. Before attempting to show agent status, you MUST:
+
+1. **Check if agent status tracker exists:**
+   ```bash
+   test -f .claude/scripts/agent-status-tracker.py && echo "OK" || echo "NOT DEPLOYED"
+   ```
+
+2. **Check if work logs directory exists:**
+   ```bash
+   test -d .ai/tasks && echo "OK" || echo "NO TASKS"
+   ```
+
+3. **If infrastructure missing:**
+   - Report: "No active agents - Orchestrator has not spawned any parallel workers yet"
+   - OR: "ai-pack infrastructure not deployed - run update script first"
+   - DO NOT attempt to run commands that will fail
+
+4. **If infrastructure present:**
+   - Run agent status tracker: `python3 .claude/scripts/agent-status-tracker.py report`
+   - Check work logs: `find .ai/tasks -name "20-work-log.md" -exec tail -20 {} \;`
+   - Look for spawn records: `grep -i "spawned\|delegated" .ai/tasks/*/20-work-log.md 2>/dev/null || echo "No spawn records"`
+
 ## Alternative: Check Via Work Log
 
-If this command doesn't show agents, check manually:
+If agent status tracker not available, check manually:
 
 ```bash
-# Read work log
-cat .ai/tasks/*/20-work-log.md
+# Only if .ai/tasks exists
+if [ -d .ai/tasks ]; then
+  # Read work log
+  find .ai/tasks -name "20-work-log.md" -exec tail -20 {} \;
 
-# Look for agent spawn records
-grep -i "spawned\|agent\|delegated" .ai/tasks/*/20-work-log.md
+  # Look for agent spawn records
+  grep -i "spawned\|agent\|delegated" .ai/tasks/*/20-work-log.md 2>/dev/null
+else
+  echo "No task directories found - no agents have been spawned"
+fi
 ```
 
 Orchestrator should document:
@@ -208,4 +239,4 @@ Orchestrator should document:
 
 ---
 
-**Note:** This command helps monitor agent-based orchestration. If you're working directly (not via Orchestrator), you won't have spawned agents to track.
+**Note:** This command helps monitor agent-based orchestration. If you're working directly (not via Orchestrator), you won't have spawned agents to track. This command will gracefully report "No active agents" rather than failing with errors.
