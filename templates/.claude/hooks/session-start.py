@@ -49,7 +49,6 @@ def start_background_script(script_name, *args):
     try:
         if platform.system() == "Windows":
             # Windows: use CREATE_NO_WINDOW flag
-            import subprocess
             proc = subprocess.Popen(
                 [sys.executable, str(script_path)] + list(args),
                 creationflags=subprocess.CREATE_NO_WINDOW if platform.system() == "Windows" else 0,
