@@ -189,9 +189,9 @@ Coordination:
 - Communicate before shared changes
 ```
 
-### Step 4: Report Status TO ORCHESTRATOR
+### Step 4: Report Status TO ORCHESTRATOR AND USER
 
-**CRITICAL:** After each check-in, you MUST report status to Orchestrator.
+**CRITICAL:** After each check-in, you MUST report status to both Orchestrator AND display progress to user.
 
 **Update agent status tracker:**
 
@@ -208,9 +208,56 @@ python3 .claude/scripts/agent-status-tracker.py blocked agent_d "Permission deni
 python3 .claude/scripts/agent-status-tracker.py report
 ```
 
+**IMPORTANT: Display progress update to user:**
+
+Every 30 seconds (each coordination checkpoint), output a concise progress update:
+
+```
+⏱️ Agent Progress Update (2m 30s elapsed)
+
+✅ Agent 1 (Engineer A): Implementing login endpoint • 5 commits • Last update: 30s ago
+⚠️ Agent 2 (Engineer B): Implementing profile endpoint • 3 commits • Last update: 1m 30s ago (provided guidance)
+✅ Agent 3 (Reviewer): Conducting code review • Reviewed 10/25 files • Last update: 45s ago
+
+All agents progressing. Next check-in: 30s
+```
+
+**Progress update format:**
+- **Emoji status**: ✅ (healthy), ⚠️ (slow/issues), 🚨 (blocked)
+- **Agent ID and role**: Clear identification
+- **Current task**: What they're working on
+- **Progress indicator**: Commits, files reviewed, tests passing, etc.
+- **Running time**: How long agent has been active
+- **Last update**: When work log was last updated
+- **Action taken** (if any): Brief note on interventions
+
+**Example with running times:**
+
+```
+⏱️ Agent Progress Update (5m 00s elapsed)
+
+✅ Engineer A (2m 30s): Login endpoint • 5 commits • Tests passing
+✅ Engineer B (2m 30s): Profile endpoint • 3 commits • Building...
+✅ Reviewer (3m 00s): Code review • 15/25 files • Found 2 minor issues
+
+All healthy. Next check-in: 30s
+```
+
+**Example with intervention:**
+
+```
+⏱️ Agent Progress Update (3m 30s elapsed)
+
+✅ Engineer A (1m 30s): Login endpoint • 5 commits • On track
+🚨 Engineer B (1m 30s): Profile endpoint • 0 commits • BLOCKED on permissions
+   → Action: Fixed settings.json, respawning agent
+
+Next check-in: 30s
+```
+
 **Write status update to work log:**
 
-After each checkpoint, append to Orchestrator's work log:
+After displaying to user, also append to Orchestrator's work log:
 
 ```markdown
 ## Coordination Check-in [TIMESTAMP]
@@ -219,26 +266,32 @@ After each checkpoint, append to Orchestrator's work log:
 
 ### Agent Details:
 
-**Agent 1 (Engineer A):** ✅ HEALTHY
+**Agent 1 (Engineer A):** ✅ HEALTHY (Runtime: 2m 30s)
 - Task: Implement login endpoint
-- Last activity: 2 minutes ago
+- Last activity: 30s ago
 - Commits: 5
 - Status: On track
 
-**Agent 2 (Engineer B):** ⚠️ SLOW
+**Agent 2 (Engineer B):** ⚠️ SLOW (Runtime: 2m 30s)
 - Task: Implement profile endpoint
-- Last activity: 4 minutes ago
+- Last activity: 1m 30s ago
 - Commits: 3
 - Action taken: Provided guidance on testing approach
 
-**Agent 3 (Engineer C):** 🚨 BLOCKED
+**Agent 3 (Engineer C):** 🚨 BLOCKED (Runtime: 2m 30s)
 - Task: Implement settings endpoint
-- Last activity: 6 minutes ago
+- Last activity: 2m 15s ago
 - Blocker: Permission denied on Write
 - Action taken: Fixed settings.json, requested respawn
 
 **Next check-in:** 30 seconds
 ```
+
+**Why display to user:**
+1. **Transparency**: User sees agents are working, not stalled
+2. **Reassurance**: Long-running agents (30s-60s+) show progress
+3. **Early warning**: User can stop if agents going wrong direction
+4. **Visibility**: Clear what's happening during silent background work
 
 **Report Format:**
 
