@@ -1,6 +1,6 @@
 {
   "description": "AI-Pack Framework Configuration for Claude Code",
-  "_comment_permissions": "defaultMode: accept enables auto-approval of all operations in 'allow' list. Auto-approved: Write, Edit, safe Bash commands, safe git operations (pull/fetch/status/diff/log/branch/checkout), build/test tools. Require approval: git commit/push/merge, rm, destructive operations.",
+  "_comment_permissions": "defaultMode: dontAsk enables auto-approval of all operations in 'allow' list. Auto-approved: Write, Edit, safe Bash commands, safe git operations (pull/fetch/status/diff/log/branch/checkout), build/test tools. Require approval: git commit/push/merge, rm, destructive operations.",
   "permissions": {
     "allow": [
       "Write(*)",
@@ -36,7 +36,7 @@
       "Bash(python:*)",
       "Bash(python3:*)"
     ],
-    "defaultMode": "accept"
+    "defaultMode": "dontAsk"
   },
   "hooks": {
     "onSessionStart": {
