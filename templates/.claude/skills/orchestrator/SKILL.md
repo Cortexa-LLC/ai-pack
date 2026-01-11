@@ -61,24 +61,67 @@ Before proceeding, read:
 
 ## How to Delegate (CRITICAL)
 
-**Use the Task tool to spawn specialist agents:**
+### ⚠️ IMPORTANT: Skill vs Task Tool
 
+There are **two ways** to delegate to ai-pack roles:
+
+**Option 1: Skill Tool (Foreground/Interactive)**
 ```python
-# Spawn Engineer for implementation
-Task(subagent_type="general-purpose",
-     description="Implement login feature",
-     prompt="Act as Engineer role. Implement the login feature with TDD...")
+Skill(skill="engineer", args="implement feature X")
+```
+- Runs in **foreground** (interactive, can prompt for approval)
+- Good for **single task** requiring interaction
+- **NOT suitable for parallel execution**
 
-# Spawn Reviewer for code review
+**Option 2: Task Tool (Background/Parallel) ✅ PREFERRED**
+```python
+Task(subagent_type="general-purpose",  # ✅ CORRECT - always use "general-purpose"
+     description="Implement login feature",
+     prompt="Act as Engineer role from ai-pack. Follow .ai-pack/roles/engineer.md. Implement login feature with TDD...",
+     run_in_background=true)  # ✅ REQUIRED for background execution
+```
+- Runs in **background** (autonomous, non-interactive)
+- **Critical for parallel execution** (framework's main value)
+- Agents adopt ai-pack role via prompt instruction
+
+### 🚨 CRITICAL: Valid Task Tool Subagent Types
+
+**NEVER use these as subagent_type:**
+- ❌ `subagent_type="engineer"` - WRONG! Will fail with "Agent type not found"
+- ❌ `subagent_type="tester"` - WRONG!
+- ❌ `subagent_type="reviewer"` - WRONG!
+- ❌ `subagent_type="inspector"` - WRONG!
+
+**ALWAYS use:**
+- ✅ `subagent_type="general-purpose"` - For all ai-pack roles
+- ✅ Instruct the role in the `prompt` parameter
+
+**Valid subagent types:**
+- `"general-purpose"` - Use this for engineer/tester/reviewer/etc roles
+- `"Bash"` - Command execution specialist
+- `"Explore"` - Codebase exploration
+- `"Plan"` - Implementation planning
+
+**Correct delegation pattern:**
+```python
+# ✅ CORRECT
 Task(subagent_type="general-purpose",
-     description="Review login implementation",
-     prompt="Act as Reviewer role. Review the login implementation...")
+     description="Implement feature X",
+     prompt="Act as Engineer role from ai-pack framework. Follow .ai-pack/roles/engineer.md. Implement feature X...",
+     run_in_background=true)
+
+# ❌ WRONG - will fail
+Task(subagent_type="engineer", ...)  # "engineer" is NOT a valid subagent type!
 ```
 
-**For parallel execution (3+ independent subtasks):**
+### For Parallel Execution (3+ Independent Subtasks)
+
+**Launch multiple Task tool calls in SINGLE message:**
 ```python
-# Launch multiple agents in SINGLE message
-Task(...) + Task(...) + Task(...)  # All in same response
+# All 3 spawned simultaneously - runs in parallel
+Task(subagent_type="general-purpose", ...)  # Agent 1
+Task(subagent_type="general-purpose", ...)  # Agent 2
+Task(subagent_type="general-purpose", ...)  # Agent 3
 ```
 
 See: `.ai-pack/gates/25-execution-strategy.md` for parallel execution requirements
@@ -197,6 +240,15 @@ See: `.ai-pack/gates/25-execution-strategy.md` for parallel execution requiremen
 **Now you will delegate. Read this carefully:**
 
 ### How to Delegate (The ONLY Thing You Do)
+
+**🎯 QUICK REFERENCE:**
+```python
+# ✅ ALWAYS use this pattern:
+Task(subagent_type="general-purpose",  # NOT "engineer"/"tester"/etc!
+     description="Short task summary",
+     prompt="Act as [Engineer/Tester/Reviewer] role from ai-pack. Follow .ai-pack/roles/[role].md. [Detailed instructions]...",
+     run_in_background=true)  # Required for background execution
+```
 
 **❌ WRONG PATTERN (What you've been doing):**
 ```
