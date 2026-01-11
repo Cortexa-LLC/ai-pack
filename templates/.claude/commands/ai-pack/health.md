@@ -384,18 +384,42 @@ rm .claude/.coordination-last-check
 
 ## Implementation
 
-The health check is implemented by activating the Watchdog skill with health check mode:
+The health check runs as a background task to avoid blocking the main session:
 
 ```
 /ai-pack health
   ↓
-Activates Watchdog skill
+Spawn background agent (Task tool, run_in_background=true)
   ↓
-Watchdog runs diagnostic checklist
+Agent performs Watchdog diagnostics
   ↓
-Generates health report
+Agent generates health report in .ai/reports/health-TIMESTAMP.md
   ↓
-Returns status to user
+Main session notified when complete
+```
+
+**Why background execution:**
+- Health checks can take 30-180 seconds depending on depth
+- User should not be blocked during diagnostics
+- Multiple health checks can run in parallel if needed
+- Results saved to file for later review
+
+**Implementation pattern:**
+```python
+Task(subagent_type="general-purpose",
+     description="Run system health check",
+     prompt="""Act as Watchdog role from ai-pack. Perform comprehensive health check following the diagnostic checklist in .claude/skills/watchdog/SKILL.md.
+
+Generate report covering:
+1. Infrastructure health (timers, checkpoints, scripts)
+2. Configuration health (permissions, hooks, settings)
+3. Role health (Orchestrator, Coordinator, agents)
+4. Agent health (progress, blockers, work logs)
+5. Workflow health (gates, TDD, reviews, tests)
+
+Save report to .ai/reports/health-{timestamp}.md and provide summary.
+""",
+     run_in_background=true)
 ```
 
 ## References
