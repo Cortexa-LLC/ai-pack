@@ -14,6 +14,7 @@
       "Bash(echo:*)",
       "Bash(which:*)",
       "Bash(test:*)",
+      "Bash(tail:*)",
       "Bash(git pull:*)",
       "Bash(git fetch:*)",
       "Bash(git status:*)",
