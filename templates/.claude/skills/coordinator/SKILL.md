@@ -189,31 +189,86 @@ Coordination:
 - Communicate before shared changes
 ```
 
-### Step 4: Report Status
+### Step 4: Report Status TO ORCHESTRATOR
 
-After each check-in:
+**CRITICAL:** After each check-in, you MUST report status to Orchestrator.
+
+**Update agent status tracker:**
+
+```bash
+# Update agent status in system
+python3 .claude/scripts/agent-status-tracker.py update agent_a commits=5
+python3 .claude/scripts/agent-status-tracker.py update agent_b commits=3
+python3 .claude/scripts/agent-status-tracker.py complete agent_c
+
+# If agent blocked
+python3 .claude/scripts/agent-status-tracker.py blocked agent_d "Permission denied"
+
+# Generate report for Orchestrator
+python3 .claude/scripts/agent-status-tracker.py report
+```
+
+**Write status update to work log:**
+
+After each checkpoint, append to Orchestrator's work log:
+
+```markdown
+## Coordination Check-in [TIMESTAMP]
+
+**Agent Status Summary:** [X completed / Y active / Z blocked]
+
+### Agent Details:
+
+**Agent 1 (Engineer A):** ✅ HEALTHY
+- Task: Implement login endpoint
+- Last activity: 2 minutes ago
+- Commits: 5
+- Status: On track
+
+**Agent 2 (Engineer B):** ⚠️ SLOW
+- Task: Implement profile endpoint
+- Last activity: 4 minutes ago
+- Commits: 3
+- Action taken: Provided guidance on testing approach
+
+**Agent 3 (Engineer C):** 🚨 BLOCKED
+- Task: Implement settings endpoint
+- Last activity: 6 minutes ago
+- Blocker: Permission denied on Write
+- Action taken: Fixed settings.json, requested respawn
+
+**Next check-in:** 30 seconds
+```
+
+**Report Format:**
 
 ```
-=== Coordination Status Report ===
+=== COORDINATOR REPORT TO ORCHESTRATOR ===
 Time: [TIMESTAMP]
+Checkpoint: [N]
 
-Agent 1 ([ROLE]): ✅ HEALTHY
-  Working on: [TASK]
-  Last activity: 5 minutes ago
-  Status: On track
+Summary: [X]/[TOTAL] completed, [Y] active, [Z] blocked
 
-Agent 2 ([ROLE]): ⚠️ SLOW
-  Working on: [TASK]
-  Last activity: 12 minutes ago
-  Action taken: Provided guidance
+Details:
+- Agent 1: ✅ HEALTHY (5 commits, on track)
+- Agent 2: ⚠️ SLOW (3 commits, guidance provided)
+- Agent 3: 🚨 BLOCKED (permission issue, fixing now)
 
-Agent 3 ([ROLE]): 🚨 STUCK
-  Working on: [TASK]
-  Last activity: 20 minutes ago
-  Action taken: Investigating blocker
+Actions Taken:
+- Fixed Agent 3 permission issue
+- Provided Agent 2 testing guidance
+- Agent 1 proceeding normally
 
-Next check-in: 15 minutes
+Estimated Completion: [TIME or BLOCKERS]
+
+Next check-in: 30 seconds
+===========================================
 ```
+
+**Orchestrator must:**
+- Read these reports every few check-ins
+- Make strategic decisions based on status
+- Adjust plan if blockers can't be resolved
 
 ## Common Issues and Solutions
 
