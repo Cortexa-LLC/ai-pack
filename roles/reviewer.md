@@ -587,6 +587,80 @@ The Reviewer role enforces all standards from:
 
 ---
 
+### Progress Reporting for Background Reviews
+
+**CRITICAL: When running as background agent, report progress regularly.**
+
+Background Reviewers cannot be interrupted or queried mid-review. To enable Orchestrator/Coordinator monitoring, you MUST update the work log with progress milestones.
+
+**Progress Update Frequency:**
+- After reviewing every 5-10 files
+- After completing each major section (e.g., "API layer done, moving to data layer")
+- After running build/test validations
+- When encountering blockers or major issues
+
+**How to Report Progress:**
+
+Update the work log (`20-work-log.md`) with concise status:
+
+```markdown
+## Reviewer Progress
+
+### [Timestamp] - Initial Scan
+- Identified 25 files to review
+- Starting with API layer (10 files)
+- ETA: 15-20 minutes
+
+### [Timestamp] - API Layer Complete
+- Reviewed 10 files in src/API/
+- Found: 2 minor issues, 1 suggestion
+- Moving to GraphQL layer (8 files)
+
+### [Timestamp] - GraphQL Layer Complete
+- Reviewed 8 files in src/GraphQL/
+- Found: 1 major issue (SQL injection risk)
+- Moving to Data layer (7 files)
+
+### [Timestamp] - Build Validation
+- Running dotnet build...
+- Build successful
+- Running test suite...
+
+### [Timestamp] - Final Report
+- Review complete
+- Writing detailed findings to 30-review.md
+```
+
+**Benefits:**
+1. **Visibility**: Orchestrator can check work log to see progress
+2. **Debugging**: If review stalls, last progress update shows where
+3. **Transparency**: Clear audit trail of review activities
+4. **Coordination**: Other agents know review status
+
+**Implementation Pattern:**
+
+```python
+# After reviewing a section
+Edit(
+    file_path=".ai/tasks/{task-id}/20-work-log.md",
+    old_string="## Reviewer Progress\n\n",
+    new_string="## Reviewer Progress\n\n### [timestamp] - Section Complete\n- Reviewed: {what}\n- Found: {summary}\n- Next: {next-section}\n\n"
+)
+```
+
+**Anti-Pattern:**
+❌ Don't wait until review is 100% complete to update work log
+❌ Don't write "still working..." without specifics
+❌ Don't skip progress updates because "review is fast"
+
+**Success Pattern:**
+✅ Update every 5-10 files or 3-5 minutes
+✅ Include specific progress (files reviewed, issues found)
+✅ Indicate what's next
+✅ Report blockers immediately
+
+---
+
 ## When to Request Changes vs. Approve
 
 ### Approve Despite Minor Issues
