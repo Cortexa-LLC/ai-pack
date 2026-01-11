@@ -12,11 +12,63 @@ The Execution Strategy Gate is a **mandatory checkpoint** that enforces explicit
 
 ---
 
+## Prerequisites for Parallel Execution
+
+### Permission Configuration Check (CRITICAL)
+
+**BEFORE spawning parallel background agents, verify permissions:**
+
+```bash
+# Check if permissions configured
+cat .claude/settings.json | grep -A 10 permissions
+```
+
+**Required permissions section:**
+```json
+{
+  "permissions": {
+    "allow": [
+      "Write(*)",
+      "Edit(*)",
+      "Bash(mkdir:*)",
+      "Bash(git:*)",
+      "Bash(npm:*)",
+      "Bash(dotnet:*)"
+    ],
+    "defaultMode": "acceptEdits"
+  }
+}
+```
+
+**Why this is required:**
+- Background agents (`run_in_background: true`) cannot prompt interactively
+- File operations need pre-approval
+- **Without this: Agents blocked immediately on first Write/Edit**
+
+**GATE BLOCKS if:**
+- ❌ `.claude/settings.json` missing permissions section
+- ❌ `Write(*)` or `Edit(*)` not in allow list
+- ❌ `defaultMode` not set to `acceptEdits`
+
+**Error without permissions:**
+```
+Error: Permission to use Write has been auto-denied (prompts unavailable).
+```
+
+**Fix:**
+```bash
+# Add permissions to settings.json
+# See: .ai-pack/PARALLEL-ENGINEERS-CONFIG.md (Permission Configuration section)
+```
+
+---
+
 ## Trigger Conditions
 
 This gate activates when:
 ```
 IF orchestrator has 2+ subtasks ready for delegation THEN
+  VERIFY permissions configured (BLOCK if not)
   TRIGGER execution strategy gate
   REQUIRE explicit analysis
   BLOCK delegation until analysis complete

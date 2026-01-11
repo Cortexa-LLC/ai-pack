@@ -1,5 +1,26 @@
 {
   "description": "AI-Pack Framework Configuration for Claude Code",
+  "permissions": {
+    "allow": [
+      "Write(*)",
+      "Edit(*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(rm:*)",
+      "Bash(git:*)",
+      "Bash(npm:*)",
+      "Bash(dotnet:*)",
+      "Bash(jest:*)",
+      "Bash(pytest:*)",
+      "Bash(tsc:*)",
+      "Bash(cargo:*)",
+      "Bash(go:*)",
+      "Bash(gradle:*)",
+      "Bash(mvn:*)"
+    ],
+    "defaultMode": "acceptEdits"
+  },
   "hooks": {
     "UserPromptSubmit": [
       {

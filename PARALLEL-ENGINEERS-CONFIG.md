@@ -191,6 +191,59 @@ Workers MUST coordinate:
 - Git commits (timing and conflict resolution)
 ```
 
+### Permission Configuration for Background Agents (CRITICAL)
+
+**PROBLEM:** Background agents run without interactive prompts and cannot request file operation permissions.
+
+**SOLUTION:** Pre-approve required permissions in `.claude/settings.json` or `.claude/settings.local.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Write(*)",
+      "Edit(*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(rm:*)",
+      "Bash(git:*)",
+      "Bash(npm:*)",
+      "Bash(dotnet:*)",
+      "Bash(jest:*)",
+      "Bash(pytest:*)",
+      "Bash(tsc:*)",
+      "Bash(cargo:*)",
+      "Bash(go:*)"
+    ],
+    "defaultMode": "acceptEdits"
+  }
+}
+```
+
+**Why This is Required:**
+- Background agents (`run_in_background: true`) run as subprocesses
+- Subprocesses cannot display interactive permission prompts
+- File operations (Write, Edit) require pre-approval
+- Build tools (npm, dotnet, etc.) need explicit permission patterns
+- **Without this: Agents blocked immediately on first file operation**
+
+**Error Without Permissions:**
+```
+Error: Permission to use Write has been auto-denied (prompts unavailable).
+```
+
+**Setup Verification:**
+```bash
+# Check if permissions configured
+cat .claude/settings.json | grep -A 5 permissions
+
+# If missing, add permissions section
+# Or use settings.local.json (not tracked in git)
+```
+
+**Alternative:** Use interactive agents (no `run_in_background`) but this sacrifices true parallelism.
+
 ### Orchestrator Coordination Responsibilities
 
 ```

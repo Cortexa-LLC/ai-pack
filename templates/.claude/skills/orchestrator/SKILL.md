@@ -58,16 +58,41 @@ See: `.ai-pack/gates/25-execution-strategy.md` for parallel execution requiremen
    ```
    If missing, stop and run: `/ai-pack task-init <name>`
 
-2. **Read contract and plan:**
+2. **Verify permissions for background agents (CRITICAL):**
+   ```bash
+   # Check if permissions configured
+   cat .claude/settings.json | grep -A 5 permissions
+   ```
+
+   **If permissions section missing:**
+   ```
+   ⚠️ BLOCKER: Background agents need pre-approved permissions
+
+   Background agents cannot prompt interactively.
+   They need Write(*), Edit(*), and Bash(*) pre-approved.
+
+   Add to .claude/settings.json:
+   {
+     "permissions": {
+       "allow": ["Write(*)", "Edit(*)", "Bash(git:*)", "Bash(npm:*)", "Bash(dotnet:*)"],
+       "defaultMode": "acceptEdits"
+     }
+   }
+
+   Without this, agents will be blocked on first file operation.
+   ```
+
+3. **Read contract and plan:**
    - Requirements in `00-contract.md`
    - Approach in `10-plan.md`
 
-3. **Analyze for parallelization:**
+4. **Analyze for parallelization:**
    - Identify independent subtasks
    - Check for shared resources (build folders, databases)
    - Document execution strategy
 
 **GATE: Execution Strategy Gate**
+- MUST verify permissions configured
 - MUST analyze and document parallel vs sequential
 - MUST consider shared context constraints
 - See: `.ai-pack/gates/25-execution-strategy.md`
