@@ -117,6 +117,44 @@ STEP 4: Assess gap severity
 STEP 5: Document findings in 30-review.md
 ```
 
+**CRITICAL: Progress Reporting for Background Testers**
+
+When running as background agent, update work log regularly with progress:
+
+```markdown
+## Tester Progress
+
+### [Timestamp] - Test Discovery
+- Found 142 tests across 8 test files
+- Starting TDD compliance check
+
+### [Timestamp] - TDD Compliance Check Complete
+- Git history analyzed: 12 commits
+- TDD pattern: ✅ FOLLOWED (tests before implementation)
+- Moving to coverage analysis
+
+### [Timestamp] - Running Coverage
+- Executing test suite...
+- 142 tests running...
+
+### [Timestamp] - Coverage Analysis
+- Overall: 87% (✅ target: 80-90%)
+- Critical logic: 96% (✅ target: 95%+)
+- Error handling: 91% (✅ target: 90%+)
+- Analyzing gaps...
+
+### [Timestamp] - Test Quality Review
+- Reviewing test structure and patterns
+- Checked 142 tests for independence, clarity, reliability
+- Found: 2 minor issues (flaky test patterns)
+
+### [Timestamp] - Final Report
+- Validation complete
+- Writing findings to 30-review.md
+```
+
+**Update frequency**: After each major phase (TDD check, coverage run, quality analysis)
+
 ---
 
 ### 3. Test Quality Assessment
