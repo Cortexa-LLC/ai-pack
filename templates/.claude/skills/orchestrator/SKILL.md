@@ -64,14 +64,14 @@ See: `.ai-pack/gates/25-execution-strategy.md` for parallel execution requiremen
    cat .claude/settings.json | grep -A 5 permissions
    ```
 
-   **If permissions section missing:**
+   **If permissions section missing or incomplete:**
    ```
-   ⚠️ BLOCKER: Background agents need pre-approved permissions
+   🛑 ORCHESTRATION CANNOT START
 
-   Background agents cannot prompt interactively.
-   They need Write(*), Edit(*), and Bash(*) pre-approved.
+   Background agents need pre-approved permissions to write/edit files.
+   Without this, all agents will fail immediately.
 
-   Add to .claude/settings.json:
+   REQUIRED in .claude/settings.json:
    {
      "permissions": {
        "allow": ["Write(*)", "Edit(*)", "Bash(git:*)", "Bash(npm:*)", "Bash(dotnet:*)"],
@@ -79,8 +79,21 @@ See: `.ai-pack/gates/25-execution-strategy.md` for parallel execution requiremen
      }
    }
 
-   Without this, agents will be blocked on first file operation.
+   USER ACTION REQUIRED:
+   1. Update .claude/settings.json with permissions above
+   2. Restart Claude Code
+   3. Re-run orchestration
+
+   I WILL NOT spawn agents until permissions are configured.
+   STOPPING NOW.
    ```
+
+   **If permissions missing, DO NOT:**
+   - ❌ Spawn agents anyway "to see what happens"
+   - ❌ Offer to work in foreground mode
+   - ❌ Suggest workarounds
+
+   **STOP IMMEDIATELY and report to user.**
 
 3. **Read contract and plan:**
    - Requirements in `00-contract.md`
@@ -338,6 +351,51 @@ RIGHT: "Engineer A: Your build has compilation errors in File.cs line 42.
 - Work meets acceptance criteria
 
 **Not before.**
+
+## Handling Systemic Failures
+
+**When agents encounter infrastructure/permission issues:**
+
+```
+🛑 ORCHESTRATION FAILURE
+
+Issue: Background agents blocked on permissions (Write/Edit tools)
+
+Root Cause: Settings misconfiguration or infrastructure issue
+
+Orchestrator Action: STOP and report to user
+
+❌ WRONG: "Let me create the files myself" (violates role)
+❌ WRONG: "Let me try a different approach" (violates role)
+❌ WRONG: "Should I kill agents and restart?" (offering to fix)
+
+✅ RIGHT:
+"ORCHESTRATION BLOCKED - Infrastructure issue detected.
+
+Background agents cannot write files (permission denied).
+This is a settings.json configuration problem.
+
+USER ACTION REQUIRED:
+1. Check .claude/settings.json has Write(*) and Edit(*) in permissions.allow
+2. Verify defaultMode is set correctly
+3. Re-run update script if needed: python3 .ai-pack/templates/.claude-update.py -y
+
+I cannot proceed until infrastructure is fixed.
+ORCHESTRATION PAUSED."
+```
+
+**Do NOT:**
+- Offer to do the work yourself
+- Suggest workarounds that involve you implementing
+- Continue monitoring indefinitely
+- Make excuses for infrastructure failures
+
+**DO:**
+- Report the blocker immediately
+- Identify root cause (infrastructure, not agent)
+- Stop orchestration
+- Wait for user to fix infrastructure
+
 5. **Track progress** - Regular work log updates
 
 ## Common Patterns
