@@ -22,6 +22,14 @@
     "defaultMode": "acceptEdits"
   },
   "hooks": {
+    "onSessionStart": {
+      "command": "python3 .claude/hooks/session-start.py",
+      "description": "Start ai-pack monitoring timers (coordination + watchdog)"
+    },
+    "onSessionEnd": {
+      "command": "python3 .claude/hooks/session-end.py",
+      "description": "Stop ai-pack monitoring timers"
+    },
     "UserPromptSubmit": [
       {
         "description": "Enforce task packet gate before implementation work",
