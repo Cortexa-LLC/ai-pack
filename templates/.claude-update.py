@@ -202,6 +202,7 @@ def update_integration(customizations, backup_dir):
     (target_dir / 'skills').mkdir(exist_ok=True)
     (target_dir / 'rules').mkdir(exist_ok=True)
     (target_dir / 'hooks').mkdir(exist_ok=True)
+    (target_dir / 'scripts').mkdir(exist_ok=True)
 
     # Copy framework commands (always update)
     print_info("Updating framework commands...")
@@ -213,7 +214,7 @@ def update_integration(customizations, backup_dir):
 
     # Copy framework skills (always update)
     print_info("Updating framework skills...")
-    for skill in ['orchestrator', 'engineer']:
+    for skill in ['orchestrator', 'engineer', 'coordinator', 'reviewer', 'watchdog']:
         src_skill = template_dir / 'skills' / skill
         dst_skill = target_dir / 'skills' / skill
         if src_skill.exists():
@@ -239,6 +240,20 @@ def update_integration(customizations, backup_dir):
         os.chmod(dst_hooks / hook.name, 0o755)
     shutil.copy2(src_hooks / 'README.md', dst_hooks / 'README.md')
     print_success(f"Updated {len(list(src_hooks.glob('*.py')))} hooks")
+
+    # Copy framework scripts (always update)
+    print_info("Updating framework scripts...")
+    src_scripts = template_dir / 'scripts'
+    dst_scripts = target_dir / 'scripts'
+    if src_scripts.exists():
+        for script in src_scripts.glob('*'):
+            if script.is_file():
+                shutil.copy2(script, dst_scripts / script.name)
+                # Make executable
+                os.chmod(dst_scripts / script.name, 0o755)
+        print_success(f"Updated {len(list(src_scripts.glob('*')))} scripts")
+    else:
+        print_warning("No scripts directory in template")
 
     # Handle settings.json
     if customizations['custom_settings'] and backup_dir:
