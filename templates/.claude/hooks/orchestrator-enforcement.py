@@ -61,6 +61,13 @@ def check_tool_calls(tool_calls):
         tool_name = tool_call.get('name', '')
         tool_input = tool_call.get('input', {})
 
+        # Check Skill tool usage (FORBIDDEN - breaks delegation pattern)
+        if tool_name == 'Skill':
+            skill = tool_input.get('skill', 'unknown')
+            forbidden_patterns.append(
+                f"Skill({skill}) - Skills are context only, use Task tool to spawn agents"
+            )
+
         # Check Write tool usage
         if tool_name == 'Write':
             file_path = tool_input.get('file_path', '')
