@@ -73,10 +73,16 @@ These operations require explicit user approval:
 ## Default Mode
 
 ```json
-"defaultMode": "dontAsk"
+"defaultMode": "bypassPermissions"
 ```
 
-This setting enables auto-approval of operations in the `allow` list (including Write and Edit) for smoother workflow. With this mode, any operation explicitly listed in the `allow` array will be auto-approved without prompting.
+This setting enables auto-approval of operations in the `allow` list for **both foreground and background agents**. With this mode, any operation explicitly listed in the `allow` array will be auto-approved without prompting, enabling smooth parallel execution and interactive work.
+
+**Why `bypassPermissions`:**
+- Works for both foreground (interactive) and background (parallel) agents
+- No permission prompts during development workflow
+- Still respects the explicit `allow` and `deny` lists for security
+- Required for orchestrator to spawn workers that can write files autonomously
 
 ## Benefits
 
