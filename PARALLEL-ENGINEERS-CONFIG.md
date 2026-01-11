@@ -195,7 +195,9 @@ Workers MUST coordinate:
 
 **PROBLEM:** Background agents run without interactive prompts and cannot request file operation permissions.
 
-**SOLUTION:** Pre-approve required permissions in `.claude/settings.json` or `.claude/settings.local.json`:
+**ROOT CAUSE:** Permissions must be in `.claude/settings.json` (NOT just `settings.local.json`). Background agents only read the primary `settings.json` file.
+
+**SOLUTION:** Pre-approve required permissions in `.claude/settings.json`:
 
 ```json
 {
@@ -214,7 +216,9 @@ Workers MUST coordinate:
       "Bash(pytest:*)",
       "Bash(tsc:*)",
       "Bash(cargo:*)",
-      "Bash(go:*)"
+      "Bash(go:*)",
+      "Bash(gradle:*)",
+      "Bash(mvn:*)"
     ],
     "defaultMode": "acceptEdits"
   }
@@ -228,21 +232,45 @@ Workers MUST coordinate:
 - Build tools (npm, dotnet, etc.) need explicit permission patterns
 - **Without this: Agents blocked immediately on first file operation**
 
-**Error Without Permissions:**
+**Common Mistake:** Having permissions in `settings.local.json` but NOT in `settings.json`. Background agents only read `settings.json`.
+
+**Error Symptoms:**
 ```
 Error: Permission to use Write has been auto-denied (prompts unavailable).
+Permission denied for Edit (prompts unavailable)
 ```
 
-**Setup Verification:**
+**Troubleshooting Steps:**
+
+1. **Check primary settings file** (not local):
 ```bash
-# Check if permissions configured
-cat .claude/settings.json | grep -A 5 permissions
-
-# If missing, add permissions section
-# Or use settings.local.json (not tracked in git)
+cat .claude/settings.json | grep -A 10 permissions
 ```
 
-**Alternative:** Use interactive agents (no `run_in_background`) but this sacrifices true parallelism.
+2. **If permissions missing or in wrong file:**
+```bash
+# Option A: Add to settings.json (recommended for teams)
+# Edit .claude/settings.json and add permissions section above
+
+# Option B: Use settings.local.json (individual developers)
+# But ensure settings.json ALSO has permissions for background agents
+```
+
+3. **Verify after fix:**
+```bash
+# Should show permissions section with Write(*), Edit(*), etc.
+cat .claude/settings.json | grep -A 15 permissions
+```
+
+4. **Respawn agents** with fixed configuration (old agents won't pick up changes)
+
+**Success Pattern:** Coordinator role can diagnose and fix permission issues automatically by:
+1. Detecting "permission denied" errors in agent logs
+2. Checking which settings file has permissions
+3. Merging permissions into primary settings.json
+4. Respawning agents with corrected configuration
+
+**Alternative (Not Recommended):** Use interactive agents (no `run_in_background`) but this sacrifices true parallelism and loses significant performance benefits.
 
 ### Orchestrator Coordination Responsibilities
 
