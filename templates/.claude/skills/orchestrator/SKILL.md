@@ -138,7 +138,23 @@ See: `.ai-pack/gates/25-execution-strategy.md` for parallel execution requiremen
 
 ### Phase 3: Execution Coordination
 
+**CRITICAL: You MUST actually call the Task tool - don't just describe it!**
+
+❌ **WRONG - Don't do this:**
+```
+Let me spawn Engineer A for feature X...
+Task: Feature X Implementation
+[Description of what task will do]
+```
+
+✅ **RIGHT - Actually call the Task tool:**
+```
+[Immediately make Task tool call without announcing it]
+```
+
 **Spawn parallel workers when possible:**
+
+When you have 2+ independent subtasks, make multiple Task tool calls in a SINGLE response:
 
 ```python
 # Use Task tool to spawn parallel Engineers
@@ -159,6 +175,8 @@ Task(subagent_type="general-purpose",
      prompt="Act as Engineer, implement feature C per task packet .ai/tasks/2026-01-10_feature-c/",
      run_in_background=true)  # ✅ Required for non-interactive parallel operation
 ```
+
+**All 3 Task calls must be in the SAME response to run in parallel.**
 
 **Why `run_in_background=true` is mandatory:**
 - Engineers need to write/edit files without permission prompts
