@@ -1,6 +1,6 @@
 {
   "description": "AI-Pack Framework Configuration for Claude Code",
-  "_comment_permissions": "Auto-approved: Write, Edit, safe Bash commands, build/test tools. Require approval: git, rm, destructive operations.",
+  "_comment_permissions": "Auto-approved: Write, Edit, safe Bash commands, safe git operations (pull/fetch/status/diff/log/branch/checkout), build/test tools. Require approval: git commit/push/merge, rm, destructive operations.",
   "permissions": {
     "allow": [
       "Write(*)",
@@ -13,6 +13,14 @@
       "Bash(pwd:*)",
       "Bash(echo:*)",
       "Bash(which:*)",
+      "Bash(git pull:*)",
+      "Bash(git fetch:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git checkout:*)",
+      "Bash(cd:*)",
       "Bash(npm:*)",
       "Bash(dotnet:*)",
       "Bash(jest:*)",
