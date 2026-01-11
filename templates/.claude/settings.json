@@ -1,5 +1,6 @@
 {
   "description": "AI-Pack Framework Configuration for Claude Code",
+  "_comment_permissions": "Auto-approved: Write, Edit, safe Bash commands, build/test tools. Require approval: git, rm, destructive operations.",
   "permissions": {
     "allow": [
       "Write(*)",
@@ -7,8 +8,11 @@
       "Bash(mkdir:*)",
       "Bash(cp:*)",
       "Bash(mv:*)",
-      "Bash(rm:*)",
-      "Bash(git:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(pwd:*)",
+      "Bash(echo:*)",
+      "Bash(which:*)",
       "Bash(npm:*)",
       "Bash(dotnet:*)",
       "Bash(jest:*)",
@@ -17,7 +21,10 @@
       "Bash(cargo:*)",
       "Bash(go:*)",
       "Bash(gradle:*)",
-      "Bash(mvn:*)"
+      "Bash(mvn:*)",
+      "Bash(node:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)"
     ],
     "defaultMode": "acceptEdits"
   },
