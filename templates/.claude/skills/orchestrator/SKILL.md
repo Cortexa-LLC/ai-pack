@@ -316,16 +316,41 @@ Task(subagent_type="general-purpose",
 - Enables true parallel execution (all work concurrently)
 - Orchestrator monitors via Coordinator, not blocking on completion
 
-**Start coordination timer (for parallel agents):**
+**Verify and start monitoring timers (MANDATORY before orchestrating):**
 
-When spawning 2+ parallel agents, start the coordination timer:
+**CRITICAL: As Orchestrator, you MUST verify timers are running before spawning agents.**
+
+Timers should have started automatically at session start, but verify:
 
 ```bash
-# Start 30-second check-in timer in background
-bash .claude/scripts/coordination-timer.sh 30 1200 &
+# Check if coordination and watchdog timers are running
+ps aux | grep -E "coordination-timer|watchdog-timer"
 ```
 
-This creates a checkpoint file that triggers periodic coordination check-ins every 30 seconds.
+**If timers are NOT running (no output from grep):**
+```bash
+# Start monitoring timers explicitly
+python3 .claude/hooks/session-start.py
+```
+
+**Why this verification is mandatory:**
+- **Coordination timer** creates checkpoints every 30 seconds
+- **Watchdog timer** monitors system health every 5 minutes
+- Enables Coordinator to detect stuck/blocked agents automatically
+- Without timers, coordination is manual and unreliable
+
+**Expected output when timers running:**
+```
+✅ Coordination timer started (PID 12345)
+✅ Watchdog timer started (PID 12346)
+✅ ai-pack monitoring active
+```
+
+**Orchestrator responsibility:**
+- ✅ Verify timer state at START of orchestration (before spawning agents)
+- ✅ Start timers if not running (don't assume session start hook worked)
+- ✅ Report timer status to user
+- ✅ Ensure monitoring infrastructure operational before delegation
 
 **Monitor progress (READING ONLY):**
 
