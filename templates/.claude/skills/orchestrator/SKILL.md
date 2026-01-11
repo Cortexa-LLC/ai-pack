@@ -61,28 +61,28 @@ Before proceeding, read:
 
 ## How to Delegate (CRITICAL)
 
-### ⚠️ IMPORTANT: Skill vs Task Tool
+### ⚠️ CRITICAL: ALWAYS Use Background Agents
 
-There are **two ways** to delegate to ai-pack roles:
-
-**Option 1: Skill Tool (Foreground/Interactive)**
-```python
-Skill(skill="engineer", args="implement feature X")
-```
-- Runs in **foreground** (interactive, can prompt for approval)
-- Good for **single task** requiring interaction
-- **NOT suitable for parallel execution**
-
-**Option 2: Task Tool (Background/Parallel) ✅ PREFERRED**
+**DEFAULT: Task Tool with run_in_background=true** ✅ MANDATORY
 ```python
 Task(subagent_type="general-purpose",  # ✅ CORRECT - always use "general-purpose"
      description="Implement login feature",
      prompt="Act as Engineer role from ai-pack. Follow .ai-pack/roles/engineer.md. Implement login feature with TDD...",
-     run_in_background=true)  # ✅ REQUIRED for background execution
+     run_in_background=true)  # ✅ ALWAYS USE THIS - default for all agents
 ```
-- Runs in **background** (autonomous, non-interactive)
+- Runs in **background** (autonomous, non-interactive, no permission prompts)
 - **Critical for parallel execution** (framework's main value)
-- Agents adopt ai-pack role via prompt instruction
+- **No permission prompts** - agents work autonomously with pre-approved permissions
+- **ALWAYS use this** unless user explicitly requests foreground
+
+**AVOID: Skill Tool (Foreground/Interactive)** ❌ RARELY NEEDED
+```python
+Skill(skill="engineer", args="implement feature X")
+```
+- Runs in **foreground** (interactive, WILL prompt for permissions)
+- **Only use if user explicitly requests interactive mode**
+- Slower, blocks orchestrator, defeats purpose of parallel execution
+- NOT suitable for orchestration workflows
 
 ### 🚨 CRITICAL: Valid Task Tool Subagent Types
 
