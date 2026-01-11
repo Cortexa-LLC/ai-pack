@@ -234,11 +234,25 @@ def update_integration(customizations, backup_dir):
     print_info("Updating framework hooks...")
     src_hooks = template_dir / 'hooks'
     dst_hooks = target_dir / 'hooks'
+
+    # Get list of framework hooks from template
+    framework_hooks = {hook.name for hook in src_hooks.glob('*.py')}
+
+    # Copy current framework hooks
     for hook in src_hooks.glob('*.py'):
         shutil.copy2(hook, dst_hooks / hook.name)
         # Make executable
         os.chmod(dst_hooks / hook.name, 0o755)
     shutil.copy2(src_hooks / 'README.md', dst_hooks / 'README.md')
+
+    # Clean up removed framework hooks (but preserve custom hooks)
+    if dst_hooks.exists():
+        for existing_hook in dst_hooks.glob('*.py'):
+            # If hook exists in destination but NOT in template and NOT in custom list
+            if existing_hook.name not in framework_hooks and existing_hook.name not in [f"{h}.py" for h in customizations.get('hooks', [])]:
+                print_warning(f"Removing obsolete framework hook: {existing_hook.name}")
+                existing_hook.unlink()
+
     print_success(f"Updated {len(list(src_hooks.glob('*.py')))} hooks")
 
     # Copy framework scripts (always update)
