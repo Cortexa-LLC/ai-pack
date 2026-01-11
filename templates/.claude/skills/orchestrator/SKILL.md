@@ -143,10 +143,28 @@ See: `.ai-pack/gates/25-execution-strategy.md` for parallel execution requiremen
 ```python
 # Use Task tool to spawn parallel Engineers
 # Example: 3 independent features
-Task(subagent_type="general-purpose", prompt="Act as Engineer, implement feature A per task packet .ai/tasks/2026-01-10_feature-a/")
-Task(subagent_type="general-purpose", prompt="Act as Engineer, implement feature B per task packet .ai/tasks/2026-01-10_feature-b/")
-Task(subagent_type="general-purpose", prompt="Act as Engineer, implement feature C per task packet .ai/tasks/2026-01-10_feature-c/")
+# CRITICAL: Use run_in_background=true for parallel execution
+Task(subagent_type="general-purpose",
+     description="Implement feature A",
+     prompt="Act as Engineer, implement feature A per task packet .ai/tasks/2026-01-10_feature-a/",
+     run_in_background=true)  # ✅ Required for non-interactive parallel operation
+
+Task(subagent_type="general-purpose",
+     description="Implement feature B",
+     prompt="Act as Engineer, implement feature B per task packet .ai/tasks/2026-01-10_feature-b/",
+     run_in_background=true)  # ✅ Required for non-interactive parallel operation
+
+Task(subagent_type="general-purpose",
+     description="Implement feature C",
+     prompt="Act as Engineer, implement feature C per task packet .ai/tasks/2026-01-10_feature-c/",
+     run_in_background=true)  # ✅ Required for non-interactive parallel operation
 ```
+
+**Why `run_in_background=true` is mandatory:**
+- Engineers need to write/edit files without permission prompts
+- Background agents run autonomously with pre-approved permissions
+- Enables true parallel execution (all work concurrently)
+- Orchestrator monitors via Coordinator, not blocking on completion
 
 **Start coordination timer (for parallel agents):**
 
@@ -177,15 +195,33 @@ This creates a checkpoint file that triggers periodic coordination check-ins eve
 
 For ALL code changes, you MUST:
 
-1. **Delegate to Tester:**
+1. **Delegate to Tester (run in background):**
+   ```python
+   Task(subagent_type="general-purpose",
+        description="Validate test coverage and TDD compliance",
+        prompt="Act as Tester role. Validate tests per .ai-pack/roles/tester.md...",
+        run_in_background=true)  # ✅ REQUIRED for non-interactive operation
+   ```
    - Request test validation
-   - Wait for APPROVED verdict
-   - If CHANGES REQUIRED, coordinate fixes
+   - Wait for APPROVED verdict (check work log or status tracker)
+   - If CHANGES REQUIRED, coordinate fixes with Engineer
 
-2. **Delegate to Reviewer:**
+2. **Delegate to Reviewer (run in background):**
+   ```python
+   Task(subagent_type="general-purpose",
+        description="Review code quality and adherence to standards",
+        prompt="Act as Reviewer role. Review code per .ai-pack/roles/reviewer.md...",
+        run_in_background=true)  # ✅ REQUIRED for non-interactive operation
+   ```
    - Request code review (after Tester approval)
-   - Wait for APPROVED verdict
-   - If CHANGES REQUESTED, coordinate fixes
+   - Wait for APPROVED verdict (check work log or status tracker)
+   - If CHANGES REQUESTED, coordinate fixes with Engineer
+
+**CRITICAL: Use `run_in_background=true` for both quality gate agents:**
+- Enables non-interactive operation (no permission prompts)
+- Allows autonomous execution of coverage tools and analysis
+- Orchestrator monitors via Coordinator reports, not blocking
+- Both agents can work sequentially or in parallel if work ready
 
 **Both must approve before work is complete.**
 

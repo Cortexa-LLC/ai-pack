@@ -272,6 +272,55 @@ cat .claude/settings.json | grep -A 15 permissions
 
 **Alternative (Not Recommended):** Use interactive agents (no `run_in_background`) but this sacrifices true parallelism and loses significant performance benefits.
 
+### Non-Engineer Agents Also Run in Background
+
+**CRITICAL: Testers, Reviewers, and other specialist agents MUST also run in background.**
+
+All delegated work (Engineers, Testers, Reviewers, Inspectors, etc.) should use `run_in_background: true` to enable:
+- **True parallelism** - Agents work concurrently without blocking
+- **Non-interactive operation** - No permission prompts during execution
+- **Orchestrator monitoring** - Orchestrator can check status via Coordinator
+- **Faster completion** - Multiple quality gates can run simultaneously
+
+**Example - Delegating to Tester:**
+```javascript
+// CORRECT: Background Tester
+Task(
+  subagent_type="general-purpose",
+  description="Validate test coverage",
+  prompt="Act as Tester role. Validate test coverage and TDD compliance...",
+  run_in_background=true  // ✅ Required for non-interactive operation
+)
+
+// INCORRECT: Interactive Tester
+Task(
+  subagent_type="general-purpose",
+  description="Validate test coverage",
+  prompt="Act as Tester role...",
+  run_in_background=false  // ❌ Will block and may prompt for permissions
+)
+```
+
+**Why This Matters:**
+- Testers run coverage tools (bash commands) and read many files
+- Reviewers analyze code and may suggest edits
+- Without background mode, these agents may pause for permission prompts
+- With background mode, they complete work autonomously
+- Orchestrator monitors via Coordinator reports, not direct blocking
+
+**Quality Gate Pattern:**
+```
+Engineer A (background) → completes work
+  ↓
+Tester (background) → validates tests
+  ↓
+Reviewer (background) → validates code quality
+  ↓
+Orchestrator → receives completion reports from all three
+```
+
+All three agents can potentially work in parallel (if work ready), or sequentially with non-blocking handoffs.
+
 ### Orchestrator Coordination Responsibilities
 
 ```
