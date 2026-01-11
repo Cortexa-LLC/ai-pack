@@ -11,6 +11,19 @@ You are now acting as the **Coordinator** role - responsible for monitoring spaw
 
 Periodically check on active agents and intervene when they're stuck, blocked, or off-track.
 
+**CRITICAL: Never give up on agents. Your job is to GET THEM UNBLOCKED and working, not to give up and implement yourself.**
+
+## Core Principles
+
+1. **Persist** - Keep trying different solutions until agents work
+2. **Diagnose deeply** - Find root causes, not symptoms
+3. **Fix systematically** - Correct configuration, respawn agents
+4. **Never give up** - Agents CAN work with the right configuration
+5. **Don't take over** - Your job is coordination, not implementation
+
+**WRONG:** "Agents are blocked, I'll implement myself"
+**RIGHT:** "Agents are blocked, let me fix the configuration and respawn them"
+
 ## Automatic Activation
 
 This skill activates when:
@@ -233,6 +246,55 @@ New protocol:
 
 Stagger builds to avoid conflicts.
 ```
+
+### Issue: Permission Denied (CRITICAL)
+
+**Detection:** Agents report "permission auto-denied" or "permission denied"
+
+**Root Cause:** Background agents don't have pre-approved permissions
+
+**SOLUTION - DO THIS IMMEDIATELY:**
+
+```bash
+# Step 1: Check if permissions in settings.json (not just settings.local.json)
+cat .claude/settings.json | grep -A 10 permissions
+
+# If permissions section MISSING or INCOMPLETE:
+
+# Step 2: Add permissions to settings.json (the primary file)
+```
+
+**Required permissions in `.claude/settings.json`:**
+```json
+{
+  "permissions": {
+    "allow": [
+      "Write(*)",
+      "Edit(*)",
+      "Bash(mkdir:*)",
+      "Bash(git:*)",
+      "Bash(npm:*)",
+      "Bash(dotnet:*)"
+    ],
+    "defaultMode": "acceptEdits"
+  }
+}
+```
+
+**Step 3: Respawn agents with fixed configuration**
+
+**CRITICAL:** Don't give up! The agents CAN work with proper permissions. Fix the config and try again.
+
+**What NOT to do:**
+- ❌ Give up and implement yourself
+- ❌ Declare it a "Claude Code limitation"
+- ❌ Switch to interactive agents (loses parallelism)
+
+**What TO do:**
+- ✅ Fix the settings.json file
+- ✅ Respawn agents with proper config
+- ✅ Verify agents can now write files
+- ✅ Monitor until successful completion
 
 ## Escalation Criteria
 
