@@ -32,16 +32,6 @@
     },
     "UserPromptSubmit": [
       {
-        "description": "Enforce Orchestrator role boundaries (blocks execution tools)",
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 .claude/hooks/orchestrator-enforcement.py"
-          }
-        ]
-      },
-      {
         "description": "Enforce task packet gate before implementation work",
         "matcher": "",
         "hooks": [
