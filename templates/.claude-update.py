@@ -7,6 +7,7 @@ the new Claude Code integration features (commands, skills, rules, hooks).
 
 Usage:
     python3 .ai-pack/templates/.claude-update.py
+    python3 .ai-pack/templates/.claude-update.py -y  # Auto-confirm
 
 What it does:
 - Checks if project already has .claude/ directory
@@ -21,6 +22,7 @@ import sys
 import shutil
 from pathlib import Path
 from datetime import datetime
+import argparse
 
 # Colors for terminal output
 class Colors:
@@ -348,16 +350,25 @@ def main():
     # Detect customizations
     customizations = detect_customizations()
 
+    # Parse arguments
+    parser = argparse.ArgumentParser(description='Update ai-pack Claude Code integration')
+    parser.add_argument('-y', '--yes', action='store_true', help='Auto-confirm update')
+    args = parser.parse_args()
+
     # Confirm update
     if customizations['commands'] or customizations['skills'] or \
        customizations['rules'] or customizations['hooks'] or \
        customizations['custom_settings']:
         print(f"\n{Colors.WARNING}Customizations detected.{Colors.ENDC}")
         print("Framework files will be updated, custom files will be preserved.")
-        response = input(f"\n{Colors.BOLD}Continue with update? [y/N]: {Colors.ENDC}")
-        if response.lower() not in ['y', 'yes']:
-            print_info("Update cancelled")
-            sys.exit(0)
+
+        if not args.yes:
+            response = input(f"\n{Colors.BOLD}Continue with update? [y/N]: {Colors.ENDC}")
+            if response.lower() not in ['y', 'yes']:
+                print_info("Update cancelled")
+                sys.exit(0)
+        else:
+            print_info("Auto-confirming update (--yes flag)")
 
     # Update integration
     try:
