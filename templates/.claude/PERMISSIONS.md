@@ -18,7 +18,7 @@ These operations are pre-approved and won't prompt for confirmation:
 
 ### Safe Bash Commands
 - ✅ **mkdir, cp, mv** - File system operations
-- ✅ **ls, cat, pwd, echo, which, cd** - Read-only utilities and navigation
+- ✅ **ls, cat, pwd, echo, which, cd, test** - Read-only utilities and navigation
 - ✅ **npm, dotnet, jest, pytest, tsc** - Build/test/package managers
 - ✅ **cargo, go, gradle, mvn** - Additional language tooling
 - ✅ **node, python, python3** - Script execution
