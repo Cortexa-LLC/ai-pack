@@ -102,9 +102,9 @@ class AgentStatusTracker:
         if not agents:
             return {
                 "summary": "No agents registered",
-                "active": 0,
-                "completed": 0,
-                "blocked": 0,
+                "active_count": 0,
+                "completed_count": 0,
+                "blocked_count": 0,
                 "agents": []
             }
 
