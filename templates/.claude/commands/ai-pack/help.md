@@ -4,6 +4,14 @@ description: Show all ai-pack commands and framework overview
 
 # /ai-pack help - Command Reference
 
+**⚠️ IMPORTANT: This is reference documentation only.**
+- Do NOT activate any skills or assume any roles
+- Do NOT execute any commands shown in examples
+- Do NOT run bash commands, tests, or tools
+- Simply display this information to the user as-is
+
+---
+
 ## Available Commands
 
 ### Task Management
@@ -24,9 +32,6 @@ Show active agents, their roles, and task assignments.
 
 **`/ai-pack orchestrate`**
 Coordinate complex multi-step tasks (3+ subtasks, parallel execution).
-
-**`/ai-pack coordinate`**
-Monitor active agents and intervene when stuck or blocked.
 
 **`/ai-pack engineer`**
 Implement well-defined tasks with clear requirements.
