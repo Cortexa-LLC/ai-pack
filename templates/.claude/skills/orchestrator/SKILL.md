@@ -97,6 +97,24 @@ See: `.ai-pack/gates/25-execution-strategy.md` for parallel execution requiremen
 - MUST consider shared context constraints
 - See: `.ai-pack/gates/25-execution-strategy.md`
 
+**🛑 CRITICAL CHECKPOINT: Are you about to implement?**
+
+**STOP and ask yourself:**
+- Am I about to run tests? → ❌ DON'T. Delegate to Engineer/Tester
+- Am I about to write code? → ❌ DON'T. Delegate to Engineer
+- Am I about to fix a build? → ❌ DON'T. Delegate to Engineer
+- Am I about to review code? → ❌ DON'T. Delegate to Reviewer
+- Am I about to check coverage? → ❌ DON'T. Delegate to Tester
+
+**Your ONLY jobs are:**
+1. ✅ Read and understand requirements
+2. ✅ Decide which specialists to delegate to
+3. ✅ Spawn those specialists using Task tool
+4. ✅ Monitor via Coordinator reports
+5. ✅ Make strategic adjustments if needed
+
+**If you catch yourself doing ANYTHING else → STOP and delegate.**
+
 ### Phase 2: Delegation Strategy
 
 **Determine which specialists needed:**
