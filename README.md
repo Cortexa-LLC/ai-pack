@@ -95,6 +95,43 @@ Structured templates for organizing work through all phases. Located in `templat
 - **[30-review.md](templates/task-packet/30-review.md)** - Review findings and feedback
 - **[40-acceptance.md](templates/task-packet/40-acceptance.md)** - Sign-off and completion
 
+#### 📦 Task Memory System - Beads Integration
+
+AI-Pack uses **[Beads](https://github.com/steveyegge/beads)** for persistent, git-backed task tracking that survives AI session boundaries.
+
+**Key Benefits:**
+- ✅ **Cross-session memory** - Tasks persist across conversations (solves "50 First Dates" problem)
+- ✅ **Git-backed storage** - Tasks stored in `.beads/issues.jsonl`, versioned with code
+- ✅ **Dependency tracking** - Full task graphs with automatic "ready" task detection
+- ✅ **Multi-agent coordination** - Hash-based IDs prevent merge collisions
+- ✅ **Cross-platform** - Works on Windows, macOS, Linux, FreeBSD
+
+**Core Workflow:**
+```bash
+bd ready              # Find next available task (no blocking dependencies)
+bd show bd-a1b2       # View task details
+bd start bd-a1b2      # Begin work
+bd close bd-a1b2      # Mark complete
+bd create "Task"      # Create new task
+bd dep add bd-x bd-y  # Add dependency
+```
+
+**Integration with AI-Pack:**
+- **Orchestrator** uses Beads for task decomposition and coordination
+- **Engineer** uses Beads to find next work and track progress
+- **Task persistence** across AI sessions, machines, and team members
+
+**Documentation:** See **[quality/tooling/beads-integration.md](quality/tooling/beads-integration.md)** for complete integration guide
+
+**Installation:** Quick install via:
+```bash
+# macOS/Linux
+curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+
+# Windows PowerShell
+irm https://raw.githubusercontent.com/steveyegge/beads/main/install.ps1 | iex
+```
+
 ### Deployment Model
 
 The ai-pack framework is designed for the following structure in your projects:
@@ -103,10 +140,16 @@ The ai-pack framework is designed for the following structure in your projects:
 your-project/
 ├── .ai-pack/                        # Git submodule (read-only shared pack)
 │   ├── quality/                     # Clean code standards
+│   │   └── tooling/
+│   │       └── beads-integration.md # Beads integration guide
 │   ├── gates/                       # Quality gates
 │   ├── roles/                       # Agent roles
 │   ├── workflows/                   # Development workflows
 │   └── templates/                   # Task-packet templates
+│
+├── .beads/                          # Beads task memory system (committed)
+│   ├── issues.jsonl                 # Git-tracked task database (source of truth)
+│   └── *.db                         # Local SQLite cache (git-ignored)
 │
 ├── .ai/                             # Local workspace (your project)
 │   ├── tasks/                       # Active task packets (temporary)
@@ -151,15 +194,19 @@ your-project/
 
 **Key Concepts:**
 - **`.ai-pack/`** - Git submodule containing shared standards and framework (this repository) - READ-ONLY
+- **`.beads/`** - Beads task memory system with git-backed task database - PROJECT-SPECIFIC, COMMITTED
 - **`.ai/`** - Local workspace in your project for task state and overrides - PROJECT-SPECIFIC, TEMPORARY
 - **`docs/`** - Permanent documentation repository - PROJECT-SPECIFIC, COMMITTED
 - **`CLAUDE.md`** - Bootstrap instructions at project root (copy from `templates/CLAUDE.md`)
 - **Task packets** - Instances of templates created in `.ai/tasks/` for each task
+- **Beads tasks** - Persistent tasks tracked in `.beads/issues.jsonl` for cross-session memory
 - **Repo overrides** - Project-specific customizations to shared standards
 
 **Critical Invariants:**
 - ✅ Task packets go in `.ai/tasks/` (never in `.ai-pack/`)
 - ✅ `.ai-pack/` is read-only shared framework
+- ✅ `.beads/issues.jsonl` is committed (source of truth for tasks)
+- ✅ `.beads/*.db` is git-ignored (local cache only)
 - ✅ `.ai/tasks/` preserved during framework updates
 - ✅ Framework improvements happen in ai-pack repo (not ad hoc in projects)
 - ✅ Planning artifacts persisted to `docs/` when transitioning to implementation
@@ -224,14 +271,43 @@ git submodule update --init --recursive
 # Create local workspace
 mkdir -p .ai/tasks
 
+# Initialize Beads for task tracking
+bd init
+
 # Copy bootstrap template to project root
 cp .ai-pack/templates/CLAUDE.md ./CLAUDE.md
 
 # Customize CLAUDE.md with project-specific details
 # (Edit project name, tech stack, key files, etc.)
+
+# Commit framework setup
+git add .ai-pack .beads/issues.jsonl CLAUDE.md
+git commit -m "Add ai-pack framework and initialize Beads"
 ```
 
-#### 2. Create a Task Packet
+**Note:** If `bd` command not found, install Beads first:
+```bash
+# macOS/Linux
+curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+
+# Windows PowerShell
+irm https://raw.githubusercontent.com/steveyegge/beads/main/install.ps1 | iex
+```
+
+#### 2. Create a Task with Beads
+
+```bash
+# Create a task in Beads (persistent across sessions)
+bd create "Implement user authentication" --priority high
+
+# View available tasks
+bd ready
+
+# Get task ID for task packet
+bd list
+```
+
+#### 3. Create a Task Packet
 
 When starting a new task, create a task packet from templates:
 
@@ -248,13 +324,62 @@ cp .ai-pack/templates/task-packet/30-review.md .ai/tasks/$TASK_ID/
 cp .ai-pack/templates/task-packet/40-acceptance.md .ai/tasks/$TASK_ID/
 ```
 
-#### 3. Follow the Workflow
+#### 4. Follow the Workflow
 
-1. **Define** - Fill out `00-contract.md` with requirements
-2. **Plan** - Create implementation plan in `10-plan.md`
-3. **Execute** - Implement while updating `20-work-log.md`
-4. **Review** - Conduct review, document in `30-review.md`
-5. **Accept** - Complete acceptance checklist in `40-acceptance.md`
+1. **Track** - Mark task as in progress: `bd start bd-a1b2`
+2. **Define** - Fill out `00-contract.md` with requirements
+3. **Plan** - Create implementation plan in `10-plan.md`
+4. **Execute** - Implement while updating `20-work-log.md`
+5. **Review** - Conduct review, document in `30-review.md`
+6. **Accept** - Complete acceptance checklist in `40-acceptance.md`
+7. **Complete** - Mark task as done: `bd close bd-a1b2`
+8. **Next** - Find next task: `bd ready`
+
+### Migrating Existing Projects from v1.0.0
+
+If you have an existing project using ai-pack v1.0.0 (before Beads integration), follow these steps to migrate:
+
+#### Automated Migration (Recommended)
+
+Use the provided Python migration script for guided, step-by-step migration:
+
+```bash
+# From your project root directory
+python .ai-pack/scripts/migrate-to-beads.py
+```
+
+The script will:
+- ✅ Check prerequisites (git repo, Beads installed)
+- ✅ Update `.ai-pack/` submodule to v1.1.0+
+- ✅ Install Beads if not present
+- ✅ Initialize Beads in your project
+- ✅ Update `.gitignore` for `.beads/*.db`
+- ✅ Commit changes with appropriate message
+- ✅ Verify migration success
+
+**Options:**
+```bash
+python .ai-pack/scripts/migrate-to-beads.py --dry-run  # Preview changes
+python .ai-pack/scripts/migrate-to-beads.py --yes      # Auto-approve
+```
+
+#### Manual Migration
+
+Alternatively, follow the manual steps in **[MIGRATION.md](MIGRATION.md)** for complete migration instructions.
+
+**What's New in v1.1.0:**
+- ✅ **Beads replaces TodoWrite** - Persistent, git-backed task tracking
+- ✅ **Cross-session memory** - Tasks survive AI conversation boundaries
+- ✅ **Dependency tracking** - Full task graphs with automatic prioritization
+- ✅ **Multi-agent coordination** - Hash-based IDs prevent collisions
+
+**Migration is non-breaking** - Existing projects continue to work. You migrate to gain persistent task memory.
+
+See **[MIGRATION.md](MIGRATION.md)** for:
+- Complete migration guide
+- Troubleshooting tips
+- Rollback instructions
+- Verification procedures
 
 ### Use Cases
 
@@ -264,11 +389,13 @@ cp .ai-pack/templates/task-packet/40-acceptance.md .ai/tasks/$TASK_ID/
 - Reviewer agents ensure quality and compliance
 
 **Structured Task Management:**
+- Beads provides persistent, git-backed task tracking
 - Clear contracts define expectations upfront
 - Plans document approach before implementation
 - Work logs track progress and decisions
 - Reviews ensure quality
 - Acceptance provides formal sign-off
+- Cross-session memory survives conversation boundaries
 
 **Quality Governance:**
 - Gates enforce safety and quality rules
