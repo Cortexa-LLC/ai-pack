@@ -1,7 +1,7 @@
 # Orchestrator Role
 
-**Version:** 1.0.0
-**Last Updated:** 2026-01-07
+**Version:** 1.1.0
+**Last Updated:** 2026-01-11
 
 ## Role Overview
 
@@ -56,35 +56,42 @@ END IF
 
 ### 2. Task Decomposition and Work Breakdown
 
-**Responsibility:** Break complex tasks into manageable subtasks.
+**Responsibility:** Break complex tasks into manageable subtasks using Beads.
 
 **Activities:**
 - Analyze user requirements
 - Identify major components
-- Break into logical units
-- Sequence work appropriately
+- Break into logical units using `bd create`
+- Sequence work appropriately with `bd dep add`
 - Identify dependencies
 
 **Example:**
-```
+```bash
 User request: "Implement user authentication"
 
-Orchestrator breaks down into:
-1. Design authentication architecture
-2. Implement user model with password hashing
-3. Create login API endpoint
-4. Create registration API endpoint
-5. Add session management
-6. Implement authentication middleware
-7. Add comprehensive tests
-8. Update documentation
+Orchestrator breaks down into tasks:
+bd create "Design authentication architecture" --priority high
+bd create "Implement user model with password hashing" --priority high
+bd create "Create login API endpoint" --priority normal
+bd create "Create registration API endpoint" --priority normal
+bd create "Add session management" --priority normal
+bd create "Implement authentication middleware" --priority normal
+bd create "Add comprehensive tests" --priority normal
+bd create "Update documentation" --priority low
+
+# Set up dependencies
+bd dep add bd-b2c3 bd-a1b2  # User model depends on architecture
+bd dep add bd-c3d4 bd-b2c3  # Login endpoint depends on user model
+bd dep add bd-d4e5 bd-b2c3  # Registration depends on user model
+bd dep add bd-e5f6 bd-c3d4  # Session mgmt depends on login
+bd dep add bd-f6g7 bd-e5f6  # Middleware depends on session mgmt
 ```
 
 **Deliverables:**
-- Task hierarchy
-- Dependency graph
-- Work sequence
-- Acceptance criteria per subtask
+- Task hierarchy in Beads (`.beads/issues.jsonl`)
+- Dependency graph via `bd dep add`
+- Work sequence determined by dependencies
+- Acceptance criteria per subtask in task descriptions
 
 ---
 
@@ -797,37 +804,54 @@ WHEN verifying artifact persistence:
 
 ### 3. Progress Monitoring and Coordination
 
-**Responsibility:** Track progress across all subtasks and agents.
+**Responsibility:** Track progress across all subtasks and agents using Beads.
 
 **Monitoring Activities:**
-- Check completion status regularly
-- Identify blockers
+- Check completion status regularly with `bd list`
+- Identify blockers with `bd list --status blocked`
+- Find ready work with `bd ready`
 - Resolve dependencies
 - Coordinate between agents
 - Adjust plan as needed
 
-**Status Tracking:**
-```
-Subtask Status Dashboard:
-├── User model implementation      [COMPLETED]
-├── Password hashing              [COMPLETED]
-├── Login API endpoint            [IN PROGRESS]
-├── Registration API endpoint     [PENDING]
-├── Session management            [BLOCKED - waiting on login]
-└── Authentication middleware     [PENDING]
+**Status Tracking with Beads:**
+```bash
+# Check overall progress
+bd list --status open
+
+# Output example:
+# bd-a1b2  User model implementation        [CLOSED]
+# bd-b2c3  Password hashing                 [CLOSED]
+# bd-c3d4  Login API endpoint              [IN_PROGRESS]
+# bd-d4e5  Registration API endpoint       [OPEN]
+# bd-e5f6  Session management              [BLOCKED]
+# bd-f6g7  Authentication middleware       [OPEN]
+
+# Find what's ready to work on (no blocking dependencies)
+bd ready
+
+# Check specific task details
+bd show bd-e5f6  # See why it's blocked
 ```
 
 **Blocker Resolution:**
-```
+```bash
 IF blocker detected THEN
+  bd show <blocked-task-id>  # Check blocker details
+
   analyze cause
   IF agent needs help THEN
     provide guidance
   ELSE IF dependency missing THEN
     prioritize dependency
+    bd start <dependency-task-id>
   ELSE IF requirements unclear THEN
     consult user
+    bd block <task-id> "Waiting for requirements clarification"
   END IF
+
+  # When blocker resolved
+  bd unblock <task-id>
 END IF
 ```
 
@@ -1397,7 +1421,13 @@ Orchestrator:
 
 ### Available Tools
 - Task tool (for spawning agents)
-- TodoWrite (for task tracking)
+- Beads (`bd` command) for persistent task tracking
+  - `bd create` - Create tasks
+  - `bd ready` - Find next work
+  - `bd start/close` - Update task status
+  - `bd dep add` - Manage dependencies
+  - `bd list` - View task status
+  - `bd show` - Task details
 - AskUserQuestion (for clarification)
 - All standard tools (Read, Write, Edit, Grep, Glob, Bash)
 
@@ -1408,6 +1438,7 @@ Orchestrator:
 - [Verification Gates](../gates/30-verification.md)
 - [Workflows](../workflows/)
 - [Task Packet Templates](../templates/task-packet/)
+- [Beads Integration Guide](../quality/tooling/beads-integration.md)
 
 ---
 
@@ -1424,5 +1455,5 @@ An Orchestrator is successful when:
 
 ---
 
-**Last reviewed:** 2026-01-07
+**Last reviewed:** 2026-01-11
 **Next review:** Quarterly or when role responsibilities evolve

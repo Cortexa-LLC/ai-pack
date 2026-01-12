@@ -1,7 +1,7 @@
 # Standard Workflow
 
-**Version:** 1.0.0
-**Last Updated:** 2026-01-07
+**Version:** 1.1.0
+**Last Updated:** 2026-01-11
 
 ## Overview
 
@@ -38,7 +38,7 @@ Phase 1: Understanding → Phase 2: Planning → Phase 3: Implementation → Pha
 
 **Tools:**
 - AskUserQuestion - for clarifications
-- TodoWrite - to track understanding tasks
+- Beads (`bd create`, `bd start`, `bd close`) - to track understanding tasks
 
 **Deliverables:**
 - Clear task description
