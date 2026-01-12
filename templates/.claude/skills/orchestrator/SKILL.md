@@ -1,5 +1,4 @@
 ---
-name: orchestrator
 description: Orchestrate complex multi-step tasks requiring coordination, delegation, and MANDATORY parallel execution for 2+ tasks. CRITICAL - You MUST spawn multiple background agents concurrently for multiple tasks, NOT work sequentially. Parallel execution is non-negotiable and reduces total time by N-fold speedup.
 ---
 

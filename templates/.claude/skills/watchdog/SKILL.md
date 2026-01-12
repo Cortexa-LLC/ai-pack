@@ -1,5 +1,4 @@
 ---
-name: watchdog
 description: System-level watchdog that monitors all roles, diagnoses systemic failures, and proposes fixes to the ai-pack system. Auto-activates when monitoring needed.
 ---
 

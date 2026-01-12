@@ -1,5 +1,4 @@
 ---
-name: coordinator
 description: Periodically monitor spawned agents and provide corrective guidance when agents are stuck or blocked. Auto-activates during multi-agent orchestration to ensure progress.
 ---
 
