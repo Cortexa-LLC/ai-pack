@@ -14,7 +14,23 @@ Exit codes:
 import os
 import sys
 import json
+import subprocess
 from pathlib import Path
+
+
+def find_repo_root():
+    """Find git repository root directory."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return Path(result.stdout.strip())
+    except subprocess.CalledProcessError:
+        # Not in a git repo, use current directory
+        return Path.cwd()
 
 
 def check_task_packet(user_input):
@@ -43,8 +59,9 @@ def check_task_packet(user_input):
     if not is_implementation_request:
         return 0
 
-    # Check if .ai/tasks directory exists and has tasks
-    tasks_dir = Path(".ai/tasks")
+    # Find repository root and check if .ai/tasks directory exists
+    repo_root = find_repo_root()
+    tasks_dir = repo_root / ".ai" / "tasks"
 
     if not tasks_dir.exists():
         print("⚠️  GATE VIOLATION: No Task Packet")
