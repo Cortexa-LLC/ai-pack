@@ -1,5 +1,4 @@
 ---
-name: engineer
 description: Implement well-defined tasks with clear requirements. Use when the user asks to implement, code, build, write, or develop features with straightforward requirements.
 ---
 

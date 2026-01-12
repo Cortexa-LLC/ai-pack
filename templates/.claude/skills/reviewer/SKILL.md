@@ -1,5 +1,4 @@
 ---
-name: reviewer
 description: Review code quality, architecture, and ensure standards compliance. Use when the user asks to review code, check quality, validate implementation, or assess pull requests.
 ---
 
