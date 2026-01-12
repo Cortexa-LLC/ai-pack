@@ -83,6 +83,9 @@ class MigrationTool:
             return (result.returncode, result.stdout, result.stderr)
         except subprocess.CalledProcessError as e:
             return (e.returncode, e.stdout, e.stderr)
+        except FileNotFoundError:
+            # Command not found (e.g., 'bd' not installed)
+            return (127, "", f"Command not found: {cmd[0]}")
 
     def ask_confirmation(self, question: str) -> bool:
         """Ask user for yes/no confirmation"""
@@ -490,6 +493,14 @@ Enables persistent task memory across AI sessions."""
         # Step 2: Install Beads
         if not self.install_beads():
             self.print_error("\nFailed to install Beads. Please install manually and retry.")
+            self.print_info("\nInstallation instructions:")
+            if sys.platform == "darwin":
+                self.print_info("  macOS: brew install steveyegge/beads/beads")
+            elif sys.platform.startswith("linux"):
+                self.print_info("  Linux: curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/install.sh | bash")
+            elif sys.platform == "win32":
+                self.print_info("  Windows: irm https://raw.githubusercontent.com/steveyegge/beads/main/install.ps1 | iex")
+            self.print_info("\nFor more details, see: https://github.com/steveyegge/beads")
             return False
 
         # Step 3: Update submodule
@@ -544,6 +555,11 @@ For more information, see: .ai-pack/MIGRATION.md
         action="store_true",
         help="Skip confirmation prompts (auto-approve)"
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Show full error tracebacks"
+    )
 
     args = parser.parse_args()
 
@@ -556,9 +572,13 @@ For more information, see: .ai-pack/MIGRATION.md
         print(f"\n\n{Colors.YELLOW}Migration cancelled by user{Colors.RESET}")
         sys.exit(130)
     except Exception as e:
-        print(f"\n{Colors.RED}Unexpected error: {e}{Colors.RESET}")
-        import traceback
-        traceback.print_exc()
+        print(f"\n{Colors.RED}✗ Migration failed: {e}{Colors.RESET}")
+        if args.debug:
+            import traceback
+            print(f"\n{Colors.YELLOW}Debug traceback:{Colors.RESET}")
+            traceback.print_exc()
+        else:
+            print(f"\n{Colors.BLUE}ℹ{Colors.RESET}  Run with --debug to see full error details")
         sys.exit(1)
 
 
