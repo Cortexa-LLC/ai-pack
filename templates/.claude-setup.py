@@ -13,6 +13,7 @@ import os
 import sys
 import shutil
 import stat
+import json
 from pathlib import Path
 
 
@@ -101,6 +102,113 @@ def copy_templates():
 
     except Exception as e:
         print(f"❌ Error copying templates: {e}")
+        print()
+        return False
+
+
+def fix_hook_paths():
+    """Fix hook paths in settings.json to use absolute paths."""
+    print_header("Configuring Hook Paths for Cross-Platform Compatibility")
+
+    settings_file = Path(".claude/settings.json")
+
+    if not settings_file.exists():
+        print("⚠️  .claude/settings.json not found, skipping")
+        print()
+        return True
+
+    try:
+        # Read settings.json
+        with open(settings_file, 'r') as f:
+            settings = json.load(f)
+
+        # Get absolute path to project root
+        project_root = Path.cwd().resolve()
+
+        # Function to replace relative paths with absolute paths
+        def fix_command(command):
+            if not isinstance(command, str):
+                return command
+
+            # Replace relative .claude/ paths with absolute paths
+            if ".claude/hooks/" in command:
+                # Extract the script path
+                if "python3 .claude/hooks/" in command:
+                    # Simple case: python3 .claude/hooks/script.py
+                    script_name = command.split(".claude/hooks/")[1]
+                    abs_path = project_root / ".claude" / "hooks" / script_name
+                    return f"python3 {abs_path}"
+
+            return command
+
+        # Fix hooks in settings
+        modified = False
+        if "hooks" in settings:
+            hooks = settings["hooks"]
+
+            # Fix SessionStart hooks
+            if "SessionStart" in hooks:
+                for hook_group in hooks["SessionStart"]:
+                    if "hooks" in hook_group:
+                        for hook in hook_group["hooks"]:
+                            if "command" in hook:
+                                original = hook["command"]
+                                hook["command"] = fix_command(original)
+                                if hook["command"] != original:
+                                    modified = True
+
+            # Fix SessionEnd hooks
+            if "onSessionStart" in hooks:
+                for hook_group in hooks["onSessionStart"]:
+                    if "command" in hook_group:
+                        original = hook_group["command"]
+                        hook_group["command"] = fix_command(original)
+                        if hook_group["command"] != original:
+                            modified = True
+
+            if "onSessionEnd" in hooks:
+                for hook_group in hooks["onSessionEnd"]:
+                    if "command" in hook_group:
+                        original = hook_group["command"]
+                        hook_group["command"] = fix_command(original)
+                        if hook_group["command"] != original:
+                            modified = True
+
+            if "SessionEnd" in hooks:
+                for hook_group in hooks["SessionEnd"]:
+                    if "hooks" in hook_group:
+                        for hook in hook_group["hooks"]:
+                            if "command" in hook:
+                                original = hook["command"]
+                                hook["command"] = fix_command(original)
+                                if hook["command"] != original:
+                                    modified = True
+
+            # Fix UserPromptSubmit hooks
+            if "UserPromptSubmit" in hooks:
+                for hook_group in hooks["UserPromptSubmit"]:
+                    if "hooks" in hook_group:
+                        for hook in hook_group["hooks"]:
+                            if "command" in hook:
+                                original = hook["command"]
+                                hook["command"] = fix_command(original)
+                                if hook["command"] != original:
+                                    modified = True
+
+        # Write back if modified
+        if modified:
+            with open(settings_file, 'w') as f:
+                json.dump(settings, f, indent=2)
+            print("✅ Updated hook paths to use absolute paths")
+            print(f"   Project root: {project_root}")
+        else:
+            print("✅ Hook paths already correct or no hooks found")
+
+        print()
+        return True
+
+    except Exception as e:
+        print(f"❌ Error fixing hook paths: {e}")
         print()
         return False
 
@@ -263,6 +371,7 @@ def main():
     steps = [
         ("Checking prerequisites", check_prerequisites),
         ("Copying templates", copy_templates),
+        ("Fixing hook paths", fix_hook_paths),
         ("Making hooks executable", make_hooks_executable),
         ("Creating .ai/ structure", create_ai_directory),
         ("Verifying setup", verify_setup),
