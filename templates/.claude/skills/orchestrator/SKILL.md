@@ -46,6 +46,35 @@ This is a CRITICAL ERROR. You MUST:
 4. Let them work concurrently
 ```
 
+## ⚙️ CRITICAL: BACKGROUND WORKER PERMISSIONS
+
+**BACKGROUND WORKERS NEED SPECIAL PERMISSION CONFIGURATION:**
+
+Background agents (`run_in_background=true`) run in isolated contexts and may NOT inherit the `bypassPermissions` mode from `.claude/settings.json`.
+
+**SOLUTION: User must enable VSCode setting:**
+```json
+{
+  "ClaudeCode.allowDangerouslySkipPermissions": true
+}
+```
+
+**WITHOUT THIS SETTING:**
+- Background workers will prompt for Write/Edit/Bash operations
+- Parallel execution will be blocked waiting for approvals
+- User will see: "Worker is hitting Write/Bash permission issues"
+
+**WITH THIS SETTING:**
+- Background workers auto-approve operations per allow/deny lists
+- Parallel execution works smoothly
+- No permission prompts during background work
+
+**IF BACKGROUND WORKERS ARE BLOCKED:**
+1. Check if VSCode setting is enabled
+2. Inform user they need to add the setting
+3. Do NOT try to work around it by working in foreground
+4. Wait for user to enable the setting and restart session
+
 ## 🚨 CRITICAL ROLE BOUNDARY ENFORCEMENT 🚨
 
 **BEFORE EVERY SINGLE ACTION, CHECK:**
