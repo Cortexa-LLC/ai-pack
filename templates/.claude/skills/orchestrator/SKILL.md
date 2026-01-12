@@ -404,6 +404,63 @@ Task(subagent_type="general-purpose",
 
 **All Task calls must be in the SAME response to run in parallel.**
 
+**After spawning agents, REGISTER them with the status tracker:**
+
+```bash
+# Register each agent you spawned (use meaningful IDs)
+python3 .claude/scripts/agent-status-tracker.py register "engineer-feature-a" "Engineer" "Implement feature A" "orchestrator-$$"
+python3 .claude/scripts/agent-status-tracker.py register "engineer-feature-b" "Engineer" "Implement feature B" "orchestrator-$$"
+python3 .claude/scripts/agent-status-tracker.py register "engineer-feature-c" "Engineer" "Implement feature C" "orchestrator-$$"
+```
+
+**This enables Coordinator to:**
+- Monitor agent progress automatically
+- Detect blocked/stuck agents
+- Report completion status to you
+- Signal when work is done
+
+**Then check agent status anytime:**
+
+```bash
+# Get current status report from Coordinator
+python3 .claude/scripts/agent-status-tracker.py report
+```
+
+**Output example:**
+```
+============================================================
+AGENT STATUS REPORT
+============================================================
+Summary: 2/3 completed, 1 active, 0 blocked
+Active: 1
+Completed: 2
+Blocked: 0
+
+Agent Details:
+
+  ✅ engineer-feature-a (Engineer)
+     Task: Implement feature A
+     Status: completed
+     Commits: 5
+
+  ✅ engineer-feature-b (Engineer)
+     Task: Implement feature B
+     Status: completed
+     Commits: 3
+
+  🟢 engineer-feature-c (Engineer)
+     Task: Implement feature C
+     Status: active
+     Commits: 2
+============================================================
+```
+
+**With this signaling, you DON'T need to:**
+- ❌ Manually check worker output files
+- ❌ Parse worker logs yourself
+- ❌ Guess if workers are done
+- ✅ Just read the status report from Coordinator
+
 ---
 
 ## ❌ ANTI-PATTERN: Sequential Execution
@@ -460,6 +517,69 @@ Task(subagent_type="general-purpose",
 Total time: 20 minutes + coordination overhead
 SPEEDUP: 3x faster than sequential!
 ```
+
+---
+
+## 📊 MONITORING BACKGROUND WORKERS
+
+**After spawning background workers, you MUST monitor them properly:**
+
+### How to Check Background Worker Output
+
+When you spawn a Task with `run_in_background=true`, the tool result includes an **output_file** path:
+
+```
+Tool result: Background task started. Output file: /path/to/output.txt
+```
+
+**To monitor background workers:**
+
+```bash
+# Check recent output from a background worker
+tail -n 50 /path/to/output.txt
+
+# Check if worker is still running
+ps aux | grep -E "claude|agent"
+
+# Read final output when worker completes
+cat /path/to/output.txt
+```
+
+### What to Do With Worker Output
+
+**✅ CORRECT approach:**
+1. Read the output file using tail or cat
+2. Check if worker completed successfully
+3. Verify files were created (test -f or ls)
+4. If work incomplete, spawn NEW worker to continue
+5. If worker blocked, report to user
+
+**❌ WRONG approach - DON'T DO THIS:**
+```
+Worker output: "I created comprehensive tests in output file..."
+Orchestrator: "The output is too complex to extract cleanly.
+               Let me create the files myself."  ❌❌❌
+```
+
+**This violates role boundaries!** You are the ORCHESTRATOR, not an Engineer.
+
+**✅ CORRECT approach:**
+```
+Worker output: "I created comprehensive tests in output file..."
+Orchestrator: "Let me check what the worker created."
+tail -n 100 /path/to/worker-output.txt
+Orchestrator: "Worker completed tests. Verifying files were created..."
+ls -la path/to/test/files/
+Orchestrator: "Tests created successfully. Moving to next phase."
+```
+
+**If worker output is unclear or work incomplete:**
+1. ❌ DON'T try to "extract" or "parse" worker output yourself
+2. ❌ DON'T do the work yourself "because it's easier"
+3. ✅ DO spawn a NEW worker to complete/fix the work
+4. ✅ DO report to user if fundamentally blocked
+
+**Remember: Your job is DELEGATION, not IMPLEMENTATION.**
 
 ---
 
