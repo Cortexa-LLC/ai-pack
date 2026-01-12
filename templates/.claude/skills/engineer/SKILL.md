@@ -486,6 +486,18 @@ cat .ai/repo-overrides.md
 
 ## Phase 4: Work Log Updates
 
+**Before updating, check if log needs rotation:**
+
+```bash
+# Check work log size and rotate if needed
+python3 .claude/scripts/rotate-work-log.py .ai/tasks/*/20-work-log.md
+```
+
+**If log is rotated (>20K tokens):**
+- Previous log moved to `archive/20-work-log.TIMESTAMP.md`
+- New log created automatically
+- Continue updating the new log
+
 **Update `.ai/tasks/*/20-work-log.md` regularly:**
 
 ```markdown
