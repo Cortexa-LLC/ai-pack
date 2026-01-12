@@ -1,7 +1,7 @@
 # Engineer Role
 
-**Version:** 1.0.0
-**Last Updated:** 2026-01-08
+**Version:** 1.1.0
+**Last Updated:** 2026-01-11
 
 ## Role Overview
 
@@ -152,6 +152,82 @@ IF no planning artifacts found AND task is non-trivial THEN
   END IF
 END IF
 ```
+
+---
+
+### 0.7 Task Discovery with Beads (WORKFLOW START)
+
+**REQUIREMENT:** Use Beads to find next available work and track progress.
+
+**Finding Next Task:**
+```bash
+# Step 1: Find tasks ready to work on (no blocking dependencies)
+bd ready
+
+# Output shows available tasks:
+# bd-a1b2  Implement user authentication     [priority: high]
+# bd-c3d4  Add dark mode toggle              [priority: normal]
+# bd-e5f6  Fix login bug                     [priority: critical]
+
+# Step 2: Get full task details
+bd show bd-a1b2
+
+# Shows:
+# - Task description
+# - Priority level
+# - Dependencies (if any)
+# - Current status
+# - Change history
+```
+
+**Starting Work:**
+```bash
+# Mark task as in-progress
+bd start bd-a1b2
+
+# This signals to Orchestrator and other engineers that you're working on it
+```
+
+**During Implementation:**
+```bash
+# If you discover subtasks
+bd create "Add password hashing utility" --depends-on bd-a1b2
+
+# If you get blocked
+bd block bd-a1b2 "Waiting for API key from DevOps"
+
+# Check what's ready after current task
+bd ready
+```
+
+**Completing Work:**
+```bash
+# When task fully implemented and tested
+bd close bd-a1b2
+
+# Find next work
+bd ready
+```
+
+**Beads Workflow Summary:**
+```
+1. bd ready           → Find next task
+2. bd show <id>       → Review requirements
+3. bd start <id>      → Begin work
+4. [Implement code]   → Do the work
+5. [Run tests]        → Verify quality
+6. bd close <id>      → Mark complete
+7. bd ready           → Find next task
+```
+
+**Why Use Beads:**
+- ✅ Tasks persist across AI sessions (no memory loss)
+- ✅ Orchestrator sees your progress in real-time
+- ✅ Dependency tracking prevents working on blocked tasks
+- ✅ Git-backed storage maintains project history
+- ✅ Multi-agent coordination prevents duplicate work
+
+**Reference:** See `quality/tooling/beads-integration.md` for complete guide.
 
 ---
 
@@ -825,7 +901,12 @@ Work Log Entry:
 - Read, Write, Edit (file operations)
 - Grep, Glob (search operations)
 - Bash (for build, test, git commands)
-- TodoWrite (progress tracking)
+- Beads (`bd` command) for persistent task tracking
+  - `bd ready` - Find next available task
+  - `bd show` - View task details
+  - `bd start/close` - Update task status
+  - `bd block` - Mark task as blocked
+  - `bd create` - Create new subtasks
 - AskUserQuestion (when needing clarification)
 
 ### Reference Materials
@@ -834,6 +915,7 @@ Work Log Entry:
 - [Global Gates](../gates/00-global-gates.md)
 - [Verification Gates](../gates/30-verification.md)
 - [Workflow Guides](../workflows/)
+- [Beads Integration Guide](../quality/tooling/beads-integration.md)
 
 ---
 
@@ -850,5 +932,5 @@ An Engineer is successful when:
 
 ---
 
-**Last reviewed:** 2026-01-07
+**Last reviewed:** 2026-01-11
 **Next review:** Quarterly or when responsibilities evolve
