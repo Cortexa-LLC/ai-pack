@@ -66,7 +66,7 @@ class MigrationTool:
         """Print info message"""
         print(f"{Colors.BLUE}ℹ{Colors.RESET}  {text}")
 
-    def run_command(self, cmd: list, cwd: Optional[Path] = None, check: bool = True) -> Tuple[int, str, str]:
+    def run_command(self, cmd: list, cwd: Optional[Path] = None, check: bool = True, timeout: int = 30) -> Tuple[int, str, str]:
         """Run shell command and return (returncode, stdout, stderr)"""
         if self.dry_run:
             self.print_info(f"[DRY RUN] Would run: {' '.join(cmd)}")
@@ -78,11 +78,16 @@ class MigrationTool:
                 cwd=cwd or self.project_root,
                 capture_output=True,
                 text=True,
-                check=check
+                stdin=subprocess.DEVNULL,
+                check=check,
+                timeout=timeout
             )
             return (result.returncode, result.stdout, result.stderr)
         except subprocess.CalledProcessError as e:
             return (e.returncode, e.stdout, e.stderr)
+        except subprocess.TimeoutExpired:
+            # Command timed out
+            return (124, "", f"Command timed out after {timeout}s: {' '.join(cmd)}")
         except FileNotFoundError:
             # Command not found (e.g., 'bd' not installed)
             return (127, "", f"Command not found: {cmd[0]}")
@@ -277,8 +282,8 @@ class MigrationTool:
                 self.print_info("Skipping Beads initialization")
                 return True
 
-        self.print_info("Running: bd init")
-        returncode, stdout, stderr = self.run_command(["bd", "init"], check=False)
+        self.print_info("Running: bd init --quiet")
+        returncode, stdout, stderr = self.run_command(["bd", "init", "--quiet"], check=False)
 
         if returncode != 0:
             self.print_error(f"Failed to initialize Beads: {stderr}")
