@@ -195,9 +195,14 @@ Workers MUST coordinate:
 
 **PROBLEM:** Background agents run without interactive prompts and cannot request file operation permissions.
 
-**ROOT CAUSE:** Permissions must be in `.claude/settings.json` (NOT just `settings.local.json`). Background agents only read the primary `settings.json` file.
+**ROOT CAUSE:** Two-part permission system:
+1. Settings in `.claude/settings.json` control parent conversation
+2. Agent configurations in `.claude/agents/` control background subagents
+3. **Background subagents do NOT inherit parent's `bypassPermissions` setting**
 
-**SOLUTION:** Pre-approve required permissions in `.claude/settings.json`:
+**SOLUTION (TWO PARTS REQUIRED):**
+
+**Part 1: Settings.json** - Pre-approve permissions for main conversation:
 
 ```json
 {
@@ -208,8 +213,9 @@ Workers MUST coordinate:
       "Bash(mkdir:*)",
       "Bash(cp:*)",
       "Bash(mv:*)",
-      "Bash(rm:*)",
-      "Bash(git:*)",
+      "Bash(git pull:*)",
+      "Bash(git fetch:*)",
+      "Bash(git status:*)",
       "Bash(npm:*)",
       "Bash(dotnet:*)",
       "Bash(jest:*)",
@@ -220,19 +226,41 @@ Workers MUST coordinate:
       "Bash(gradle:*)",
       "Bash(mvn:*)"
     ],
-    "defaultMode": "acceptEdits"
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(git push --force*)",
+      "Bash(sudo rm*)"
+    ],
+    "defaultMode": "bypassPermissions"
   }
 }
 ```
 
-**Why This is Required:**
-- Background agents (`run_in_background: true`) run as subprocesses
-- Subprocesses cannot display interactive permission prompts
-- File operations (Write, Edit) require pre-approval
-- Build tools (npm, dotnet, etc.) need explicit permission patterns
-- **Without this: Agents blocked immediately on first file operation**
+**Part 2: Agent Configurations (CRITICAL FOR BACKGROUND WORKERS)** - In `.claude/agents/general-purpose.md`:
 
-**Common Mistake:** Having permissions in `settings.local.json` but NOT in `settings.json`. Background agents only read `settings.json`.
+```yaml
+---
+name: general-purpose
+description: General-purpose agent for implementation tasks
+tools: All tools
+model: Sonnet
+permissionMode: bypassPermissions
+---
+```
+
+**Why BOTH Are Required:**
+- `.claude/settings.json` controls **main conversation** permissions
+- `.claude/agents/*.md` controls **background subagent** permissions
+- Background agents **do not** inherit `bypassPermissions` from parent
+- **Without agent config: Background agents blocked on first file operation**
+
+**Setup Script Handles This:**
+The `.claude-setup.py` script copies both configurations automatically from ai-pack templates.
+
+**Common Mistakes:**
+1. ❌ Only setting `bypassPermissions` in settings.json (not enough for background agents)
+2. ❌ Using `settings.local.json` instead of `settings.json` (background agents ignore local settings)
+3. ❌ Not creating `.claude/agents/` directory with agent configurations
 
 **Error Symptoms:**
 ```
