@@ -307,6 +307,7 @@ def verify_setup():
         (".claude/skills/", "Auto-triggered skills"),
         (".claude/rules/", "Modular rules"),
         (".claude/hooks/", "Enforcement hooks"),
+        (".claude/agents/", "Agent configurations"),
         (".claude/settings.json", "Hook configuration"),
         (".ai/tasks/", "Task packet directory"),
     ]
