@@ -59,6 +59,11 @@ Roles define different agent personas with specific responsibilities. Located in
   - **Explores:** Execution paths, deep call stacks, obscure dependencies, runtime state
   - **Delivers:** Runtime investigation report, execution traces, dependency maps, incident reports
   - **Optional:** Invoked by Orchestrator for production/runtime issues or directly by user
+- **[product-strategist.md](roles/product-strategist.md)** - Market analysis and business strategy specialist
+  - **Analyzes:** Market opportunity, competitive landscape, business case, strategic positioning
+  - **Delivers:** MRD (Market Requirements Document), competitive analysis, business case, strategic recommendations
+  - **Collaborates:** Hands off market requirements to Product Manager for detailed product definition
+  - **Optional:** Invoked by Orchestrator for new products, major features with market implications, or business case validation
 - **[product-manager.md](roles/product-manager.md)** - Requirements specialist, creates PRDs and user stories
   - **Defines:** Product requirements, success metrics, epics and user stories (JIRA-style)
   - **Collaborates:** Works with Engineers and Architect on technical feasibility and breakdown
@@ -173,6 +178,12 @@ your-project/
 │   └── repo-overrides.md           # Optional project-specific deltas
 │
 ├── docs/                            # Permanent documentation (committed)
+│   ├── market/                      # Market requirements (Product Strategist)
+│   │   └── [product-name]/
+│   │       ├── mrd.md               # Market Requirements Document
+│   │       ├── competitive-analysis.md # Competitive landscape
+│   │       ├── business-case.md     # Financial projections and ROI
+│   │       └── market-research.md   # Customer research findings
 │   ├── product/                     # Product requirements
 │   │   └── [feature-name]/
 │   │       ├── prd.md               # Product Requirements Document
@@ -243,6 +254,7 @@ AI-Pack enforces a **two-tier documentation system**:
 - NOT committed to long-term repository
 
 **Permanent: `docs/`** (Long-Lived Documentation)
+- Market requirements (MRDs, competitive analysis, business cases)
 - Product requirements (PRDs, epics, user stories)
 - Architecture designs (system docs, API specs, data models)
 - Architecture Decision Records (ADRs)
@@ -256,6 +268,12 @@ AI-Pack enforces a **two-tier documentation system**:
 When planning phases complete and work transitions to implementation, artifacts MUST be persisted:
 
 ```
+Product Strategist Phase Complete:
+  .ai/tasks/[id]/mrd.md              → docs/market/[product-name]/mrd.md
+  .ai/tasks/[id]/competitive-analysis.md → docs/market/[product-name]/competitive-analysis.md
+  .ai/tasks/[id]/business-case.md    → docs/market/[product-name]/business-case.md
+  .ai/tasks/[id]/market-research.md  → docs/market/[product-name]/market-research.md
+
 Product Manager Phase Complete:
   .ai/tasks/[id]/prd.md          → docs/product/[feature-name]/prd.md
   .ai/tasks/[id]/epics.md        → docs/product/[feature-name]/epics.md
@@ -685,6 +703,7 @@ Located in `templates/.claude/`:
    - `/ai-pack inspect` - Bug investigation
    - `/ai-pack architect` - Architecture design
    - `/ai-pack designer` - UX workflows
+   - `/ai-pack product-strategist` - Market analysis and business strategy
    - `/ai-pack pm` - Product requirements
    - `/ai-pack help` - Show all commands
 

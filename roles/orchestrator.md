@@ -481,6 +481,104 @@ Alternatively for straightforward production issues:
 
 ---
 
+### 2.7b Market Analysis Delegation Strategy
+
+**RESPONSIBILITY:** Determine whether to delegate market analysis to Product Strategist before product definition.
+
+**Decision Criteria:**
+```
+WHEN major initiative or feature requested:
+  assess_strategic_scope()
+
+  IF requires market validation OR business case OR competitive analysis THEN
+    RECOMMENDED: Delegate to Product Strategist first
+    Pattern:
+      strategist = Task(strategist_role, "Analyze market for [PRODUCT/FEATURE]")
+      wait_for_mrd()
+
+      IF mrd.recommendation == "PROCEED" THEN
+        pm = Task(pm_role, "Define requirements based on MRD")
+        wait_for_prd()
+        [Continue with implementation]
+      ELSE IF mrd.recommendation == "DEFER" THEN
+        defer_work(mrd.conditions)
+      ELSE IF mrd.recommendation == "DO NOT PURSUE" THEN
+        reject_work(mrd.rationale)
+      END IF
+
+  ELSE IF market already validated AND business case clear THEN
+    ACCEPTABLE: Skip to Product Manager for PRD
+    Pattern:
+      pm = Task(pm_role, "Define requirements for [FEATURE]")
+      [Continue with standard flow]
+  END IF
+```
+
+**Strategic Scope Indicators:**
+```
+✅ Delegate to Product Strategist when:
+- New product initiative
+- Entering new market or segment
+- Major feature with competitive implications
+- Requires business case justification
+- Market opportunity unclear
+- Large investment decision
+- Strategic direction needed
+- Competitive response required
+
+✅ Skip to Product Manager when:
+- Market already validated
+- Business case already approved
+- No competitive considerations
+- Small feature with clear value
+- Internal tools or infrastructure
+- Incremental improvements to existing features
+```
+
+**Workflow Integration:**
+```
+Product Strategist creates:
+  - Market Requirements Document (MRD)
+    → docs/market/[product-name]/mrd.md
+  - Competitive Analysis
+  - Business Case
+  - Strategic recommendation (Proceed/Defer/Do Not Pursue)
+
+Product Manager uses MRD as input:
+  - Reads market requirements
+  - Translates to product requirements
+  - Creates PRD with detailed features
+  - Creates epics and user stories
+```
+
+**Communication Pattern:**
+```
+Delegating to Product Strategist:
+"Orchestrator delegating market analysis for [product/feature].
+
+Please:
+1. Conduct market research and competitive analysis
+2. Develop business case with ROI projections
+3. Create Market Requirements Document (MRD)
+4. Recommend proceed/defer/do-not-pursue
+5. Persist artifacts to docs/market/[product-name]/
+
+Task: [task description]
+Context: [relevant context]"
+
+Receiving MRD from Product Strategist:
+IF recommendation == "PROCEED" THEN
+  "MRD approved. Market opportunity validated.
+
+   Delegating to Product Manager to create Product Requirements
+   Document based on market requirements in MRD.
+
+   MRD location: docs/market/[product-name]/mrd.md"
+END IF
+```
+
+---
+
 ### 2.8 Feature Planning Delegation Strategy
 
 **RESPONSIBILITY:** Determine whether to delegate feature to Product Manager or directly to Engineer.
@@ -727,11 +825,15 @@ With archaeological investigation:
 
 ### 2.10 MANDATORY Artifact Persistence Enforcement
 
-**ENFORCEMENT:** When Product Manager, Designer, Architect, Inspector, Archaeologist, or Spelunker completes their planning phase, orchestrator MUST verify artifacts are persisted to repository before proceeding to implementation. This is enforced by the **[Artifact Persistence Gate](../gates/10-persistence.md#11-artifact-repository-persistence)**.
+**ENFORCEMENT:** When Product Strategist, Product Manager, Designer, Architect, Inspector, Archaeologist, or Spelunker completes their planning phase, orchestrator MUST verify artifacts are persisted to repository before proceeding to implementation. This is enforced by the **[Artifact Persistence Gate](../gates/10-persistence.md#11-artifact-repository-persistence)**.
 
 **Trigger Conditions:**
 ```
 WHEN specialist completes planning phase:
+  IF Product Strategist delivered MRD/business case THEN
+    REQUIRE persistence to docs/market/[product-name]/
+  END IF
+
   IF Product Manager delivered PRD/requirements THEN
     REQUIRE persistence to docs/product/[feature-name]/
   END IF
@@ -790,6 +892,12 @@ AFTER specialist completes work:
 
 **Persistence Locations by Role:**
 ```
+Product Strategist artifacts → docs/market/[product-name]/
+  - mrd.md
+  - competitive-analysis.md
+  - business-case.md
+  - market-research.md
+
 Product Manager artifacts → docs/product/[feature-name]/
   - prd.md
   - epics.md
