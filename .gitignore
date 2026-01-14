@@ -40,3 +40,6 @@ PROJECT-*.md
 project-*.md
 *-overrides.md
 *-project.md
+
+# Exception: Allow templates/*-overrides.md (these are templates for consumer projects)
+!templates/*-overrides.md
