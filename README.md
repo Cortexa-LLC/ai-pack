@@ -50,9 +50,14 @@ Roles define different agent personas with specific responsibilities. Located in
 - **[engineer.md](roles/engineer.md)** - Implementation specialist, writes code, creates tests
   - Executes specific tasks following TDD workflow and established patterns
 - **[inspector.md](roles/inspector.md)** - Bug investigation specialist, conducts root cause analysis
-  - **Investigates:** Bug reports, reproduces issues, identifies root cause
+  - **Investigates:** Bug reports, reproduces issues, identifies root cause via static code analysis
   - **Delivers:** RCA document, task packet for Engineer, regression test specifications
   - **Optional:** Invoked by Orchestrator for complex bugs or directly by user
+- **[spelunker.md](roles/spelunker.md)** - Runtime investigation specialist, explores live systems
+  - **Investigates:** Production issues, runtime behavior, performance problems, unfamiliar live systems
+  - **Explores:** Execution paths, deep call stacks, obscure dependencies, runtime state
+  - **Delivers:** Runtime investigation report, execution traces, dependency maps, incident reports
+  - **Optional:** Invoked by Orchestrator for production/runtime issues or directly by user
 - **[product-manager.md](roles/product-manager.md)** - Requirements specialist, creates PRDs and user stories
   - **Defines:** Product requirements, success metrics, epics and user stories (JIRA-style)
   - **Collaborates:** Works with Engineers and Architect on technical feasibility and breakdown
@@ -68,6 +73,11 @@ Roles define different agent personas with specific responsibilities. Located in
   - **Collaborates:** Works with Product Manager and Designer on feasibility, Engineers on implementation
   - **Delivers:** Architecture documents, API specs, data models, ADRs
   - **Optional:** Invoked by Orchestrator for complex features requiring architectural design
+- **[archaeologist.md](roles/archaeologist.md)** - Legacy code investigation specialist, reconstructs historical context
+  - **Studies:** Legacy artifacts, code evolution, historical decisions, temporal patterns
+  - **Reconstructs:** Intent and rationale, design decisions, technical debt origins
+  - **Delivers:** Evolution narrative, decision catalog, debt archaeology, refactoring readiness assessment
+  - **Optional:** Invoked by Orchestrator for legacy code refactoring or onboarding to unfamiliar systems
 - **[tester.md](roles/tester.md)** - Testing specialist, validates TDD compliance and test sufficiency
   - **ENFORCED:** Mandatory validation for all code changes
   - **Validates:** TDD process, coverage (80-90%), test quality, test scenarios
@@ -185,9 +195,17 @@ your-project/
 │   │   ├── 001-decision-title.md    # Sequentially numbered
 │   │   ├── 002-decision-title.md
 │   │   └── README.md                # Index of all ADRs
-│   └── investigations/              # Bug retrospectives
-│       ├── BUG-123-description.md
-│       └── README.md                # Index by root cause category
+│   ├── investigations/              # Bug retrospectives
+│   │   ├── BUG-123-description.md
+│   │   └── README.md                # Index by root cause category
+│   ├── archaeology/                 # Legacy code investigations
+│   │   ├── [system-name]-evolution.md  # Timeline and eras
+│   │   ├── [system-name]-decisions.md  # Decision reconstructions
+│   │   ├── [system-name]-debt.md       # Technical debt origins
+│   │   └── README.md                   # Index of investigations
+│   └── incidents/                   # Production incident reports
+│       ├── [incident-id]-[date]-[summary].md
+│       └── README.md                # Incident index
 │
 └── CLAUDE.md                        # Bootstrap instructions for AI
 ```
@@ -227,6 +245,8 @@ AI-Pack enforces a **two-tier documentation system**:
 - Architecture designs (system docs, API specs, data models)
 - Architecture Decision Records (ADRs)
 - Bug investigation retrospectives
+- Legacy code archaeology (evolution narratives, decision catalogs)
+- Production incident reports (runtime investigations, post-mortems)
 - COMMITTED to repository for long-term reference
 
 **Persistence Triggers:**
@@ -247,6 +267,14 @@ Architect Phase Complete:
 
 Bug Fix Verified:
   .ai/tasks/[id]/retrospective.md → docs/investigations/BUG-ID-description.md
+
+Archaeologist Investigation Complete:
+  .ai/tasks/[id]/evolution.md     → docs/archaeology/[system-name]-evolution.md
+  .ai/tasks/[id]/decisions.md     → docs/archaeology/[system-name]-decisions.md
+  .ai/tasks/[id]/debt.md          → docs/archaeology/[system-name]-debt.md
+
+Spelunker Production Investigation Complete:
+  .ai/tasks/[id]/runtime-report.md → docs/incidents/[incident-id]-[date]-[summary].md
 ```
 
 **Why This Matters:**

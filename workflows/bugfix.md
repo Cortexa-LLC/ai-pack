@@ -31,17 +31,37 @@ The Bugfix Workflow is specialized for identifying, analyzing, and fixing defect
 
 **DELEGATION STRATEGY:**
 
-**Option A: Delegate to Inspector (Recommended for Complex Bugs)**
+**Option A: Delegate to Inspector (Static Code Analysis for Complex Bugs)**
 ```
-IF bug is complex OR root cause unclear THEN
+IF bug is complex AND root cause unclear AND reproducible locally THEN
   Orchestrator delegates to Inspector
-  Inspector conducts investigation and retrospective
+  Inspector conducts static code investigation and retrospective
   Inspector creates task packet for Engineer
   Orchestrator delegates to Engineer with task packet
 END IF
 ```
 
-**Option B: Engineer Self-Investigation (For Simple Bugs)**
+**Option B: Delegate to Spelunker (Runtime Investigation for Production/Live System Issues)**
+```
+IF production-only issue OR runtime behavior investigation needed THEN
+  Orchestrator delegates to Spelunker
+  Spelunker investigates runtime behavior (traces execution, inspects state)
+  Spelunker creates runtime report for Engineer
+  Orchestrator delegates to Engineer with runtime findings
+END IF
+```
+
+**Option C: Hybrid Approach (Both Inspector and Spelunker)**
+```
+IF complex issue requires both runtime and static analysis THEN
+  Orchestrator delegates to Spelunker (runtime investigation)
+  Orchestrator delegates to Inspector (static code analysis)
+  Wait for combined findings
+  Orchestrator delegates to Engineer with full context
+END IF
+```
+
+**Option D: Engineer Self-Investigation (For Simple Bugs)**
 ```
 IF bug is simple OR root cause obvious THEN
   Orchestrator delegates to Engineer
@@ -50,11 +70,27 @@ END IF
 ```
 
 **Selection Criteria:**
-- **Complex bug → Inspector:**
-  - Root cause unknown
-  - Intermittent or hard to reproduce
-  - Similar bugs may exist
-  - Investigation requires forensic analysis
+- **Complex bug with static code analysis → Inspector:**
+  - Root cause unknown but likely in code logic
+  - Bug reproducible locally
+  - Similar bugs may exist in codebase
+  - Investigation requires code forensic analysis
+
+- **Production/runtime issue → Spelunker:**
+  - Production-only problem (can't reproduce locally)
+  - Performance issue requiring profiling
+  - Intermittent bug (timing, race conditions, Heisenbugs)
+  - Complex distributed system issue
+  - Need to understand actual runtime behavior
+  - Deep call stack mysteries
+  - External integration failures
+  - Unfamiliar live system investigation
+
+- **Complex requiring both → Hybrid (Inspector + Spelunker):**
+  - Production behavior mysterious AND code analysis needed
+  - Runtime findings inform static analysis
+  - Static analysis informs runtime investigation
+
 - **Simple/obvious bug → Engineer directly:**
   - Bug is obvious (typo, simple logic error)
   - Root cause immediately apparent
