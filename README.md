@@ -39,6 +39,7 @@ Quality gates define rules and constraints that govern what actions are permitte
 - **[25-execution-strategy.md](gates/25-execution-strategy.md)** - **MANDATORY** execution strategy analysis and parallel engineer enforcement
 - **[30-verification.md](gates/30-verification.md)** - Verification and validation requirements
 - **[35-code-quality-review.md](gates/35-code-quality-review.md)** - **MANDATORY** Tester and Reviewer validation for all code changes
+- **[40-architectural-review.md](gates/40-architectural-review.md)** - Architectural review for significant system changes
 
 #### 👥 Roles - Agent Personas
 Roles define different agent personas with specific responsibilities. Located in `roles/`:
@@ -195,15 +196,16 @@ your-project/
 │   │   ├── 001-decision-title.md    # Sequentially numbered
 │   │   ├── 002-decision-title.md
 │   │   └── README.md                # Index of all ADRs
-│   ├── investigations/              # Bug retrospectives
+│   ├── investigations/              # Bug retrospectives (Inspector)
 │   │   ├── BUG-123-description.md
 │   │   └── README.md                # Index by root cause category
-│   ├── archaeology/                 # Legacy code investigations
+│   ├── archaeology/                 # Legacy code investigations (Archaeologist)
 │   │   ├── [system-name]-evolution.md  # Timeline and eras
 │   │   ├── [system-name]-decisions.md  # Decision reconstructions
 │   │   ├── [system-name]-debt.md       # Technical debt origins
+│   │   ├── [system-name]-patterns.md   # Pattern evolution
 │   │   └── README.md                   # Index of investigations
-│   └── incidents/                   # Production incident reports
+│   └── incidents/                   # Production incident reports (Spelunker)
 │       ├── [incident-id]-[date]-[summary].md
 │       └── README.md                # Incident index
 │

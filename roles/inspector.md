@@ -608,6 +608,55 @@ END IF
 - Symptoms don't point to obvious cause
 - Similar bugs may exist
 - Investigation requires forensic analysis
+- Bug is **reproducible locally** or in staging
+- Root cause likely in **code logic** (static analysis sufficient)
+
+---
+
+## Inspector vs. Other Investigation Roles
+
+### Inspector vs. Spelunker
+
+**Use Inspector (Static Code Analysis):**
+- Bug reproducible locally or in staging
+- Root cause likely in code logic
+- Can analyze code statically
+- Need forensic code analysis
+
+**Use Spelunker (Runtime Investigation):**
+- Production-only issues (can't reproduce locally)
+- Performance problems requiring profiling
+- Intermittent bugs (Heisenbugs, race conditions)
+- Need to understand actual runtime behavior
+- Deep call stack mysteries in live systems
+- Complex distributed system issues
+
+**Use BOTH (Hybrid Approach):**
+- Complex issue needs both runtime and static analysis
+- Spelunker discovers runtime behavior → Inspector analyzes code cause
+- Production behavior mysterious + code-level RCA needed
+
+**See:** [Spelunker Role](spelunker.md) for runtime investigation
+
+### Inspector vs. Archaeologist
+
+**Use Inspector (Current Bug Investigation):**
+- Investigating a specific current bug
+- Root cause analysis for present issue
+- Creating fix task packet for Engineer
+
+**Use Archaeologist (Historical Context):**
+- Understanding legacy code before refactoring
+- Reconstructing why code was designed this way
+- Investigating technical debt origins
+- Need historical context for modernization
+
+**Use BOTH:**
+- Bug in legacy code that may have historical constraints
+- Inspector finds bug → Archaeologist explains why code is structured that way
+- Combined: Current bug + historical rationale = informed fix
+
+**See:** [Archaeologist Role](archaeologist.md) for historical investigation
 
 ---
 
@@ -639,6 +688,8 @@ Inspector should escalate (report, not block) when:
 ### Reference Materials
 - [Bugfix Workflow](../workflows/bugfix.md)
 - [Engineer Role](engineer.md)
+- [Spelunker Role](spelunker.md) - Runtime investigation specialist
+- [Archaeologist Role](archaeologist.md) - Historical context specialist
 - [Testing Standards](../quality/clean-code/04-testing.md)
 - [Code Review Checklist](../quality/clean-code/06-code-review-checklist.md)
 
