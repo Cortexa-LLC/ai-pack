@@ -98,10 +98,32 @@ BEFORE implementing:
 
   IF bug-related work THEN
     CHECK docs/investigations/ for:
-      - Related bug retrospectives
+      - Related bug retrospectives (from Inspector)
       - Similar bug patterns
       - Known issues in the area
       - Lessons learned from previous fixes
+
+    CHECK docs/incidents/ for:
+      - Production incident reports (from Spelunker)
+      - Runtime behavior analysis
+      - Performance investigations
+      - Dependency maps
+  END IF
+
+  IF legacy code or refactoring work THEN
+    CHECK docs/archaeology/ for:
+      - System evolution narratives (from Archaeologist)
+      - Decision reconstruction catalogs
+      - Technical debt archaeology
+      - Historical context and rationale
+  END IF
+
+  IF user-facing features THEN
+    CHECK docs/design/[feature-name]/ for:
+      - UX wireframes and flows (from Designer)
+      - User research
+      - Design specifications
+      - Accessibility requirements
   END IF
 
   These documents answer:
@@ -115,10 +137,13 @@ END BEFORE
 **Documentation Location Quick Reference:**
 ```
 docs/
-├── product/[feature-name]/      - Requirements, PRDs, user stories
-├── architecture/[feature-name]/ - Technical design, APIs, data models
-├── adr/                         - Architecture Decision Records
-└── investigations/              - Bug retrospectives, lessons learned
+├── product/[feature-name]/      - Requirements, PRDs, user stories (Product Manager)
+├── design/[feature-name]/       - UX wireframes, user flows (Designer)
+├── architecture/[feature-name]/ - Technical design, APIs, data models (Architect)
+├── adr/                         - Architecture Decision Records (Architect)
+├── investigations/              - Bug retrospectives, lessons learned (Inspector)
+├── archaeology/                 - Legacy code investigations, historical context (Archaeologist)
+└── incidents/                   - Production incident reports, runtime analysis (Spelunker)
 ```
 
 **Integration with Task Packet:**
