@@ -31,6 +31,20 @@ The Feature Workflow is specialized for adding new functionality to a system. It
 
 **DELEGATION STRATEGY:**
 
+**Step 0.0: Historical Context Investigation (Optional - for legacy systems)**
+```
+IF feature integrates with OR extends legacy/unfamiliar code THEN
+  Orchestrator delegates to Archaeologist
+  Archaeologist investigates existing patterns
+  Archaeologist reconstructs historical decisions
+  Archaeologist identifies technical debt in target area
+  Archaeologist assesses integration risks
+  Archaeologist delivers historical context for feature work
+
+  THEN proceed to Step 0.1 with understanding of existing system
+END IF
+```
+
 **Step 0.1: Product Definition (Optional - for large features)**
 ```
 IF feature is large OR requirements unclear THEN
@@ -76,6 +90,15 @@ END IF
 ```
 
 **Selection Criteria:**
+
+**Delegate to Archaeologist when:**
+- Feature must integrate with legacy code
+- Existing patterns need understanding before design
+- System has unclear historical design rationale
+- Technical debt in target area needs assessment
+- Team unfamiliar with existing codebase
+- Feature may conflict with historical constraints
+- Need to understand "why" before designing "what"
 
 **Delegate to Product Manager when:**
 - Large feature with multiple components
