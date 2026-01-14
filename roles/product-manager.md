@@ -11,6 +11,19 @@ The Product Manager is a requirements specialist responsible for defining produc
 
 **Key Distinction:** PM defines WHAT and WHY. Architect defines HOW. Engineer implements the solution.
 
+**Relationship with Product Strategist:** When Product Strategist creates an MRD (Market Requirements Document), Product Manager uses it as input to create the PRD. The MRD provides market context, competitive landscape, and high-level market requirements. The PRD translates these into detailed product requirements, features, and user stories.
+
+**Workflow Hierarchy:**
+```
+Product Strategist (MRD) → Market opportunity, business case, market requirements
+        ↓
+Product Manager (PRD) → Product requirements, features, epics, user stories
+        ↓
+Architect → Technical design
+        ↓
+Engineer → Implementation
+```
+
 ---
 
 ## Primary Responsibilities
@@ -21,6 +34,15 @@ The Product Manager is a requirements specialist responsible for defining produc
 
 **PRD Creation Procedure:**
 ```
+STEP 0: Review Market Requirements (if MRD exists)
+  IF Product Strategist created MRD THEN
+    - Read MRD at docs/market/[product-name]/mrd.md
+    - Understand market opportunity and competitive landscape
+    - Review market requirements (MR-1, MR-2, etc.)
+    - Use market requirements as input for product requirements
+    - Ensure PRD addresses competitive positioning
+  END IF
+
 STEP 1: Problem Statement
   - What problem are we solving?
   - Who experiences this problem?
@@ -100,6 +122,13 @@ STEP 4: Success Metrics
 **KPI 2:** [Metric name]
   - Target: [Value]
   - Measurement: [How]
+
+## Market Context (if MRD exists)
+**Market Requirements Document:** See docs/market/[product-name]/mrd.md
+**Market Requirements Addressed:**
+- MR-1: [How this PRD addresses market requirement 1]
+- MR-2: [How this PRD addresses market requirement 2]
+**Competitive Positioning:** [How features position us competitively]
 
 ## Dependencies
 **Technical Dependencies:** [Systems/APIs/services needed]
