@@ -408,6 +408,79 @@ WHEN bug reported:
 
 ---
 
+### 2.7a Runtime Investigation Delegation Strategy
+
+**RESPONSIBILITY:** Determine whether to delegate production/runtime issues to Spelunker or Inspector.
+
+**Decision Criteria:**
+```
+WHEN production issue or runtime problem reported:
+  assess_investigation_needs()
+
+  IF runtime investigation needed THEN
+    RECOMMENDED: Delegate to Spelunker
+    Pattern:
+      spelunker = Task(spelunker_role, "Investigate runtime behavior of [SYSTEM/ISSUE]")
+      wait_for_runtime_report()
+      engineer = Task(engineer_role, "Fix [ISSUE] per runtime findings")
+
+  ELSE IF static code analysis sufficient THEN
+    RECOMMENDED: Delegate to Inspector
+    Pattern:
+      inspector = Task(inspector_role, "Investigate [BUG-ID]")
+      wait_for_rca()
+      engineer = Task(engineer_role, "Fix [BUG-ID] per task packet")
+
+  ELSE IF both perspectives needed THEN
+    HYBRID: Delegate to both
+    Pattern:
+      spelunker = Task(spelunker_role, "Investigate runtime behavior")
+      inspector = Task(inspector_role, "Analyze static code")
+      wait_for_combined_findings()
+      engineer = Task(engineer_role, "Fix with full context")
+  END IF
+```
+
+**Runtime Investigation Indicators:**
+```
+✅ Delegate to Spelunker when:
+- Production-only issue (can't reproduce locally)
+- Performance problem (profiling needed)
+- Intermittent bug (timing, race conditions, Heisenbugs)
+- Complex distributed system issue
+- Unfamiliar system (need to understand actual behavior)
+- Deep call stack mysteries
+- Obscure dependency issues
+- External integration failures
+- Runtime state investigation needed
+
+✅ Delegate to Inspector when:
+- Bug reproducible locally
+- Static code analysis sufficient
+- Clear code path to analyze
+- Root cause likely in code logic
+- No runtime mystery
+
+✅ Delegate to both when:
+- Complex issue needs both runtime and static analysis
+- Production behavior + code-level RCA = complete picture
+- Spelunker discovers runtime behavior, Inspector analyzes code cause
+```
+
+**Collaboration Pattern:**
+```
+Typical flow for production issues:
+  1. Spelunker investigates runtime (traces execution, inspects state)
+  2. Inspector analyzes code (identifies root cause)
+  3. Engineer implements fix (with full context)
+
+Alternatively for straightforward production issues:
+  1. Spelunker investigates runtime (finds AND explains root cause)
+  2. Engineer implements fix (runtime report provides full context)
+```
+
+---
+
 ### 2.8 Feature Planning Delegation Strategy
 
 **RESPONSIBILITY:** Determine whether to delegate feature to Product Manager or directly to Engineer.
@@ -562,9 +635,99 @@ WHEN feature requires technical design:
 
 ---
 
+### 2.9a Legacy Code Investigation Delegation Strategy
+
+**RESPONSIBILITY:** Determine whether to delegate legacy code investigation to Archaeologist.
+
+**Decision Criteria:**
+```
+WHEN refactoring or working with legacy/unfamiliar code:
+  assess_historical_context_needs()
+
+  IF historical context needed THEN
+    RECOMMENDED: Delegate to Archaeologist
+    Pattern:
+      archaeologist = Task(archaeologist_role, "Investigate historical context of [SYSTEM/COMPONENT]")
+      wait_for_archaeological_findings()
+      [Optional] architect = Task(architect_role, "Design refactoring approach")
+      engineer = Task(engineer_role, "Refactor with historical awareness")
+
+  ELSE IF code is well-understood OR well-documented THEN
+    ACCEPTABLE: Skip Archaeologist, delegate directly
+    Pattern:
+      engineer = Task(engineer_role, "Refactor [COMPONENT] following refactor workflow")
+  END IF
+```
+
+**Historical Investigation Indicators:**
+```
+✅ Delegate to Archaeologist when:
+- Refactoring legacy code with unclear design rationale
+- Onboarding to unfamiliar codebase
+- Planning major modernization efforts
+- Code is structured "strangely" and team doesn't know why
+- Understanding technical debt before prioritizing fixes
+- Adding features to legacy systems
+- Evaluating "should we rewrite?" decisions
+- Team inherited code from departed developers
+- Multiple architectural eras visible in code
+- Need to understand "why" before changing "what"
+- Historical assumptions may no longer hold
+- Hidden constraints or dependencies suspected
+
+✅ Skip Archaeologist when:
+- Code is well-documented with clear intent
+- System is new or well-understood by team
+- Historical context is irrelevant to current work
+- Time constraints require immediate action
+- Simple refactoring following obvious patterns
+```
+
+**Collaboration Pattern:**
+```
+Typical flow for legacy code work:
+  1. Archaeologist investigates history (reconstructs intent and context)
+  2. Architect designs modernization approach (informed by history)
+  3. Engineer implements refactoring (understanding why it was built this way)
+
+Alternatively for understanding before feature work:
+  1. Archaeologist investigates existing system (maps historical context)
+  2. Product Manager/Designer define new feature (with awareness of existing patterns)
+  3. Architect designs integration (respecting or evolving existing patterns)
+  4. Engineer implements (with full historical awareness)
+```
+
+**Deliverables from Archaeologist:**
+```
+- System evolution narrative (timeline and eras)
+- Decision reconstruction catalog (why things are this way)
+- Technical debt archaeology (origins and recommendations)
+- Refactoring readiness assessment (what's safe vs. risky)
+- Pattern evolution guide (old vs. new approaches)
+- Onboarding guide for new team members
+```
+
+**Why This Matters:**
+```
+Without archaeological investigation:
+  ❌ "This code is terrible, let's rewrite it"
+  ❌ Break hidden assumptions and constraints
+  ❌ Remove "weird" code that's actually critical
+  ❌ Repeat mistakes from the past
+
+With archaeological investigation:
+  ✅ "This code made sense given constraints at the time, but we can now improve it"
+  ✅ Understand which assumptions still hold vs. obsolete
+  ✅ Preserve critical functionality while modernizing
+  ✅ Learn from historical patterns and decisions
+  ✅ Make informed refactor-vs-rewrite decisions
+```
+
+---
+
 ### 2.10 MANDATORY Artifact Persistence Enforcement
 
-**ENFORCEMENT:** When Product Manager, Designer, Architect, or Inspector completes their planning phase, orchestrator MUST verify artifacts are persisted to repository before proceeding to implementation. This is enforced by the **[Artifact Persistence Gate](../gates/10-persistence.md#11-artifact-repository-persistence)**.
+**ENFORCEMENT:** When Product Manager, Designer, Architect, Inspector, Archaeologist, or Spelunker completes their planning phase, orchestrator MUST verify artifacts are persisted to repository before proceeding to implementation. This is enforced by the **[Artifact Persistence Gate](../gates/10-persistence.md#11-artifact-repository-persistence)**.
 
 **Trigger Conditions:**
 ```
@@ -585,6 +748,14 @@ WHEN specialist completes planning phase:
 
   IF Inspector delivered bug retrospective THEN
     REQUIRE persistence to docs/investigations/
+  END IF
+
+  IF Archaeologist delivered historical investigation THEN
+    REQUIRE persistence to docs/archaeology/
+  END IF
+
+  IF Spelunker delivered production incident report THEN
+    REQUIRE persistence to docs/incidents/
   END IF
 
   BLOCK progression to implementation until persistence verified
@@ -637,6 +808,18 @@ Architect artifacts → docs/architecture/[feature-name]/
 
 Architect ADRs → docs/adr/
   - NNN-decision-title.md
+
+Archaeologist artifacts → docs/archaeology/
+  - [system-name]-evolution.md (timeline and eras)
+  - [system-name]-decisions.md (decision reconstructions)
+  - [system-name]-debt.md (technical debt origins)
+  - [system-name]-patterns.md (pattern evolution)
+  - [system-name]-onboarding.md (for new team members)
+  - README.md (index of investigations)
+
+Spelunker artifacts → docs/incidents/
+  - [incident-id]-[date]-[summary].md (production incident reports)
+  - README.md (incident index)
 
 Inspector retrospectives → docs/investigations/
   - BUG-###-description.md
