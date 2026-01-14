@@ -38,6 +38,71 @@ If structure changes AND behavior preserved → It's refactoring
 
 ## Refactoring-Specific Phases
 
+### Phase 0: Historical Context Investigation (OPTIONAL)
+
+**Objective:** Understand why the code is structured the way it is before refactoring.
+
+**When to use this phase:**
+```
+IF legacy code OR unfamiliar codebase OR unclear design rationale THEN
+  Delegate to Archaeologist for historical investigation
+ELSE
+  Skip to Phase 1
+END IF
+```
+
+**Activities:**
+```
+Orchestrator delegates to Archaeologist:
+  archaeologist = Task(archaeologist_role,
+    "Investigate historical context of [SYSTEM/COMPONENT] before refactoring")
+
+Archaeologist investigates:
+  - Map evolutionary timeline (eras and transitions)
+  - Reconstruct design decisions and their rationale
+  - Identify technical debt origins
+  - Assess which assumptions still hold vs. obsolete
+  - Document refactoring readiness assessment
+
+Archaeologist delivers:
+  - System evolution narrative
+  - Decision reconstruction catalog
+  - Technical debt archaeology
+  - Refactoring readiness assessment
+  - Recommendations: safe vs. risky changes
+```
+
+**Deliverables:**
+```
+docs/archaeology/[system-name]-evolution.md
+docs/archaeology/[system-name]-decisions.md
+docs/archaeology/[system-name]-debt.md
+.ai/tasks/[refactor-id]/historical-context.md (for immediate use)
+```
+
+**Benefits of archaeological investigation:**
+```
+✅ Understand "why" before changing "what"
+✅ Identify hidden assumptions and constraints
+✅ Avoid breaking critical functionality
+✅ Make informed refactor-vs-rewrite decisions
+✅ Preserve valid design decisions while modernizing
+✅ Learn from historical patterns
+✅ Reduce risk of unintended consequences
+```
+
+**Example:**
+```
+Code looks "strange" with complex workarounds. Archaeologist discovers:
+  - Original constraint: Had to support IE6 (no longer relevant)
+  - Workaround: Complex polyfills for missing features
+  - Current state: IE6 support dropped 5 years ago
+  - Recommendation: Safe to remove polyfills, use modern APIs
+  - Risk assessment: Low risk, high benefit
+```
+
+---
+
 ### Phase 1: Assessment & Test Coverage
 
 **Objective:** Ensure safe refactoring environment.
