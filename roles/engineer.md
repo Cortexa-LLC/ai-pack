@@ -78,6 +78,12 @@ BEFORE implementing:
   CHECK for persisted planning artifacts in docs/
 
   IF feature-related work THEN
+    CHECK docs/market/[product-name]/ for:
+      - MRD (Market Requirements Document) - optional
+      - Market requirements and business case
+      - Competitive positioning
+      - Strategic context
+
     CHECK docs/product/[feature-name]/ for:
       - PRD (Product Requirements Document)
       - Epics and user stories
@@ -137,6 +143,7 @@ END BEFORE
 **Documentation Location Quick Reference:**
 ```
 docs/
+├── market/[product-name]/       - MRD, competitive analysis, business case (Product Strategist)
 ├── product/[feature-name]/      - Requirements, PRDs, user stories (Product Manager)
 ├── design/[feature-name]/       - UX wireframes, user flows (Designer)
 ├── architecture/[feature-name]/ - Technical design, APIs, data models (Architect)
