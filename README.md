@@ -288,6 +288,67 @@ Spelunker Production Investigation Complete:
 
 **Enforcement:** See [10-persistence.md](gates/10-persistence.md) - Section 11: "Artifact Repository Persistence"
 
+---
+
+### Role Extension Pattern
+
+The ai-pack framework provides **immutable base roles** that are shared across all projects. When you need project-specific behavior, you create **role extensions** in your project's `.ai/` directory.
+
+#### 🔒 Immutability Rule
+
+```
+❌ NEVER edit files in .ai-pack/
+   - It's a git submodule managed externally
+   - Changes will be lost on submodule update
+   - Breaks other projects using ai-pack
+
+✅ DO create extensions in .ai/
+   - Project-specific additions
+   - Safe from submodule updates
+   - Local to your project only
+```
+
+#### Extension Pattern (Quick Guide)
+
+**1. Create extension file:**
+```bash
+mkdir -p .ai/roles/
+vim .ai/roles/<role-name>-extension.md
+```
+
+**2. Reference base role:**
+```markdown
+# <Role Name> Extension - [Project Name]
+
+**Base Role:** `.ai-pack/roles/<role-name>.md` (immutable, managed by ai-pack)
+**Extension Type:** Project-specific additions
+```
+
+**3. Document in `.ai/repo-overrides.md`:**
+```markdown
+## Role Extensions
+
+### <Role Name> Extension
+**Extension Location:** `.ai/roles/<role-name>-extension.md`
+**Base Role:** `.ai-pack/roles/<role-name>.md`
+**Extension Summary:** [Brief description]
+```
+
+**4. Commit extension:**
+```bash
+git add .ai/roles/<role-name>-extension.md
+git add .ai/repo-overrides.md
+git commit -m "Add <role-name> extension for [project need]"
+```
+
+**Templates:**
+- Extension template: [templates/role-extension-template.md](templates/role-extension-template.md)
+- Overrides template: [templates/repo-overrides.md](templates/repo-overrides.md)
+
+**Complete Guide:** See [ROLE-EXTENSION-GUIDE.md](ROLE-EXTENSION-GUIDE.md) for comprehensive documentation with examples and anti-patterns.
+
+---
+
 ### Quick Start
 
 #### 1. Add Framework to Your Project

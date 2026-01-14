@@ -269,19 +269,86 @@ git commit -m "Update ai-pack framework"
 
 ## Invariants (Critical)
 
+### 🔒 Immutability Rule (CRITICAL)
+
+**`.ai-pack/` is IMMUTABLE:**
+```
+❌ NEVER edit files in .ai-pack/
+   - It's a git submodule managed externally
+   - Changes will be lost on submodule update
+   - Breaks other projects using ai-pack
+   - Violates framework contract
+
+❌ NEVER add files to .ai-pack/
+   - Not your territory
+   - Will cause merge conflicts
+   - Breaks submodule integrity
+
+✅ DO read and reference .ai-pack/
+   - Use as documentation
+   - Follow its patterns
+   - Reference in your code
+
+✅ DO update via git submodule:
+   git submodule update --remote .ai-pack
+```
+
+### 📝 Extension Pattern
+
+**To extend a role or add project-specific behavior:**
+
+1. **Create extension in `.ai/roles/`:**
+   ```bash
+   mkdir -p .ai/roles/
+   vim .ai/roles/<role-name>-extension.md
+   ```
+
+2. **Reference base role from `.ai-pack/roles/`:**
+   ```markdown
+   # <Role Name> Extension - [Project Name]
+
+   **Base Role:** `.ai-pack/roles/<role-name>.md` (immutable, managed by ai-pack)
+   **Extension Type:** Project-specific additions
+   ```
+
+3. **Document extension in `.ai/repo-overrides.md`:**
+   ```markdown
+   ## Role Extensions
+
+   ### <Role Name> Extension
+   **Extension Location:** `.ai/roles/<role-name>-extension.md`
+   **Base Role:** `.ai-pack/roles/<role-name>.md`
+   **Extension Summary:** [Brief description]
+   ```
+
+4. **Reference in CLAUDE.md** (if commonly used):
+   ```markdown
+   ## Role Extensions
+
+   This project extends the following ai-pack roles:
+   - **<Role Name>**: See [.ai/roles/<role-name>-extension.md](.ai/roles/<role-name>-extension.md)
+   ```
+
+**See:** [.ai-pack/ROLE-EXTENSION-GUIDE.md](.ai-pack/ROLE-EXTENSION-GUIDE.md) for complete guide
+
 ### ✅ DO
 - Create task packets in `.ai/tasks/`
+- Create role extensions in `.ai/roles/`
 - Follow gates and workflows
 - Update work logs regularly
 - Reference standards when making decisions
+- Document extensions in `.ai/repo-overrides.md`
 - Ask questions when uncertain
 
 ### ❌ NEVER
+- Edit files in `.ai-pack/` (immutable!)
+- Add files to `.ai-pack/` (use `.ai/` instead)
 - Put task packets in `.ai-pack/`
-- Edit `.ai-pack/` files directly (contribute to ai-pack repo instead)
+- Put role extensions in `.claude/` (use `.ai/roles/`)
 - Overwrite `.ai/tasks/` during updates
 - Skip gate checkpoints
 - Proceed with failing tests
+- Leave extensions undocumented
 
 ---
 
