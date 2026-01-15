@@ -403,62 +403,86 @@ Task(subagent_type="general-purpose",
 
 **All Task calls must be in the SAME response to run in parallel.**
 
-**After spawning agents, REGISTER them with the status tracker:**
+**After spawning agents, CREATE Beads tasks for tracking:**
 
 ```bash
-# Register each agent you spawned (use meaningful IDs)
-python3 .claude/scripts/agent-status-tracker.py register "engineer-feature-a" "Engineer" "Implement feature A" "orchestrator-$$"
-python3 .claude/scripts/agent-status-tracker.py register "engineer-feature-b" "Engineer" "Implement feature B" "orchestrator-$$"
-python3 .claude/scripts/agent-status-tracker.py register "engineer-feature-c" "Engineer" "Implement feature C" "orchestrator-$$"
+# Create Beads task for each agent spawned
+bd create "Agent: Engineer - Implement feature A" \
+  --assignee "Engineer-1" \
+  --priority high \
+  --description "Task packet: .ai/tasks/2026-01-10_feature-a/"
+
+bd create "Agent: Engineer - Implement feature B" \
+  --assignee "Engineer-2" \
+  --priority high \
+  --description "Task packet: .ai/tasks/2026-01-10_feature-b/"
+
+bd create "Agent: Engineer - Implement feature C" \
+  --assignee "Engineer-3" \
+  --priority high \
+  --description "Task packet: .ai/tasks/2026-01-10_feature-c/"
+
+# Mark agents as in-progress
+bd start bd-a1b2
+bd start bd-b2c3
+bd start bd-c3d4
 ```
 
-**This enables Coordinator to:**
-- Monitor agent progress automatically
-- Detect blocked/stuck agents
-- Report completion status to you
-- Signal when work is done
+**This enables:**
+- Cross-session persistence (tasks survive session end)
+- Git-backed audit trail of agent activity
+- `/ai-pack agents` command to show status
+- Coordinator to monitor progress automatically
+- Dependency tracking between agents
 
 **Then check agent status anytime:**
 
 ```bash
-# Get current status report from Coordinator
-python3 .claude/scripts/agent-status-tracker.py report
+# Check active agents
+bd list --status in_progress --assignee "Engineer-*"
+
+# Or use the /ai-pack agents command for formatted report
+/ai-pack agents
 ```
 
 **Output example:**
 ```
-============================================================
-AGENT STATUS REPORT
-============================================================
-Summary: 2/3 completed, 1 active, 0 blocked
-Active: 1
+AI-Pack Agent Status (via Beads)
+================================
+
+Active Agents: 1 / 5 maximum
+
+1. Task ID: bd-c3d4
+   Assignee: Engineer-3
+   Task:     Agent: Engineer - Implement feature C
+   Status:   in_progress
+   Started:  2026-01-14 14:23:45
+
 Completed: 2
+  - bd-a1b2: Agent: Engineer - Implement feature A (Engineer-1)
+  - bd-b2c3: Agent: Engineer - Implement feature B (Engineer-2)
+
 Blocked: 0
 
-Agent Details:
+Available capacity: 4 slots
+```
 
-  ✅ engineer-feature-a (Engineer)
-     Task: Implement feature A
-     Status: completed
-     Commits: 5
+**Detailed status with jq:**
 
-  ✅ engineer-feature-b (Engineer)
-     Task: Implement feature B
-     Status: completed
-     Commits: 3
-
-  🟢 engineer-feature-c (Engineer)
-     Task: Implement feature C
-     Status: active
-     Commits: 2
-============================================================
+```bash
+bd list --assignee "Engineer-*" --json | jq -r '
+  "Active agents:",
+  (.[] | select(.status == "in_progress") | "  \(.assignee): \(.title)"),
+  "",
+  "Progress: \([ .[] | select(.status == "closed") ] | length)/\(length) completed"
+'
 ```
 
 **With this signaling, you DON'T need to:**
 - ❌ Manually check worker output files
 - ❌ Parse worker logs yourself
 - ❌ Guess if workers are done
-- ✅ Just read the status report from Coordinator
+- ✅ Just query Beads or use `/ai-pack agents`
 
 ---
 
