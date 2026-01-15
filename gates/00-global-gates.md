@@ -105,28 +105,59 @@ END BEFORE
 
 ---
 
-### 3. Quality Baseline
+### 3. Quality Baseline (BLOCKING)
 
 **Rule:** All code must meet minimum quality standards before completion.
 
 **Requirements:**
 - All tests must pass (zero tolerance for failures)
 - Code coverage: 80-90% minimum (enforced by TDD gate)
+- **Build with ZERO WARNINGS (zero tolerance - BLOCKING)**
 - No critical code review findings unresolved
 - Follows language-specific style guides
 - Properly formatted (spaces, not tabs)
+
+**⚠️ CRITICAL: Zero Warnings Policy**
+
+Code MUST compile/build with ZERO WARNINGS. This is NON-NEGOTIABLE.
+
+**Why Zero Warnings:**
+- Warnings indicate quality issues
+- Warnings become production bugs
+- Professional code has zero warnings
+- Teams ignoring warnings accumulate technical debt
 
 **Implementation:**
 ```
 BEFORE marking task complete:
   run all tests → must pass
   check coverage → must meet target
+  run build with warnings-as-errors → MUST show 0 warnings
   verify formatting → must comply
+
   IF any check fails THEN
     fix issues
     re-run checks
   END IF
+
+  IF any warnings exist THEN
+    STOP - BLOCK completion
+    FIX all warnings
+    RE-RUN build
+    ONLY proceed when: 0 warnings
+  END IF
 END BEFORE
+```
+
+**Language-Specific Enforcement:**
+```
+C/C++:        -Werror -Wall -Wextra
+C#:           /warnaserror
+Java:         -Werror
+TypeScript:   --strict, --max-warnings 0
+Python:       flake8, mypy --strict
+Go:           go vet, golangci-lint --max-issues-per-linter 0
+Rust:         clippy -- -D warnings
 ```
 
 ---

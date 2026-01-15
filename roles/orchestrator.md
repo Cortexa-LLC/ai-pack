@@ -1453,6 +1453,240 @@ Task(subagent_type="general-purpose",
 
 ---
 
+### 2.15 Artifact Persistence Verification (CRITICAL - POST-EXECUTION)
+
+**MANDATORY CHECK:** After background agents complete, MUST verify files were actually persisted to repository.
+
+**⚠️ CRITICAL ISSUE: Background agents report success but files don't exist**
+
+**Problem Pattern (Real consumer-project Example):**
+```
+Background Engineer (agent a9a6821) reports:
+  "✅ Created: server/Tests/Unit/GraphQL/UserMutationsTests.cs"
+  "✅ Test file written successfully"
+  "✅ Work complete"
+
+Reality:
+  ❌ File doesn't exist in repository
+  ❌ Agent worked in isolated sandbox
+  ❌ No write-back to actual repository
+  ❌ Silent failure - no detection
+
+Result: Orchestrator believes work is done, but nothing was persisted
+```
+
+**Root Causes:**
+1. **Sandbox Isolation:** Agent works in temporary workspace, files stay there
+2. **Permission Failure:** Agent can't write to actual repository
+3. **No Verification:** No post-execution check that files exist
+4. **Silent Failure:** Agent reports success even when files not persisted
+
+**MANDATORY Post-Execution Verification Procedure:**
+
+```
+AFTER background agent reports completion:
+  STEP 1: Extract claimed file list from agent output
+    Parse agent's final report
+    Extract all "created file:" or "wrote to:" statements
+    Build expected_files[] list
+
+  STEP 2: Verify EVERY claimed file actually exists
+    FOR EACH file in expected_files:
+      IF file exists in repository THEN
+        ✓ File persisted successfully
+      ELSE
+        ❌ CRITICAL: File missing despite agent claiming success
+        ADD to missing_files[] list
+      END IF
+    END FOR
+
+  STEP 3: Check for partial success (some files missing)
+    IF missing_files is not empty THEN
+      CRITICAL FAILURE detected
+      STOP - DO NOT PROCEED
+      REPORT to user with details
+    END IF
+
+  STEP 4: Verify file contents if applicable
+    FOR EACH persisted file:
+      IF file is empty OR contains placeholder text THEN
+        ❌ File created but not populated
+        REPORT as incomplete
+      END IF
+    END FOR
+
+END AFTER
+```
+
+**Verification Commands:**
+
+```bash
+# After background agent completes, verify claimed files exist
+
+CLAIMED_FILES=(
+  "server/Tests/Unit/GraphQL/UserMutationsTests.cs"
+  "server/Tests/Unit/API/Controllers/FlagsControllerTests.cs"
+  "server/Tests/Unit/GraphQL/FlagMutationsTests.cs"
+  "server/API/Models/PublicFlagResponse.cs"
+  "server/API/Services/IFlagService.cs"
+)
+
+MISSING_FILES=()
+
+for file in "${CLAIMED_FILES[@]}"; do
+  if [ ! -f "$file" ]; then
+    MISSING_FILES+=("$file")
+    echo "❌ MISSING: $file (agent claimed to create it)"
+  else
+    echo "✓ EXISTS: $file"
+
+    # Check if file is empty
+    if [ ! -s "$file" ]; then
+      echo "  ⚠️  WARNING: File exists but is EMPTY"
+    fi
+  fi
+done
+
+if [ ${#MISSING_FILES[@]} -ne 0 ]; then
+  echo ""
+  echo "🚨 CRITICAL: Background agent persistence failure"
+  echo "Agent reported creating ${#CLAIMED_FILES[@]} files"
+  echo "Found ${#MISSING_FILES[@]} missing files"
+  echo ""
+  echo "Missing files:"
+  for file in "${MISSING_FILES[@]}"; do
+    echo "  - $file"
+  done
+  echo ""
+  echo "ACTION REQUIRED:"
+  echo "1. Check agent output for actual file locations"
+  echo "2. Verify .claude/settings.json has Write(*) permissions"
+  echo "3. Check if agent worked in isolated sandbox"
+  echo "4. Re-run agent in foreground mode OR"
+  echo "5. Manually extract content from agent output and persist"
+fi
+```
+
+**Detection and Recovery:**
+
+```
+IF agent completes BUT files missing THEN
+  STEP 1: Analyze agent output
+    Read full agent transcript
+    Look for file paths mentioned
+    Check for permission errors
+    Check for sandbox warnings
+
+  STEP 2: Attempt recovery
+    OPTION A: Extract content from agent output
+      IF agent output contains full file content THEN
+        manually persist files from output
+        verify correctness
+      END IF
+
+    OPTION B: Re-run agent in foreground
+      Spawn new agent WITHOUT run_in_background=true
+      Agent can prompt for Write permissions interactively
+      Monitor completion and verify files exist
+
+    OPTION C: Run agent with verified permissions
+      Fix .claude/settings.json configuration
+      Re-run agent in background with corrected setup
+      Verify files persisted
+
+  STEP 3: Update Beads task status
+    IF recovery successful THEN
+      bd close <task-id>
+    ELSE
+      bd block <task-id> "File persistence failed, needs manual intervention"
+    END IF
+END IF
+```
+
+**Pre-Flight Checklist for Background Agents:**
+
+```
+BEFORE spawning background agent that will create files:
+  ✓ Verify .claude/settings.json exists
+  ✓ Verify Write(*) in permissions.allow
+  ✓ Verify defaultMode: bypassPermissions
+  ✓ Document expected output files
+  ✓ Set up post-execution verification
+
+AFTER agent completes:
+  ✓ Verify EVERY claimed file exists
+  ✓ Verify file contents are complete (not empty)
+  ✓ Verify files in correct locations
+  ✓ Run build to confirm files integrate correctly
+  ✓ Update Beads task only after verification passes
+```
+
+**Reporting Format:**
+
+When background agent completes, ALWAYS report verification results:
+
+```
+Background Engineer (agent a9a6821) completed.
+
+Artifact Persistence Verification:
+  Expected files: 5
+  Found files: 5
+  Missing files: 0
+
+  ✓ server/Tests/Unit/GraphQL/UserMutationsTests.cs (2.3 KB)
+  ✓ server/Tests/Unit/API/Controllers/FlagsControllerTests.cs (1.8 KB)
+  ✓ server/Tests/Unit/GraphQL/FlagMutationsTests.cs (2.1 KB)
+  ✓ server/API/Models/PublicFlagResponse.cs (0.5 KB)
+  ✓ server/API/Services/IFlagService.cs (0.8 KB)
+
+Build Verification:
+  ✓ 0 Errors
+  ✓ 0 Warnings
+  ✓ All tests pass
+
+Status: ✅ VERIFIED - Files persisted successfully
+```
+
+OR if failures:
+
+```
+Background Engineer (agent a9a6821) completed.
+
+Artifact Persistence Verification:
+  Expected files: 5
+  Found files: 0
+  Missing files: 5
+
+  ❌ server/Tests/Unit/GraphQL/UserMutationsTests.cs (MISSING)
+  ❌ server/Tests/Unit/API/Controllers/FlagsControllerTests.cs (MISSING)
+  ❌ server/Tests/Unit/GraphQL/FlagMutationsTests.cs (MISSING)
+  ❌ server/API/Models/PublicFlagResponse.cs (MISSING)
+  ❌ server/API/Services/IFlagService.cs (MISSING)
+
+Status: 🚨 CRITICAL FAILURE - No files persisted
+
+Root Cause: Agent worked in isolated sandbox, files not written to repository
+
+Recovery Options:
+  1. Extract content from agent output (if present)
+  2. Re-run agent in foreground mode
+  3. Fix permissions and re-run in background
+
+Beads task marked as BLOCKED until resolved.
+```
+
+**Why This Verification is MANDATORY:**
+
+- **Silent Failures:** Agents can report success when files weren't persisted
+- **Wasted Work:** Hours of agent work lost if not detected early
+- **Build Failures:** Missing files cause downstream compilation errors
+- **Test Gaps:** Missing test files leave coverage gaps
+- **False Progress:** Orchestrator believes work complete when it isn't
+
+**ENFORCEMENT:** This verification CANNOT be skipped for background agents that create files.
+
+---
+
 ### 3. Progress Monitoring and Coordination
 
 **Responsibility:** Track progress across all subtasks and agents using Beads.
