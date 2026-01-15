@@ -252,7 +252,7 @@ For significant decisions, create ADR in `docs/adr/`:
 ### Phase 4: Collaboration
 
 1. **Technical feasibility feedback:**
-   - Work with Product Manager on requirements
+   - Work with Cartographer on requirements
    - Validate UX design is technically feasible
    - Identify implementation risks
 
@@ -286,7 +286,7 @@ For significant decisions, create ADR in `docs/adr/`:
 
 ## Related Commands
 
-- `/ai-pack pm` - Product Manager for requirements
+- `/ai-pack pm` - Cartographer for requirements
 - `/ai-pack designer` - Designer for UX workflows
 - `/ai-pack engineer` - Delegate implementation
 - `/ai-pack help` - Show all commands

@@ -34,15 +34,15 @@ The Feature Workflow is specialized for adding new functionality to a system. It
 **Step 0.0: Strategic Analysis (Optional - for major initiatives)**
 ```
 IF new product OR major feature with market implications OR requires business case THEN
-  Orchestrator delegates to Product Strategist
-  Product Strategist conducts market research
-  Product Strategist analyzes competitive landscape
-  Product Strategist develops business case with ROI
-  Product Strategist creates Market Requirements Document (MRD)
-  Product Strategist recommends proceed/defer/do-not-pursue
+  Orchestrator delegates to Strategist
+  Strategist conducts market research
+  Strategist analyzes competitive landscape
+  Strategist develops business case with ROI
+  Strategist creates Market Requirements Document (MRD)
+  Strategist recommends proceed/defer/do-not-pursue
 
   IF recommendation == "PROCEED" THEN
-    Product Strategist persists MRD to docs/market/[product-name]/
+    Strategist persists MRD to docs/market/[product-name]/
     THEN proceed to Step 0.0a or 0.1 with validated market opportunity
   ELSE IF recommendation == "DEFER" OR "DO NOT PURSUE" THEN
     STOP workflow (market validation failed)
@@ -67,12 +67,12 @@ END IF
 **Step 0.1: Product Definition (Optional - for large features)**
 ```
 IF feature is large OR requirements unclear THEN
-  Orchestrator delegates to Product Manager
-  PM reviews MRD (if created by Product Strategist in Step 0.0)
-  PM creates PRD based on market requirements
-  PM defines epics and user stories
-  PM consults with Architect (if complex)
-  PM delivers requirements package
+  Orchestrator delegates to Cartographer
+  Cartographer reviews MRD (if created by Strategist in Step 0.0)
+  Cartographer creates PRD based on market requirements
+  Cartographer defines epics and user stories
+  Cartographer consults with Architect (if complex)
+  Cartographer delivers requirements package
 
   THEN proceed to Phase 0.2 or Phase 1 with clear requirements
 END IF
@@ -111,7 +111,7 @@ END IF
 
 **Selection Criteria:**
 
-**Delegate to Product Strategist when:**
+**Delegate to Strategist when:**
 - New product initiative
 - Entering new market or segment
 - Major feature with competitive implications
@@ -130,7 +130,7 @@ END IF
 - Feature may conflict with historical constraints
 - Need to understand "why" before designing "what"
 
-**Delegate to Product Manager when:**
+**Delegate to Cartographer when:**
 - Large feature with multiple components
 - Requirements unclear or incomplete
 - Success metrics undefined
@@ -164,8 +164,8 @@ END IF
 - No significant UI/UX work needed
 
 **Deliverables from Phase 0:**
-- **From Product Strategist (if invoked):** MRD, competitive analysis, business case, market research
-- **From PM (if invoked):** PRD, epics, user stories with acceptance criteria
+- **From Strategist (if invoked):** MRD, competitive analysis, business case, market research
+- **From Cartographer (if invoked):** PRD, epics, user stories with acceptance criteria
 - **From Designer (if invoked):** User research, user flows, wireframes (HTML), design specs, accessibility requirements
 - **From Architect (if invoked):** Architecture document, API specifications, data models, ADRs
 
@@ -174,15 +174,15 @@ END IF
 When Phase 0 completes and implementation begins, planning artifacts MUST be persisted to repository:
 
 ```
-WHEN Product Strategist phase complete:
+WHEN Strategist phase complete:
   persist artifacts to docs/market/[product-name]/
   commit: MRD, competitive analysis, business case, market research
-  see roles/product-strategist.md "Artifact Persistence" section
+  see roles/strategist.md "Artifact Persistence" section
 
-WHEN Product Manager phase complete:
+WHEN Cartographer phase complete:
   persist artifacts to docs/product/[feature-name]/
   commit: PRD, epics, user stories
-  see roles/product-manager.md "Artifact Persistence" section
+  see roles/cartographer.md "Artifact Persistence" section
 
 WHEN Designer phase complete:
   persist artifacts to docs/design/[feature-name]/

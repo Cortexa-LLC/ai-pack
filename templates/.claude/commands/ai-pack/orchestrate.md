@@ -25,7 +25,7 @@ Use the Orchestrator role when:
 3. Break down into subtasks
 4. Determine which specialists needed:
    - **Inspector** - Bug investigation
-   - **Product Manager** - Requirements definition
+   - **Cartographer** - Requirements definition
    - **Architect** - Technical design
    - **Designer** - UX workflows and wireframes
    - **Engineer** - Implementation

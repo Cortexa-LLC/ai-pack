@@ -1,14 +1,14 @@
 ---
-description: Assume Product Manager role for requirements definition
+description: Assume Cartographer role for requirements definition
 ---
 
-# /ai-pack pm - Product Manager Role
+# /ai-pack cartographer - Cartographer Role
 
-Activates the **Product Manager role** for defining product requirements and creating Product Requirement Documents (PRDs).
+Activates the **Cartographer role** for defining product requirements and creating Product Requirement Documents (PRDs).
 
 ## When to Use This Role
 
-Use the Product Manager role when:
+Use the Cartographer role when:
 - Large or unclear feature requirements
 - Need to define WHAT and WHY before HOW
 - Multiple stakeholder needs to balance
@@ -18,7 +18,7 @@ Use the Product Manager role when:
 
 **Don't use for:** Small, well-defined tasks with clear requirements
 
-## Product Manager Responsibilities
+## Cartographer Responsibilities
 
 ### Phase 1: Requirements Gathering
 
@@ -42,7 +42,7 @@ Create PRD in `docs/product/`:
 # PRD: [Feature Name]
 
 **Date:** [Date]
-**Product Manager:** [Your name]
+**Cartographer:** [Your name]
 **Status:** [Draft | Review | Approved]
 
 ## Executive Summary
@@ -292,7 +292,7 @@ Estimate: 3 points
 
 ## Reference Documentation
 
-**Primary:** [.ai-pack/roles/product-manager.md](../../.ai-pack/roles/product-manager.md)
+**Primary:** [.ai-pack/roles/cartographer.md](../../.ai-pack/roles/cartographer.md)
 
 **Gates:**
 - [.ai-pack/gates/10-persistence.md](../../.ai-pack/gates/10-persistence.md) - Document persistence
@@ -310,7 +310,7 @@ Estimate: 3 points
 ## Activation
 
 This command will:
-1. Load the Product Manager role definition
+1. Load the Cartographer role definition
 2. Guide you through PRD creation
 3. Help break down into user stories
 4. Ensure proper artifact persistence

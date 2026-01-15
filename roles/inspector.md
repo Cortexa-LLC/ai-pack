@@ -405,7 +405,7 @@ project-root/
 │   ├── architecture/
 │   │   └── ... (from Architect)
 │   ├── product/
-│   │   └── ... (from Product Manager)
+│   │   └── ... (from Cartographer)
 │   └── ...
 └── .ai/
     └── tasks/ (temporary, not committed)

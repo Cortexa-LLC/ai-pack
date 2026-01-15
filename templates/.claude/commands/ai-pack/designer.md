@@ -301,7 +301,7 @@ Create design specs document in `docs/design/[feature-name]/`:
 
 ### Phase 5: Collaboration
 
-1. **Validate with Product Manager:**
+1. **Validate with Cartographer:**
    - Does design meet requirements?
    - Any missing user needs?
 
@@ -344,7 +344,7 @@ Create design specs document in `docs/design/[feature-name]/`:
 
 ## Related Commands
 
-- `/ai-pack pm` - Product Manager for requirements
+- `/ai-pack pm` - Cartographer for requirements
 - `/ai-pack architect` - Architect for technical design
 - `/ai-pack engineer` - Delegate implementation
 - `/ai-pack help` - Show all commands
