@@ -224,37 +224,113 @@ END IF
 
 ---
 
-### 8. Build Verification
+### 8. Build Verification (BLOCKING - ZERO WARNINGS REQUIRED)
 
-**Checkpoint:** Project builds successfully.
+**Checkpoint:** Project builds successfully with **ZERO WARNINGS**.
+
+**⚠️ CRITICAL: Code MUST compile/build with ZERO WARNINGS. Warnings are treated as errors.**
 
 **Verification:**
 ```
 ✓ Clean build succeeds
 ✓ No compilation errors
+✓ No compilation warnings (BLOCKING)
 ✓ No linking errors
 ✓ No linting errors
 ✓ No type errors
+✓ No style violations
 ```
 
-**Build Process:**
+**MANDATORY Build Process:**
 ```
-RUN build:
-  IF build tool exists THEN
-    run build (make, cmake, npm build, etc.)
-    verify success
+RUN build WITH WARNINGS AS ERRORS:
+
+  # C/C++ Projects
+  IF C++ project THEN
+    # Treat all warnings as errors
+    cmake -DCMAKE_CXX_FLAGS="-Werror -Wall -Wextra" ..
+    make
+    # OR
+    g++ -Werror -Wall -Wextra *.cpp
+    ✓ MUST show "0 warnings"
   END IF
 
-  IF linter exists THEN
-    run linter
-    verify no errors
+  # C# Projects
+  IF C# project THEN
+    # Treat warnings as errors (MANDATORY)
+    dotnet build /warnaserror
+    # OR verify in .csproj:
+    # <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    ✓ MUST show "0 Warning(s)"
   END IF
 
-  IF type checker exists THEN
-    run type check
-    verify no errors
+  # Java Projects
+  IF Java project THEN
+    # Maven: treat warnings as errors
+    mvn clean compile -Dmaven.compiler.showWarnings=true -Werror
+    # Gradle: enable warnings as errors
+    ./gradlew build -Pwarnings-as-errors
+    ✓ MUST show "BUILD SUCCESS" with 0 warnings
   END IF
+
+  # JavaScript/TypeScript Projects
+  IF JS/TS project THEN
+    # TypeScript: strict mode
+    tsc --noEmitOnError --strict
+    # ESLint: fail on warnings
+    eslint . --max-warnings 0
+    ✓ MUST show "0 problems"
+  END IF
+
+  # Python Projects
+  IF Python project THEN
+    # Flake8: fail on any issues
+    flake8 . --count --show-source --statistics
+    # mypy: strict type checking
+    mypy . --strict --warn-unreachable
+    ✓ MUST show "0 errors", "0 warnings"
+  END IF
+
+  # Go Projects
+  IF Go project THEN
+    # Go: vet checks
+    go vet ./...
+    # golangci-lint: strict
+    golangci-lint run --max-issues-per-linter 0 --max-same-issues 0
+    ✓ MUST show "0 issues"
+  END IF
+
+  # Rust Projects
+  IF Rust project THEN
+    # Cargo: deny warnings
+    cargo build --release
+    cargo clippy -- -D warnings
+    ✓ MUST show "0 warnings"
+  END IF
+
 END RUN
+
+**ENFORCEMENT:**
+```
+IF any warnings detected THEN
+  STOP immediately
+  BLOCK completion
+  LIST all warnings
+  FIX all warnings
+  RE-RUN build
+  ONLY proceed when: 0 warnings
+END IF
+```
+
+**Pre-Commit Checklist (MANDATORY):**
+```
+BEFORE committing code:
+  ✓ Run build with warnings-as-errors flag
+  ✓ Verify output shows "0 warnings"
+  ✓ Run linter/formatter
+  ✓ Fix ALL issues
+  ✓ Re-run build to confirm
+  ✓ THEN commit
 ```
 
 ---

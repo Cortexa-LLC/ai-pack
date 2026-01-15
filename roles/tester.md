@@ -745,13 +745,34 @@ The Tester role enforces testing standards from:
    - Any tests failing
    - Tests skipped without justification
 
-4. Quality Failures
+4. Build Warnings (CRITICAL - ZERO TOLERANCE)
+   - ANY compilation/build warnings present
+   - Linter warnings not fixed
+   - Style violations not resolved
+   - Type errors present
+
+   ⚠️ MANDATORY CHECK:
+   Run build with warnings-as-errors:
+   - C/C++:     make with -Werror flag
+   - C#:        dotnet build /warnaserror
+   - Java:      mvn compile -Werror
+   - TypeScript: tsc --strict, eslint --max-warnings 0
+   - Python:    flake8, mypy --strict
+   - Go:        go vet, golangci-lint
+   - Rust:      cargo clippy -- -D warnings
+
+   IF any warnings THEN
+     BLOCK approval
+     RETURN "Fix all warnings before re-test"
+   END IF
+
+5. Quality Failures
    - Flaky tests present
    - Tests don't verify behavior
    - Tests test implementation details
    - Tests unmaintainable
 
-5. Security Test Gaps
+6. Security Test Gaps
    - Auth/authorization untested
    - Input validation untested
    - Security scenarios missing
