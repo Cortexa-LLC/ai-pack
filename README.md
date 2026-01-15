@@ -59,24 +59,24 @@ Roles define different agent personas with specific responsibilities. Located in
   - **Explores:** Execution paths, deep call stacks, obscure dependencies, runtime state
   - **Delivers:** Runtime investigation report, execution traces, dependency maps, incident reports
   - **Optional:** Invoked by Orchestrator for production/runtime issues or directly by user
-- **[product-strategist.md](roles/product-strategist.md)** - Market analysis and business strategy specialist
+- **[strategist.md](roles/strategist.md)** - Market analysis and business strategy specialist
   - **Analyzes:** Market opportunity, competitive landscape, business case, strategic positioning
   - **Delivers:** MRD (Market Requirements Document), competitive analysis, business case, strategic recommendations
-  - **Collaborates:** Hands off market requirements to Product Manager for detailed product definition
+  - **Collaborates:** Hands off market requirements to Cartographer for detailed product definition
   - **Optional:** Invoked by Orchestrator for new products, major features with market implications, or business case validation
-- **[product-manager.md](roles/product-manager.md)** - Requirements specialist, creates PRDs and user stories
+- **[cartographer.md](roles/cartographer.md)** - Requirements specialist, creates PRDs and user stories
   - **Defines:** Product requirements, success metrics, epics and user stories (JIRA-style)
   - **Collaborates:** Works with Engineers and Architect on technical feasibility and breakdown
   - **Delivers:** PRD, epics, user stories with acceptance criteria
   - **Optional:** Invoked by Orchestrator for large features or directly by user
 - **[designer.md](roles/designer.md)** - UX specialist, creates user flows and wireframes for value stream delivery
   - **Designs:** User workflows, journey maps, wireframes (HTML for web/iOS/Android), design specifications
-  - **Collaborates:** Works with Product Manager on requirements, Architect on feasibility
+  - **Collaborates:** Works with Cartographer on requirements, Architect on feasibility
   - **Delivers:** User research, user flows, wireframes, design specs, accessibility requirements
   - **Optional:** Invoked by Orchestrator for user-facing features with significant UI/UX work
 - **[architect.md](roles/architect.md)** - Technical design specialist, system architecture and design
   - **Designs:** System architecture, API specifications, data models, technology choices
-  - **Collaborates:** Works with Product Manager and Designer on feasibility, Engineers on implementation
+  - **Collaborates:** Works with Cartographer and Designer on feasibility, Engineers on implementation
   - **Delivers:** Architecture documents, API specs, data models, ADRs
   - **Optional:** Invoked by Orchestrator for complex features requiring architectural design
 - **[archaeologist.md](roles/archaeologist.md)** - Legacy code investigation specialist, reconstructs historical context
@@ -178,7 +178,7 @@ your-project/
 │   └── repo-overrides.md           # Optional project-specific deltas
 │
 ├── docs/                            # Permanent documentation (committed)
-│   ├── market/                      # Market requirements (Product Strategist)
+│   ├── market/                      # Market requirements (Strategist)
 │   │   └── [product-name]/
 │   │       ├── mrd.md               # Market Requirements Document
 │   │       ├── competitive-analysis.md # Competitive landscape
@@ -268,13 +268,13 @@ AI-Pack enforces a **two-tier documentation system**:
 When planning phases complete and work transitions to implementation, artifacts MUST be persisted:
 
 ```
-Product Strategist Phase Complete:
+Strategist Phase Complete:
   .ai/tasks/[id]/mrd.md              → docs/market/[product-name]/mrd.md
   .ai/tasks/[id]/competitive-analysis.md → docs/market/[product-name]/competitive-analysis.md
   .ai/tasks/[id]/business-case.md    → docs/market/[product-name]/business-case.md
   .ai/tasks/[id]/market-research.md  → docs/market/[product-name]/market-research.md
 
-Product Manager Phase Complete:
+Cartographer Phase Complete:
   .ai/tasks/[id]/prd.md          → docs/product/[feature-name]/prd.md
   .ai/tasks/[id]/epics.md        → docs/product/[feature-name]/epics.md
   .ai/tasks/[id]/user-stories.md → docs/product/[feature-name]/user-stories.md
@@ -703,8 +703,8 @@ Located in `templates/.claude/`:
    - `/ai-pack inspect` - Bug investigation
    - `/ai-pack architect` - Architecture design
    - `/ai-pack designer` - UX workflows
-   - `/ai-pack product-strategist` - Market analysis and business strategy
-   - `/ai-pack pm` - Product requirements
+   - `/ai-pack strategist` - Market analysis and business strategy
+   - `/ai-pack cartographer` - Product requirements
    - `/ai-pack help` - Show all commands
 
 2. **Skills** (`skills/`)
@@ -939,7 +939,7 @@ ai-pack/
 │   ├── orchestrator.md                # Coordinator role
 │   ├── engineer.md                    # Implementation specialist
 │   ├── inspector.md                   # Bug investigation specialist
-│   ├── product-manager.md             # Requirements specialist
+│   ├── cartographer.md             # Requirements specialist
 │   ├── architect.md                   # Technical design specialist
 │   ├── tester.md                      # Testing specialist
 │   └── reviewer.md                    # Quality assurance

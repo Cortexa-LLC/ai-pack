@@ -483,7 +483,7 @@ Alternatively for straightforward production issues:
 
 ### 2.7b Market Analysis Delegation Strategy
 
-**RESPONSIBILITY:** Determine whether to delegate market analysis to Product Strategist before product definition.
+**RESPONSIBILITY:** Determine whether to delegate market analysis to Strategist before product definition.
 
 **Decision Criteria:**
 ```
@@ -491,7 +491,7 @@ WHEN major initiative or feature requested:
   assess_strategic_scope()
 
   IF requires market validation OR business case OR competitive analysis THEN
-    RECOMMENDED: Delegate to Product Strategist first
+    RECOMMENDED: Delegate to Strategist first
     Pattern:
       strategist = Task(strategist_role, "Analyze market for [PRODUCT/FEATURE]")
       wait_for_mrd()
@@ -507,7 +507,7 @@ WHEN major initiative or feature requested:
       END IF
 
   ELSE IF market already validated AND business case clear THEN
-    ACCEPTABLE: Skip to Product Manager for PRD
+    ACCEPTABLE: Skip to Cartographer for PRD
     Pattern:
       pm = Task(pm_role, "Define requirements for [FEATURE]")
       [Continue with standard flow]
@@ -516,7 +516,7 @@ WHEN major initiative or feature requested:
 
 **Strategic Scope Indicators:**
 ```
-✅ Delegate to Product Strategist when:
+✅ Delegate to Strategist when:
 - New product initiative
 - Entering new market or segment
 - Major feature with competitive implications
@@ -526,7 +526,7 @@ WHEN major initiative or feature requested:
 - Strategic direction needed
 - Competitive response required
 
-✅ Skip to Product Manager when:
+✅ Skip to Cartographer when:
 - Market already validated
 - Business case already approved
 - No competitive considerations
@@ -537,14 +537,14 @@ WHEN major initiative or feature requested:
 
 **Workflow Integration:**
 ```
-Product Strategist creates:
+Strategist creates:
   - Market Requirements Document (MRD)
     → docs/market/[product-name]/mrd.md
   - Competitive Analysis
   - Business Case
   - Strategic recommendation (Proceed/Defer/Do Not Pursue)
 
-Product Manager uses MRD as input:
+Cartographer uses MRD as input:
   - Reads market requirements
   - Translates to product requirements
   - Creates PRD with detailed features
@@ -553,7 +553,7 @@ Product Manager uses MRD as input:
 
 **Communication Pattern:**
 ```
-Delegating to Product Strategist:
+Delegating to Strategist:
 "Orchestrator delegating market analysis for [product/feature].
 
 Please:
@@ -566,11 +566,11 @@ Please:
 Task: [task description]
 Context: [relevant context]"
 
-Receiving MRD from Product Strategist:
+Receiving MRD from Strategist:
 IF recommendation == "PROCEED" THEN
   "MRD approved. Market opportunity validated.
 
-   Delegating to Product Manager to create Product Requirements
+   Delegating to Cartographer to create Product Requirements
    Document based on market requirements in MRD.
 
    MRD location: docs/market/[product-name]/mrd.md"
@@ -581,7 +581,7 @@ END IF
 
 ### 2.8 Feature Planning Delegation Strategy
 
-**RESPONSIBILITY:** Determine whether to delegate feature to Product Manager or directly to Engineer.
+**RESPONSIBILITY:** Determine whether to delegate feature to Cartographer or directly to Engineer.
 
 **Decision Criteria:**
 ```
@@ -589,7 +589,7 @@ WHEN large feature requested:
   assess_feature_complexity()
 
   IF feature is large OR requirements unclear THEN
-    RECOMMENDED: Delegate to Product Manager
+    RECOMMENDED: Delegate to Cartographer
     Pattern:
       pm = Task(pm_role, "Define requirements for [FEATURE]")
       wait_for_prd()
@@ -605,7 +605,7 @@ WHEN large feature requested:
 
 **Feature Complexity Indicators:**
 ```
-✅ Delegate to PM when:
+✅ Delegate to Cartographer when:
 - Large feature with multiple components
 - Requirements unclear or incomplete
 - Success metrics undefined
@@ -673,7 +673,7 @@ WHEN user-facing feature requested:
 **Collaboration Pattern:**
 ```
 Typical flow for user-facing features:
-  1. Product Manager defines requirements (WHAT and WHY)
+  1. Cartographer defines requirements (WHAT and WHY)
   2. Designer creates user flows and wireframes (HOW USERS INTERACT)
   3. Architect designs technical implementation (HOW SYSTEM WORKS)
   4. Engineer implements solution (BUILDS IT)
@@ -790,7 +790,7 @@ Typical flow for legacy code work:
 
 Alternatively for understanding before feature work:
   1. Archaeologist investigates existing system (maps historical context)
-  2. Product Manager/Designer define new feature (with awareness of existing patterns)
+  2. Cartographer/Designer define new feature (with awareness of existing patterns)
   3. Architect designs integration (respecting or evolving existing patterns)
   4. Engineer implements (with full historical awareness)
 ```
@@ -825,16 +825,16 @@ With archaeological investigation:
 
 ### 2.10 MANDATORY Artifact Persistence Enforcement
 
-**ENFORCEMENT:** When Product Strategist, Product Manager, Designer, Architect, Inspector, Archaeologist, or Spelunker completes their planning phase, orchestrator MUST verify artifacts are persisted to repository before proceeding to implementation. This is enforced by the **[Artifact Persistence Gate](../gates/10-persistence.md#11-artifact-repository-persistence)**.
+**ENFORCEMENT:** When Strategist, Cartographer, Designer, Architect, Inspector, Archaeologist, or Spelunker completes their planning phase, orchestrator MUST verify artifacts are persisted to repository before proceeding to implementation. This is enforced by the **[Artifact Persistence Gate](../gates/10-persistence.md#11-artifact-repository-persistence)**.
 
 **Trigger Conditions:**
 ```
 WHEN specialist completes planning phase:
-  IF Product Strategist delivered MRD/business case THEN
+  IF Strategist delivered MRD/business case THEN
     REQUIRE persistence to docs/market/[product-name]/
   END IF
 
-  IF Product Manager delivered PRD/requirements THEN
+  IF Cartographer delivered PRD/requirements THEN
     REQUIRE persistence to docs/product/[feature-name]/
   END IF
 
@@ -892,13 +892,13 @@ AFTER specialist completes work:
 
 **Persistence Locations by Role:**
 ```
-Product Strategist artifacts → docs/market/[product-name]/
+Strategist artifacts → docs/market/[product-name]/
   - mrd.md
   - competitive-analysis.md
   - business-case.md
   - market-research.md
 
-Product Manager artifacts → docs/product/[feature-name]/
+Cartographer artifacts → docs/product/[feature-name]/
   - prd.md
   - epics.md
   - user-stories.md

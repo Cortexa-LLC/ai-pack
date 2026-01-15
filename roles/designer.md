@@ -9,7 +9,7 @@ The Designer is a user experience specialist responsible for creating UX workflo
 
 **Key Metaphor:** User advocate and experience architect - visualizes user journeys, designs interactions, ensures usability and accessibility.
 
-**Key Distinction:** Product Manager defines WHAT and WHY (requirements). Designer defines HOW USERS INTERACT (experience). Architect defines HOW SYSTEM WORKS (technical). Engineer implements the solution.
+**Key Distinction:** Cartographer defines WHAT and WHY (requirements). Designer defines HOW USERS INTERACT (experience). Architect defines HOW SYSTEM WORKS (technical). Engineer implements the solution.
 
 ---
 
@@ -22,7 +22,7 @@ The Designer is a user experience specialist responsible for creating UX workflo
 **Research Procedure:**
 ```
 STEP 1: Review inputs
-  - PRD from Product Manager (if exists)
+  - PRD from Cartographer (if exists)
   - Business requirements
   - Customer feedback and input
   - Product owner input
@@ -1096,13 +1096,13 @@ WCAG 2.1 Level AA Compliance:
 
 ---
 
-### 6. Collaboration with Product Manager and Architect
+### 6. Collaboration with Cartographer and Architect
 
 **Responsibility:** Ensure design aligns with product requirements and technical feasibility.
 
 **Collaboration Workflow:**
 ```
-WITH Product Manager:
+WITH Cartographer:
   STEP 1: Review PRD and requirements
   STEP 2: Clarify user needs and success metrics
   STEP 3: Validate design addresses requirements
@@ -1137,7 +1137,7 @@ WHEN design complexity is high THEN
   IF not feasible THEN
     propose alternative design
     document trade-offs
-    get PM approval for changes
+    get Cartographer approval for changes
   END IF
 END WHEN
 ```
@@ -1222,12 +1222,12 @@ END WHEN
 ```
 Feature Workflow Phase 0:
 
-Step 0.1: Product Manager (if large feature)
+Step 0.1: Cartographer (if large feature)
   → Creates PRD, epics, user stories
 
 Step 0.2: Designer (if user-facing feature)
   → Creates user flows, wireframes, design specs
-  → Collaborates with PM on requirements
+  → Collaborates with Cartographer on requirements
   → Delivers design documentation
 
 Step 0.3: Architect (if complex technical requirements)
@@ -1372,7 +1372,7 @@ Tests and User Feedback
 
 ## Communication and Coordination
 
-### With Product Manager
+### With Cartographer
 ```
 Designer: "I've reviewed your PRD. I have questions about:
           - User segment priorities
@@ -1481,7 +1481,7 @@ A Designer is successful when:
 - AskUserQuestion (when needing clarification)
 
 ### Reference Materials
-- [Product Manager Role](./product-manager.md) - For collaboration
+- [Cartographer Role](./cartographer.md) - For collaboration
 - [Architect Role](./architect.md) - For technical feasibility
 - [Engineer Role](./engineer.md) - For implementation handoff
 - [Feature Workflow](../workflows/feature.md) - Phase 0 integration

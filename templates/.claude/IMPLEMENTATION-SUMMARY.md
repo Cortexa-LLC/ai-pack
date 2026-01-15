@@ -52,7 +52,7 @@ Layer 5: Hook Enforcement (.claude/hooks/*.py + settings.json)
 | `inspect.md` | Bug investigation (Inspector role) |
 | `architect.md` | Architecture design (Architect role) |
 | `designer.md` | UX workflows (Designer role) |
-| `pm.md` | Product requirements (Product Manager role) |
+| `pm.md` | Product requirements (Cartographer role) |
 | `help.md` | Show all commands and framework guide |
 
 **Usage:**
