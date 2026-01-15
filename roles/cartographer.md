@@ -28,6 +28,44 @@ Engineer → Implementation
 
 ## Primary Responsibilities
 
+### 0. Absolute Path Verification (MANDATORY BEFORE FILE OPERATIONS)
+
+**CRITICAL REQUIREMENT:** ALWAYS verify working directory and use absolute paths before creating PRD documents or directories.
+
+**⚠️ This prevents nested directory disasters like `docs/docs/product/` (real Harvana incident)**
+
+**Mandatory Procedure BEFORE Creating PRD Files:**
+```
+BEFORE Write tool or mkdir command:
+  STEP 1: Get project root
+    PROJECT_ROOT=$(git rev-parse --show-toplevel)
+    echo "Project root: $PROJECT_ROOT"
+
+  STEP 2: Verify current location
+    pwd  # Where am I?
+
+  STEP 3: Use absolute paths for ALL file creation
+    Write(file_path="$PROJECT_ROOT/docs/product/YYYY-MM-DD-feature-name/prd.md")
+    Write(file_path="$PROJECT_ROOT/docs/product/YYYY-MM-DD-feature-name/epics.md")
+    mkdir -p "$PROJECT_ROOT/docs/product/YYYY-MM-DD-feature-name"
+
+  ❌ NEVER:
+    Write(file_path="docs/product/feature/prd.md")  # Where will this go?
+    mkdir docs/product/feature                       # Creates anywhere!
+
+  ✅ ALWAYS:
+    Write(file_path="/home/user/project/docs/product/2026-01-14-auth/prd.md")
+    mkdir -p /home/user/project/docs/product/2026-01-14-auth
+
+  OR verify first:
+    cd /home/user/project && pwd && mkdir -p docs/product/2026-01-14-auth
+END BEFORE
+```
+
+**Enforcement:** BLOCKING - File operations without path verification will be REJECTED.
+
+---
+
 ### 1. Product Requirements Definition
 
 **Responsibility:** Create comprehensive Product Requirements Document (PRD) that defines problem, value, and requirements.

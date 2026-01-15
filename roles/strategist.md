@@ -26,6 +26,44 @@ Engineer → Implementation
 
 ## Primary Responsibilities
 
+### 0. Absolute Path Verification (MANDATORY BEFORE FILE OPERATIONS)
+
+**CRITICAL REQUIREMENT:** ALWAYS verify working directory and use absolute paths before creating MRD documents or directories.
+
+**⚠️ This prevents nested directory disasters like `docs/docs/market/` (real Harvana incident)**
+
+**Mandatory Procedure BEFORE Creating MRD Files:**
+```
+BEFORE Write tool or mkdir command:
+  STEP 1: Get project root
+    PROJECT_ROOT=$(git rev-parse --show-toplevel)
+    echo "Project root: $PROJECT_ROOT"
+
+  STEP 2: Verify current location
+    pwd  # Where am I?
+
+  STEP 3: Use absolute paths for ALL file creation
+    Write(file_path="$PROJECT_ROOT/docs/market/YYYY-MM-DD-product-name/mrd.md")
+    Write(file_path="$PROJECT_ROOT/docs/market/YYYY-MM-DD-product-name/competitive-analysis.md")
+    mkdir -p "$PROJECT_ROOT/docs/market/YYYY-MM-DD-product-name"
+
+  ❌ NEVER:
+    Write(file_path="docs/market/product/mrd.md")  # Where will this go?
+    mkdir docs/market/product                       # Creates anywhere!
+
+  ✅ ALWAYS:
+    Write(file_path="/home/user/project/docs/market/2026-01-14-mobile-app/mrd.md")
+    mkdir -p /home/user/project/docs/market/2026-01-14-mobile-app
+
+  OR verify first:
+    cd /home/user/project && pwd && mkdir -p docs/market/2026-01-14-mobile-app
+END BEFORE
+```
+
+**Enforcement:** BLOCKING - File operations without path verification will be REJECTED.
+
+---
+
 ### 1. Market Requirements Document (MRD) Creation
 
 **Responsibility:** Create comprehensive Market Requirements Document that defines market opportunity, competitive landscape, business case, and strategic requirements.
