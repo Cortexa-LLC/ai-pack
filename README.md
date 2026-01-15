@@ -571,6 +571,7 @@ Each language follows its community's established indentation standards:
 | JavaScript/TypeScript | 2 spaces | [lang-javascript.md](quality/clean-code/lang-javascript.md) |
 | Java | 2 spaces | [lang-java.md](quality/clean-code/lang-java.md) |
 | Kotlin | 4 spaces | [lang-kotlin.md](quality/clean-code/lang-kotlin.md) |
+| Swift | 4 spaces | [lang-swift.md](quality/clean-code/lang-swift.md) |
 
 **[C++ Guidelines](quality/clean-code/lang-cpp-basics.md)** - Comprehensive C++ guidelines:
 - All 55 items from Scott Meyers' *Effective C++*
@@ -609,6 +610,14 @@ Each language follows its community's established indentation standards:
 - Coroutines and Flow patterns
 - Android best practices
 - 4-space indentation (JetBrains standard)
+
+**[Swift Guidelines](quality/clean-code/lang-swift.md)** - Swift and SwiftUI best practices:
+- Swift API Design Guidelines (Apple)
+- SwiftUI declarative UI patterns
+- Modern concurrency (async/await, actors)
+- Combine reactive programming
+- SwiftLint and SwiftFormat
+- 4-space indentation (Apple/Xcode standard)
 
 ### Integration with AI Workflow Framework
 
@@ -999,10 +1008,12 @@ ai-pack/
         ├── lang-cpp-guidelines.md     # C++ Core Guidelines
         ├── lang-cpp-reference.md      # C++ quick reference
         ├── lang-csharp.md             # C# guidelines
+        ├── csharp-modern-tooling.md   # C# modern tooling (CSharpier, Roslynator)
         ├── lang-python.md             # Python guidelines
         ├── lang-javascript.md         # JavaScript/TypeScript
         ├── lang-java.md               # Java guidelines
         ├── lang-kotlin.md             # Kotlin guidelines
+        ├── lang-swift.md              # Swift/SwiftUI guidelines
         ├── RULES_REFERENCE.md         # Quick reference
         └── CHANGELOG.md               # Version history
 ```
