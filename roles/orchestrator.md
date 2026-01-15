@@ -1198,6 +1198,87 @@ IF Orchestrator allows non-TDD code:
 
 ---
 
+### 2.13 Agent Registration Protocol (MANDATORY)
+
+**REQUIREMENT:** When spawning agents via Task tool for parallel execution, MUST create corresponding Beads tasks for tracking.
+
+**Critical Rule:**
+```
+EVERY agent spawned MUST have a Beads task.
+NO EXCEPTIONS.
+```
+
+**Agent Registration Protocol:**
+```
+WHEN spawning agent:
+  STEP 1: Spawn agent with Task tool
+    agent = Task(
+      subagent_type="general-purpose",
+      description="Implement login feature",
+      prompt="Act as Engineer from .ai-pack/roles/engineer.md.
+              Task packet: .ai/tasks/2026-01-14_login/
+              Follow TDD. Update work log.",
+      run_in_background=true
+    )
+
+  STEP 2: Create Beads task IMMEDIATELY after spawn
+    bd create "Agent: Engineer - Implement login feature" \
+      --assignee "Engineer-$$" \
+      --priority high \
+      --description "Task packet: .ai/tasks/2026-01-14_login/"
+
+    # Returns task ID (e.g., bd-a1b2)
+
+  STEP 3: Mark as in-progress
+    bd start bd-a1b2
+
+  STEP 4: Document in work log
+    echo "Spawned Engineer-1 (Beads ID: bd-a1b2)" >> .ai/tasks/*/20-work-log.md
+    echo "Task: Implement login feature" >> .ai/tasks/*/20-work-log.md
+END WHEN
+```
+
+**Naming Convention:**
+- **Format:** `"Agent: {Role} - {Task Description}"`
+- **Assignee:** `"{Role}-{UniqueID}"` (e.g., "Engineer-1", "Tester-2")
+- **Priority:** Match task priority (critical/high/normal/low)
+
+**Examples:**
+```bash
+# Spawning Engineer
+bd create "Agent: Engineer - Implement user profile API" \
+  --assignee "Engineer-1" \
+  --priority high
+
+# Spawning Tester
+bd create "Agent: Tester - Validate authentication tests" \
+  --assignee "Tester-1" \
+  --priority high
+
+# Spawning Reviewer
+bd create "Agent: Reviewer - Review login implementation" \
+  --assignee "Reviewer-1" \
+  --priority normal
+```
+
+**Why This Protocol Exists:**
+- Enables `/ai-pack agents` command to show active agents
+- Provides cross-session persistence (tasks survive session end)
+- Enables dependency tracking between agents
+- Supports filtering by role: `bd list --assignee "Engineer-*"`
+- Git-backed audit trail of agent activity
+
+**Enforcement:**
+```
+IF agent spawned AND no Beads task created THEN
+  VIOLATION: Agent tracking protocol not followed
+  IMPACT: /ai-pack agents command will not show agent
+  ACTION: Create Beads task immediately
+END IF
+```
+
+---
+
 ### 3. Progress Monitoring and Coordination
 
 **Responsibility:** Track progress across all subtasks and agents using Beads.
@@ -1249,6 +1330,67 @@ IF blocker detected THEN
   # When blocker resolved
   bd unblock <task-id>
 END IF
+```
+
+**Agent-Specific Monitoring:**
+```bash
+# Check active agents (spawned workers)
+bd list --status in_progress --assignee "Engineer-*"
+
+# Output example:
+# bd-g7h8  Agent: Engineer - Login feature      in_progress  Engineer-1
+# bd-h8i9  Agent: Engineer - Profile feature    in_progress  Engineer-2
+
+# Check completed agents
+bd list --status closed --assignee "Engineer-*"
+
+# Check blocked agents
+bd list --status blocked --assignee "Engineer-*"
+bd list --status blocked --assignee "Tester-*"
+bd list --status blocked --assignee "Reviewer-*"
+
+# Get detailed agent status
+bd show bd-g7h8  # View specific agent's progress
+
+# Use /ai-pack agents command for formatted report
+/ai-pack agents  # Shows all active agents in readable format
+```
+
+**Agent Completion Tracking:**
+```
+WHEN agent completes work:
+  # Agent should close its own Beads task
+  bd close bd-g7h8
+
+  # Orchestrator verifies completion
+  bd show bd-g7h8  # Check status is "closed"
+
+  # If agent forgot to close task
+  IF agent finished BUT Beads task still in_progress THEN
+    bd close bd-g7h8  # Orchestrator closes it
+  END IF
+END WHEN
+```
+
+**Multi-Agent Coordination:**
+```bash
+# When spawning multiple agents in parallel
+# Example: 3 engineers working on independent features
+
+# After spawning all agents, check status
+bd list --assignee "Engineer-*" --json | jq -r '
+  "Active agents:",
+  (.[] | select(.status == "in_progress") | "  \(.assignee): \(.title)"),
+  "",
+  "Progress: \([ .[] | select(.status == "closed") ] | length)/\(length) completed"
+'
+
+# Monitor for stuck agents (no recent updates)
+bd show bd-g7h8  # Check last_update timestamp
+# If no updates for >15 minutes, agent may be stuck
+
+# Check work logs for detailed progress
+tail -20 .ai/tasks/*/20-work-log.md
 ```
 
 ---
