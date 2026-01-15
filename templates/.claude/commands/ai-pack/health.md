@@ -429,8 +429,8 @@ Save report to .ai/reports/health-{timestamp}.md and provide summary.
 ## References
 
 - **Watchdog Skill:** [.claude/skills/watchdog/SKILL.md](../../skills/watchdog/SKILL.md)
-- **Coordination Timer:** [.ai-pack/COORDINATION-TIMER.md](../../../.ai-pack/COORDINATION-TIMER.md)
-- **Parallel Config:** [.ai-pack/PARALLEL-ENGINEERS-CONFIG.md](../../../.ai-pack/PARALLEL-ENGINEERS-CONFIG.md)
+- **Coordination Timer:** [quality/tooling/coordination-timer.md](../../../quality/tooling/coordination-timer.md)
+- **Parallel Config:** [PARALLEL-ENGINEERS-CONFIG.md](../../../PARALLEL-ENGINEERS-CONFIG.md)
 
 ---
 

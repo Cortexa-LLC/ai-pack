@@ -382,7 +382,7 @@ Recommendation: [specific fix]
 
 - **Orchestrator Skill:** [templates/.claude/skills/orchestrator/SKILL.md](../../orchestrator/SKILL.md)
 - **Coordinator Skill:** [templates/.claude/skills/coordinator/SKILL.md](../../coordinator/SKILL.md)
-- **System Architecture:** [.ai-pack/COORDINATION-TIMER.md](../../../../.ai-pack/COORDINATION-TIMER.md)
+- **System Architecture:** [quality/tooling/coordination-timer.md](../../../../quality/tooling/coordination-timer.md)
 
 ---
 
