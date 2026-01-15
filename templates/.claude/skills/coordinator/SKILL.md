@@ -192,19 +192,25 @@ Coordination:
 
 **CRITICAL:** After each check-in, you MUST report status to both Orchestrator AND display progress to user.
 
-**Update agent status tracker:**
+**Check agent status via Beads:**
 
 ```bash
-# Update agent status in system
-python3 .claude/scripts/agent-status-tracker.py update agent_a commits=5
-python3 .claude/scripts/agent-status-tracker.py update agent_b commits=3
-python3 .claude/scripts/agent-status-tracker.py complete agent_c
+# Check active agents
+bd list --status in_progress --assignee "Engineer-*"
+bd list --status in_progress --assignee "Tester-*"
+bd list --status in_progress --assignee "Reviewer-*"
 
-# If agent blocked
-python3 .claude/scripts/agent-status-tracker.py blocked agent_d "Permission denied"
+# Or use formatted command
+/ai-pack agents
 
-# Generate report for Orchestrator
-python3 .claude/scripts/agent-status-tracker.py report
+# Check specific agent details
+bd show bd-a1b2
+
+# If agent completed (should already be closed by agent)
+bd close bd-a1b2
+
+# If agent blocked (agent should do this, but Coordinator can too)
+bd block bd-a1b2 "Permission denied - needs user intervention"
 ```
 
 **IMPORTANT: Display progress update to user:**
