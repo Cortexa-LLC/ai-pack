@@ -569,7 +569,7 @@ Each language follows its community's established indentation standards:
 | C# | 4 spaces | [lang-csharp.md](quality/clean-code/lang-csharp.md) |
 | Python | 4 spaces | [lang-python.md](quality/clean-code/lang-python.md) |
 | JavaScript/TypeScript | 2 spaces | [lang-javascript.md](quality/clean-code/lang-javascript.md) |
-| Java | 2 spaces | [lang-java.md](quality/clean-code/lang-java.md) |
+| Java | 4 spaces | [lang-java.md](quality/clean-code/lang-java.md) |
 | Kotlin | 4 spaces | [lang-kotlin.md](quality/clean-code/lang-kotlin.md) |
 | Swift | 4 spaces | [lang-swift.md](quality/clean-code/lang-swift.md) |
 

@@ -63,8 +63,8 @@ When Claude Code starts in a project with this structure:
 ```bash
 cd your-project
 
-# Add clean-code as submodule
-git submodule add git@github.com:Cortexa-LLC/clean-code.git .ai-pack
+# Add ai-pack as submodule
+git submodule add git@github.com:Cortexa-LLC/ai-pack.git .ai-pack
 
 # Initialize submodule
 git submodule update --init --recursive
@@ -321,7 +321,7 @@ All Cortexa LLC projects can share the same submodule:
 ```bash
 # Project A
 cd project-a
-git submodule add git@github.com:Cortexa-LLC/clean-code.git .ai-pack
+git submodule add git@github.com:Cortexa-LLC/ai-pack.git .ai-pack
 mkdir -p docs/project-rules
 cat > docs/project-rules/PROJECT-project-a.md << 'EOF'
 # Project A specific rules
@@ -330,7 +330,7 @@ cp docs/project-rules/PROJECT-*.md .ai-pack/
 
 # Project B
 cd ../project-b
-git submodule add git@github.com:Cortexa-LLC/clean-code.git .ai-pack
+git submodule add git@github.com:Cortexa-LLC/ai-pack.git .ai-pack
 mkdir -p docs/project-rules
 cat > docs/project-rules/PROJECT-project-b.md << 'EOF'
 # Project B specific rules
@@ -347,7 +347,7 @@ Both projects:
 
 ```bash
 # Clone just the standards to test
-git clone git@github.com:Cortexa-LLC/clean-code.git /tmp/test-standards
+git clone git@github.com:Cortexa-LLC/ai-pack.git /tmp/test-standards
 
 # Add your project files
 cat > /tmp/test-standards/.ai-pack/PROJECT-test.md << 'EOF'

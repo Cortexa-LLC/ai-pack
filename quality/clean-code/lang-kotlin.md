@@ -8,17 +8,17 @@
 
 This follows the official Kotlin Coding Conventions from JetBrains and is the standard across the Kotlin ecosystem including Android development.
 
-**Note:** Cortexa LLC uses **language-specific indentation standards**:
+**Note:** Each language follows its community's indentation standards:
 - **C++**: 2 spaces (Google C++ Style Guide)
 - **C#**: 4 spaces (Microsoft standard)
-- **Java**: 2 spaces (Cortexa LLC override)
+- **Java**: 4 spaces (Google Java Style Guide)
 - **JavaScript/TypeScript**: 2 spaces (ecosystem standard)
 - **Kotlin**: 4 spaces (JetBrains standard)
 - **Python**: 4 spaces (PEP 8 mandatory)
 
 **Example:**
 ```kotlin
-package com.cortexa.services
+package com.acme.services
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
