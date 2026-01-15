@@ -539,7 +539,7 @@ WHEN major initiative or feature requested:
 ```
 Strategist creates:
   - Market Requirements Document (MRD)
-    → docs/market/[product-name]/mrd.md
+    → docs/market/YYYY-MM-DD-product-name/mrd.md
   - Competitive Analysis
   - Business Case
   - Strategic recommendation (Proceed/Defer/Do Not Pursue)
@@ -561,7 +561,7 @@ Please:
 2. Develop business case with ROI projections
 3. Create Market Requirements Document (MRD)
 4. Recommend proceed/defer/do-not-pursue
-5. Persist artifacts to docs/market/[product-name]/
+5. Persist artifacts to docs/market/YYYY-MM-DD-product-name/
 
 Task: [task description]
 Context: [relevant context]"
@@ -573,7 +573,7 @@ IF recommendation == "PROCEED" THEN
    Delegating to Cartographer to create Product Requirements
    Document based on market requirements in MRD.
 
-   MRD location: docs/market/[product-name]/mrd.md"
+   MRD location: docs/market/YYYY-MM-DD-product-name/mrd.md"
 END IF
 ```
 
@@ -831,11 +831,11 @@ With archaeological investigation:
 ```
 WHEN specialist completes planning phase:
   IF Strategist delivered MRD/business case THEN
-    REQUIRE persistence to docs/market/[product-name]/
+    REQUIRE persistence to docs/market/YYYY-MM-DD-product-name/
   END IF
 
   IF Cartographer delivered PRD/requirements THEN
-    REQUIRE persistence to docs/product/[feature-name]/
+    REQUIRE persistence to docs/product/YYYY-MM-DD-feature-name/
   END IF
 
   IF Designer delivered UX designs/wireframes THEN
@@ -844,7 +844,7 @@ WHEN specialist completes planning phase:
   END IF
 
   IF Architect delivered architecture/design THEN
-    REQUIRE persistence to docs/architecture/[feature-name]/
+    REQUIRE persistence to docs/architecture/YYYY-MM-DD-feature-name/
     REQUIRE ADRs to docs/adr/
   END IF
 
@@ -892,13 +892,13 @@ AFTER specialist completes work:
 
 **Persistence Locations by Role:**
 ```
-Strategist artifacts → docs/market/[product-name]/
+Strategist artifacts → docs/market/YYYY-MM-DD-product-name/
   - mrd.md
   - competitive-analysis.md
   - business-case.md
   - market-research.md
 
-Cartographer artifacts → docs/product/[feature-name]/
+Cartographer artifacts → docs/product/YYYY-MM-DD-feature-name/
   - prd.md
   - epics.md
   - user-stories.md
@@ -909,7 +909,7 @@ Designer artifacts → docs/design/[feature-name]/
   - design-specs.md
   - wireframes/*.html (HTML wireframes for web/iOS/Android)
 
-Architect artifacts → docs/architecture/[feature-name]/
+Architect artifacts → docs/architecture/YYYY-MM-DD-feature-name/
   - architecture.md
   - api-spec.md
   - data-models.md
@@ -1070,9 +1070,9 @@ WHEN verifying artifact persistence:
 
   Required cross-reference format:
     ## Related Documents
-    - PRD: [Link to docs/product/[feature]/prd.md]
+    - PRD: [Link to docs/product/YYYY-MM-DD-feature-name/prd.md]
     - Design: [Link to docs/design/[feature]/ with wireframes]
-    - Architecture: [Link to docs/architecture/[feature]/architecture.md]
+    - Architecture: [Link to docs/architecture/YYYY-MM-DD-feature-name/architecture.md]
     - ADRs: [Links to relevant ADRs]
     - User Stories: [Links to specific stories]
 

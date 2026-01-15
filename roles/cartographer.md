@@ -36,7 +36,7 @@ Engineer → Implementation
 ```
 STEP 0: Review Market Requirements (if MRD exists)
   IF Strategist created MRD THEN
-    - Read MRD at docs/market/[product-name]/mrd.md
+    - Read MRD at docs/market/YYYY-MM-DD-product-name/mrd.md
     - Understand market opportunity and competitive landscape
     - Review market requirements (MR-1, MR-2, etc.)
     - Use market requirements as input for product requirements
@@ -124,7 +124,7 @@ STEP 4: Success Metrics
   - Measurement: [How]
 
 ## Market Context (if MRD exists)
-**Market Requirements Document:** See docs/market/[product-name]/mrd.md
+**Market Requirements Document:** See docs/market/YYYY-MM-DD-product-name/mrd.md
 **Market Requirements Addressed:**
 - MR-1: [How this PRD addresses market requirement 1]
 - MR-2: [How this PRD addresses market requirement 2]
@@ -546,21 +546,21 @@ Contents:
 ```
 WHEN Cartographer deliverables approved THEN
   STEP 1: Create repository documentation structure
-    mkdir -p docs/product/[feature-name]/
+    mkdir -p docs/product/YYYY-MM-DD-feature-name/
     mkdir -p docs/adr/ (if doesn't exist)
 
   STEP 2: Move artifacts from .ai/tasks/ to docs/
     .ai/tasks/[feature-id]/prd.md
-      → docs/product/[feature-name]/prd.md
+      → docs/product/YYYY-MM-DD-feature-name/prd.md
 
     .ai/tasks/[feature-id]/epics.md
-      → docs/product/[feature-name]/epics.md
+      → docs/product/YYYY-MM-DD-feature-name/epics.md
 
     .ai/tasks/[feature-id]/user-stories.md
-      → docs/product/[feature-name]/user-stories.md
+      → docs/product/YYYY-MM-DD-feature-name/user-stories.md
 
     .ai/tasks/[feature-id]/technical-consultation.md (if applicable)
-      → docs/product/[feature-name]/technical-consultation.md
+      → docs/product/YYYY-MM-DD-feature-name/technical-consultation.md
 
   STEP 3: Add cross-references to documents (MANDATORY)
     Update PRD with "Related Documents" section:
@@ -573,17 +573,17 @@ WHEN Cartographer deliverables approved THEN
       PRD → Architecture → Implementation → Tests
 
     IF Architect phase follows THEN
-      inform Architect: "PRD persisted to docs/product/[feature-name]/
+      inform Architect: "PRD persisted to docs/product/YYYY-MM-DD-feature-name/
                         Please reference it in your architecture docs."
     END IF
 
     IF Engineer phase follows THEN
-      inform Engineer: "Requirements in docs/product/[feature-name]/
+      inform Engineer: "Requirements in docs/product/YYYY-MM-DD-feature-name/
                        Please reference PRD in implementation work."
     END IF
 
   STEP 4: Commit to repository
-    git add docs/product/[feature-name]/
+    git add docs/product/YYYY-MM-DD-feature-name/
     git commit -m "Add product requirements for [feature-name]"
 
   STEP 5: Keep .ai/tasks/ for active work
@@ -635,12 +635,12 @@ project-root/
 ```
 "Product requirements have been committed to repository.
 
-Location: docs/product/[feature-name]/
+Location: docs/product/YYYY-MM-DD-feature-name/
 
 Artifacts:
-✓ PRD: docs/product/[feature-name]/prd.md
-✓ Epics: docs/product/[feature-name]/epics.md
-✓ User Stories: docs/product/[feature-name]/user-stories.md
+✓ PRD: docs/product/YYYY-MM-DD-feature-name/prd.md
+✓ Epics: docs/product/YYYY-MM-DD-feature-name/epics.md
+✓ User Stories: docs/product/YYYY-MM-DD-feature-name/user-stories.md
 
 These documents now serve as the authoritative product specification
 for this feature.

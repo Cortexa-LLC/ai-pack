@@ -684,21 +684,21 @@ Contents:
 ```
 WHEN Architect deliverables approved THEN
   STEP 1: Create repository documentation structure
-    mkdir -p docs/architecture/[feature-name]/
+    mkdir -p docs/architecture/YYYY-MM-DD-feature-name/
     mkdir -p docs/adr/ (if doesn't exist)
 
   STEP 2: Move artifacts from .ai/tasks/ to docs/
     .ai/tasks/[feature-id]/architecture.md
-      → docs/architecture/[feature-name]/architecture.md
+      → docs/architecture/YYYY-MM-DD-feature-name/architecture.md
 
     .ai/tasks/[feature-id]/api-spec.md
-      → docs/architecture/[feature-name]/api-spec.md
+      → docs/architecture/YYYY-MM-DD-feature-name/api-spec.md
 
     .ai/tasks/[feature-id]/data-models.md
-      → docs/architecture/[feature-name]/data-models.md
+      → docs/architecture/YYYY-MM-DD-feature-name/data-models.md
 
     .ai/tasks/[feature-id]/feasibility.md (if applicable)
-      → docs/architecture/[feature-name]/feasibility-assessment.md
+      → docs/architecture/YYYY-MM-DD-feature-name/feasibility-assessment.md
 
     .ai/tasks/[feature-id]/adrs/adr-001-*.md
       → docs/adr/adr-001-*.md
@@ -706,8 +706,8 @@ WHEN Architect deliverables approved THEN
   STEP 3: Create cross-references (MANDATORY)
     Update architecture.md with "Related Documents" section:
       ## Related Documents
-      - PRD: [Link to docs/product/[feature-name]/prd.md]
-      - User Stories: [Link to docs/product/[feature-name]/user-stories.md]
+      - PRD: [Link to docs/product/YYYY-MM-DD-feature-name/prd.md]
+      - User Stories: [Link to docs/product/YYYY-MM-DD-feature-name/user-stories.md]
       - Related ADRs:
         - [ADR-NNN: Decision Title](../adr/NNN-decision-title.md)
       - Implementation: [Will be referenced by Engineers in code/task packets]
@@ -726,19 +726,19 @@ WHEN Architect deliverables approved THEN
     This enables traceability:
       PRD → Architecture → ADRs → Implementation → Tests
 
-    IF PRD exists in docs/product/[feature-name]/ THEN
+    IF PRD exists in docs/product/YYYY-MM-DD-feature-name/ THEN
       ALSO update PRD to link back to architecture:
-        Edit docs/product/[feature-name]/prd.md
+        Edit docs/product/YYYY-MM-DD-feature-name/prd.md
         Update "Related Documents" section with architecture links
     END IF
 
     IF Engineer phase follows THEN
-      inform Engineer: "Architecture in docs/architecture/[feature-name]/
+      inform Engineer: "Architecture in docs/architecture/YYYY-MM-DD-feature-name/
                        Please reference architecture docs in your implementation."
     END IF
 
   STEP 4: Commit to repository
-    git add docs/architecture/[feature-name]/
+    git add docs/architecture/YYYY-MM-DD-feature-name/
     git add docs/adr/ (if new ADRs)
     git commit -m "Add architecture design for [feature-name]"
 
@@ -820,12 +820,12 @@ Check existing ADRs to determine next number.
 ```
 "Architecture design has been committed to repository.
 
-Location: docs/architecture/[feature-name]/
+Location: docs/architecture/YYYY-MM-DD-feature-name/
 
 Artifacts:
-✓ Architecture: docs/architecture/[feature-name]/architecture.md
-✓ API Specification: docs/architecture/[feature-name]/api-spec.md
-✓ Data Models: docs/architecture/[feature-name]/data-models.md
+✓ Architecture: docs/architecture/YYYY-MM-DD-feature-name/architecture.md
+✓ API Specification: docs/architecture/YYYY-MM-DD-feature-name/api-spec.md
+✓ Data Models: docs/architecture/YYYY-MM-DD-feature-name/data-models.md
 ✓ ADRs: docs/adr/[list-of-adr-numbers].md
 
 Engineers can now reference these documents during implementation.
@@ -836,7 +836,7 @@ design for this feature."
 **When referencing Product Requirements:**
 ```
 "Architecture design based on Product Requirements:
-  PRD: docs/product/[feature-name]/prd.md
+  PRD: docs/product/YYYY-MM-DD-feature-name/prd.md
 
 Cross-reference added to architecture.md header."
 ```
