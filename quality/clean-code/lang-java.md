@@ -4,20 +4,20 @@
 
 ## Formatting Standards (Java Specific)
 
-**Indentation:** **2 spaces** (no tabs)
+**Indentation:** **4 spaces** (no tabs)
 
-This is a **Cortexa LLC override** of the Google Java Style Guide (which specifies 4 spaces). We use 2-space indentation for consistency with our C++ and JavaScript/TypeScript codebases.
+This follows the **Google Java Style Guide** standard for Java indentation.
 
-**Note:** Cortexa LLC uses **language-specific indentation standards**:
+**Note:** Each language follows its community's indentation standards:
 - **C++**: 2 spaces (see lang-cpp.md)
 - **Python**: 4 spaces (see lang-python.md)
 - **JavaScript/TypeScript**: 2 spaces (see lang-javascript.md)
-- **Java**: 2 spaces (this document)
+- **Java**: 4 spaces (this document) - Google Java Style Guide
 - **Kotlin**: 4 spaces (see lang-kotlin.md)
 
 **Example:**
 ```java
-package com.cortexa.services;
+package com.acme.services;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,51 +26,51 @@ import java.util.Optional;
  * Service for managing user data.
  */
 public class UserService {
-  private final UserRepository repository;
-  private final EmailService emailService;
+    private final UserRepository repository;
+    private final EmailService emailService;
 
-  public UserService(UserRepository repository, EmailService emailService) {
-    this.repository = repository;
-    this.emailService = emailService;
-  }
-
-  /**
-   * Retrieves a user by ID.
-   *
-   * @param id the user ID
-   * @return an Optional containing the user if found
-   */
-  public Optional<User> getUserById(Long id) {
-    // 2-space indentation throughout
-    if (id == null || id <= 0) {
-      throw new IllegalArgumentException("ID must be positive");
+    public UserService(UserRepository repository, EmailService emailService) {
+        this.repository = repository;
+        this.emailService = emailService;
     }
 
-    return repository.findById(id)
-      .map(user -> {
-        user.setLastAccessed(LocalDateTime.now());
+    /**
+     * Retrieves a user by ID.
+     *
+     * @param id the user ID
+     * @return an Optional containing the user if found
+     */
+    public Optional<User> getUserById(Long id) {
+        // 4-space indentation throughout (Google Java Style Guide)
+        if (id == null || id <= 0) {
+            throw new IllegalArgumentException("ID must be positive");
+        }
+
+        return repository.findById(id)
+            .map(user -> {
+                user.setLastAccessed(LocalDateTime.now());
+                return user;
+            });
+    }
+
+    /**
+     * Creates a new user.
+     *
+     * @param userData the user data
+     * @return the created user
+     */
+    public User createUser(UserData userData) {
+        var user = User.builder()
+            .name(userData.getName())
+            .email(userData.getEmail())
+            .createdAt(LocalDateTime.now())
+            .build();
+
+        user = repository.save(user);
+        emailService.sendWelcomeEmail(user);
+
         return user;
-      });
-  }
-
-  /**
-   * Creates a new user.
-   *
-   * @param userData the user data
-   * @return the created user
-   */
-  public User createUser(UserData userData) {
-    var user = User.builder()
-      .name(userData.getName())
-      .email(userData.getEmail())
-      .createdAt(LocalDateTime.now())
-      .build();
-
-    user = repository.save(user);
-    emailService.sendWelcomeEmail(user);
-
-    return user;
-  }
+    }
 }
 ```
 
@@ -89,11 +89,11 @@ This file contains Java-specific best practices including:
 ## Quick Standards Summary
 
 ### Formatting
-- **Indentation:** 2 spaces (no tabs) - **Cortexa LLC override**
+- **Indentation:** 4 spaces (no tabs) - Google Java Style Guide
 - **Brace Style:** K&R (opening brace on same line)
 - **Line Length:** 100 characters (Google Java Style Guide)
 - **One Statement Per Line:** No multiple statements on one line
-- **Block Indentation:** +2 spaces
+- **Block Indentation:** +4 spaces
 
 ### Naming
 - `packagename` - all lowercase
@@ -106,47 +106,47 @@ This file contains Java-specific best practices including:
 ### Class Structure (Order)
 ```java
 public class Example {
-  // 1. Static fields
-  private static final String CONSTANT = "value";
+    // 1. Static fields
+    private static final String CONSTANT = "value";
 
-  // 2. Instance fields
-  private final Dependency dependency;
-  private String mutableField;
+    // 2. Instance fields
+    private final Dependency dependency;
+    private String mutableField;
 
-  // 3. Constructors
-  public Example(Dependency dependency) {
-    this.dependency = dependency;
-  }
+    // 3. Constructors
+    public Example(Dependency dependency) {
+        this.dependency = dependency;
+    }
 
-  // 4. Public methods
-  public void publicMethod() {
-    // ...
-  }
+    // 4. Public methods
+    public void publicMethod() {
+        // ...
+    }
 
-  // 5. Package-private methods
-  void packagePrivateMethod() {
-    // ...
-  }
+    // 5. Package-private methods
+    void packagePrivateMethod() {
+        // ...
+    }
 
-  // 6. Protected methods
-  protected void protectedMethod() {
-    // ...
-  }
+    // 6. Protected methods
+    protected void protectedMethod() {
+        // ...
+    }
 
-  // 7. Private methods
-  private void privateMethod() {
-    // ...
-  }
+    // 7. Private methods
+    private void privateMethod() {
+        // ...
+    }
 
-  // 8. Static nested classes
-  public static class Builder {
-    // ...
-  }
+    // 8. Static nested classes
+    public static class Builder {
+        // ...
+    }
 
-  // 9. Non-static nested classes
-  private class Inner {
-    // ...
-  }
+    // 9. Non-static nested classes
+    private class Inner {
+        // ...
+    }
 }
 ```
 
@@ -154,38 +154,38 @@ public class Example {
 ```java
 // Records (immutable data carriers)
 public record User(Long id, String name, String email) {
-  // Compact constructor with validation
-  public User {
-    if (name == null || name.isBlank()) {
-      throw new IllegalArgumentException("Name cannot be blank");
+    // Compact constructor with validation
+    public User {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Name cannot be blank");
+        }
     }
-  }
 }
 
 // Sealed classes (restrict inheritance)
 public sealed interface Shape
-  permits Circle, Rectangle, Triangle {
-  double area();
+    permits Circle, Rectangle, Triangle {
+    double area();
 }
 
 // Pattern matching for instanceof
 public String format(Object obj) {
-  return switch (obj) {
-    case Integer i -> String.format("int %d", i);
-    case String s -> String.format("String %s", s);
-    case User(var id, var name, var email) -> // Record pattern
-      String.format("User[id=%d, name=%s]", id, name);
-    default -> obj.toString();
-  };
+    return switch (obj) {
+        case Integer i -> String.format("int %d", i);
+        case String s -> String.format("String %s", s);
+        case User(var id, var name, var email) -> // Record pattern
+            String.format("User[id=%d, name=%s]", id, name);
+        default -> obj.toString();
+    };
 }
 
 // Text blocks
 String query = """
-  SELECT u.id, u.name, u.email
-  FROM users u
-  WHERE u.active = true
-  ORDER BY u.created_at DESC
-  """;
+    SELECT u.id, u.name, u.email
+    FROM users u
+    WHERE u.active = true
+    ORDER BY u.created_at DESC
+    """;
 
 // var for local variables (Java 10+)
 var users = userRepository.findAll();  // Type inferred
@@ -193,71 +193,71 @@ var result = process(data);
 
 // Stream API
 List<String> activeUserNames = users.stream()
-  .filter(User::isActive)
-  .map(User::getName)
-  .sorted()
-  .collect(Collectors.toList());
+    .filter(User::isActive)
+    .map(User::getName)
+    .sorted()
+    .collect(Collectors.toList());
 ```
 
 ### Effective Java Patterns
 ```java
 // Use Optional for return types
 public Optional<User> findUser(Long id) {
-  return Optional.ofNullable(users.get(id));
+    return Optional.ofNullable(users.get(id));
 }
 
 // Builder pattern for complex objects
 public class Config {
-  private final String apiUrl;
-  private final int timeout;
-  private final int retries;
+    private final String apiUrl;
+    private final int timeout;
+    private final int retries;
 
-  private Config(Builder builder) {
-    this.apiUrl = builder.apiUrl;
-    this.timeout = builder.timeout;
-    this.retries = builder.retries;
-  }
-
-  public static class Builder {
-    private String apiUrl;
-    private int timeout = 5000;
-    private int retries = 3;
-
-    public Builder apiUrl(String apiUrl) {
-      this.apiUrl = apiUrl;
-      return this;
+    private Config(Builder builder) {
+        this.apiUrl = builder.apiUrl;
+        this.timeout = builder.timeout;
+        this.retries = builder.retries;
     }
 
-    public Builder timeout(int timeout) {
-      this.timeout = timeout;
-      return this;
-    }
+    public static class Builder {
+        private String apiUrl;
+        private int timeout = 5000;
+        private int retries = 3;
 
-    public Builder retries(int retries) {
-      this.retries = retries;
-      return this;
-    }
+        public Builder apiUrl(String apiUrl) {
+            this.apiUrl = apiUrl;
+            return this;
+        }
 
-    public Config build() {
-      return new Config(this);
+        public Builder timeout(int timeout) {
+            this.timeout = timeout;
+            return this;
+        }
+
+        public Builder retries(int retries) {
+            this.retries = retries;
+            return this;
+        }
+
+        public Config build() {
+            return new Config(this);
+        }
     }
-  }
 }
 
 // Try-with-resources for AutoCloseable
 try (var reader = new BufferedReader(new FileReader(path))) {
-  return reader.lines().collect(Collectors.toList());
+    return reader.lines().collect(Collectors.toList());
 }
 
 // Static factory methods
 public class User {
-  public static User of(String name, String email) {
-    return new User(generateId(), name, email);
-  }
+    public static User of(String name, String email) {
+        return new User(generateId(), name, email);
+    }
 
-  public static User guest() {
-    return new User(0L, "Guest", "guest@example.com");
-  }
+    public static User guest() {
+        return new User(0L, "Guest", "guest@example.com");
+    }
 }
 ```
 
@@ -376,7 +376,7 @@ Add SonarQube to your project:
       <activeByDefault>false</activeByDefault>
     </activation>
     <properties>
-      <sonar.host.url>https://sonarqube.cortexa.com</sonar.host.url>
+      <sonar.host.url>https://sonarqube.example.com</sonar.host.url>
     </properties>
   </profile>
 </profiles>
@@ -391,8 +391,8 @@ plugins {
 sonar {
   properties {
     property "sonar.projectKey", "your-project-key"
-    property "sonar.organization", "cortexa"
-    property "sonar.host.url", "https://sonarqube.cortexa.com"
+    property "sonar.organization", "your-organization"
+    property "sonar.host.url", "https://sonarqube.example.com"
     property "sonar.java.source", "17"
   }
 }
@@ -467,4 +467,4 @@ This file will be expanded to include:
 
 ---
 
-**For now, always use 2-space indentation (Cortexa LLC override). All code must pass SonarQube's default Java rules. Full guidelines coming soon.**
+**Always use 4-space indentation (Google Java Style Guide standard). All code must pass SonarQube's default Java rules. Full guidelines coming soon.**

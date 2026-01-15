@@ -491,7 +491,7 @@ Issues with migration?
 1. Check troubleshooting section above
 2. Review `.ai-pack/quality/tooling/beads-integration.md`
 3. Check Beads GitHub issues: https://github.com/steveyegge/beads/issues
-4. Check AI-Pack GitHub issues: https://github.com/your-org/ai-pack/issues
+4. Check AI-Pack GitHub issues: https://github.com/Cortexa-LLC/ai-pack/issues
 
 ---
 

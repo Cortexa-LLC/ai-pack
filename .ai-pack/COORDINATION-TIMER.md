@@ -518,9 +518,3 @@ pkill -f coordination-timer
 - **Orchestrator Skill:** [templates/.claude/skills/orchestrator/SKILL.md](../templates/.claude/skills/orchestrator/SKILL.md)
 - **Coordinator Skill:** [templates/.claude/skills/coordinator/SKILL.md](../templates/.claude/skills/coordinator/SKILL.md)
 - **Parallel Engineers Config:** [PARALLEL-ENGINEERS-CONFIG.md](PARALLEL-ENGINEERS-CONFIG.md)
-
----
-
-**Made with ❤️ by Cortexa LLC**
-
-*Enabling time-based coordination for AI agents*
