@@ -265,19 +265,73 @@ bd ready
 
 ### 1. Code Implementation and Testing
 
-**Responsibility:** Write production-quality code that meets requirements.
+**Responsibility:** Write production-quality code that meets requirements using MANDATORY Test-Driven Development.
 
-**Implementation Cycle:**
+**CRITICAL: TDD is MANDATORY and ENFORCED**
+
+Test-Driven Development is NOT optional. It is a BLOCKING requirement enforced by the [TDD Enforcement Gate](../gates/05-tdd-enforcement.md).
+
+**Implementation Cycle (MANDATORY):**
 ```
 1. Understand requirements
 2. Read existing code (establish context)
-3. Follow TDD workflow:
-   a. Write failing test (RED)
-   b. Write minimal code to pass (GREEN)
-   c. Refactor for quality (REFACTOR)
+3. MANDATORY TDD Cycle (BLOCKING):
+
+   STEP 1: RED Phase (MANDATORY)
+   ──────────────────────────────
+   BEFORE writing ANY implementation code:
+     a. Write test that fails
+     b. Commit: "Add failing test for [feature]"
+     c. Run tests to verify failure
+     d. VERIFY test fails for right reason
+
+   IF no failing test THEN
+     STOP - Cannot proceed to implementation
+     MUST write failing test first
+   END IF
+
+   STEP 2: GREEN Phase (MANDATORY)
+   ────────────────────────────────
+   ONLY AFTER RED phase:
+     a. Write MINIMAL code to make test pass
+     b. Run tests to verify pass
+     c. Commit: "Make [feature] test pass"
+
+   IF test doesn't pass THEN
+     Fix implementation
+     NEVER modify test to make it pass
+   END IF
+
+   STEP 3: REFACTOR Phase (MANDATORY)
+   ───────────────────────────────────
+   ONLY AFTER GREEN phase:
+     a. Clean up code (remove duplication, improve design)
+     b. Run tests continuously (must stay green)
+     c. Commit: "Refactor [feature]"
+
+   IF tests turn red during refactor THEN
+     STOP refactoring
+     Fix immediately
+     Tests must stay green
+   END IF
+
+   REPEAT for next requirement
+
 4. Verify against acceptance criteria
 5. Document changes
 ```
+
+**⚠️ ENFORCEMENT:**
+```
+IF Engineer skips TDD OR writes implementation before tests THEN
+  Tester BLOCKS approval
+  Work status = "CHANGES REQUIRED"
+  Task marked = "INCOMPLETE"
+  Engineer MUST redo with proper TDD cycle
+END IF
+```
+
+**NO EXCEPTIONS** - See [TDD Enforcement Gate](../gates/05-tdd-enforcement.md) for details.
 
 **Quality Standards:**
 ```

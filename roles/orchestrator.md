@@ -1093,6 +1093,111 @@ WHEN verifying artifact persistence:
 
 ---
 
+### 2.12 MANDATORY TDD Enforcement
+
+**ENFORCEMENT:** When delegating implementation work to Engineers, Orchestrator MUST enforce Test-Driven Development (TDD) practices. This is enforced by the **[TDD Enforcement Gate](../gates/05-tdd-enforcement.md)**.
+
+**Critical Requirement:**
+```
+TDD is NOT optional. It is MANDATORY and BLOCKING.
+
+Engineers MUST follow RED-GREEN-REFACTOR cycle:
+  1. RED: Write failing test FIRST
+  2. GREEN: Write minimal code to pass
+  3. REFACTOR: Clean up while keeping tests green
+
+NO EXCEPTIONS.
+```
+
+**Delegation Pattern with TDD Enforcement:**
+```
+WHEN delegating to Engineer:
+  STEP 1: Remind of TDD requirement
+    "IMPORTANT: TDD is MANDATORY. You MUST follow RED-GREEN-REFACTOR cycle:
+     1. Write failing test FIRST (RED)
+     2. Write minimal code to pass (GREEN)
+     3. Refactor while keeping tests green (REFACTOR)
+
+     Commit pattern:
+     - 'Add failing test for [feature]'
+     - 'Make [feature] test pass'
+     - 'Refactor [feature]'
+
+     Tester will BLOCK approval if TDD not followed.
+     See: gates/05-tdd-enforcement.md"
+
+  STEP 2: Delegate to Engineer
+    engineer = Task(engineer_role, "Implement [feature] using TDD")
+
+  STEP 3: MANDATORY Tester Validation
+    AFTER Engineer completes implementation:
+      tester = Task(tester_role, "Validate TDD compliance and test quality")
+
+  STEP 4: Check Tester Verdict
+    IF tester.verdict == "CHANGES REQUIRED" THEN
+      BLOCK task completion
+      STATUS = "TDD VIOLATION"
+
+      "Tester has BLOCKED approval due to TDD violations.
+
+       Violations detected:
+       - [Tester's specific findings]
+
+       Required actions:
+       1. REVERT implementation code
+       2. START OVER with proper TDD cycle
+       3. Write failing test FIRST
+       4. Re-submit for validation
+
+       Work cannot proceed until TDD compliant."
+
+      RE-DELEGATE to Engineer with TDD emphasis
+      WAIT for completion
+      RE-VALIDATE with Tester
+      REPEAT until TDD compliant
+    ELSE IF tester.verdict == "APPROVED" THEN
+      Proceed to Reviewer validation
+    END IF
+
+  STEP 5: Reviewer Validation
+    reviewer = Task(reviewer_role, "Review code quality")
+
+  Task is NOT complete until BOTH Tester and Reviewer approve
+END WHEN
+```
+
+**Test Pyramid Enforcement:**
+```
+Orchestrator MUST ensure test suite follows proper test pyramid:
+  - 65-80% Unit tests (base)
+  - 15-25% Integration tests (middle)
+  - 5-10% End-to-End tests (top)
+
+IF pyramid inverted (too many E2E tests) THEN
+  REQUEST: Rebalance test suite
+  CITE: Fowler's Practical Test Pyramid
+END IF
+```
+
+**Consequences of TDD Violations:**
+```
+IF Engineer skips TDD:
+  → Tester BLOCKS approval
+  → Task marked INCOMPLETE
+  → Engineer MUST redo with TDD
+  → No bypass possible
+
+IF Orchestrator allows non-TDD code:
+  → Orchestrator is failing gate enforcement
+  → Violates framework contract
+```
+
+**Reference:** [TDD Enforcement Gate](../gates/05-tdd-enforcement.md)
+
+**No Exceptions:** TDD is MANDATORY per Global Gate 2 (Test-Driven Development).
+
+---
+
 ### 3. Progress Monitoring and Coordination
 
 **Responsibility:** Track progress across all subtasks and agents using Beads.

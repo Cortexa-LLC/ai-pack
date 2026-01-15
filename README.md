@@ -33,7 +33,8 @@ The AI Workflow Framework provides structured processes, roles, and templates fo
 #### 🚦 Gates - Quality Controls
 Quality gates define rules and constraints that govern what actions are permitted. Located in `gates/`:
 
-- **[00-global-gates.md](gates/00-global-gates.md)** - Universal rules (safety, quality, communication)
+- **[00-global-gates.md](gates/00-global-gates.md)** - Universal rules (safety, TDD, quality, communication)
+- **[05-tdd-enforcement.md](gates/05-tdd-enforcement.md)** - **MANDATORY, BLOCKING** Test-Driven Development enforcement (RED-GREEN-REFACTOR cycle, test pyramid)
 - **[10-persistence.md](gates/10-persistence.md)** - File operations and state management rules
 - **[20-tool-policy.md](gates/20-tool-policy.md)** - Tool usage policies and approvals
 - **[25-execution-strategy.md](gates/25-execution-strategy.md)** - **MANDATORY** execution strategy analysis and parallel engineer enforcement
@@ -49,6 +50,7 @@ Roles define different agent personas with specific responsibilities. Located in
   - **MANDATORY:** Must complete execution strategy analysis before delegation (enforced by [Execution Strategy Gate](gates/25-execution-strategy.md))
   - **MANDATORY:** Must delegate to Tester and Reviewer for all code changes (enforced by [Code Quality Review Gate](gates/35-code-quality-review.md))
 - **[engineer.md](roles/engineer.md)** - Implementation specialist, writes code, creates tests
+  - **MANDATORY:** Must follow Test-Driven Development (TDD) RED-GREEN-REFACTOR cycle
   - Executes specific tasks following TDD workflow and established patterns
 - **[inspector.md](roles/inspector.md)** - Bug investigation specialist, conducts root cause analysis
   - **Investigates:** Bug reports, reproduces issues, identifies root cause via static code analysis
@@ -85,8 +87,9 @@ Roles define different agent personas with specific responsibilities. Located in
   - **Delivers:** Evolution narrative, decision catalog, debt archaeology, refactoring readiness assessment
   - **Optional:** Invoked by Orchestrator for legacy code refactoring or onboarding to unfamiliar systems
 - **[tester.md](roles/tester.md)** - Testing specialist, validates TDD compliance and test sufficiency
-  - **ENFORCED:** Mandatory validation for all code changes
-  - **Validates:** TDD process, coverage (80-90%), test quality, test scenarios
+  - **ENFORCED:** MANDATORY, BLOCKING validation for all code changes
+  - **BLOCKS:** Work that violates TDD (tests written after implementation)
+  - **Validates:** TDD process, coverage (80-90%), test quality, test pyramid structure
 - **[reviewer.md](roles/reviewer.md)** - Quality assurance, code review, standards compliance
   - **ENFORCED:** Mandatory validation for all code changes
   - **Reviews:** Code quality, architecture, security, documentation
@@ -929,11 +932,13 @@ ai-pack/
 │
 ├── gates/                             # Quality control rules
 │   ├── 00-global-gates.md             # Universal rules
+│   ├── 05-tdd-enforcement.md          # MANDATORY TDD enforcement (BLOCKING)
 │   ├── 10-persistence.md              # File operations rules
 │   ├── 20-tool-policy.md              # Tool usage policies
 │   ├── 25-execution-strategy.md       # Execution strategy enforcement
 │   ├── 30-verification.md             # Verification requirements
-│   └── 35-code-quality-review.md      # Code quality review gate
+│   ├── 35-code-quality-review.md      # Code quality review gate
+│   └── 40-architectural-review.md     # Architectural review gate
 │
 ├── roles/                             # Agent personas
 │   ├── orchestrator.md                # Coordinator role
