@@ -619,19 +619,71 @@ END WHILE
 
 ### Before Completion
 
-**Completion Checklist:**
+**Completion Checklist (MANDATORY - BLOCKING):**
 ```
 ✓ All acceptance criteria met
 ✓ All tests passing (100%)
 ✓ Code coverage 80-90%
 ✓ Code follows standards
-✓ [C# ONLY] Code formatted: dotnet csharpier . (zero errors)
-✓ [C# ONLY] Build passes: dotnet build /warnaserror (zero warnings)
+✓ Build passes with ZERO WARNINGS (BLOCKING - all languages)
+✓ Code formatted per language standards
 ✓ No TODO/FIXME left unaddressed
 ✓ Work log updated
 ✓ Commit messages clear
 ✓ Ready for review
 ```
+
+**⚠️ CRITICAL: Zero Warnings Requirement (BLOCKING)**
+
+**BEFORE committing ANY code, MUST run build with warnings-as-errors:**
+
+```
+# C/C++
+cmake -DCMAKE_CXX_FLAGS="-Werror -Wall -Wextra" ..
+make
+✓ MUST show: 0 warnings
+
+# C#
+dotnet csharpier .           # Format first
+dotnet build /warnaserror    # Then build
+✓ MUST show: 0 Warning(s)
+
+# Java
+mvn clean compile -Dmaven.compiler.showWarnings=true -Werror
+✓ MUST show: BUILD SUCCESS, 0 warnings
+
+# TypeScript/JavaScript
+tsc --noEmitOnError --strict
+eslint . --max-warnings 0
+✓ MUST show: 0 problems
+
+# Python
+flake8 . --count --show-source --statistics
+mypy . --strict
+✓ MUST show: 0 errors, 0 warnings
+
+# Go
+go vet ./...
+golangci-lint run --max-issues-per-linter 0
+✓ MUST show: 0 issues
+
+# Rust
+cargo clippy -- -D warnings
+✓ MUST show: 0 warnings
+
+IF any warnings exist THEN
+  STOP - DO NOT COMMIT
+  FIX all warnings
+  RE-RUN build
+  ONLY commit when: 0 warnings
+END IF
+```
+
+**Why This Matters:**
+- Warnings indicate code quality issues
+- Warnings become bugs in production
+- Teams that ignore warnings accumulate technical debt
+- Professional code has ZERO warnings
 
 ---
 
