@@ -304,13 +304,13 @@ ELSE complete missing analysis
 
 **GATE CHECKPOINT:** [Artifact Persistence Gate](../gates/10-persistence.md#11-artifact-repository-persistence)
 
-**TRIGGER:** Planning involved Product Manager, Architect, or Inspector roles.
+**TRIGGER:** Planning involved Cartographer, Architect, or Inspector roles.
 
 **REQUIREMENT:** Before proceeding to implementation, verify planning artifacts persisted to repository.
 
 **Verification Procedure:**
 ```
-IF Product Manager OR Architect OR Inspector involved THEN
+IF Cartographer OR Architect OR Inspector involved THEN
   STEP 1: Remind specialist to persist artifacts
     Orchestrator: "Planning deliverables must be persisted to docs/
                    before we proceed to implementation."
@@ -749,7 +749,7 @@ END IF
 
 **Phase 2 Artifact Persistence Enforcement (MANDATORY if specialists used):**
 ```
-When Product Manager, Architect, or Inspector involved:
+When Cartographer, Architect, or Inspector involved:
 - Remind specialist to persist deliverables to docs/
 - Verify artifacts committed to repository
 - Verify cross-references present in artifacts
@@ -962,9 +962,9 @@ Phase 4 (Review):
 
 ### When to Persist Artifacts
 
-**After Product Manager Phase:**
+**After Cartographer Phase:**
 - PRDs, epics, user stories → `docs/product/[feature-name]/`
-- See [Product Manager Role](../roles/product-manager.md) for details
+- See [Cartographer Role](../roles/cartographer.md) for details
 
 **After Architect Phase:**
 - Architecture docs, API specs, data models → `docs/architecture/[feature-name]/`
@@ -1026,7 +1026,7 @@ project-root/
 **Note:** Detailed persistence procedures are documented in:
 - [Feature Workflow](feature.md) - Phase 0 artifact persistence
 - [Bugfix Workflow](bugfix.md) - Retrospective persistence
-- Individual role documents (Product Manager, Architect, Inspector)
+- Individual role documents (Cartographer, Architect, Inspector)
 
 ---
 

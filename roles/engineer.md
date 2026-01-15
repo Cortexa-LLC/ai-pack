@@ -143,8 +143,8 @@ END BEFORE
 **Documentation Location Quick Reference:**
 ```
 docs/
-├── market/[product-name]/       - MRD, competitive analysis, business case (Product Strategist)
-├── product/[feature-name]/      - Requirements, PRDs, user stories (Product Manager)
+├── market/[product-name]/       - MRD, competitive analysis, business case (Strategist)
+├── product/[feature-name]/      - Requirements, PRDs, user stories (Cartographer)
 ├── design/[feature-name]/       - UX wireframes, user flows (Designer)
 ├── architecture/[feature-name]/ - Technical design, APIs, data models (Architect)
 ├── adr/                         - Architecture Decision Records (Architect)
@@ -180,7 +180,7 @@ IF no planning artifacts found AND task is non-trivial THEN
 
   IF uncertain about requirements or design THEN
     REQUEST clarification from Orchestrator
-    MAY need Product Manager or Architect involvement
+    MAY need Cartographer or Architect involvement
   END IF
 END IF
 ```

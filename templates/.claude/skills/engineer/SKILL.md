@@ -205,7 +205,7 @@ Before coding, read:
 2. **Planning Artifacts** (if they exist):
    ```bash
    # Check for these directories
-   docs/product/         # PRDs from Product Manager
+   docs/product/         # PRDs from Cartographer
    docs/architecture/    # Architecture docs from Architect
    docs/design/          # UX wireframes from Designer
    docs/adr/             # Architecture Decision Records

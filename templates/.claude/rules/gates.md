@@ -81,7 +81,7 @@ All work must follow these quality gates from the ai-pack framework.
 **When specialists used (PM, Architect, Designer, Inspector):**
 
 **MUST persist artifacts to `docs/`:**
-- Product Manager → `docs/product/*.md`
+- Cartographer → `docs/product/*.md`
 - Architect → `docs/architecture/*.md` + `docs/adr/*.md`
 - Designer → `docs/design/[feature]/`
 - Inspector → `docs/investigations/*.md`

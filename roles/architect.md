@@ -9,7 +9,7 @@ The Architect is a technical design specialist responsible for system architectu
 
 **Key Metaphor:** Technical blueprint designer and system planner - translates requirements into technical design, makes architecture decisions, ensures scalability and maintainability.
 
-**Key Distinction:** Product Manager defines WHAT and WHY. Architect defines HOW (technical approach). Engineer implements the detailed solution.
+**Key Distinction:** Cartographer defines WHAT and WHY. Architect defines HOW (technical approach). Engineer implements the detailed solution.
 
 ---
 
@@ -21,7 +21,7 @@ The Architect is a technical design specialist responsible for system architectu
 
 **Feasibility Assessment Procedure:**
 ```
-STEP 1: Review PRD from Product Manager
+STEP 1: Review PRD from Cartographer
   - Understand functional requirements
   - Understand non-functional requirements
   - Identify technical implications
@@ -598,7 +598,7 @@ WHEN significant architecture decision made:
 ❌ MUST collaborate on:
 - Requirements feasibility (with PM)
 - Implementation timeline (with Engineers)
-- Business trade-offs (with PM and User)
+- Business trade-offs (with Cartographer and User)
 
 ❌ MUST escalate to user:
 - Major technology shifts
@@ -770,7 +770,7 @@ project-root/
 │   │   ├── 003-event-sourcing-for-billing.md
 │   │   └── README.md (ADR index)
 │   ├── product/
-│   │   └── ... (from Product Manager)
+│   │   └── ... (from Cartographer)
 │   └── ...
 └── .ai/
     └── tasks/ (temporary, not committed)
@@ -851,7 +851,7 @@ Cross-reference added to architecture.md header."
 User Request: "Add billing system"
      ↓
 PHASE 0: Product Definition
-  PM creates PRD, epics, user stories
+  Cartographer creates PRD, epics, user stories
      ↓
 PHASE 1: Architecture Design (Architect)
   Orchestrator delegates to Architect
@@ -880,7 +880,7 @@ Orchestrator delegates to Architect when:
 - Performance/scale requirements
 - Data model changes needed
 - Technology choices needed
-- PM requests technical feasibility assessment
+- Cartographer requests technical feasibility assessment
 ```
 
 ---
@@ -907,7 +907,7 @@ Orchestrator delegates to Architect when:
 
 ## Communication Patterns
 
-### With Product Manager
+### With Cartographer
 
 **Feasibility Assessment Response:**
 ```
@@ -1013,7 +1013,7 @@ Architect should escalate when:
 ### Reference Materials
 - [Standard Workflow](../workflows/standard.md)
 - [Feature Workflow](../workflows/feature.md)
-- [Product Manager Role](product-manager.md)
+- [Cartographer Role](cartographer.md)
 - [Engineer Role](engineer.md)
 - [Engineering Standards](../quality/engineering-standards.md)
 - [Architecture Patterns](../quality/architecture-patterns.md)
