@@ -228,7 +228,66 @@ END FOR
 
 ---
 
-### 6. Read Before Write
+### 6. Absolute Paths for File Operations (CRITICAL)
+
+**Rule:** ALWAYS use absolute paths for file creation and directory operations. NEVER use relative paths without verifying current working directory.
+
+**⚠️ CRITICAL: This prevents nested directory disasters like `server/server/API/`**
+
+**Requirements:**
+```
+BEFORE creating files or directories:
+  STEP 1: Verify current working directory
+    pwd  # Check where you are
+
+  STEP 2: Use absolute paths for ALL file operations
+    Write tool: /absolute/path/to/file.ext
+    mkdir: /absolute/path/to/directory
+
+  STEP 3: If using relative paths REQUIRED
+    VERIFY you're in correct directory FIRST
+    IF not in expected directory THEN
+      cd to correct directory
+      VERIFY with pwd
+      THEN use relative path
+    END IF
+
+  ❌ NEVER do this:
+    mkdir server/API        # Could create anywhere!
+    Write("api/file.js")    # Where will this go?
+
+  ✅ ALWAYS do this:
+    mkdir /home/user/project/server/API
+    Write("/home/user/project/api/file.js")
+
+  OR verify location first:
+    pwd  # Check: /home/user/project
+    mkdir server/API  # Now safe, creates /home/user/project/server/API
+END BEFORE
+```
+
+**Why This Rule Exists:**
+- Prevents nested directory disasters (`server/server/API/`)
+- Eliminates ambiguity about file locations
+- Avoids creating files in wrong directories
+- Ensures reproducible file operations
+- Reduces debugging time
+
+**Common Mistake - Harvana Example:**
+```
+# ❌ WRONG: Agent not in project root
+pwd  # Returns: /home/user/project/server
+mkdir server/API  # Creates: /home/user/project/server/server/API (DISASTER!)
+
+# ✅ CORRECT: Use absolute path
+mkdir /home/user/project/server/API  # Always creates in right place
+```
+
+**Enforcement:** This gate CANNOT be bypassed. File operations with ambiguous paths will be rejected.
+
+---
+
+### 7. Read Before Write
 
 **Rule:** Always read existing code before modifying it.
 
