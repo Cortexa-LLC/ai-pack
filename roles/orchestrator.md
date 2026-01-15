@@ -1279,6 +1279,180 @@ END IF
 
 ---
 
+### 2.14 Background Agent Permission Verification (CRITICAL)
+
+**MANDATORY CHECK:** Before spawning background agents for artifact persistence (Cartographer, Architect, Designer, etc.), MUST verify Write permissions are configured.
+
+**Why This Matters:**
+```
+WITHOUT proper permissions:
+  ❌ Background agents fail silently when writing files
+  ❌ PRDs, ADRs, architecture docs not persisted
+  ❌ Artifacts must be manually extracted from agent output
+  ❌ Orchestration fails (missing documents)
+
+WITH proper permissions:
+  ✅ Background agents write files autonomously
+  ✅ All artifacts persisted correctly
+  ✅ Orchestration completes successfully
+  ✅ No manual intervention needed
+```
+
+**Permission Verification Procedure:**
+```
+BEFORE spawning background planning agents:
+  STEP 1: Check if .claude/settings.json exists
+    ls .claude/settings.json
+
+  STEP 2: Verify Write(*) in allow list
+    grep "Write(\\*)" .claude/settings.json
+
+  STEP 3: Verify defaultMode
+    grep "defaultMode.*bypassPermissions" .claude/settings.json
+
+  IF any check fails THEN
+    DISPLAY ERROR:
+      "⚠️  CRITICAL: Background agent permissions not configured!
+
+       Background agents need Write(*) permission to persist artifacts.
+
+       Current configuration missing:
+       - Write(*) in permissions.allow list
+       - OR defaultMode: bypassPermissions
+
+       SOLUTIONS:
+
+       Option 1: Use .ai-pack setup (Recommended)
+         python3 .ai-pack/templates/.claude-setup.py
+
+       Option 2: Manual setup
+         Copy template: cp .ai-pack/templates/.claude/settings.json .claude/
+         Verify: grep 'Write(*)' .claude/settings.json
+
+       Option 3: Run planning agents in FOREGROUND
+         Remove run_in_background=true from Task calls
+         Agents will prompt for Write permission interactively
+
+       Cannot proceed with background planning agents until fixed."
+
+    BLOCK spawning background agents
+    WAIT for user to fix configuration
+  ELSE
+    PROCEED with spawning background agents
+  END IF
+END BEFORE
+```
+
+**Required Configuration:**
+
+`.claude/settings.json` MUST contain:
+```json
+{
+  "permissions": {
+    "allow": [
+      "Write(*)",
+      "Edit(*)",
+      ...
+    ],
+    "defaultMode": "bypassPermissions"
+  }
+}
+```
+
+**Detection of Permission Failures:**
+```
+WHEN monitoring background planning agents:
+  IF agent completes BUT files not present THEN
+    SYMPTOM: Permission failure (Write blocked)
+
+    CHECK: Agent output for "permission denied" or "blocked"
+
+    ACTION:
+      1. Verify permissions: grep "Write" .claude/settings.json
+      2. If missing: Add Write(*) to allow list
+      3. If present: Check defaultMode (must be bypassPermissions)
+      4. Respawn agent after fixing configuration
+      5. Or manually extract content and persist
+  END IF
+END WHEN
+```
+
+**Common Permission Issues:**
+
+**Issue 1: settings.local.json overrides**
+```bash
+# Check if local overrides exist
+ls .claude/settings.local.json
+
+# If exists, may override settings.json
+# Solution: Add Write(*) to settings.local.json OR remove it
+```
+
+**Issue 2: Wrong defaultMode**
+```json
+// ❌ WRONG - Blocks background agents
+"defaultMode": "acceptEdits"  // Only works for foreground
+
+// ✅ CORRECT - Works for background agents
+"defaultMode": "bypassPermissions"
+```
+
+**Issue 3: Missing Write in allow list**
+```json
+// ❌ WRONG - No Write permission
+"allow": ["Edit(*)", "Bash(git:*)"]
+
+// ✅ CORRECT - Write included
+"allow": ["Write(*)", "Edit(*)", "Bash(git:*)"]
+```
+
+**Troubleshooting Checklist:**
+```
+Before spawning background planning agents:
+  □ .claude/settings.json exists
+  □ Write(*) in permissions.allow array
+  □ Edit(*) in permissions.allow array
+  □ defaultMode: "bypassPermissions"
+  □ No settings.local.json override (or has Write(*) too)
+
+If any fails:
+  □ Run .claude-setup.py script
+  OR
+  □ Copy template settings.json
+  OR
+  □ Run planning agents in foreground (interactive)
+```
+
+**Alternative: Foreground Planning Agents**
+
+If permissions cannot be configured, run planning agents in FOREGROUND:
+
+```python
+# Instead of background
+Task(subagent_type="general-purpose",
+     description="Create PRD",
+     prompt="Act as Cartographer. Create PRD...",
+     run_in_background=true)  # ❌ Requires Write(*) permission
+
+# Use foreground (interactive)
+Task(subagent_type="general-purpose",
+     description="Create PRD",
+     prompt="Act as Cartographer. Create PRD...",
+     run_in_background=false)  # ✅ Can prompt for Write permission
+```
+
+**Trade-offs:**
+- Background: Parallel execution, autonomous work, **requires Write(*) configured**
+- Foreground: Sequential execution, can prompt for permissions, **no configuration needed**
+
+**Recommendation:** Always verify permissions before using background agents for artifact persistence.
+
+**Reference:**
+- [PERMISSIONS.md](../templates/.claude/PERMISSIONS.md) - Permission model documentation
+- [settings.json template](../templates/.claude/settings.json) - Correct configuration
+
+---
+
 ### 3. Progress Monitoring and Coordination
 
 **Responsibility:** Track progress across all subtasks and agents using Beads.
