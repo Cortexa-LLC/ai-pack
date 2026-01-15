@@ -303,6 +303,190 @@ Report files created with absolute paths.""",
 - **Buffer:** ~6K tokens for safety margin
 - **Total:** Stay well under 32K combined
 
+### ⚠️ CRITICAL: Decompose Large Tasks (Prevent Token Limit Failures)
+
+**PROBLEM: Complex tasks hit token limit even with concise instructions.**
+
+**Real Harvana Failures (2026-01-15):**
+- Task: "Implement WunderGraph Cosmo Gateway" (25+ files)
+- Agent attempt 1: Token limit, 0 files
+- Agent attempt 2: Token limit again, 0 files
+- Root cause: Task too large for single agent's 32K output budget
+
+**SOLUTION: Break large tasks into small, focused chunks.**
+
+**Task Size Guidelines:**
+
+```
+✅ SAFE TASK SIZE (Succeeds):
+- Creates 3-8 files maximum
+- Single logical component
+- ~15-20K tokens for implementation
+- Examples:
+  * "Create package.json + tsconfig.json + README.md"
+  * "Implement UserService with tests"
+  * "Create 3 API endpoints (GET, POST, DELETE)"
+
+⚠️ RISKY TASK SIZE (May fail):
+- Creates 10-15 files
+- Multiple related components
+- ~25-30K tokens for implementation
+- May succeed if files are simple
+- Consider splitting if files are complex
+
+❌ TOO LARGE (Will fail):
+- Creates 15+ files
+- Multiple subsystems
+- Exceeds 32K token budget
+- MUST split into smaller tasks
+- Examples that WILL FAIL:
+  * "Implement entire gateway system" (25+ files)
+  * "Create full authentication module" (20+ files)
+  * "Build complete API layer" (30+ files)
+```
+
+**How to Decompose Large Tasks:**
+
+**Example: "Implement WunderGraph Cosmo Gateway" (25 files) → SPLIT**
+
+❌ **WRONG - Single large task:**
+```python
+Task(prompt="Implement complete WunderGraph gateway with:
+- Package.json + dependencies
+- Server configuration (3 files)
+- 9 subgraph schema files
+- Authentication middleware
+- Gateway router
+- Docker configuration
+- Tests (5 files)
+- Documentation (3 files)
+Total: 25 files")  # ❌ WILL HIT TOKEN LIMIT
+```
+
+✅ **CORRECT - 5 smaller tasks (parallel execution):**
+
+```python
+# Get working directory
+PROJECT_ROOT=$(pwd)
+
+# Task 1: Foundation (3 files)
+Task(subagent_type="general-purpose",
+     description="Gateway foundation files",
+     prompt=f"""Act as Engineer from .ai-pack/roles/engineer.md
+
+WORKING DIRECTORY: {PROJECT_ROOT}
+
+TASK: Create gateway foundation
+FILES TO CREATE (3 total):
+- {PROJECT_ROOT}/gateway/package.json
+- {PROJECT_ROOT}/gateway/tsconfig.json
+- {PROJECT_ROOT}/gateway/.env.example
+
+REQUIREMENTS: Follow WunderGraph Cosmo patterns from ADR-006.
+Report absolute paths of files created.""",
+     run_in_background=true)
+
+# Task 2: Server & Config (4 files)
+Task(subagent_type="general-purpose",
+     description="Gateway server and config",
+     prompt=f"""Act as Engineer from .ai-pack/roles/engineer.md
+
+WORKING DIRECTORY: {PROJECT_ROOT}
+
+TASK: Create gateway server
+FILES TO CREATE (4 total):
+- {PROJECT_ROOT}/gateway/src/index.ts
+- {PROJECT_ROOT}/gateway/src/config.ts
+- {PROJECT_ROOT}/gateway/wundergraph.config.ts
+- {PROJECT_ROOT}/gateway/src/types.ts
+
+REQUIREMENTS: WunderGraph Cosmo router, port 9991.
+Report absolute paths of files created.""",
+     run_in_background=true)
+
+# Task 3: Subgraph Schemas (9 files)
+Task(subagent_type="general-purpose",
+     description="Subgraph schema definitions",
+     prompt=f"""Act as Engineer from .ai-pack/roles/engineer.md
+
+WORKING DIRECTORY: {PROJECT_ROOT}
+
+TASK: Create 9 subgraph schema files
+FILES TO CREATE (9 total):
+- {PROJECT_ROOT}/gateway/schemas/users.graphql
+- {PROJECT_ROOT}/gateway/schemas/farms.graphql
+- {PROJECT_ROOT}/gateway/schemas/products.graphql
+- {PROJECT_ROOT}/gateway/schemas/orders.graphql
+- {PROJECT_ROOT}/gateway/schemas/payments.graphql
+- {PROJECT_ROOT}/gateway/schemas/delivery.graphql
+- {PROJECT_ROOT}/gateway/schemas/reviews.graphql
+- {PROJECT_ROOT}/gateway/schemas/notifications.graphql
+- {PROJECT_ROOT}/gateway/schemas/flags.graphql
+
+REQUIREMENTS: Follow GraphQL federation patterns.
+Report absolute paths of files created.""",
+     run_in_background=true)
+
+# Task 4: Auth & Middleware (3 files)
+Task(subagent_type="general-purpose",
+     description="Authentication middleware",
+     prompt=f"""Act as Engineer from .ai-pack/roles/engineer.md
+
+WORKING DIRECTORY: {PROJECT_ROOT}
+
+TASK: Create authentication
+FILES TO CREATE (3 total):
+- {PROJECT_ROOT}/gateway/src/middleware/auth.ts
+- {PROJECT_ROOT}/gateway/src/middleware/jwt.ts
+- {PROJECT_ROOT}/gateway/src/middleware/index.ts
+
+REQUIREMENTS: Supabase JWT validation.
+Report absolute paths of files created.""",
+     run_in_background=true)
+
+# Task 5: Docker & Docs (6 files)
+Task(subagent_type="general-purpose",
+     description="Deployment and documentation",
+     prompt=f"""Act as Engineer from .ai-pack/roles/engineer.md
+
+WORKING DIRECTORY: {PROJECT_ROOT}
+
+TASK: Create deployment files
+FILES TO CREATE (6 total):
+- {PROJECT_ROOT}/gateway/docker-compose.yml
+- {PROJECT_ROOT}/gateway/Dockerfile
+- {PROJECT_ROOT}/gateway/README.md
+- {PROJECT_ROOT}/gateway/docs/setup.md
+- {PROJECT_ROOT}/gateway/docs/architecture.md
+- {PROJECT_ROOT}/gateway/.dockerignore
+
+REQUIREMENTS: On-premise deployment config.
+Report absolute paths of files created.""",
+     run_in_background=true)
+
+# All 5 agents run in parallel, each succeeds independently
+# Total time: ~20 minutes (vs 60 minutes if sequential)
+# Success rate: High (each task is appropriately sized)
+```
+
+**Benefits of Decomposition:**
+1. **Higher success rate** - Each agent stays within token budget
+2. **Parallel execution** - Multiple agents work simultaneously (5x speedup)
+3. **Easier debugging** - Know which chunk failed if issues occur
+4. **Incremental progress** - Get partial results even if one agent fails
+5. **Better verification** - Easier to verify 5 files than 25 at once
+
+**When to Keep Tasks Together:**
+- Files are tightly coupled (can't create one without others)
+- Total files < 8 and all are simple/boilerplate
+- Agent just generating from templates (low token cost)
+
+**When to Split Tasks:**
+- Total files > 10
+- Multiple logical components/subsystems
+- Complex implementation logic (not just boilerplate)
+- **If an agent has already failed with token limit: ALWAYS split**
+
 **AVOID: Skill Tool (Foreground/Interactive)** ❌ RARELY NEEDED
 ```python
 Skill(skill="engineer", args="implement feature X")
