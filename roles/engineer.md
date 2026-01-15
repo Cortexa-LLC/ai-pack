@@ -261,6 +261,27 @@ bd ready
 
 **Reference:** See `quality/tooling/beads-integration.md` for complete guide.
 
+**Special Case: Spawned by Orchestrator**
+
+If you were spawned as a background agent by the Orchestrator, you'll have a Beads task assigned to you:
+
+```bash
+# Find your assigned Beads task (documented in work log)
+grep "Beads ID:" .ai/tasks/*/20-work-log.md
+# Example output: "Spawned Engineer-1 (Beads ID: bd-a1b2)"
+
+# Update status when encountering issues
+bd block bd-a1b2 "Waiting for API credentials"
+
+# Unblock when resolved
+bd unblock bd-a1b2
+
+# Mark complete when finished
+bd close bd-a1b2
+```
+
+The Orchestrator monitors these Beads tasks to track your progress, so keeping them updated helps coordination.
+
 ---
 
 ### 1. Code Implementation and Testing

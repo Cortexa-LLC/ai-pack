@@ -1,14 +1,44 @@
 #!/usr/bin/env python3
 """
-Agent Status Tracker
+⚠️  DEPRECATION NOTICE ⚠️
+
+This script is DEPRECATED as of ai-pack v1.2.0.
+Use Beads for agent tracking instead.
+
+MIGRATION:
+  OLD: python3 agent-status-tracker.py register <agent-id> <role> <task> <orchestrator-id>
+  NEW: bd create "Agent: <role> - <task>" --assignee "<role>-<id>" --priority high
+       bd start <task-id>
+
+  OLD: python3 agent-status-tracker.py report
+  NEW: bd list --assignee "Engineer-*" --status in_progress
+       OR: /ai-pack agents
+
+See: quality/tooling/beads-integration.md for complete migration guide
+See: scripts/migrate-agent-status-to-beads.py for automated migration
+
+This script remains functional for backward compatibility but will be removed in v2.0.
+
+---
+
+Agent Status Tracker (LEGACY)
 Tracks completion status of agents and generates reports for Orchestrator.
 """
 
 import os
 import json
 import sys
+import warnings
 from pathlib import Path
 from datetime import datetime
+
+# Issue deprecation warning
+warnings.warn(
+    "agent-status-tracker.py is deprecated. Use Beads instead. "
+    "See quality/tooling/beads-integration.md",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 STATUS_FILE = ".claude/.agent-status.json"
 
@@ -133,8 +163,24 @@ class AgentStatusTracker:
 
 def main():
     """Main CLI interface."""
+    # Print deprecation notice
+    print("\n" + "=" * 70)
+    print("⚠️  DEPRECATION WARNING")
+    print("=" * 70)
+    print("agent-status-tracker.py is DEPRECATED (ai-pack v1.2.0+)")
+    print("")
+    print("Use Beads instead:")
+    print("  bd create 'Agent: Engineer - Task' --assignee 'Engineer-1' --priority high")
+    print("  bd start <task-id>")
+    print("  bd list --assignee 'Engineer-*' --status in_progress")
+    print("  /ai-pack agents")
+    print("")
+    print("See: quality/tooling/beads-integration.md")
+    print("Migrate: scripts/migrate-agent-status-to-beads.py")
+    print("=" * 70 + "\n")
+
     if len(sys.argv) < 2:
-        print("Usage:")
+        print("Usage (DEPRECATED - use Beads):")
         print("  python3 agent-status-tracker.py register <agent_id> <role> <task> <orchestrator_id>")
         print("  python3 agent-status-tracker.py update <agent_id> <key=value> ...")
         print("  python3 agent-status-tracker.py complete <agent_id>")
