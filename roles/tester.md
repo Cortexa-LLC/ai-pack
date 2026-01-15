@@ -206,6 +206,26 @@ When running as background agent, update work log regularly with progress:
 
 **Update frequency**: After each major phase (TDD check, coverage run, quality analysis)
 
+**Beads Task Updates (When Spawned by Orchestrator):**
+
+If spawned as a background agent by Orchestrator, update your assigned Beads task:
+
+```bash
+# Find your Beads task ID (documented in work log)
+grep "Beads ID:" .ai/tasks/*/20-work-log.md
+
+# If blocked on issues
+bd block <task-id> "Engineer TDD violations - cannot proceed"
+
+# When unblocked
+bd unblock <task-id>
+
+# When validation complete
+bd close <task-id>
+```
+
+This helps Orchestrator track validation progress.
+
 ---
 
 ### 3. Test Quality Assessment

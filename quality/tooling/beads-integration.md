@@ -329,6 +329,128 @@ bd ready --assignee "Worker-1"  # Each worker filters by assignee
 
 ---
 
+## Agent Coordination with Beads
+
+**Use Case:** When Orchestrator spawns parallel background agents for execution.
+
+### Orchestrator Pattern for Agent Tracking
+
+When spawning agents with the Task tool, create corresponding Beads tasks:
+
+```bash
+# 1. Spawn agent with Task tool
+Task(subagent_type="general-purpose",
+     description="Implement login feature",
+     prompt="Act as Engineer. Implement login per task packet...",
+     run_in_background=true)
+
+# 2. Create Beads task IMMEDIATELY
+bd create "Agent: Engineer - Implement login feature" \
+  --assignee "Engineer-1" \
+  --priority high \
+  --description "Task packet: .ai/tasks/2026-01-14_login/"
+
+# Returns task ID, e.g., bd-a1b2
+
+# 3. Mark as in-progress
+bd start bd-a1b2
+
+# 4. Document in work log
+echo "Spawned Engineer-1 (Beads ID: bd-a1b2)" >> .ai/tasks/*/20-work-log.md
+```
+
+### Agent Naming Convention
+
+**Pattern:** `"Agent: {Role} - {Task Description}"`
+
+**Examples:**
+```bash
+bd create "Agent: Engineer - Implement user profile API" --assignee "Engineer-1"
+bd create "Agent: Tester - Validate authentication tests" --assignee "Tester-1"
+bd create "Agent: Reviewer - Review login implementation" --assignee "Reviewer-1"
+```
+
+### Monitoring Active Agents
+
+**Check agent status:**
+
+```bash
+# List all active agents
+bd list --status in_progress --assignee "Engineer-*"
+bd list --status in_progress --assignee "Tester-*"
+bd list --status in_progress --assignee "Reviewer-*"
+
+# Or use the /ai-pack agents command
+/ai-pack agents
+```
+
+**Detailed status with jq:**
+
+```bash
+bd list --assignee "Engineer-*" --json | jq -r '
+  "Active agents:",
+  (.[] | select(.status == "in_progress") | "  \(.assignee): \(.title)"),
+  "",
+  "Progress: \([ .[] | select(.status == "closed") ] | length)/\(length) completed"
+'
+```
+
+### Worker Pattern for Beads Updates
+
+**Engineers/Testers/Reviewers spawned by Orchestrator should:**
+
+```bash
+# Find your assigned Beads task (documented in work log)
+grep "Beads ID:" .ai/tasks/*/20-work-log.md
+
+# Example output: "Spawned Engineer-1 (Beads ID: bd-a1b2)"
+
+# Update when blocked
+bd block bd-a1b2 "Waiting for API credentials"
+
+# Unblock when resolved
+bd unblock bd-a1b2
+
+# Mark complete when finished
+bd close bd-a1b2
+```
+
+### Benefits of Beads for Agent Coordination
+
+1. **Cross-session persistence** - Agent tasks survive session boundaries
+2. **Git-backed audit trail** - All agent activity tracked in `.beads/issues.jsonl`
+3. **Real-time status** - Orchestrator monitors via `bd list` and `/ai-pack agents`
+4. **Collision-free IDs** - Hash-based IDs prevent conflicts in parallel execution
+5. **Dependency tracking** - Can link agent tasks to feature tasks with `bd dep add`
+
+### Agent Status Mapping
+
+| Beads Status | Agent State | Meaning |
+|--------------|-------------|---------|
+| `in_progress` | Active | Agent currently working |
+| `closed` | Completed | Agent finished successfully |
+| `blocked` | Blocked | Agent stuck on dependency/issue |
+| `open` | Not Started | Task created but agent not spawned yet |
+
+### Migration from agent-status-tracker.py
+
+**Legacy system (DEPRECATED):**
+```bash
+python3 .claude/scripts/agent-status-tracker.py register "engineer-1" "Engineer" "Task" "orchestrator-123"
+python3 .claude/scripts/agent-status-tracker.py report
+```
+
+**New Beads system:**
+```bash
+bd create "Agent: Engineer - Task" --assignee "Engineer-1" --priority high
+bd start bd-a1b2
+bd list --assignee "Engineer-*" --status in_progress
+```
+
+**Automated migration:** Use `scripts/migrate-agent-status-to-beads.py`
+
+---
+
 ## Task Lifecycle
 
 ```

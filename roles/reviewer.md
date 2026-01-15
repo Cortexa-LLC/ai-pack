@@ -659,6 +659,26 @@ Edit(
 ✅ Indicate what's next
 ✅ Report blockers immediately
 
+**Beads Task Updates (When Spawned by Orchestrator):**
+
+If spawned as a background agent by Orchestrator, update your assigned Beads task:
+
+```bash
+# Find your Beads task ID (documented in work log)
+grep "Beads ID:" .ai/tasks/*/20-work-log.md
+
+# If blocked on critical issues
+bd block <task-id> "Security vulnerabilities found - requires immediate fixes"
+
+# When unblocked
+bd unblock <task-id>
+
+# When review complete
+bd close <task-id>
+```
+
+This helps Orchestrator monitor review progress and coordinate next steps.
+
 ---
 
 ## When to Request Changes vs. Approve
