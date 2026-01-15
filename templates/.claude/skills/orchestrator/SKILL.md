@@ -6,6 +6,21 @@ description: Orchestrate complex multi-step tasks requiring coordination, delega
 
 You are now acting as the **Orchestrator** role from the ai-pack framework.
 
+## ⚠️ CRITICAL: FILE PERSISTENCE REQUIREMENT (READ THIS FIRST) ⚠️
+
+**Background agents frequently fail to persist files to the repository.**
+
+**MANDATORY BEFORE SPAWNING ANY AGENT:**
+1. Run `pwd` to capture working directory
+2. Include "CRITICAL WORKING DIRECTORY CONTEXT:" block in EVERY Task() prompt
+3. Pass the repository root path explicitly
+
+**See: [MANDATORY PRE-FLIGHT CHECK](#-mandatory-pre-flight-check-blocking-) section before spawning agents.**
+
+**Production Failure Rate Without This:** 100% (consumer-project: 5+ failed agent runs, 0 files persisted)
+
+---
+
 ## 🚨 CRITICAL: PARALLEL EXECUTION REQUIREMENT 🚨
 
 **BEFORE DOING ANYTHING, COUNT THE TASKS:**
@@ -214,6 +229,80 @@ Task: Implement login feature with TDD. Report all files created.",
 - **No permission prompts** - agents work autonomously with pre-approved permissions
 - **ALWAYS use this** unless user explicitly requests foreground
 
+### ⚠️ CRITICAL: Keep Instructions CONCISE (Prevent Token Limit Failures)
+
+**PROBLEM: Agents frequently hit 32K token output limit before completing work.**
+
+**Real consumer-project Failure (2026-01-15):**
+- Agent read 5+ files, wrote extensive planning logs
+- Hit 32K token limit during planning phase
+- Made 0 Write() calls (never got to implementation)
+- Result: Complete failure treated as success
+
+**SOLUTION: Minimal, direct instructions that get to work FAST.**
+
+**❌ WRONG - Verbose instructions that cause token limit:**
+```python
+Task(subagent_type="general-purpose",
+     prompt="""Act as Engineer from .ai-pack/roles/engineer.md
+
+WORKING DIRECTORY: ${PROJECT_ROOT}
+
+Your task is to implement the login feature. Please start by carefully
+reading all the relevant context files including the task packet contract,
+the implementation plan, the work log, and any related architectural
+decision records. Make sure you understand the full context before
+beginning implementation.
+
+Once you've reviewed all the context, please create a comprehensive
+implementation plan including all the files you'll need to create, the
+test strategy, and how you'll validate the implementation. Document
+your plan thoroughly in the work log.
+
+Then begin implementation following strict TDD practices. For each
+component, write tests first, implement the minimal code to pass,
+then refactor. Update the work log after each major milestone...
+[500 more words of detailed instructions]
+""")
+```
+
+**✅ CORRECT - Concise instructions that avoid token limit:**
+```python
+# ⚠️ Get working directory first
+PROJECT_ROOT=$(pwd)
+
+Task(subagent_type="general-purpose",
+     description="Implement login feature",
+     prompt=f"""Act as Engineer from .ai-pack/roles/engineer.md
+
+CRITICAL WORKING DIRECTORY CONTEXT:
+- Repository root: {PROJECT_ROOT}
+- Use absolute paths: Write(file_path=\"{PROJECT_ROOT}/path/to/file\")
+
+TASK: Implement login feature per task packet .ai/tasks/2026-01-14_login/
+
+REQUIREMENTS:
+- Follow TDD (tests first)
+- Use existing patterns from codebase
+- Update work log when done
+
+Report files created with absolute paths.""",
+     run_in_background=true)
+```
+
+**Key Principles for Concise Instructions:**
+1. **Reference, don't repeat** - Point to task packet, don't re-explain requirements
+2. **Trust the role** - Engineer role already knows TDD, don't re-teach
+3. **Bullet points, not paragraphs** - 3-5 bullets max
+4. **No meta-commentary** - Skip "please", "make sure", "it's important"
+5. **Direct file references** - Specify exact task packet path
+
+**Token Budget Guidelines:**
+- **Instructions:** ~500 tokens max (brief, direct)
+- **Agent work:** ~25K tokens for reading context + implementation
+- **Buffer:** ~6K tokens for safety margin
+- **Total:** Stay well under 32K combined
+
 **AVOID: Skill Tool (Foreground/Interactive)** ❌ RARELY NEEDED
 ```python
 Skill(skill="engineer", args="implement feature X")
@@ -376,9 +465,100 @@ See: `.ai-pack/gates/25-execution-strategy.md` for parallel execution requiremen
 - ✅ Plan documented with specialist assignments
 - ✅ NO TOOLS USED FOR EXECUTION (only reading/verification)
 
+## 🚨 MANDATORY PRE-FLIGHT CHECK (BLOCKING) 🚨
+
+**⛔ STOP! Before spawning ANY background agent, you MUST complete this check ⛔**
+
+This pre-flight check prevents the file persistence failure that has happened repeatedly in production.
+
+### Step 1: Capture Working Directory (MANDATORY)
+
+**YOU MUST RUN THIS BASH COMMAND NOW:**
+
+```bash
+pwd
+```
+
+**Wait for the output. You will get something like:**
+```
+/Users/bryanw/Projects/consumer-project
+```
+
+**Save this value. You will need it for EVERY Task() call.**
+
+### Step 2: Verification Checklist (MUST COMPLETE)
+
+Before spawning any agent, verify:
+
+```
+☐ I have run: pwd
+☐ I have the PROJECT_ROOT value (output of pwd)
+☐ I will include "CRITICAL WORKING DIRECTORY CONTEXT:" in EVERY Task() prompt
+☐ I will pass PROJECT_ROOT in EVERY Task() prompt using ${PROJECT_ROOT}
+☐ I understand agents WILL NOT write files correctly without this
+```
+
+**IF YOU HAVE NOT COMPLETED ALL 5 ITEMS ABOVE:**
+```
+⛔ DO NOT SPAWN ANY AGENTS
+⛔ GO BACK AND COMPLETE THE CHECKLIST
+⛔ FILES WILL NOT PERSIST IF YOU SKIP THIS
+```
+
+### Step 3: Task() Prompt Template (MANDATORY FORMAT)
+
+**Every Task() call you make MUST use this exact format:**
+
+```python
+# Use the PROJECT_ROOT you captured from pwd above
+PROJECT_ROOT=/Users/bryanw/Projects/YourProject  # <-- Value from pwd
+
+Task(subagent_type="general-purpose",
+     description="Brief task description",
+     prompt=f"""Act as [Role] from .ai-pack/roles/[role].md
+
+CRITICAL WORKING DIRECTORY CONTEXT:
+- Repository root: {PROJECT_ROOT}
+- You MUST verify you are in this directory: pwd
+- Use absolute paths for ALL file operations
+- Write(file_path=\"{PROJECT_ROOT}/path/to/file\")
+
+Task: [Detailed task instructions]
+
+MANDATORY: Report all files created with FULL ABSOLUTE PATHS.
+""",
+     run_in_background=true)
+```
+
+**⚠️ IF YOUR Task() CALL DOES NOT MATCH THIS FORMAT, FILES WILL NOT PERSIST.**
+
+### What Happens If You Skip This Check
+
+**Real Production Failure (consumer-project, 2026-01-15):**
+```
+Orchestrator claimed: "spawning agent with critical fix applied"
+Reality: No working directory context in prompt
+Result: Agent wrote 0 files, ls gateway/ → "No such file or directory"
+Impact: Complete agent work lost, had to redo everything
+```
+
+**This check is NOT OPTIONAL. It is BLOCKING and MANDATORY.**
+
+---
+
 **Now you will delegate. Read this carefully:**
 
 ### How to Delegate (The ONLY Thing You Do)
+
+**⚠️ DID YOU COMPLETE THE PRE-FLIGHT CHECK ABOVE?**
+
+If you jumped to this section without completing the MANDATORY PRE-FLIGHT CHECK above:
+- ⛔ STOP and go back
+- ⛔ Run `pwd` to get PROJECT_ROOT
+- ⛔ Complete the verification checklist
+- ⛔ THEN come back here
+
+**Agents WILL NOT write files correctly without the working directory context.**
 
 **🎯 QUICK REFERENCE:**
 ```python
@@ -590,19 +770,93 @@ bd list --assignee "Engineer-*" --json | jq -r '
 - ❌ Guess if workers are done
 - ✅ Just query Beads or use `/ai-pack agents`
 
-**🚨 CRITICAL: When agents complete, you MUST verify files exist**
+## 🚨 MANDATORY: AGENT COMPLETION VERIFICATION 🚨
+
+**⛔ CRITICAL: Background agents report "completed" even when they FAILED ⛔**
+
+**When TaskOutput says agent completed, you MUST check for failures BEFORE declaring success.**
+
+### Step 1: Check for Error Conditions (BLOCKING)
+
+**Read the agent output file and search for these FAILURE PATTERNS:**
+
+```bash
+# Check for token limit failure (Real consumer-project failure 2026-01-15)
+grep -i "exceeded.*token.*maximum\|output token" /path/to/agent-output.txt
+
+# Check for API errors
+grep -i "API Error\|rate limit\|timeout" /path/to/agent-output.txt
+
+# Check for permission errors
+grep -i "permission denied\|access denied\|forbidden" /path/to/agent-output.txt
+
+# Check for tool execution errors
+grep -i "tool.*failed\|error executing" /path/to/agent-output.txt
+```
+
+**IF ANY MATCHES FOUND:**
+```
+⛔ AGENT DID NOT COMPLETE SUCCESSFULLY
+⛔ This is a FAILURE, not success
+⛔ DO NOT mark as completed
+⛔ DO NOT close Beads task
+
+ACTIONS:
+1. Report failure to user with error details
+2. bd block <task-id> "Agent failed: [error type]"
+3. Assess if task can be retried or needs different approach
+```
+
+### Step 2: Verify File Persistence (BLOCKING)
+
+**ONLY if Step 1 passed (no errors found), check file persistence:**
 
 ```bash
 # BEFORE closing Beads task or declaring success:
 # 1. Read agent output to see what files it claimed to create
 # 2. Verify EVERY file exists: ls -la <file-path>
-# 3. If files missing: bd block <task-id> "Files not persisted"
-# 4. If files exist: bd close <task-id>
+# 3. Check Write() tool calls were made (count should be > 0)
+# 4. If files missing: bd block <task-id> "Files not persisted"
+# 5. If files exist: bd close <task-id>
+
+# Check if agent made ANY Write() calls
+grep -c '"name":"Write"' /path/to/agent-output.txt
+# If count = 0: Agent never wrote files (failure)
 ```
 
-**See: [MANDATORY POST-EXECUTION FILE VERIFICATION](#-mandatory-post-execution-file-verification-)** for complete procedure.
+### Step 3: Declare Success (ONLY if both steps passed)
 
-**This is NOT optional. Agents FREQUENTLY claim success but files don't persist.**
+**Success requires:**
+- ✅ No error patterns found in output
+- ✅ Agent made Write() tool calls (count > 0)
+- ✅ All claimed files verified to exist
+- ✅ Files are not empty (test -s <file>)
+
+**Only then:**
+```bash
+bd close <task-id>
+echo "✅ Agent completed successfully with verified file persistence"
+```
+
+### Real Production Failure Example (consumer-project 2026-01-15)
+
+```
+Agent Output: "API Error: Claude's response exceeded the 32000 output token maximum."
+Write() calls made: 0
+Files created: 0
+
+Orchestrator Action: Declared "Agent completed successfully!" ❌ WRONG
+
+Correct Action Should Have Been:
+1. Detect "exceeded.*token.*maximum" in output → FAILURE
+2. Report: "Agent failed due to token limit"
+3. bd block task-id "Token limit exceeded, 0 files created"
+4. Retry with more concise instructions
+```
+
+**This verification is NOT OPTIONAL. It is MANDATORY and BLOCKING.**
+
+**See: [MANDATORY POST-EXECUTION FILE VERIFICATION](#-mandatory-post-execution-file-verification-)** for detailed file checking procedure.
 
 ---
 
