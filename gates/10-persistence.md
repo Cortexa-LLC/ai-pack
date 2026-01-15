@@ -553,6 +553,165 @@ This gate is MANDATORY for:
 
 ---
 
+## Work Log Rotation
+
+### 12. Work Log Size Management
+
+**Rule:** Work logs (20-work-log.md) MUST be rotated when they exceed 15,000 tokens to prevent Read tool failures.
+
+**Rationale:**
+- Read tool has 25,000 token limit
+- Large work logs cause orchestration failures
+- Archived logs preserve historical context
+- Fresh logs improve readability and performance
+
+**Token Limit Thresholds:**
+```
+⚠️  WARNING: 12,000+ tokens (rotation recommended)
+🚨 CRITICAL: 15,000+ tokens (rotation MANDATORY)
+❌  FAILURE: 25,000+ tokens (Read tool will fail)
+```
+
+**Rotation Trigger Conditions:**
+```
+WHEN work log size exceeds 15,000 tokens THEN
+  MUST rotate work log
+  CANNOT proceed without rotation
+END WHEN
+
+WHEN work log size 12,000-15,000 tokens THEN
+  SHOULD rotate work log
+  WARN engineer of upcoming limit
+END WHEN
+```
+
+**Rotation Procedure:**
+```
+STEP 1: Check current work log size
+  wc -w .ai/tasks/*/20-work-log.md
+  # Estimate: 1 token ≈ 0.75 words
+  # 15,000 tokens ≈ 11,250 words
+
+STEP 2: Create archive if size threshold exceeded
+  mv .ai/tasks/*/20-work-log.md \
+     .ai/tasks/*/20-work-log-archive-001.md
+
+STEP 3: Create fresh work log from template
+  cp .ai-pack/templates/task-packet/20-work-log.md \
+     .ai/tasks/*/20-work-log.md
+
+STEP 4: Add archive reference to new log
+  echo "## Previous Work Logs" >> 20-work-log.md
+  echo "- [Archive 001](./20-work-log-archive-001.md)" >> 20-work-log.md
+
+STEP 5: Add continuation note to archive
+  echo "---" >> 20-work-log-archive-001.md
+  echo "## Continuation" >> 20-work-log-archive-001.md
+  echo "Work continues in: [20-work-log.md](./20-work-log.md)" >> 20-work-log-archive-001.md
+
+STEP 6: Commit rotation
+  git add .ai/tasks/*/20-work-log*.md
+  git commit -m "Rotate work log (exceeded token limit)"
+```
+
+**Archive Naming Convention:**
+```
+20-work-log.md                    # Current (active) work log
+20-work-log-archive-001.md        # First archive (oldest)
+20-work-log-archive-002.md        # Second archive
+20-work-log-archive-003.md        # Third archive (most recent before current)
+```
+
+**Sequence:**
+```
+Archive 001 → Archive 002 → Archive 003 → Current (20-work-log.md)
+  (oldest)                           (newest)
+```
+
+**Size Estimation:**
+```bash
+# Quick token estimate
+WORDS=$(wc -w < 20-work-log.md)
+TOKENS=$((WORDS * 4 / 3))  # 1 token ≈ 0.75 words
+
+if [ $TOKENS -gt 15000 ]; then
+  echo "🚨 MANDATORY rotation required: $TOKENS tokens"
+elif [ $TOKENS -gt 12000 ]; then
+  echo "⚠️  Rotation recommended: $TOKENS tokens"
+else
+  echo "✅ Size OK: $TOKENS tokens"
+fi
+```
+
+**Archive Retention:**
+```
+Task packets (.ai/tasks/*):
+  ✅ Keep ALL archives during active work
+  ✅ Archives persist until task completion
+  ⚠️  After task completion, archives may be cleaned up
+     (summary preserved in 40-acceptance.md)
+
+Long-term retention:
+  ❌ Archives NOT committed to repository
+     (too verbose for long-term storage)
+  ✅ Key decisions captured in:
+     - 10-plan.md (deviations section)
+     - 30-review.md (review findings)
+     - 40-acceptance.md (final summary)
+```
+
+**Cross-References:**
+```
+Current work log MUST reference archives:
+  ## Previous Work Logs
+  - [Archive 003](./20-work-log-archive-003.md) - Sessions 21-30
+  - [Archive 002](./20-work-log-archive-002.md) - Sessions 11-20
+  - [Archive 001](./20-work-log-archive-001.md) - Sessions 1-10
+
+Archive MUST reference continuation:
+  ## Continuation
+  Work continues in: [20-work-log.md](./20-work-log.md)
+  OR
+  Next archive: [20-work-log-archive-002.md](./20-work-log-archive-002.md)
+```
+
+**Enforcement:**
+```
+IF Engineer attempts to update work log >15k tokens THEN
+  BLOCK update
+  REQUIRE rotation first
+  DISPLAY: "Work log exceeds 15,000 token limit. Rotate before continuing."
+END IF
+
+IF Orchestrator reads work log >15k tokens THEN
+  FAIL with Read tool error (>25k tokens)
+  REQUIRE Engineer to rotate
+  BLOCK progress until rotated
+END IF
+```
+
+**Failure Mode Prevention:**
+```
+WITHOUT rotation:
+  ❌ Work log exceeds 25k token Read limit
+  ❌ Orchestrator cannot read progress
+  ❌ Coordination breaks down
+  ❌ Background agents appear stuck
+
+WITH rotation:
+  ✅ Work logs stay under Read limit
+  ✅ Orchestrator can monitor progress
+  ✅ Coordination continues smoothly
+  ✅ Historical context preserved in archives
+```
+
+**References:**
+- [Engineer Role](../roles/engineer.md) - Work log update requirements
+- [Orchestrator Role](../roles/orchestrator.md) - Progress monitoring
+- [Work Log Template](../templates/task-packet/20-work-log.md)
+
+---
+
 ## Integration
 
 Persistence gates integrate with:
