@@ -47,10 +47,13 @@ Choose the guide for your programming language:
 - **[lang-cpp-reference.md](clean-code/lang-cpp-reference.md)** - Quick reference
 
 ### Other Languages
+- **[lang-csharp.md](clean-code/lang-csharp.md)** - C# (.NET conventions, modern C# features)
+- **[csharp-modern-tooling.md](clean-code/csharp-modern-tooling.md)** - C# Modern Tooling (CSharpier, Roslynator)
 - **[lang-python.md](clean-code/lang-python.md)** - Python (PEP 8, type hints, best practices)
 - **[lang-javascript.md](clean-code/lang-javascript.md)** - JavaScript/TypeScript
 - **[lang-java.md](clean-code/lang-java.md)** - Java (Oracle conventions, Effective Java)
 - **[lang-kotlin.md](clean-code/lang-kotlin.md)** - Kotlin (JetBrains standards)
+- **[lang-swift.md](clean-code/lang-swift.md)** - Swift/SwiftUI (Apple guidelines, async/await, modern concurrency)
 
 ## Quick Navigation by Use Case
 
