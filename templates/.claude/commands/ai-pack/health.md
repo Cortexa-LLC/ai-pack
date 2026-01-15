@@ -46,8 +46,10 @@ test -f .claude/.coordination-checkpoint && echo "OK" || echo "MISSING"
 # Last update time
 stat .claude/.coordination-checkpoint
 
-# Status tracker
-python3 .claude/scripts/agent-status-tracker.py report
+# Agent status (via Beads)
+/ai-pack agents
+# OR
+bd list --json | jq '.[] | select(.title | startswith("Agent:"))'
 ```
 
 **Status:**
@@ -126,8 +128,10 @@ grep -r "Orchestrator\|Coordinator\|Engineer" .ai/tasks/*/20-work-log.md
 
 **Verifies:**
 ```bash
-# Agent status
-python3 .claude/scripts/agent-status-tracker.py report
+# Agent status (via Beads)
+bd list --assignee "Engineer-*" --json
+# OR
+/ai-pack agents
 
 # Recent commits
 git log --since="30 minutes ago" --oneline | wc -l
@@ -136,7 +140,7 @@ git log --since="30 minutes ago" --oneline | wc -l
 find .ai/tasks -name "20-work-log.md" -mmin -10
 
 # Blocked agents
-python3 .claude/scripts/agent-status-tracker.py report | grep "blocked"
+bd list --status blocked --json | jq '.[] | select(.title | startswith("Agent:"))'
 ```
 
 **Status:**
