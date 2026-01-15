@@ -126,15 +126,87 @@ Before proceeding, read:
 3. `.ai-pack/gates/35-code-quality-review.md` - Quality gates
 4. `.ai/tasks/*/00-contract.md` - Current task requirements
 
+## 🚨 CRITICAL: WORKING DIRECTORY CONTEXT FOR BACKGROUND AGENTS 🚨
+
+**THE PROBLEM (Real Production Failures):**
+
+Background agents frequently claim to create files but files don't persist to repository.
+
+**Example from Harvana:**
+```
+Background Agent Reports:
+  "✅ Created tools/schema-validation/package.json"
+  "✅ Created tools/schema-validation/validate-schema.js"
+  "✅ Work complete!"
+
+Reality Check:
+  $ ls tools/schema-validation/
+  ls: tools/schema-validation/: No such file or directory
+
+  ❌ ZERO FILES PERSISTED
+```
+
+**ROOT CAUSE: Background agents may start in a different working directory than the repository.**
+
+When agents run `Write(file_path="tools/schema-validation/package.json")` with a relative path:
+- They successfully create the file
+- But it's in THEIR working directory (temporary sandbox)
+- NOT in the actual repository the user is working in
+
+**THE SOLUTION: ALWAYS pass working directory context to background agents.**
+
+### MANDATORY Delegation Pattern
+
+**Every Task() call MUST include:**
+
+```python
+# 1. Get current working directory FIRST (before spawning agents)
+PROJECT_ROOT=$(pwd)
+
+# 2. Pass PROJECT_ROOT in the prompt
+Task(subagent_type="general-purpose",
+     description="...",
+     prompt="Act as [Role] from .ai-pack/roles/[role].md
+
+CRITICAL WORKING DIRECTORY CONTEXT:
+- Repository root: ${PROJECT_ROOT}
+- You MUST verify you are in this directory: pwd
+- Use absolute paths for ALL file operations
+- Write(file_path=\"\$PROJECT_ROOT/path/to/file\")
+
+Task: [specific task instructions]
+Report all files created with full absolute paths.",
+     run_in_background=true)
+```
+
+**Why This Works:**
+1. Orchestrator captures actual repository root with `$(pwd)`
+2. Passes it explicitly to agent via prompt variable substitution
+3. Agent knows EXACTLY where to write files
+4. Agent uses absolute paths: `Write(file_path="$PROJECT_ROOT/src/file.ts")`
+5. Files get written to ACTUAL repository, not sandbox
+
+**This is NOT OPTIONAL. Every delegation example below follows this pattern.**
+
 ## How to Delegate (CRITICAL)
 
 ### ⚠️ CRITICAL: ALWAYS Use Background Agents
 
 **DEFAULT: Task Tool with run_in_background=true** ✅ MANDATORY
 ```python
+# ⚠️ CRITICAL: Get working directory context FIRST
+PROJECT_ROOT=$(pwd)
+
 Task(subagent_type="general-purpose",  # ✅ CORRECT - always use "general-purpose"
      description="Implement login feature",
-     prompt="Act as Engineer role from ai-pack. Follow .ai-pack/roles/engineer.md. Implement login feature with TDD...",
+     prompt="Act as Engineer from .ai-pack/roles/engineer.md
+
+CRITICAL WORKING DIRECTORY CONTEXT:
+- Repository root: ${PROJECT_ROOT}
+- Verify location: pwd (must match above)
+- Use absolute paths: Write(file_path=\"\$PROJECT_ROOT/src/auth/login.ts\")
+
+Task: Implement login feature with TDD. Report all files created.",
      run_in_background=true)  # ✅ ALWAYS USE THIS - default for all agents
 ```
 - Runs in **background** (autonomous, non-interactive, no permission prompts)
@@ -385,20 +457,54 @@ SPEEDUP: 3x faster!
 # Use Task tool to spawn parallel Engineers
 # Example: 3 independent features
 # CRITICAL: Use run_in_background=true for parallel execution
+
+# ⚠️ CRITICAL: Get current working directory FIRST
+PROJECT_ROOT=$(pwd)
+
 Task(subagent_type="general-purpose",
      description="Implement feature A",
-     prompt="Act as Engineer, implement feature A per task packet .ai/tasks/2026-01-10_feature-a/",
-     run_in_background=true)  # ✅ Required for non-interactive parallel operation
+     prompt="Act as Engineer from .ai-pack/roles/engineer.md
+
+CRITICAL WORKING DIRECTORY CONTEXT:
+- Repository root: ${PROJECT_ROOT}
+- You MUST verify you are in this directory: pwd
+- Use absolute paths for ALL file operations
+- PROJECT_ROOT=\$(git rev-parse --show-toplevel)
+- ALL file writes must be: Write(file_path=\"\$PROJECT_ROOT/path/to/file\")
+
+Task: Implement feature A per task packet .ai/tasks/2026-01-10_feature-a/
+Follow TDD. Update work log. Report files created.",
+     run_in_background=true)
 
 Task(subagent_type="general-purpose",
      description="Implement feature B",
-     prompt="Act as Engineer, implement feature B per task packet .ai/tasks/2026-01-10_feature-b/",
-     run_in_background=true)  # ✅ Required for non-interactive parallel operation
+     prompt="Act as Engineer from .ai-pack/roles/engineer.md
+
+CRITICAL WORKING DIRECTORY CONTEXT:
+- Repository root: ${PROJECT_ROOT}
+- You MUST verify you are in this directory: pwd
+- Use absolute paths for ALL file operations
+- PROJECT_ROOT=\$(git rev-parse --show-toplevel)
+- ALL file writes must be: Write(file_path=\"\$PROJECT_ROOT/path/to/file\")
+
+Task: Implement feature B per task packet .ai/tasks/2026-01-10_feature-b/
+Follow TDD. Update work log. Report files created.",
+     run_in_background=true)
 
 Task(subagent_type="general-purpose",
      description="Implement feature C",
-     prompt="Act as Engineer, implement feature C per task packet .ai/tasks/2026-01-10_feature-c/",
-     run_in_background=true)  # ✅ Required for non-interactive parallel operation
+     prompt="Act as Engineer from .ai-pack/roles/engineer.md
+
+CRITICAL WORKING DIRECTORY CONTEXT:
+- Repository root: ${PROJECT_ROOT}
+- You MUST verify you are in this directory: pwd
+- Use absolute paths for ALL file operations
+- PROJECT_ROOT=\$(git rev-parse --show-toplevel)
+- ALL file writes must be: Write(file_path=\"\$PROJECT_ROOT/path/to/file\")
+
+Task: Implement feature C per task packet .ai/tasks/2026-01-10_feature-c/
+Follow TDD. Update work log. Report files created.",
+     run_in_background=true)
 ```
 
 **All Task calls must be in the SAME response to run in parallel.**
@@ -483,6 +589,20 @@ bd list --assignee "Engineer-*" --json | jq -r '
 - ❌ Parse worker logs yourself
 - ❌ Guess if workers are done
 - ✅ Just query Beads or use `/ai-pack agents`
+
+**🚨 CRITICAL: When agents complete, you MUST verify files exist**
+
+```bash
+# BEFORE closing Beads task or declaring success:
+# 1. Read agent output to see what files it claimed to create
+# 2. Verify EVERY file exists: ls -la <file-path>
+# 3. If files missing: bd block <task-id> "Files not persisted"
+# 4. If files exist: bd close <task-id>
+```
+
+**See: [MANDATORY POST-EXECUTION FILE VERIFICATION](#-mandatory-post-execution-file-verification-)** for complete procedure.
+
+**This is NOT optional. Agents FREQUENTLY claim success but files don't persist.**
 
 ---
 
@@ -606,6 +726,109 @@ Orchestrator: "Tests created successfully. Moving to next phase."
 
 ---
 
+## 🚨 MANDATORY: POST-EXECUTION FILE VERIFICATION 🚨
+
+**⛔ CRITICAL CHECKPOINT - YOU MUST DO THIS AFTER EVERY BACKGROUND AGENT COMPLETES ⛔**
+
+**THE PROBLEM (Real Harvana Examples):**
+
+```
+Background Agent Reports:
+  "✅ Created tools/schema-validation/package.json"
+  "✅ Created tools/schema-validation/validate-schema.js"
+  "✅ Created tools/schema-validation/export-schemas.js"
+  "✅ Work complete!"
+
+Reality Check:
+  $ ls tools/schema-validation/
+  ls: tools/schema-validation/: No such file or directory
+
+  ❌ ZERO FILES PERSISTED
+  ❌ Agent worked in isolated sandbox
+  ❌ Silent failure - no detection until later
+```
+
+**This has happened MULTIPLE TIMES in production. You MUST verify files exist.**
+
+### MANDATORY Verification Procedure (DO THIS NOW)
+
+```bash
+# STEP 1: List what agent CLAIMED to create
+# Read agent output, extract all file paths mentioned
+
+# STEP 2: Verify EVERY file exists
+for file in "${CLAIMED_FILES[@]}"; do
+  if [ ! -f "$file" ]; then
+    echo "❌ CRITICAL: $file MISSING despite agent claiming success"
+    MISSING_FILES+=("$file")
+  else
+    echo "✓ EXISTS: $file"
+    # Check file size
+    if [ ! -s "$file" ]; then
+      echo "  ⚠️ WARNING: File exists but is EMPTY"
+    fi
+  fi
+done
+
+# STEP 3: Report verification status
+if [ ${#MISSING_FILES[@]} -ne 0 ]; then
+  echo "🚨 CRITICAL: Background agent persistence failure"
+  echo "Agent claimed to create ${#CLAIMED_FILES[@]} files"
+  echo "Found ${#MISSING_FILES[@]} missing files"
+  # STOP - DO NOT PROCEED
+  # Report to user or spawn recovery agent
+fi
+```
+
+### When to Verify (EVERY TIME)
+
+**✅ MUST verify after:**
+- Engineer agents (code files, tests)
+- Cartographer agents (PRD, user stories)
+- Architect agents (architecture docs, ADRs)
+- Designer agents (wireframes, design specs)
+- Inspector agents (retrospectives)
+- ANY agent that creates files
+
+**❌ NEVER assume files exist without checking**
+
+### Recovery Options When Files Missing
+
+```
+IF files missing THEN
+  OPTION 1: Extract from agent output
+    - Check if agent included full file contents in output
+    - Manually create files from output
+    - Verify correctness
+
+  OPTION 2: Re-run agent in foreground
+    - Spawn new agent WITHOUT run_in_background=true
+    - Agent can prompt for Write permissions
+    - Monitor completion directly
+
+  OPTION 3: Check permissions and re-run
+    - Verify .claude/settings.json has Write(*) permission
+    - Fix configuration if needed
+    - Re-spawn agent in background
+
+  DO NOT: Try to recreate files yourself (violates role boundary)
+END IF
+```
+
+### Beads Status Updates
+
+```bash
+# If verification PASSES - all files exist
+bd close <agent-task-id>
+
+# If verification FAILS - files missing
+bd block <agent-task-id> "File persistence failed - 5 files missing from repository"
+```
+
+**This verification is NOT OPTIONAL. It is MANDATORY and BLOCKING.**
+
+---
+
 **Why `run_in_background=true` is mandatory:**
 - Engineers need to write/edit files without permission prompts
 - Background agents run autonomously with pre-approved permissions
@@ -690,10 +913,20 @@ For ALL code changes, you MUST:
 
 1. **Delegate to Tester (run in background):**
    ```python
+   PROJECT_ROOT=$(pwd)  # ⚠️ Get working directory FIRST
+
    Task(subagent_type="general-purpose",
         description="Validate test coverage and TDD compliance",
-        prompt="Act as Tester role. Validate tests per .ai-pack/roles/tester.md...",
-        run_in_background=true)  # ✅ REQUIRED for non-interactive operation
+        prompt="Act as Tester from .ai-pack/roles/tester.md
+
+CRITICAL WORKING DIRECTORY CONTEXT:
+- Repository root: ${PROJECT_ROOT}
+- Verify location: pwd (must match above)
+- Write review to: \$PROJECT_ROOT/.ai/tasks/*/30-review.md
+
+Task: Validate tests, check TDD compliance, verify coverage.
+Report findings in 30-review.md with verdict: APPROVED or CHANGES REQUIRED.",
+        run_in_background=true)
    ```
    - Request test validation
    - Wait for APPROVED verdict (check work log or status tracker)
@@ -701,10 +934,20 @@ For ALL code changes, you MUST:
 
 2. **Delegate to Reviewer (run in background):**
    ```python
+   PROJECT_ROOT=$(pwd)  # ⚠️ Get working directory FIRST
+
    Task(subagent_type="general-purpose",
         description="Review code quality and adherence to standards",
-        prompt="Act as Reviewer role. Review code per .ai-pack/roles/reviewer.md...",
-        run_in_background=true)  # ✅ REQUIRED for non-interactive operation
+        prompt="Act as Reviewer from .ai-pack/roles/reviewer.md
+
+CRITICAL WORKING DIRECTORY CONTEXT:
+- Repository root: ${PROJECT_ROOT}
+- Verify location: pwd (must match above)
+- Write review to: \$PROJECT_ROOT/.ai/tasks/*/30-review.md
+
+Task: Review code quality, check standards compliance, assess security.
+Report findings in 30-review.md with verdict: APPROVED or CHANGES REQUESTED.",
+        run_in_background=true)
    ```
    - Request code review (after Tester approval)
    - Wait for APPROVED verdict (check work log or status tracker)
@@ -745,7 +988,20 @@ If specialists used (PM, Architect, Designer, Inspector):
 
 ### Phase 6: Completion
 
+**🚨 CRITICAL: Before declaring completion, you MUST verify file persistence:**
+
+```bash
+# For EACH background agent that ran:
+# 1. List files agent claimed to create (from agent output)
+# 2. Verify EVERY file exists: ls -la <file-path>
+# 3. Check file is not empty: test -s <file-path>
+# 4. If ANY files missing: STOP, report CRITICAL failure
+```
+
+**See: [MANDATORY POST-EXECUTION FILE VERIFICATION](#-mandatory-post-execution-file-verification-) section above**
+
 1. **Verify all subtasks complete:**
+   - ✅ All background agent files exist (VERIFIED, not assumed)
    - All acceptance criteria met
    - All tests passing
    - All reviews approved
