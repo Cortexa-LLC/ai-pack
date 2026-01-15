@@ -8,17 +8,17 @@
 
 This follows the Microsoft C# Coding Conventions and StyleCop default rules, which are the industry standard for .NET development.
 
-**Note:** Cortexa LLC uses **language-specific indentation standards**:
+**Note:** Each language follows its community's indentation standards:
 - **C++**: 2 spaces (Google C++ Style Guide)
 - **C#**: 4 spaces (Microsoft standard)
-- **Java**: 2 spaces (Cortexa LLC override)
+- **Java**: 4 spaces (Google Java Style Guide)
 - **JavaScript/TypeScript**: 2 spaces (ecosystem standard)
 - **Kotlin**: 4 spaces (JetBrains standard)
 - **Python**: 4 spaces (PEP 8 mandatory)
 
 **Example:**
 ```csharp
-namespace Cortexa.Services;
+namespace Acme.Services;
 
 using System;
 using System.Collections.Generic;
@@ -113,7 +113,7 @@ This file contains C#-specific best practices including:
 
 | Type | Convention | Example |
 |------|------------|---------|
-| Namespace | PascalCase | `Cortexa.Services` |
+| Namespace | PascalCase | `Acme.Services` |
 | Class | PascalCase | `UserService` |
 | Interface | IPascalCase (I prefix) | `IUserRepository` |
 | Method | PascalCase | `GetUserById` |
@@ -218,7 +218,7 @@ public class Example
 
 ```csharp
 // File-scoped namespace (C# 10+)
-namespace Cortexa.Services;
+namespace Acme.Services;
 
 // Global usings (defined in separate GlobalUsings.cs)
 // global using System;
@@ -488,7 +488,7 @@ public class User
 using System;
 using System.Collections.Generic;
 
-namespace Cortexa.Services
+namespace Acme.Services
 {
     public class Example
     {
