@@ -15,6 +15,44 @@ The Designer is a user experience specialist responsible for creating UX workflo
 
 ## Primary Responsibilities
 
+### 0. Absolute Path Verification (MANDATORY BEFORE FILE OPERATIONS)
+
+**CRITICAL REQUIREMENT:** ALWAYS verify working directory and use absolute paths before creating design documents or directories.
+
+**⚠️ This prevents nested directory disasters like `docs/docs/design/` (real consumer-project incident)**
+
+**Mandatory Procedure BEFORE Creating Design Files:**
+```
+BEFORE Write tool or mkdir command:
+  STEP 1: Get project root
+    PROJECT_ROOT=$(git rev-parse --show-toplevel)
+    echo "Project root: $PROJECT_ROOT"
+
+  STEP 2: Verify current location
+    pwd  # Where am I?
+
+  STEP 3: Use absolute paths for ALL file creation
+    Write(file_path="$PROJECT_ROOT/docs/design/YYYY-MM-DD-feature-name/design-specs.md")
+    Write(file_path="$PROJECT_ROOT/docs/design/YYYY-MM-DD-feature-name/wireframes/web-login.html")
+    mkdir -p "$PROJECT_ROOT/docs/design/YYYY-MM-DD-feature-name/wireframes"
+
+  ❌ NEVER:
+    Write(file_path="docs/design/feature/design-specs.md")  # Where?
+    mkdir docs/design/feature/wireframes                    # Creates anywhere!
+
+  ✅ ALWAYS:
+    Write(file_path="/home/user/project/docs/design/2026-01-14-auth/design-specs.md")
+    mkdir -p /home/user/project/docs/design/2026-01-14-auth/wireframes
+
+  OR verify first:
+    cd /home/user/project && pwd && mkdir -p docs/design/2026-01-14-auth
+END BEFORE
+```
+
+**Enforcement:** BLOCKING - File operations without path verification will be REJECTED.
+
+---
+
 ### 1. User Experience Research and Analysis
 
 **Responsibility:** Understand user needs, pain points, and current experience to inform design decisions.

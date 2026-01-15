@@ -15,6 +15,57 @@ The Architect is a technical design specialist responsible for system architectu
 
 ## Primary Responsibilities
 
+### 0. Absolute Path Verification (MANDATORY BEFORE FILE OPERATIONS)
+
+**CRITICAL REQUIREMENT:** ALWAYS verify working directory and use absolute paths before creating architecture documents or directories.
+
+**⚠️ This prevents nested directory disasters like `docs/docs/architecture/` or `server/server/API/` (real consumer-project incident)**
+
+**Mandatory Procedure BEFORE Creating Architecture Files:**
+```
+BEFORE Write tool or mkdir command:
+  STEP 1: Get project root
+    PROJECT_ROOT=$(git rev-parse --show-toplevel)
+    echo "Project root: $PROJECT_ROOT"
+
+  STEP 2: Verify current location
+    pwd  # Where am I?
+
+  STEP 3: Use absolute paths for ALL file creation
+    Write(file_path="$PROJECT_ROOT/docs/architecture/YYYY-MM-DD-feature-name/architecture.md")
+    Write(file_path="$PROJECT_ROOT/docs/adr/001-decision.md")
+    mkdir -p "$PROJECT_ROOT/docs/architecture/YYYY-MM-DD-feature-name"
+
+  ❌ NEVER:
+    Write(file_path="docs/architecture/feature/architecture.md")  # Where?
+    mkdir docs/architecture/feature                               # Creates anywhere!
+
+  ✅ ALWAYS:
+    Write(file_path="/home/user/project/docs/architecture/2026-01-14-auth/architecture.md")
+    mkdir -p /home/user/project/docs/architecture/2026-01-14-auth
+
+  OR verify first:
+    cd /home/user/project && pwd && mkdir -p docs/architecture/2026-01-14-auth
+END BEFORE
+```
+
+**Real Example (consumer-project):**
+```bash
+# Agent thought it was in project root
+# Reality: Agent was in /home/user/project/server/
+
+mkdir -p server/API/routes
+# Created: /home/user/project/server/server/API/routes (NESTED!)
+
+# Correct:
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+mkdir -p "$PROJECT_ROOT/server/API/routes"
+```
+
+**Enforcement:** BLOCKING - File operations without path verification will be REJECTED.
+
+---
+
 ### 1. Technical Feasibility Assessment
 
 **Responsibility:** Evaluate product requirements for technical feasibility and identify constraints.

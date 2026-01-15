@@ -9,6 +9,95 @@ Persistence gates govern all file operations and state management activities. Th
 
 ## File Operation Policies
 
+### 0. Absolute Path Requirement (CRITICAL - BLOCKING)
+
+**Rule:** ALL file and directory creation MUST use absolute paths OR verify working directory first.
+
+**⚠️ CRITICAL: This prevents disasters like nested `server/server/API/` directories (real consumer-project incident)**
+
+**Mandatory Verification Procedure:**
+```
+BEFORE creating ANY file or directory:
+  STEP 1: Get project root absolute path
+    PROJECT_ROOT=$(git rev-parse --show-toplevel)
+    # Or: PROJECT_ROOT=$(pwd)  # if already in root
+    echo "Project root: $PROJECT_ROOT"
+
+  STEP 2: Verify you're in expected directory
+    pwd  # Check current location
+    # Expected: /home/user/project
+    # If wrong: cd "$PROJECT_ROOT"
+
+  STEP 3: Use absolute paths for all Write/mkdir operations
+    Write(file_path="$PROJECT_ROOT/src/api/routes.js")
+    mkdir "$PROJECT_ROOT/server/API"
+
+  ❌ NEVER do this:
+    Write(file_path="server/api/file.js")  # Where does this go?
+    mkdir server/API                        # Creates anywhere!
+    mkdir -p server/routes/api              # Disaster waiting to happen!
+
+  ✅ ALWAYS do this:
+    Write(file_path="/home/user/project/server/api/file.js")
+    mkdir /home/user/project/server/API
+    mkdir -p /home/user/project/server/routes/api
+
+  OR verify location first:
+    cd /home/user/project
+    pwd  # Confirm: /home/user/project
+    mkdir server/API  # Now safe
+END BEFORE
+```
+
+**Why This Rule Exists:**
+- **Real Example (consumer-project):** Agent created nested `server/server/API/` and other duplicated folders because it wasn't in the expected directory when using relative paths
+- Prevents accidental nested directories
+- Eliminates file location ambiguity
+- Ensures reproducible file structure
+- Reduces debugging time by hours
+
+**Common Mistake Pattern:**
+```bash
+# Agent's mental model: "I'm in project root"
+# Reality: Agent is in /home/user/project/server/
+
+mkdir server/API
+# Creates: /home/user/project/server/server/API (WRONG! NESTED!)
+
+# Also creates other duplicates:
+mkdir -p server/routes/api
+# Creates: /home/user/project/server/server/routes/api (DISASTER!)
+```
+
+**Correct Approach:**
+```bash
+# Option 1: Always use absolute paths
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+mkdir -p "$PROJECT_ROOT/server/API"
+mkdir -p "$PROJECT_ROOT/server/routes/api"
+
+# Option 2: Verify location first
+pwd  # Check: /home/user/project/server/ (not root!)
+cd /home/user/project  # Go to actual root
+pwd  # Verify: /home/user/project
+mkdir server/API  # Creates: /home/user/project/server/API (CORRECT!)
+```
+
+**Enforcement:** This is a BLOCKING rule. File operations without path verification will be REJECTED in code review.
+
+**Detection:**
+```bash
+# If you see nested directories like these, absolute paths were not used:
+server/server/API/          # Should be: server/API/
+client/client/components/   # Should be: client/components/
+docs/docs/architecture/     # Should be: docs/architecture/
+
+# Fix by removing nested duplicates:
+# WARNING: Verify contents before removing!
+```
+
+---
+
 ### 1. Read Before Modify
 
 **Rule:** Always read a file before editing or overwriting it.

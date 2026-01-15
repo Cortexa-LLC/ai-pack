@@ -284,6 +284,60 @@ The Orchestrator monitors these Beads tasks to track your progress, so keeping t
 
 ---
 
+### 0.8 Absolute Path Verification (MANDATORY BEFORE FILE OPERATIONS)
+
+**CRITICAL REQUIREMENT:** ALWAYS verify working directory and use absolute paths before creating files or directories.
+
+**⚠️ This prevents nested directory disasters like `server/server/API/` (real consumer-project incident)**
+
+**Mandatory Procedure BEFORE ANY File/Directory Creation:**
+```
+BEFORE Write tool or mkdir command:
+  STEP 1: Get project root
+    PROJECT_ROOT=$(git rev-parse --show-toplevel)
+    echo "Project root: $PROJECT_ROOT"
+
+  STEP 2: Verify current location
+    pwd  # Where am I?
+
+  STEP 3: Use absolute paths
+    Write(file_path="$PROJECT_ROOT/src/components/Button.tsx")
+    mkdir -p "$PROJECT_ROOT/src/api/routes"
+
+  ❌ NEVER:
+    Write(file_path="src/components/Button.tsx")  # Where does this go?
+    mkdir server/API                               # Could create anywhere!
+
+  ✅ ALWAYS:
+    Write(file_path="/home/user/project/src/components/Button.tsx")
+    mkdir /home/user/project/server/API
+
+  OR verify first:
+    cd /home/user/project && pwd && mkdir server/API
+END BEFORE
+```
+
+**Real Example (consumer-project Incident):**
+```bash
+# Agent thought it was in project root
+# Reality: Agent was in /home/user/project/server/
+
+mkdir server/API
+# Created: /home/user/project/server/server/API (NESTED DISASTER!)
+
+# Correct approach:
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+mkdir -p "$PROJECT_ROOT/server/API"
+# Creates: /home/user/project/server/API (CORRECT!)
+```
+
+**Detection:**
+If you see nested directories like `server/server/`, `client/client/`, or `docs/docs/`, absolute paths were not used. Report this immediately.
+
+**Enforcement:** BLOCKING - Code review will REJECT any file operations without path verification.
+
+---
+
 ### 1. Code Implementation and Testing
 
 **Responsibility:** Write production-quality code that meets requirements using MANDATORY Test-Driven Development.

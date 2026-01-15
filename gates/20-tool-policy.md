@@ -418,6 +418,31 @@ Quoted paths:
   cd "/path with spaces/dir"
   python "/path with spaces/script.py"
   → Always quote paths with spaces
+
+Absolute paths for mkdir/file creation (CRITICAL):
+  ❌ NEVER: mkdir server/API  # Could create anywhere!
+  ✅ ALWAYS: mkdir /home/user/project/server/API
+
+  OR verify location first:
+  pwd && mkdir server/API  # Verify then create
+```
+
+**File/Directory Creation Rules:**
+```
+BEFORE mkdir or touch commands:
+  STEP 1: Check current directory
+    pwd  # Where am I?
+
+  STEP 2: Use absolute path OR verify location
+    mkdir /absolute/path/to/directory  # Safe
+    OR
+    cd /home/user/project && pwd && mkdir server/API  # Verify first
+
+  ❌ DANGEROUS:
+    mkdir -p server/API/routes  # Where will this go?
+
+  ✅ SAFE:
+    mkdir -p /home/user/project/server/API/routes  # Always clear
 ```
 
 ---
@@ -492,10 +517,30 @@ Tool Error Detected:
 - Don't make assumptions about file contents
 
 ### Write Tool
+- **CRITICAL: ALWAYS use absolute paths** (prevents nested directory disasters)
 - Only create files when necessary
 - Prefer Edit over Write for existing files
 - Must read existing file first if overwriting
 - Never create documentation unless requested
+
+**Absolute Path Requirement:**
+```
+BEFORE using Write tool:
+  STEP 1: Verify working directory
+    pwd  # Confirm location
+
+  STEP 2: Use absolute path
+    Write(file_path="/absolute/path/to/file.ext")
+
+  ❌ NEVER: Write(file_path="src/api/file.js")
+  ✅ ALWAYS: Write(file_path="/home/user/project/src/api/file.js")
+
+  IF must use relative path THEN
+    VERIFY you're in correct directory first
+    pwd  # Check current location matches expectation
+  END IF
+END BEFORE
+```
 
 ### Edit Tool
 - Must read file first
