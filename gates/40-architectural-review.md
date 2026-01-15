@@ -62,7 +62,7 @@ What other options did we consider and why were they rejected?
 - ADR-{number}: {Related decision}
 ```
 
-**Location:** `docs/architecture/decisions/ADR-{number}-{title}.md`
+**Location:** `docs/adr/ADR-{number}-{title}.md`
 
 **Examples of decisions requiring ADRs:**
 - Choosing GraphQL vs REST for API layer
