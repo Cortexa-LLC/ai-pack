@@ -388,3 +388,105 @@ This template should be instantiated at: `.ai/tasks/YYYY-MM-DD_task-name/20-work
 - Note issues and resolutions
 - Track deviations from plan
 - Record learnings for future
+
+---
+
+## ⚠️ Work Log Rotation
+
+**CRITICAL:** Work logs must be rotated when they exceed **15,000 tokens** to prevent Read tool failures.
+
+### When to Rotate
+
+Check file size periodically:
+```bash
+# Estimate tokens
+WORDS=$(wc -w < 20-work-log.md)
+TOKENS=$((WORDS * 4 / 3))  # 1 token ≈ 0.75 words
+
+if [ $TOKENS -gt 15000 ]; then
+  echo "🚨 MANDATORY rotation required: $TOKENS tokens"
+elif [ $TOKENS -gt 12000 ]; then
+  echo "⚠️  Rotation recommended: $TOKENS tokens"
+fi
+```
+
+**Rotation thresholds:**
+- ⚠️  **12,000+ tokens** - Rotation recommended
+- 🚨 **15,000+ tokens** - Rotation MANDATORY
+- ❌ **25,000+ tokens** - Read tool will fail
+
+### How to Rotate
+
+**STEP 1:** Move current log to archive
+```bash
+mv 20-work-log.md 20-work-log-archive-001.md
+```
+
+**STEP 2:** Create fresh log from template
+```bash
+cp ../../.ai-pack/templates/task-packet/20-work-log.md ./20-work-log.md
+```
+
+**STEP 3:** Add archive reference to new log
+```bash
+echo "" >> 20-work-log.md
+echo "## Previous Work Logs" >> 20-work-log.md
+echo "- [Archive 001](./20-work-log-archive-001.md) - Sessions 1-N" >> 20-work-log.md
+```
+
+**STEP 4:** Add continuation note to archive
+```bash
+echo "" >> 20-work-log-archive-001.md
+echo "---" >> 20-work-log-archive-001.md
+echo "## Continuation" >> 20-work-log-archive-001.md
+echo "Work continues in: [20-work-log.md](./20-work-log.md)" >> 20-work-log-archive-001.md
+```
+
+**STEP 5:** Commit rotation
+```bash
+git add 20-work-log*.md
+git commit -m "Rotate work log (exceeded token limit)"
+```
+
+### Archive Naming
+
+```
+20-work-log.md                    # Current (active)
+20-work-log-archive-001.md        # First archive (oldest)
+20-work-log-archive-002.md        # Second archive
+20-work-log-archive-003.md        # Third archive (most recent)
+```
+
+### Archive References
+
+**In current log:**
+```markdown
+## Previous Work Logs
+- [Archive 003](./20-work-log-archive-003.md) - Sessions 21-30
+- [Archive 002](./20-work-log-archive-002.md) - Sessions 11-20
+- [Archive 001](./20-work-log-archive-001.md) - Sessions 1-10
+```
+
+**In each archive:**
+```markdown
+## Continuation
+Work continues in: [20-work-log.md](./20-work-log.md)
+OR
+Next archive: [20-work-log-archive-002.md](./20-work-log-archive-002.md)
+```
+
+### Why Rotation Matters
+
+**WITHOUT rotation:**
+- ❌ Work log exceeds 25k token Read limit
+- ❌ Orchestrator cannot monitor progress
+- ❌ Coordination breaks down
+- ❌ Background agents appear stuck
+
+**WITH rotation:**
+- ✅ Work logs stay under Read limit
+- ✅ Orchestrator can read progress
+- ✅ Coordination continues smoothly
+- ✅ Historical context preserved
+
+**See:** [Persistence Gates](../../.ai-pack/gates/10-persistence.md#12-work-log-size-management) for complete rotation rules
