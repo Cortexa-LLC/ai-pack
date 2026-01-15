@@ -388,14 +388,19 @@ After:  Confirm state consistent
 
 ```
 Product Manager Artifacts:
-  .ai/tasks/[feature-id]/prd.md           → docs/product/[feature-name]/prd.md
-  .ai/tasks/[feature-id]/epics.md         → docs/product/[feature-name]/epics.md
-  .ai/tasks/[feature-id]/user-stories.md  → docs/product/[feature-name]/user-stories.md
+  .ai/tasks/[feature-id]/prd.md           → docs/product/YYYY-MM-DD-feature-name/prd.md
+  .ai/tasks/[feature-id]/epics.md         → docs/product/YYYY-MM-DD-feature-name/epics.md
+  .ai/tasks/[feature-id]/user-stories.md  → docs/product/YYYY-MM-DD-feature-name/user-stories.md
+
+Strategist Artifacts:
+  .ai/tasks/[product-id]/mrd.md           → docs/market/YYYY-MM-DD-product-name/mrd.md
+  .ai/tasks/[product-id]/competitive.md   → docs/market/YYYY-MM-DD-product-name/competitive-analysis.md
+  .ai/tasks/[product-id]/business-case.md → docs/market/YYYY-MM-DD-product-name/business-case.md
 
 Architect Artifacts:
-  .ai/tasks/[feature-id]/architecture.md  → docs/architecture/[feature-name]/architecture.md
-  .ai/tasks/[feature-id]/api-spec.md      → docs/architecture/[feature-name]/api-spec.md
-  .ai/tasks/[feature-id]/data-models.md   → docs/architecture/[feature-name]/data-models.md
+  .ai/tasks/[feature-id]/architecture.md  → docs/architecture/YYYY-MM-DD-feature-name/architecture.md
+  .ai/tasks/[feature-id]/api-spec.md      → docs/architecture/YYYY-MM-DD-feature-name/api-spec.md
+  .ai/tasks/[feature-id]/data-models.md   → docs/architecture/YYYY-MM-DD-feature-name/data-models.md
   .ai/tasks/[feature-id]/adrs/adr-NNN-*.md → docs/adr/adr-NNN-*.md
 
 Inspector Artifacts:
@@ -405,13 +410,18 @@ Inspector Artifacts:
 **Persistence Triggers:**
 
 ```
+WHEN Strategist phase completes THEN
+  persist MRD, competitive analysis, business case to docs/market/YYYY-MM-DD-product-name/
+  commit with message: "Add market requirements for [product-name]"
+END WHEN
+
 WHEN Product Manager phase completes THEN
-  persist PRD, epics, user stories to docs/product/[feature-name]/
+  persist PRD, epics, user stories to docs/product/YYYY-MM-DD-feature-name/
   commit with message: "Add product requirements for [feature-name]"
 END WHEN
 
 WHEN Architect phase completes THEN
-  persist architecture docs to docs/architecture/[feature-name]/
+  persist architecture docs to docs/architecture/YYYY-MM-DD-feature-name/
   persist ADRs to docs/adr/
   commit with message: "Add architecture design for [feature-name]"
 END WHEN
@@ -427,16 +437,24 @@ END WHEN
 All persisted artifacts MUST include a "Related Documents" section to enable traceability:
 
 ```
-PRD (docs/product/[feature-name]/prd.md):
+MRD (docs/market/YYYY-MM-DD-product-name/mrd.md):
   ## Related Documents
-  - Architecture: [Link to docs/architecture/[feature-name]/]
+  - PRD: [Link to docs/product/YYYY-MM-DD-feature-name/prd.md]
+  - Business Case: [Link to business-case.md]
+  - Competitive Analysis: [Link to competitive-analysis.md]
+
+PRD (docs/product/YYYY-MM-DD-feature-name/prd.md):
+  ## Related Documents
+  - MRD: [Link to docs/market/YYYY-MM-DD-product-name/mrd.md] (if applicable)
+  - Architecture: [Link to docs/architecture/YYYY-MM-DD-feature-name/]
   - User Stories: [Link to epics.md and user-stories.md]
   - ADRs: [Links to relevant ADRs]
 
-Architecture Doc (docs/architecture/[feature-name]/architecture.md):
+Architecture Doc (docs/architecture/YYYY-MM-DD-feature-name/architecture.md):
   ## Related Documents
-  - PRD: [Link to docs/product/[feature-name]/prd.md]
-  - User Stories: [Link to docs/product/[feature-name]/user-stories.md]
+  - MRD: [Link to docs/market/YYYY-MM-DD-product-name/mrd.md] (if applicable)
+  - PRD: [Link to docs/product/YYYY-MM-DD-feature-name/prd.md]
+  - User Stories: [Link to docs/product/YYYY-MM-DD-feature-name/user-stories.md]
   - Related ADRs:
     - [ADR-NNN: Decision Title](../adr/NNN-decision-title.md)
   - Implementation: [Will be referenced by Engineers]
@@ -449,14 +467,14 @@ Bug Retrospective (docs/investigations/[bug-id]-description.md):
   - Original Bug Report: [Reference]
 
 Implementation (code comments and commits):
-  // Implements: docs/architecture/billing-system/api-spec.md
-  // Requirement: FR-123 from docs/product/billing-system/prd.md
+  // Implements: docs/architecture/2024-03-15-billing-system/api-spec.md
+  // Requirement: FR-123 from docs/product/2024-03-10-billing-system/prd.md
 
   git commit message:
     feat: Add billing API endpoints
 
-    Implements requirements from docs/architecture/billing-system/api-spec.md
-    Addresses FR-1, FR-2 from docs/product/billing-system/prd.md
+    Implements requirements from docs/architecture/2024-03-15-billing-system/api-spec.md
+    Addresses FR-1, FR-2 from docs/product/2024-03-10-billing-system/prd.md
 
     Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 ```
@@ -484,9 +502,12 @@ END WHEN
 ```
 Before marking planning phase complete:
   ✓ Artifacts moved from .ai/tasks/ to docs/
-  ✓ docs/product/ updated (if PM phase occurred)
+  ✓ docs/market/ updated (if Strategist phase occurred)
+  ✓ docs/product/ updated (if Cartographer phase occurred)
   ✓ docs/architecture/ updated (if Architect phase occurred)
   ✓ docs/adr/ updated (if ADRs created)
+  ✓ docs/security/ updated (if security issues documented)
+  ✓ docs/incidents/ updated (if incident documented)
   ✓ docs/investigations/ updated (if retrospective completed)
   ✓ Cross-references added where appropriate
   ✓ Changes committed to repository
@@ -497,22 +518,45 @@ Before marking planning phase complete:
 
 ```
 docs/
-├── product/
-│   └── [feature-name]/
+├── market/                               # Market research and business cases
+│   ├── 2024-01-10-mobile-app/           # Date-prefixed directories
+│   │   ├── mrd.md                        # Market Requirements Document
+│   │   ├── competitive-analysis.md
+│   │   └── business-case.md
+│   └── 2024-06-15-enterprise-platform/
+│       └── mrd.md
+├── product/                              # Product requirements
+│   ├── 2024-01-15-user-authentication/  # Date-prefixed directories
+│   │   ├── prd.md                        # Product Requirements Document
+│   │   ├── epics.md
+│   │   └── user-stories.md
+│   └── 2024-03-10-billing-system/
 │       ├── prd.md
-│       ├── epics.md
-│       └── user-stories.md
-├── architecture/
-│   └── [feature-name]/
+│       └── epics.md
+├── architecture/                         # Technical design
+│   ├── 2024-01-20-user-authentication/  # Date-prefixed directories
+│   │   ├── architecture.md
+│   │   ├── api-spec.md
+│   │   └── data-models.md
+│   └── 2024-03-15-billing-system/
 │       ├── architecture.md
-│       ├── api-spec.md
-│       └── data-models.md
-├── adr/
-│   ├── NNN-decision-title.md  (sequential numbering across project)
-│   └── README.md              (index of all ADRs)
-└── investigations/
-    ├── BUG-ID-description.md
-    └── README.md              (index by root cause category)
+│       └── api-spec.md
+├── adr/                                  # Architecture Decision Records
+│   ├── 001-decision-title.md            # Sequential across entire project
+│   ├── 002-another-decision.md
+│   └── README.md                         # Index of all ADRs
+├── security/                             # Security vulnerabilities
+│   ├── SEC-2024-001-sql-injection.md
+│   ├── SEC-2024-002-xss-profile.md
+│   └── README.md
+├── incidents/                            # Production incidents
+│   ├── INC-2024-001-database-outage.md
+│   ├── INC-2024-002-api-timeout.md
+│   └── README.md
+└── investigations/                       # Bug retrospectives
+    ├── BUG-2024-001-null-pointer.md
+    ├── BUG-2024-002-race-condition.md
+    └── README.md
 ```
 
 **Temporary vs Permanent:**

@@ -627,7 +627,7 @@ STEP 2: Strategist presents MRD to Cartographer
    Please create detailed Product Requirements Document that addresses
    these market requirements.
 
-   MRD location: docs/market/[product-name]/mrd.md"
+   MRD location: docs/market/YYYY-MM-DD-product-name/mrd.md"
 
 STEP 3: Cartographer reviews MRD
   - Understands market context
@@ -740,7 +740,7 @@ WHEN strategic decision required:
 
 **1. Market Requirements Document (MRD)**
 ```
-Location: docs/market/[product-name]/mrd.md
+Location: docs/market/YYYY-MM-DD-product-name/mrd.md
 
 Contents:
 - Executive summary
@@ -757,7 +757,7 @@ Contents:
 
 **2. Competitive Analysis**
 ```
-Location: docs/market/[product-name]/competitive-analysis.md
+Location: docs/market/YYYY-MM-DD-product-name/competitive-analysis.md
 
 Contents:
 - Competitor profiles
@@ -769,7 +769,7 @@ Contents:
 
 **3. Business Case**
 ```
-Location: docs/market/[product-name]/business-case.md
+Location: docs/market/YYYY-MM-DD-product-name/business-case.md
 
 Contents:
 - Financial projections
@@ -782,7 +782,7 @@ Contents:
 
 **4. Market Research Summary**
 ```
-Location: docs/market/[product-name]/market-research.md
+Location: docs/market/YYYY-MM-DD-product-name/market-research.md
 
 Contents:
 - Customer interview findings
@@ -803,21 +803,21 @@ Contents:
 ```
 WHEN Strategist deliverables approved THEN
   STEP 1: Create repository documentation structure
-    mkdir -p docs/market/[product-name]/
+    mkdir -p docs/market/YYYY-MM-DD-product-name/
     mkdir -p docs/business/ (for business cases, if doesn't exist)
 
   STEP 2: Persist artifacts to docs/
     .ai/tasks/[task-id]/mrd.md
-      → docs/market/[product-name]/mrd.md
+      → docs/market/YYYY-MM-DD-product-name/mrd.md
 
     .ai/tasks/[task-id]/competitive-analysis.md
-      → docs/market/[product-name]/competitive-analysis.md
+      → docs/market/YYYY-MM-DD-product-name/competitive-analysis.md
 
     .ai/tasks/[task-id]/business-case.md
-      → docs/market/[product-name]/business-case.md
+      → docs/market/YYYY-MM-DD-product-name/business-case.md
 
     .ai/tasks/[task-id]/market-research.md
-      → docs/market/[product-name]/market-research.md
+      → docs/market/YYYY-MM-DD-product-name/market-research.md
 
   STEP 3: Add cross-references (MANDATORY)
     Update MRD with "Related Documents" section:
@@ -831,12 +831,12 @@ WHEN Strategist deliverables approved THEN
       MRD → PRD → Architecture → Implementation → Tests
 
     IF Cartographer phase follows THEN
-      inform PM: "MRD persisted to docs/market/[product-name]/
+      inform PM: "MRD persisted to docs/market/YYYY-MM-DD-product-name/
                   Please use as input for Product Requirements."
     END IF
 
   STEP 4: Commit to repository
-    git add docs/market/[product-name]/
+    git add docs/market/YYYY-MM-DD-product-name/
     git commit -m "Add market requirements and business case for [product-name]"
 
   STEP 5: Keep .ai/tasks/ for active work
@@ -1012,7 +1012,7 @@ Executive Summary:
 - Competitive Position: [Differentiation]
 - Recommendation: [Proceed/Defer/Do Not Pursue]
 
-Please review MRD at: docs/market/[product-name]/mrd.md
+Please review MRD at: docs/market/YYYY-MM-DD-product-name/mrd.md
 
 Key questions for you:
 1. Does the market opportunity resonate?
@@ -1046,7 +1046,7 @@ Recommendation: Proceed with product definition.
 Please create Product Requirements Document that addresses these
 market requirements and positions us competitively.
 
-MRD location: docs/market/[product-name]/mrd.md"
+MRD location: docs/market/YYYY-MM-DD-product-name/mrd.md"
 ```
 
 ### With Orchestrator
@@ -1088,7 +1088,7 @@ IF Do Not Pursue:
   Alternative Recommendations: [Other opportunities]
 END IF
 
-Documentation: docs/market/[product-name]/"
+Documentation: docs/market/YYYY-MM-DD-product-name/"
 ```
 
 ---
