@@ -71,13 +71,47 @@ END IF
 
 ---
 
-### 2. Quality Baseline
+### 2. Test-Driven Development (MANDATORY, BLOCKING)
+
+**Rule:** All code MUST be developed using Test-Driven Development (TDD). This is MANDATORY and ENFORCED.
+
+**Requirements:**
+- Tests written BEFORE implementation (RED-GREEN-REFACTOR cycle)
+- Git history shows test-first commits
+- Test pyramid properly structured (65-80% unit, 15-25% integration, 5-10% e2e)
+- Coverage targets met (80%+ overall, 95%+ critical paths)
+
+**Implementation:**
+```
+BEFORE writing any implementation code:
+  STEP 1: Write failing test (RED)
+  STEP 2: Write minimal code to pass (GREEN)
+  STEP 3: Refactor while keeping tests green (REFACTOR)
+
+  IF Engineer skips TDD THEN
+    Tester BLOCKS approval
+    Work is REJECTED
+    Engineer must redo with TDD
+  END IF
+END BEFORE
+```
+
+**Enforcement:** See [TDD Enforcement Gate](05-tdd-enforcement.md) for complete requirements.
+
+**References:**
+- Martin Fowler: [Practical Test Pyramid](https://martinfowler.com/articles/practical-test-pyramid.html)
+- Kent Beck: *Test-Driven Development: By Example*
+- Robert C. Martin: *The Clean Coder* - Chapter 5
+
+---
+
+### 3. Quality Baseline
 
 **Rule:** All code must meet minimum quality standards before completion.
 
 **Requirements:**
 - All tests must pass (zero tolerance for failures)
-- Code coverage: 80-90% target
+- Code coverage: 80-90% minimum (enforced by TDD gate)
 - No critical code review findings unresolved
 - Follows language-specific style guides
 - Properly formatted (spaces, not tabs)
@@ -97,7 +131,7 @@ END BEFORE
 
 ---
 
-### 3. Communication Protocol
+### 5. Communication Protocol
 
 **Rule:** Know when to ask versus when to execute autonomously.
 
@@ -130,7 +164,7 @@ END IF
 
 ---
 
-### 4. Error Handling and Recovery
+### 5. Error Handling and Recovery
 
 **Rule:** Handle errors gracefully and recover when possible.
 

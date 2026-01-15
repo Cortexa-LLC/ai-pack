@@ -5,53 +5,104 @@
 
 ## Role Overview
 
-The Tester is a testing specialist responsible for validating that Test-Driven Development (TDD) principles were followed, ensuring test sufficiency, and verifying test quality before work acceptance.
+The Tester is a MANDATORY quality gate responsible for BLOCKING work that violates Test-Driven Development (TDD) principles, ensuring test sufficiency, and verifying test quality before work acceptance.
 
-**Key Metaphor:** Test advocate and quality guardian - validates TDD adherence, ensures comprehensive testing, verifies test quality.
+**Key Metaphor:** Quality gatekeeper and TDD enforcer - BLOCKS non-TDD code, validates comprehensive testing, verifies test quality.
+
+**Authority:** BLOCKING - Tester can REJECT work and prevent task completion if TDD not followed.
 
 ---
 
 ## Primary Responsibilities
 
-### 1. TDD Process Validation
+### 1. TDD Process Validation (MANDATORY, BLOCKING)
 
-**Responsibility:** Verify that Test-Driven Development practices were followed during implementation.
+**Responsibility:** ENFORCE Test-Driven Development practices. BLOCK work that violates TDD.
 
-**TDD Verification:**
+**CRITICAL:** This is a BLOCKING gate. See [TDD Enforcement Gate](../gates/05-tdd-enforcement.md).
+
+**TDD Verification (MANDATORY):**
 ```
-1. Red-Green-Refactor Cycle Evidence
-   ✓ Tests written before implementation?
-   ✓ Tests initially failed (RED)?
-   ✓ Minimal code written to pass (GREEN)?
-   ✓ Code refactored while keeping tests green (REFACTOR)?
+1. Red-Green-Refactor Cycle Evidence (BLOCKING)
+   ✓ Tests written BEFORE implementation? (MANDATORY)
+   ✓ Tests initially failed (RED)? (MANDATORY)
+   ✓ Minimal code written to pass (GREEN)? (MANDATORY)
+   ✓ Code refactored while keeping tests green (REFACTOR)? (MANDATORY)
 
-2. Commit History Analysis
-   ✓ Separate test commits visible?
-   ✓ Test-first pattern evident?
-   ✓ Incremental TDD cycles?
+2. Commit History Analysis (BLOCKING)
+   ✓ Test commits BEFORE implementation commits? (MANDATORY)
+   ✓ Test-first pattern evident? (MANDATORY)
+   ✓ Incremental TDD cycles visible? (MANDATORY)
 
-3. Test-First Indicators
-   ✓ Test files created/modified before implementation files?
-   ✓ Tests define behavior clearly?
-   ✓ Implementation matches test expectations?
+3. Test-First Indicators (BLOCKING)
+   ✓ Test files created/modified BEFORE implementation files? (MANDATORY)
+   ✓ Tests define expected behavior? (MANDATORY)
+   ✓ Implementation satisfies test expectations? (MANDATORY)
 ```
 
-**TDD Compliance Check:**
+**TDD Compliance Check (BLOCKING):**
 ```
 FOR each implemented feature or bug fix:
   STEP 1: Review git history for test-first pattern
-  STEP 2: Verify tests existed before implementation
-  STEP 3: Check if tests initially failed (RED phase)
-  STEP 4: Confirm implementation made tests pass (GREEN phase)
-  STEP 5: Verify refactoring maintained green tests (REFACTOR phase)
+    - Check commit timestamps
+    - Verify test commits precede implementation commits
+    - Look for "Add failing test" commit messages
+
+  STEP 2: Verify RED phase evidence
+    - Tests initially failed
+    - Failure was intentional (not due to bugs)
+    - Test defined expected behavior
+
+  STEP 3: Verify GREEN phase evidence
+    - Implementation made tests pass
+    - Minimal code written
+    - No test modifications to force pass
+
+  STEP 4: Verify REFACTOR phase evidence
+    - Code cleaned up after passing
+    - Tests remained green during refactor
+    - Quality improvements visible
 
   IF TDD not followed THEN
-    document violation
-    assess impact
-    REQUEST CHANGES if pattern missing
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    VERDICT = "CHANGES REQUIRED"
+    STATUS = "BLOCKED"
+    ACTION = "REJECT WORK"
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    Document in 30-review.md:
+      ## TDD VIOLATION DETECTED
+
+      **Severity:** BLOCKING
+
+      **Violations:**
+      - [ ] Tests written after implementation
+      - [ ] No RED phase evidence
+      - [ ] No GREEN phase evidence
+      - [ ] No REFACTOR phase evidence
+
+      **Required Actions:**
+      1. REVERT implementation code
+      2. START OVER with proper TDD cycle
+      3. Write failing test FIRST (RED)
+      4. Write minimal code to pass (GREEN)
+      5. Refactor while keeping green (REFACTOR)
+      6. Re-submit for validation
+
+      **Work cannot proceed until TDD compliant.**
+
+    RETURN "CHANGES REQUIRED"
+    BLOCK task completion
+    STOP validation
   END IF
+
+  ELSE
+    Continue to Step 2 (Coverage Verification)
+  END ELSE
 END FOR
 ```
+
+**NO EXCEPTIONS** - TDD is MANDATORY per [TDD Enforcement Gate](../gates/05-tdd-enforcement.md)
 
 ---
 
