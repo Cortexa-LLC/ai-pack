@@ -1,8 +1,132 @@
 # AI-Pack Migration Guide
 
-This guide helps you migrate existing projects from ai-pack v1.0.0 to v1.1.0 with Beads integration.
+This guide helps you migrate existing projects through ai-pack version updates.
 
-## What Changed in v1.1.0
+---
+
+## Migrating to v2.0.0 (BREAKING CHANGES)
+
+**Release Date:** 2026-01-14
+**Codename:** Consolidation
+
+### What Changed in v2.0.0
+
+**BREAKING:** Agent tracking consolidation removes deprecated `agent-status-tracker.py` system.
+
+### Breaking Changes
+
+- ❌ **REMOVED:** `templates/.claude/scripts/agent-status-tracker.py`
+- ❌ **REMOVED:** `.claude/.agent-status.json` file format
+- ⚠️ **REQUIRED:** All agent tracking now uses Beads exclusively
+
+### Why This Change?
+
+Eliminates dual tracking system redundancy:
+- **Before v2.0:** agent-status-tracker.py + Beads (redundant)
+- **After v2.0:** Beads only (single source of truth)
+
+### Migration Steps
+
+**Prerequisites:**
+- Project already on v1.1.0+ (Beads initialized)
+- If not, migrate to v1.1.0 first (see below)
+
+**Step 1: Update ai-pack submodule**
+
+```bash
+cd .ai-pack
+git fetch origin
+git checkout main
+git pull origin main
+cd ..
+git add .ai-pack
+git commit -m "Update ai-pack to v2.0.0"
+```
+
+**Step 2: Migrate agent status (if using agent-status-tracker.py)**
+
+```bash
+# Only if you have .claude/.agent-status.json file
+python3 .ai-pack/scripts/migrate-agent-status-to-beads.py
+
+# Dry run first to see what would happen
+python3 .ai-pack/scripts/migrate-agent-status-to-beads.py --dry-run
+```
+
+**Step 3: Clean up old files**
+
+```bash
+# Remove old status file (if exists)
+rm -f .claude/.agent-status.json
+rm -f .claude/.agent-status.json.backup
+```
+
+**Step 4: Verify migration**
+
+```bash
+# Check Beads is working
+bd list
+
+# Check agent tasks
+/ai-pack agents
+# OR
+bd list --json | jq '.[] | select(.title | startswith("Agent:"))'
+```
+
+### What to Expect
+
+**Orchestrator behavior (unchanged):**
+- Still spawns agents with Task tool
+- Now creates Beads tasks (no longer uses agent-status-tracker.py)
+
+**Agent monitoring (improved):**
+- `/ai-pack agents` queries Beads directly
+- Cross-session persistence (agents survive session restarts)
+- Git-backed audit trail
+
+**Worker behavior (enhanced):**
+- Engineer/Tester/Reviewer can update their Beads tasks
+- `bd block <task-id>` when blocked
+- `bd close <task-id>` when complete
+
+### Troubleshooting v2.0.0 Migration
+
+**Problem: "agent-status-tracker.py not found"**
+
+✅ **Expected!** This script was removed in v2.0.0. Use Beads:
+```bash
+# Old (removed)
+python3 .claude/scripts/agent-status-tracker.py report
+
+# New (v2.0.0)
+/ai-pack agents
+bd list --assignee "Engineer-*"
+```
+
+**Problem: Old .agent-status.json still exists**
+
+```bash
+# Migrate it
+python3 .ai-pack/scripts/migrate-agent-status-to-beads.py
+
+# Then remove
+rm .claude/.agent-status.json
+```
+
+**Problem: No agents showing in /ai-pack agents**
+
+Cause: Orchestrator not creating Beads tasks when spawning agents.
+
+Solution: See Orchestrator role Section 2.13 (Agent Registration Protocol)
+
+---
+
+## Migrating to v1.1.0 (NON-BREAKING)
+
+**Release Date:** 2026-01-12
+**Codename:** Beads Integration
+
+### What Changed in v1.1.0
 
 **Beads Task Memory System** replaces session-based TodoWrite with persistent, git-backed task tracking:
 

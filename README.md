@@ -447,45 +447,50 @@ cp .ai-pack/templates/task-packet/40-acceptance.md .ai/tasks/$TASK_ID/
 7. **Complete** - Mark task as done: `bd close bd-a1b2`
 8. **Next** - Find next task: `bd ready`
 
-### Migrating Existing Projects from v1.0.0
+### Migrating to v2.0.0
 
-If you have an existing project using ai-pack v1.0.0 (before Beads integration), follow these steps to migrate:
+**Current Version:** v2.0.0 (2026-01-14)
+**Breaking Changes:** Removes deprecated `agent-status-tracker.py`
 
-#### Automated Migration (Recommended)
+#### Migration Path
 
-Use the provided Python migration script for guided, step-by-step migration:
+**From v1.1.0+ → v2.0.0:**
 
-```bash
-# From your project root directory
-python .ai-pack/scripts/migrate-to-beads.py
-```
+1. Update ai-pack submodule:
+   ```bash
+   cd .ai-pack && git pull origin main && cd ..
+   git add .ai-pack
+   ```
 
-The script will:
-- ✅ Check prerequisites (git repo, Beads installed)
-- ✅ Update `.ai-pack/` submodule to v1.1.0+
-- ✅ Install Beads if not present
-- ✅ Initialize Beads in your project
-- ✅ Update `.gitignore` for `.beads/*.db`
-- ✅ Commit changes with appropriate message
-- ✅ Verify migration success
+2. Migrate agent tracking (if using old system):
+   ```bash
+   python3 .ai-pack/scripts/migrate-agent-status-to-beads.py
+   ```
 
-**Options:**
-```bash
-python .ai-pack/scripts/migrate-to-beads.py --dry-run  # Preview changes
-python .ai-pack/scripts/migrate-to-beads.py --yes      # Auto-approve
-```
+3. Clean up old files:
+   ```bash
+   rm -f .claude/.agent-status.json
+   ```
 
-#### Manual Migration
+**From v1.0.0 → v2.0.0:**
 
-Alternatively, follow the manual steps in **[MIGRATION.md](MIGRATION.md)** for complete migration instructions.
+Must migrate through v1.1.0 first:
 
-**What's New in v1.1.0:**
-- ✅ **Beads replaces TodoWrite** - Persistent, git-backed task tracking
-- ✅ **Cross-session memory** - Tasks survive AI conversation boundaries
-- ✅ **Dependency tracking** - Full task graphs with automatic prioritization
-- ✅ **Multi-agent coordination** - Hash-based IDs prevent collisions
+1. Migrate to v1.1.0 (adds Beads):
+   ```bash
+   python .ai-pack/scripts/migrate-to-beads.py
+   ```
 
-**Migration is non-breaking** - Existing projects continue to work. You migrate to gain persistent task memory.
+2. Then follow v1.1.0 → v2.0.0 steps above
+
+See **[MIGRATION.md](MIGRATION.md)** for complete migration instructions.
+
+**What's New in v2.0.0:**
+- ✅ **Single source of truth** - Beads only for task and agent tracking
+- ✅ **Agent coordination** - Orchestrator creates Beads tasks for spawned agents
+- ✅ **Cross-session persistence** - Agent tasks survive session boundaries
+- ✅ **Real-time monitoring** - `/ai-pack agents` queries Beads directly
+- ❌ **REMOVED:** `agent-status-tracker.py` (deprecated system eliminated)
 
 See **[MIGRATION.md](MIGRATION.md)** for:
 - Complete migration guide
