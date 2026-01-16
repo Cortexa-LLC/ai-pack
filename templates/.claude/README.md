@@ -94,7 +94,9 @@ Hooks run automatically via Claude Code's hook system (configured in `settings.j
 
 ### 5. Settings (`settings.json`)
 
-Configures hook behavior:
+Configures Claude Code behavior including hooks and permissions.
+
+**Hook Configuration:**
 
 ```json
 {
@@ -107,6 +109,54 @@ Configures hook behavior:
         }]
       }
     ]
+  }
+}
+```
+
+**Permission Configuration (Required for Background Agents):**
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Write(*)",
+      "Edit(*)",
+      "Read(*)"
+    ],
+    "defaultMode": "bypassPermissions"
+  }
+}
+```
+
+**Why permissions are needed:**
+
+Background agents spawned via the Task tool require explicit file permissions to:
+- Create deliverable files in test artifacts or output directories
+- Modify code files during implementation
+- Write test results and reports
+- Execute task contracts that involve file operations
+
+Without these permissions, background agents will be blocked when attempting file operations.
+
+**Permission Details:**
+
+- `Write(*)` - Allows writing any file (agents can create new files)
+- `Edit(*)` - Allows editing any file (agents can modify existing code)
+- `Read(*)` - Allows reading any file (agents can access context)
+- `defaultMode: "bypassPermissions"` - Background agents inherit permissions automatically
+
+**Security Note:** This configuration grants broad file access. Only use in trusted development environments. For production or restricted environments, replace `*` wildcards with specific path patterns:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Write(.ai/tasks/**/*)",
+      "Write(.ai/test-artifacts/**/*)",
+      "Edit(src/**/*)",
+      "Read(**/*)"
+    ],
+    "defaultMode": "promptUser"
   }
 }
 ```
@@ -252,6 +302,53 @@ echo '{"user_input": "implement login"}' | python3 .claude/hooks/check-task-pack
 - **Skills:** https://code.claude.com/docs/en/skills.md
 - **Hooks:** https://code.claude.com/docs/en/hooks.md
 - **Rules:** https://code.claude.com/docs/en/memory.md#modular-rules
+
+## Troubleshooting
+
+### Background Agents Cannot Write Files
+
+**Symptom:** Background agents fail with permission errors when trying to create or modify files.
+
+**Solution:** Ensure `settings.json` includes permission configuration:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Write(*)",
+      "Edit(*)",
+      "Read(*)"
+    ],
+    "defaultMode": "bypassPermissions"
+  }
+}
+```
+
+**Verification:**
+```bash
+# Check if settings.json exists and has permissions
+cat .claude/settings.json | grep -A5 permissions
+```
+
+### Task Packet Hook Not Firing
+
+**Symptom:** Implementation proceeds without task packet creation.
+
+**Solution:** Verify hooks are configured in `settings.json`:
+
+```bash
+# Check hook configuration
+cat .claude/settings.json | grep -A10 hooks
+```
+
+### Commands Not Available
+
+**Symptom:** `/ai-pack` commands not showing in autocomplete.
+
+**Solution:**
+1. Ensure `.claude/commands/ai-pack/` directory exists
+2. Restart Claude Code
+3. Check command files have `.md` extension
 
 ## Support
 

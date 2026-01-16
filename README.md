@@ -665,7 +665,15 @@ git commit -m "Add ai-pack framework with Claude Code integration"
 - ✅ Modular rules auto-loaded for all files
 - ✅ Complete framework integration in Claude Code
 
-See: [Claude Code Integration](#claude-code-integration) for details
+**CRITICAL: Configure permissions for background agents:**
+```bash
+# Background agents need file write permissions
+# See docs/CLAUDE-CODE-CONFIGURATION.md for details
+```
+
+See:
+- [Claude Code Integration](#claude-code-integration) for integration details
+- [Claude Code Configuration](docs/CLAUDE-CODE-CONFIGURATION.md) for required settings
 
 ### Option 1: Git Submodule (Recommended for Teams)
 
