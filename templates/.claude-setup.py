@@ -146,54 +146,24 @@ def fix_hook_paths():
         if "hooks" in settings:
             hooks = settings["hooks"]
 
-            # Fix SessionStart hooks
-            if "SessionStart" in hooks:
-                for hook_group in hooks["SessionStart"]:
-                    if "hooks" in hook_group:
+            # Fix all hook types (onSessionStart, onSessionEnd, UserPromptSubmit, etc.)
+            for hook_type in hooks:
+                if not isinstance(hooks[hook_type], list):
+                    continue
+
+                for hook_group in hooks[hook_type]:
+                    if not isinstance(hook_group, dict):
+                        continue
+
+                    # All hooks should have nested "hooks" array
+                    if "hooks" in hook_group and isinstance(hook_group["hooks"], list):
                         for hook in hook_group["hooks"]:
-                            if "command" in hook:
+                            if isinstance(hook, dict) and "command" in hook:
                                 original = hook["command"]
                                 hook["command"] = fix_command(original)
                                 if hook["command"] != original:
                                     modified = True
-
-            # Fix SessionEnd hooks
-            if "onSessionStart" in hooks:
-                for hook_group in hooks["onSessionStart"]:
-                    if "command" in hook_group:
-                        original = hook_group["command"]
-                        hook_group["command"] = fix_command(original)
-                        if hook_group["command"] != original:
-                            modified = True
-
-            if "onSessionEnd" in hooks:
-                for hook_group in hooks["onSessionEnd"]:
-                    if "command" in hook_group:
-                        original = hook_group["command"]
-                        hook_group["command"] = fix_command(original)
-                        if hook_group["command"] != original:
-                            modified = True
-
-            if "SessionEnd" in hooks:
-                for hook_group in hooks["SessionEnd"]:
-                    if "hooks" in hook_group:
-                        for hook in hook_group["hooks"]:
-                            if "command" in hook:
-                                original = hook["command"]
-                                hook["command"] = fix_command(original)
-                                if hook["command"] != original:
-                                    modified = True
-
-            # Fix UserPromptSubmit hooks
-            if "UserPromptSubmit" in hooks:
-                for hook_group in hooks["UserPromptSubmit"]:
-                    if "hooks" in hook_group:
-                        for hook in hook_group["hooks"]:
-                            if "command" in hook:
-                                original = hook["command"]
-                                hook["command"] = fix_command(original)
-                                if hook["command"] != original:
-                                    modified = True
+                                    print(f"      Fixed: {hook_type} -> {original.split('/')[-1]}")
 
         # Write back if modified
         if modified:
