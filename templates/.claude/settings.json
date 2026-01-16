@@ -59,14 +59,24 @@
   "hooks": {
     "onSessionStart": [
       {
-        "command": "python3 .claude/hooks/session-start.py",
-        "description": "Start ai-pack monitoring timers (coordination + watchdog)"
+        "description": "Start ai-pack monitoring timers (coordination + watchdog)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/session-start.py"
+          }
+        ]
       }
     ],
     "onSessionEnd": [
       {
-        "command": "python3 .claude/hooks/session-end.py",
-        "description": "Stop ai-pack monitoring timers"
+        "description": "Stop ai-pack monitoring timers",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/session-end.py"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
