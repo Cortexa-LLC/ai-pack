@@ -181,7 +181,7 @@ PROJECT_ROOT=$(pwd)
 # 2. Pass PROJECT_ROOT in the prompt
 Task(subagent_type="general-purpose",
      description="...",
-     prompt="Act as [Role] from .ai-pack/roles/[role].md
+     prompt="You are implementing a task following [Role] role from .ai-pack/roles/[role].md
 
 CRITICAL WORKING DIRECTORY CONTEXT:
 - Repository root: ${PROJECT_ROOT}
@@ -214,14 +214,19 @@ PROJECT_ROOT=$(pwd)
 
 Task(subagent_type="general-purpose",  # ✅ CORRECT - always use "general-purpose"
      description="Implement login feature",
-     prompt="Act as Engineer from .ai-pack/roles/engineer.md
+     prompt=f"""You are implementing a task following Engineer role responsibilities from .ai-pack/roles/engineer.md
 
 CRITICAL WORKING DIRECTORY CONTEXT:
-- Repository root: ${PROJECT_ROOT}
+- Repository root: {PROJECT_ROOT}
 - Verify location: pwd (must match above)
-- Use absolute paths: Write(file_path=\"\$PROJECT_ROOT/src/auth/login.ts\")
+- Use Write, Edit, Read, Bash tools with absolute paths
+- Example: Write(file_path=\"{PROJECT_ROOT}/src/auth/login.ts\", content=\"...\")
 
-Task: Implement login feature with TDD. Report all files created.",
+TASK: Implement login feature with TDD
+REQUIREMENTS: Follow patterns in .ai-pack/roles/engineer.md
+DELIVERABLES: Report absolute paths of all files created using Write tool
+
+Use the Write tool to create files. Use Edit tool to modify files. Use Read tool to read files.""",
      run_in_background=true)  # ✅ ALWAYS USE THIS - default for all agents
 ```
 - Runs in **background** (autonomous, non-interactive, no permission prompts)
@@ -244,7 +249,7 @@ Task: Implement login feature with TDD. Report all files created.",
 **❌ WRONG - Verbose instructions that cause token limit:**
 ```python
 Task(subagent_type="general-purpose",
-     prompt="""Act as Engineer from .ai-pack/roles/engineer.md
+     prompt="""You are implementing a task following Engineer role from .ai-pack/roles/engineer.md
 
 WORKING DIRECTORY: ${PROJECT_ROOT}
 
@@ -273,11 +278,12 @@ PROJECT_ROOT=$(pwd)
 
 Task(subagent_type="general-purpose",
      description="Implement login feature",
-     prompt=f"""Act as Engineer from .ai-pack/roles/engineer.md
+     prompt=f"""You are implementing a task following Engineer role from .ai-pack/roles/engineer.md
 
 CRITICAL WORKING DIRECTORY CONTEXT:
 - Repository root: {PROJECT_ROOT}
-- Use absolute paths: Write(file_path=\"{PROJECT_ROOT}/path/to/file\")
+- Use Write, Edit, Read, Bash tools with absolute paths
+- Example: Write(file_path=\"{PROJECT_ROOT}/path/to/file\", content=\"...\")
 
 TASK: Implement login feature per task packet .ai/tasks/2026-01-14_login/
 
@@ -286,7 +292,7 @@ REQUIREMENTS:
 - Use existing patterns from codebase
 - Update work log when done
 
-Report files created with absolute paths.""",
+DELIVERABLES: Use Write tool to create files. Report absolute paths.""",
      run_in_background=true)
 ```
 
@@ -372,7 +378,7 @@ PROJECT_ROOT=$(pwd)
 # Task 1: Foundation (3 files)
 Task(subagent_type="general-purpose",
      description="Gateway foundation files",
-     prompt=f"""Act as Engineer from .ai-pack/roles/engineer.md
+     prompt=f"""You are implementing a task following Engineer role from .ai-pack/roles/engineer.md
 
 WORKING DIRECTORY: {PROJECT_ROOT}
 
@@ -383,13 +389,14 @@ FILES TO CREATE (3 total):
 - {PROJECT_ROOT}/gateway/.env.example
 
 REQUIREMENTS: Follow WunderGraph Cosmo patterns from ADR-006.
-Report absolute paths of files created.""",
+
+DELIVERABLES: Use Write tool to create each file. Report absolute paths.""",
      run_in_background=true)
 
 # Task 2: Server & Config (4 files)
 Task(subagent_type="general-purpose",
      description="Gateway server and config",
-     prompt=f"""Act as Engineer from .ai-pack/roles/engineer.md
+     prompt=f"""You are implementing a task following Engineer role from .ai-pack/roles/engineer.md
 
 WORKING DIRECTORY: {PROJECT_ROOT}
 
@@ -401,13 +408,14 @@ FILES TO CREATE (4 total):
 - {PROJECT_ROOT}/gateway/src/types.ts
 
 REQUIREMENTS: WunderGraph Cosmo router, port 9991.
-Report absolute paths of files created.""",
+
+DELIVERABLES: Use Write tool to create each file. Report absolute paths.""",
      run_in_background=true)
 
 # Task 3: Subgraph Schemas (9 files)
 Task(subagent_type="general-purpose",
      description="Subgraph schema definitions",
-     prompt=f"""Act as Engineer from .ai-pack/roles/engineer.md
+     prompt=f"""You are implementing a task following Engineer role from .ai-pack/roles/engineer.md
 
 WORKING DIRECTORY: {PROJECT_ROOT}
 
@@ -424,13 +432,14 @@ FILES TO CREATE (9 total):
 - {PROJECT_ROOT}/gateway/schemas/flags.graphql
 
 REQUIREMENTS: Follow GraphQL federation patterns.
-Report absolute paths of files created.""",
+
+DELIVERABLES: Use Write tool to create each file. Report absolute paths.""",
      run_in_background=true)
 
 # Task 4: Auth & Middleware (3 files)
 Task(subagent_type="general-purpose",
      description="Authentication middleware",
-     prompt=f"""Act as Engineer from .ai-pack/roles/engineer.md
+     prompt=f"""You are implementing a task following Engineer role from .ai-pack/roles/engineer.md
 
 WORKING DIRECTORY: {PROJECT_ROOT}
 
@@ -441,13 +450,14 @@ FILES TO CREATE (3 total):
 - {PROJECT_ROOT}/gateway/src/middleware/index.ts
 
 REQUIREMENTS: Supabase JWT validation.
-Report absolute paths of files created.""",
+
+DELIVERABLES: Use Write tool to create each file. Report absolute paths.""",
      run_in_background=true)
 
 # Task 5: Docker & Docs (6 files)
 Task(subagent_type="general-purpose",
      description="Deployment and documentation",
-     prompt=f"""Act as Engineer from .ai-pack/roles/engineer.md
+     prompt=f"""You are implementing a task following Engineer role from .ai-pack/roles/engineer.md
 
 WORKING DIRECTORY: {PROJECT_ROOT}
 
@@ -461,7 +471,8 @@ FILES TO CREATE (6 total):
 - {PROJECT_ROOT}/gateway/.dockerignore
 
 REQUIREMENTS: On-premise deployment config.
-Report absolute paths of files created.""",
+
+DELIVERABLES: Use Write tool to create each file. Report absolute paths.""",
      run_in_background=true)
 
 # All 5 agents run in parallel, each succeeds independently
@@ -519,7 +530,7 @@ Skill(skill="engineer", args="implement feature X")
 # ✅ CORRECT
 Task(subagent_type="general-purpose",
      description="Implement feature X",
-     prompt="Act as Engineer role from ai-pack framework. Follow .ai-pack/roles/engineer.md. Implement feature X...",
+     prompt="You are implementing a task following Engineer role from .ai-pack/roles/engineer.md. Use Write, Edit, Read tools. Implement feature X...",
      run_in_background=true)
 
 # ❌ WRONG - will fail
@@ -699,7 +710,7 @@ PROJECT_ROOT=/Users/bryanw/Projects/YourProject  # <-- Value from pwd
 
 Task(subagent_type="general-purpose",
      description="Brief task description",
-     prompt=f"""Act as [Role] from .ai-pack/roles/[role].md
+     prompt=f"""You are implementing a task following [Role] role from .ai-pack/roles/[role].md
 
 CRITICAL WORKING DIRECTORY CONTEXT:
 - Repository root: {PROJECT_ROOT}
@@ -749,7 +760,7 @@ If you jumped to this section without completing the MANDATORY PRE-FLIGHT CHECK 
 # ✅ ALWAYS use this pattern:
 Task(subagent_type="general-purpose",  # NOT "engineer"/"tester"/etc!
      description="Short task summary",
-     prompt="Act as [Engineer/Tester/Reviewer] role from ai-pack. Follow .ai-pack/roles/[role].md. [Detailed instructions]...",
+     prompt="You are implementing a task following [Engineer/Tester/Reviewer] role from .ai-pack/roles/[role].md. Use appropriate tools (Write, Edit, Read, Bash). [Detailed instructions]...",
      run_in_background=true)  # Required for background execution
 ```
 
@@ -775,7 +786,7 @@ Make ONE OR MORE `Task(...)` tool calls. Period. That's it. Nothing else.
 # This spawns a Tester agent (actual tool call)
 Task(subagent_type="general-purpose",
      description="Validate Week 2 SDK tests",
-     prompt="Act as Tester. Validate tests per .ai-pack/roles/tester.md for Week 2 SDKs...",
+     prompt="You are validating tests following Tester role from .ai-pack/roles/tester.md. Use Read and Bash tools. Validate tests for Week 2 SDKs...",
      run_in_background=true)
 ```
 
@@ -827,7 +838,7 @@ PROJECT_ROOT=$(pwd)
 
 Task(subagent_type="general-purpose",
      description="Implement feature A",
-     prompt="Act as Engineer from .ai-pack/roles/engineer.md
+     prompt="You are implementing a task following Engineer role from .ai-pack/roles/engineer.md
 
 CRITICAL WORKING DIRECTORY CONTEXT:
 - Repository root: ${PROJECT_ROOT}
@@ -836,13 +847,16 @@ CRITICAL WORKING DIRECTORY CONTEXT:
 - PROJECT_ROOT=\$(git rev-parse --show-toplevel)
 - ALL file writes must be: Write(file_path=\"\$PROJECT_ROOT/path/to/file\")
 
-Task: Implement feature A per task packet .ai/tasks/2026-01-10_feature-a/
-Follow TDD. Update work log. Report files created.",
+TASK: Implement feature A per task packet .ai/tasks/2026-01-10_feature-a/
+
+REQUIREMENTS: Follow TDD. Update work log.
+
+DELIVERABLES: Use Write tool to create files. Report absolute paths.",
      run_in_background=true)
 
 Task(subagent_type="general-purpose",
      description="Implement feature B",
-     prompt="Act as Engineer from .ai-pack/roles/engineer.md
+     prompt="You are implementing a task following Engineer role from .ai-pack/roles/engineer.md
 
 CRITICAL WORKING DIRECTORY CONTEXT:
 - Repository root: ${PROJECT_ROOT}
@@ -851,13 +865,16 @@ CRITICAL WORKING DIRECTORY CONTEXT:
 - PROJECT_ROOT=\$(git rev-parse --show-toplevel)
 - ALL file writes must be: Write(file_path=\"\$PROJECT_ROOT/path/to/file\")
 
-Task: Implement feature B per task packet .ai/tasks/2026-01-10_feature-b/
-Follow TDD. Update work log. Report files created.",
+TASK: Implement feature B per task packet .ai/tasks/2026-01-10_feature-b/
+
+REQUIREMENTS: Follow TDD. Update work log.
+
+DELIVERABLES: Use Write tool to create files. Report absolute paths.",
      run_in_background=true)
 
 Task(subagent_type="general-purpose",
      description="Implement feature C",
-     prompt="Act as Engineer from .ai-pack/roles/engineer.md
+     prompt="You are implementing a task following Engineer role from .ai-pack/roles/engineer.md
 
 CRITICAL WORKING DIRECTORY CONTEXT:
 - Repository root: ${PROJECT_ROOT}
@@ -866,8 +883,11 @@ CRITICAL WORKING DIRECTORY CONTEXT:
 - PROJECT_ROOT=\$(git rev-parse --show-toplevel)
 - ALL file writes must be: Write(file_path=\"\$PROJECT_ROOT/path/to/file\")
 
-Task: Implement feature C per task packet .ai/tasks/2026-01-10_feature-c/
-Follow TDD. Update work log. Report files created.",
+TASK: Implement feature C per task packet .ai/tasks/2026-01-10_feature-c/
+
+REQUIREMENTS: Follow TDD. Update work log.
+
+DELIVERABLES: Use Write tool to create files. Report absolute paths.",
      run_in_background=true)
 ```
 
@@ -1080,17 +1100,17 @@ Orchestrator: "I see 3 independent features. I'll spawn 3 parallel engineers."
 
 Task(subagent_type="general-purpose",
      description="Implement user profile feature",
-     prompt="Act as Engineer from ai-pack. Implement user profile feature with components: ProfileView, ProfileViewModel, profile API endpoints. Follow TDD. Update work log.",
+     prompt="You are implementing a task following Engineer role from .ai-pack/roles/engineer.md. Use Write tool to create components: ProfileView, ProfileViewModel, profile API endpoints. Follow TDD. Update work log. Report absolute paths of files created.",
      run_in_background=true)
 
 Task(subagent_type="general-purpose",
      description="Implement notification system",
-     prompt="Act as Engineer from ai-pack. Implement notification system with: NotificationService, push notification handler, notification UI. Follow TDD. Update work log.",
+     prompt="You are implementing a task following Engineer role from .ai-pack/roles/engineer.md. Use Write tool to create: NotificationService, push notification handler, notification UI. Follow TDD. Update work log. Report absolute paths of files created.",
      run_in_background=true)
 
 Task(subagent_type="general-purpose",
      description="Implement search functionality",
-     prompt="Act as Engineer from ai-pack. Implement search with: SearchBar component, search algorithm, result ranking. Follow TDD. Update work log.",
+     prompt="You are implementing a task following Engineer role from .ai-pack/roles/engineer.md. Use Write tool to create: SearchBar component, search algorithm, result ranking. Follow TDD. Update work log. Report absolute paths of files created.",
      run_in_background=true)
 
 [All 3 agents work concurrently - 20 minutes total] ✅✅✅
@@ -1355,7 +1375,7 @@ For ALL code changes, you MUST:
 
    Task(subagent_type="general-purpose",
         description="Validate test coverage and TDD compliance",
-        prompt="Act as Tester from .ai-pack/roles/tester.md
+        prompt="You are validating tests following Tester role from .ai-pack/roles/tester.md
 
 CRITICAL WORKING DIRECTORY CONTEXT:
 - Repository root: ${PROJECT_ROOT}
@@ -1376,7 +1396,7 @@ Report findings in 30-review.md with verdict: APPROVED or CHANGES REQUIRED.",
 
    Task(subagent_type="general-purpose",
         description="Review code quality and adherence to standards",
-        prompt="Act as Reviewer from .ai-pack/roles/reviewer.md
+        prompt="You are reviewing code following Reviewer role from .ai-pack/roles/reviewer.md
 
 CRITICAL WORKING DIRECTORY CONTEXT:
 - Repository root: ${PROJECT_ROOT}
