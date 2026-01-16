@@ -48,9 +48,24 @@ project-*.md
 # Python
 __pycache__/
 *.py[cod]
+*.pyc
+*.pyo
+*.pyd
 *.class
 *.so
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
 
-# Test artifacts
+# Python testing and coverage
 tests/reports/
 .pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Unused Python packages
+ai_pack/
