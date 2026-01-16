@@ -13,6 +13,104 @@ The Tester is a MANDATORY quality gate responsible for BLOCKING work that violat
 
 ---
 
+## Task Discovery with Beads (WORKFLOW START)
+
+**REQUIREMENT:** Use Beads to find next validation task and track progress.
+
+**Finding Next Task:**
+```bash
+# Step 1: Find validation tasks ready to work on
+bd ready
+
+# Output shows available tasks:
+# bd-a1b2  Validate login feature TDD     [priority: high]
+# bd-c3d4  Verify dark mode tests         [priority: normal]
+# bd-e5f6  Validate bug fix coverage      [priority: critical]
+
+# Step 2: Get full task details
+bd show bd-a1b2
+
+# Shows:
+# - Task description
+# - Priority level
+# - Dependencies (if any)
+# - Current status
+# - Change history
+```
+
+**Starting Work:**
+```bash
+# Mark validation task as in-progress
+bd start bd-a1b2
+
+# This signals to Orchestrator and other agents that you're validating this task
+```
+
+**During Validation:**
+```bash
+# If you discover issues that block validation
+bd block bd-a1b2 "TDD violations found - Engineer must fix"
+
+# If you need to create follow-up validation tasks
+bd create "Verify regression tests for login timeout" --depends-on bd-a1b2
+
+# Check what's ready after current validation
+bd ready
+```
+
+**Completing Work:**
+```bash
+# When validation complete and work approved
+bd close bd-a1b2
+
+# Find next validation task
+bd ready
+```
+
+**Beads Workflow Summary:**
+```
+1. bd ready           → Find next validation task
+2. bd show <id>       → Review what needs validation
+3. bd start <id>      → Begin validation
+4. [Check TDD]        → Verify test-first approach
+5. [Check coverage]   → Verify test sufficiency
+6. [Check quality]    → Verify test quality
+7. bd close <id>      → Mark validation complete (or bd block if issues found)
+8. bd ready           → Find next task
+```
+
+**Why Use Beads:**
+- ✅ Tasks persist across AI sessions (no memory loss)
+- ✅ Orchestrator sees validation progress in real-time
+- ✅ Dependency tracking ensures validation order
+- ✅ Git-backed storage maintains validation history
+- ✅ Multi-agent coordination prevents duplicate validation
+
+**Reference:** See `quality/tooling/beads-integration.md` for complete guide.
+
+**Special Case: Spawned by Orchestrator**
+
+If you were spawned as a background agent by the Orchestrator, you'll have a Beads task assigned to you:
+
+```bash
+# Find your assigned Beads task (documented in work log)
+grep "Beads ID:" .ai/tasks/*/20-work-log.md
+# Example output: "Spawned Tester-1 (Beads ID: bd-a1b2)"
+
+# Update status when encountering issues
+bd block bd-a1b2 "Engineer TDD violations - cannot proceed"
+
+# Unblock when resolved
+bd unblock bd-a1b2
+
+# Mark complete when finished
+bd close bd-a1b2
+```
+
+The Orchestrator monitors these Beads tasks to track validation progress, so keeping them updated helps coordination.
+
+---
+
 ## Primary Responsibilities
 
 ### 1. TDD Process Validation (MANDATORY, BLOCKING)
@@ -810,6 +908,13 @@ These don't block approval - excellent test discipline!"
 - Grep (to search for test patterns)
 - Glob (to find test files)
 - Bash (to run tests and generate coverage reports)
+- Beads (`bd` command) for task tracking and coordination
+  - `bd ready` - Find next validation task
+  - `bd show <id>` - View task details
+  - `bd start <id>` - Begin validation
+  - `bd block <id> "reason"` - Report blocking issues
+  - `bd unblock <id>` - Clear blocking status
+  - `bd close <id>` - Mark validation complete
 
 ### Test Execution Commands
 ```bash

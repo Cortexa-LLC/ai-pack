@@ -11,6 +11,104 @@ The Reviewer is a quality assurance specialist responsible for evaluating comple
 
 ---
 
+## Task Discovery with Beads (WORKFLOW START)
+
+**REQUIREMENT:** Use Beads to find next review task and track progress.
+
+**Finding Next Task:**
+```bash
+# Step 1: Find review tasks ready to work on
+bd ready
+
+# Output shows available tasks:
+# bd-a1b2  Review login feature code      [priority: high]
+# bd-c3d4  Review dark mode refactor      [priority: normal]
+# bd-e5f6  Review security bug fix        [priority: critical]
+
+# Step 2: Get full task details
+bd show bd-a1b2
+
+# Shows:
+# - Task description
+# - Priority level
+# - Dependencies (if any)
+# - Current status
+# - Change history
+```
+
+**Starting Work:**
+```bash
+# Mark review task as in-progress
+bd start bd-a1b2
+
+# This signals to Orchestrator and other agents that you're reviewing this task
+```
+
+**During Review:**
+```bash
+# If you discover critical issues that block approval
+bd block bd-a1b2 "Security vulnerabilities found - Engineer must fix"
+
+# If you need to create follow-up review tasks
+bd create "Review security fix for login timeout" --depends-on bd-a1b2
+
+# Check what's ready after current review
+bd ready
+```
+
+**Completing Work:**
+```bash
+# When review complete and work approved
+bd close bd-a1b2
+
+# Find next review task
+bd ready
+```
+
+**Beads Workflow Summary:**
+```
+1. bd ready           → Find next review task
+2. bd show <id>       → Review what needs reviewing
+3. bd start <id>      → Begin review
+4. [Check standards]  → Verify code quality
+5. [Check tests]      → Verify test coverage
+6. [Check security]   → Verify no vulnerabilities
+7. bd close <id>      → Mark review complete (or bd block if issues found)
+8. bd ready           → Find next task
+```
+
+**Why Use Beads:**
+- ✅ Tasks persist across AI sessions (no memory loss)
+- ✅ Orchestrator sees review progress in real-time
+- ✅ Dependency tracking ensures review order
+- ✅ Git-backed storage maintains review history
+- ✅ Multi-agent coordination prevents duplicate reviews
+
+**Reference:** See `quality/tooling/beads-integration.md` for complete guide.
+
+**Special Case: Spawned by Orchestrator**
+
+If you were spawned as a background agent by the Orchestrator, you'll have a Beads task assigned to you:
+
+```bash
+# Find your assigned Beads task (documented in work log)
+grep "Beads ID:" .ai/tasks/*/20-work-log.md
+# Example output: "Spawned Reviewer-1 (Beads ID: bd-a1b2)"
+
+# Update status when encountering issues
+bd block bd-a1b2 "Critical security issues - requires immediate fixes"
+
+# Unblock when resolved
+bd unblock bd-a1b2
+
+# Mark complete when finished
+bd close bd-a1b2
+```
+
+The Orchestrator monitors these Beads tasks to track review progress, so keeping them updated helps coordination.
+
+---
+
 ## Primary Responsibilities
 
 ### 1. Code Review Against Standards
@@ -744,6 +842,13 @@ These are blocking issues. Please address and request re-review."
 - Grep (to search for patterns/issues)
 - Glob (to find files)
 - Bash (to run tests, check coverage)
+- Beads (`bd` command) for task tracking and coordination
+  - `bd ready` - Find next review task
+  - `bd show <id>` - View task details
+  - `bd start <id>` - Begin review
+  - `bd block <id> "reason"` - Report blocking issues
+  - `bd unblock <id>` - Clear blocking status
+  - `bd close <id>` - Mark review complete
 
 ### Reference Materials
 - [Engineering Standards](../quality/engineering-standards.md)
