@@ -531,7 +531,6 @@ END WHEN
 - Run coverage tools (gcov, lcov, coverage)
 - Run linters/formatters in check mode
 - Commit changes (with proper messages, when appropriate)
-- Use code-monkey agent for background file operations
 
 ❌ MUST NOT (requires approval):
 - Delete files
@@ -541,63 +540,6 @@ END WHEN
 - Make breaking changes
 - Install packages
 ```
-
-### Background File Operations with Code-Monkey Agent
-
-**IMPORTANT:** When performing complex file operations that benefit from background execution, use the code-monkey agent.
-
-**When to Use Background Agent:**
-```
-Use code-monkey agent for:
-✅ Creating multiple related files
-✅ Complex refactoring across files
-✅ Background code generation
-✅ File operations that take >30 seconds
-✅ Work you can parallelize with other tasks
-```
-
-**Usage Pattern:**
-```markdown
-Task: Create authentication module files
-
-# Launch code-monkey agent
-Task(
-  subagent_type="code-monkey",
-  description="Create auth module files",
-  prompt="Create the following files for the authentication module:
-  1. src/auth/login.py - Login functionality
-  2. src/auth/session.py - Session management
-  3. src/auth/validators.py - Input validation
-  4. tests/auth/test_login.py - Login tests
-
-  Follow TDD principles and project coding standards.",
-  run_in_background=true
-)
-
-# Continue with other work while agent runs
-# You'll be notified when complete
-```
-
-**CRITICAL: Bash Workaround Requirement (Bug #13890)**
-
-The code-monkey agent is configured to handle a known Claude Code limitation where Write/Edit tools fail in background mode. The agent will automatically:
-
-1. Attempt Write tool (will fail with permission denial)
-2. Recover by using Bash commands (cat with heredoc)
-3. Successfully create the file
-
-**This is handled automatically by the agent - you don't need to worry about it.**
-
-**Verification After Completion:**
-```bash
-# After agent completes, verify files created
-ls -la path/to/new/files
-cat path/to/new/file.ext  # Spot-check content
-```
-
-**Reference:**
-- Agent definition: `.claude/agents/code-monkey.md`
-- Bug tracking: https://github.com/anthropics/claude-code/issues/13890
 
 ### Testing
 ```

@@ -53,13 +53,7 @@ Use the Engineer role when:
    - Use meaningful names
    - Avoid premature optimization
 
-3. **Use background agents for complex operations:**
-   - Code-monkey agent for multi-file creation/refactoring
-   - Handles Bash workaround for file operations automatically
-   - Allows parallel work while agent runs
-   - See: [roles/engineer.md](../../.ai-pack/roles/engineer.md) - Background Operations section
-
-4. **Update work log:**
+3. **Update work log:**
    - Document progress in `.ai/tasks/*/20-work-log.md`
    - Note decisions made
    - Record blockers
