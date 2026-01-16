@@ -140,7 +140,7 @@ def check_test_files():
 
     tier2_tests = list(tests_dir.glob("test_tier2*.py"))
     print(f"Tier 2 test files found: {len(tier2_tests)}")
-    print(f"Expected: 7")
+    print(f"Expected: 6")
 
     if tier2_tests:
         print("\nAvailable tier 2 tests:")

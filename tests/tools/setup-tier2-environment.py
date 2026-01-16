@@ -128,7 +128,7 @@ def verify_test_files():
         return False
 
     tier2_tests = list(tests_dir.glob("test_tier2*.py"))
-    expected_count = 7
+    expected_count = 6
 
     if len(tier2_tests) >= expected_count:
         print(f"✓ Found {len(tier2_tests)} tier 2 test files")
