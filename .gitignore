@@ -44,3 +44,13 @@ project-*.md
 
 # Exception: Allow templates/*-overrides.md (these are templates for consumer projects)
 !templates/*-overrides.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.class
+*.so
+
+# Test artifacts
+tests/reports/
+.pytest_cache/
