@@ -54,10 +54,10 @@
       "Bash(fdisk*)",
       "Bash(> /dev/*)"
     ],
-    "defaultMode": "bypassPermissions"
+    "defaultMode": "acceptEdits"
   },
   "hooks": {
-    "onSessionStart": [
+    "SessionStart": [
       {
         "description": "Start ai-pack monitoring timers (coordination + watchdog)",
         "hooks": [
@@ -68,7 +68,7 @@
         ]
       }
     ],
-    "onSessionEnd": [
+    "SessionEnd": [
       {
         "description": "Stop ai-pack monitoring timers",
         "hooks": [

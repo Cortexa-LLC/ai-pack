@@ -146,7 +146,7 @@ def fix_hook_paths():
         if "hooks" in settings:
             hooks = settings["hooks"]
 
-            # Fix all hook types (onSessionStart, onSessionEnd, UserPromptSubmit, etc.)
+            # Fix all hook types (SessionStart, SessionEnd, UserPromptSubmit, etc.)
             for hook_type in hooks:
                 if not isinstance(hooks[hook_type], list):
                     continue
