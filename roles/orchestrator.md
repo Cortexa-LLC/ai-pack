@@ -56,12 +56,32 @@ END IF
 
 ### 2. Task Decomposition and Work Breakdown
 
-**Responsibility:** Break complex tasks into manageable subtasks using Beads.
+**Responsibility:** Break complex tasks into manageable subtasks using Beads and Lean Flow principles.
+
+**CRITICAL: Apply Small Batch Sizing** (See `principles/LEAN-FLOW.md`)
+
+**Batch Size Limits:**
+- ✅ **IDEAL:** 1-5 files per task packet
+- ⚠️ **ACCEPTABLE:** 6-14 files per task packet (requires decomposition plan)
+- ❌ **TOO LARGE:** 15+ files per task packet (MUST decompose further)
+
+**Token Budget Analysis:**
+- Each agent has ~25K-32K token output limit
+- Each file ≈ 1K-3K tokens (average)
+- Target: ≤ 14 files per agent to stay under limit
+- **IF estimating 15+ files:** MUST decompose into multiple agents
+
+**Work In Progress (WIP) Limits:**
+- Maximum 3 background agents running simultaneously
+- Preferred: 2 background agents
+- Ideal: 1 background agent (complete before next)
 
 **Activities:**
 - Analyze user requirements
-- Identify major components
+- **Estimate file count and complexity**
+- **Check against batch size limits**
 - Break into logical units using `bd create`
+- **Ensure each unit is small batch (≤8 files)**
 - Sequence work appropriately with `bd dep add`
 - Identify dependencies
 
@@ -69,28 +89,59 @@ END IF
 ```bash
 User request: "Implement user authentication"
 
-Orchestrator breaks down into tasks:
-bd create "Design authentication architecture" --priority high
-bd create "Implement user model with password hashing" --priority high
-bd create "Create login API endpoint" --priority normal
-bd create "Create registration API endpoint" --priority normal
-bd create "Add session management" --priority normal
-bd create "Implement authentication middleware" --priority normal
-bd create "Add comprehensive tests" --priority normal
-bd create "Update documentation" --priority low
+# STEP 1: Analyze scope
+Estimated files: ~20 files total
+Assessment: TOO LARGE for single agent
+Decision: MUST decompose into small batches
 
-# Set up dependencies
+# STEP 2: Break down into small batches (5-14 files each)
+Orchestrator breaks down into tasks:
+
+bd create "Design authentication architecture [5 files: ADR, diagram, plan, security doc, API spec]" --priority high
+bd create "Implement user model with password hashing [7 files: model, service, repository, validation, tests, migration, seed data]" --priority high
+bd create "Create login API endpoint [6 files: controller, service, DTO, validation, tests, docs]" --priority normal
+bd create "Create registration API endpoint [6 files: controller, service, DTO, validation, tests, docs]" --priority normal
+bd create "Add session management [7 files: service, middleware, storage, config, tests, docs, examples]" --priority normal
+bd create "Implement authentication middleware [5 files: middleware, error handling, tests, docs, examples]" --priority normal
+bd create "Add comprehensive integration tests [5 files: test suites for auth flow, edge cases, security]" --priority normal
+bd create "Update documentation [3 files: README, API docs, security guide]" --priority low
+
+# STEP 3: Set up dependencies (enforce sequential flow)
 bd dep add bd-b2c3 bd-a1b2  # User model depends on architecture
 bd dep add bd-c3d4 bd-b2c3  # Login endpoint depends on user model
 bd dep add bd-d4e5 bd-b2c3  # Registration depends on user model
 bd dep add bd-e5f6 bd-c3d4  # Session mgmt depends on login
 bd dep add bd-f6g7 bd-e5f6  # Middleware depends on session mgmt
+
+# RESULT:
+# - 8 small batches (5-7 files each)
+# - Each fits in token budget
+# - Each completable in 1-2 hours
+# - Clear dependencies prevent parallel chaos
+```
+
+**Decomposition Decision Tree:**
+```
+Estimated files for task?
+│
+├─ 1-5 files → ✅ Single task packet, proceed
+├─ 6-14 files → ⚠️ Single task packet, create decomposition plan
+├─ 15-26 files → ❌ MUST decompose into 2-3 task packets
+└─ 27+ files → ❌ MUST decompose into 3+ task packets
+
+Background agents to spawn?
+│
+├─ 1 agent → ✅ Ideal, proceed
+├─ 2-3 agents → ⚠️ Acceptable, enforce WIP limits
+└─ 4+ agents → ❌ TOO MANY, decompose or run sequentially
 ```
 
 **Deliverables:**
 - Task hierarchy in Beads (`.beads/issues.jsonl`)
 - Dependency graph via `bd dep add`
 - Work sequence determined by dependencies
+- **File count estimation per task (documented in task description)**
+- **Batch size verification (≤14 files per task)**
 - Acceptance criteria per subtask in task descriptions
 
 ---
@@ -128,17 +179,24 @@ WHEN delegating:
 
 ---
 
-### 2.5 MANDATORY Parallel Execution Analysis
+### 2.5 MANDATORY Parallel Execution Analysis (With WIP Limits)
 
 **ENFORCEMENT:** Execution strategy analysis is MANDATORY before delegating any work package with 2+ subtasks. This is enforced by the **[Execution Strategy Gate](../gates/25-execution-strategy.md)**.
+
+**CRITICAL: Work In Progress (WIP) Limits** (See `principles/LEAN-FLOW.md`)
+- Maximum 3 background agents simultaneously
+- Exceeding this limit causes verification chaos and token budget issues
+- Queue theory: Lower WIP = Faster cycle time
 
 **MANDATORY PROCEDURE:**
 ```
 BEFORE delegating work with 2+ subtasks:
   STEP 1: MUST complete execution strategy analysis
   STEP 2: MUST document parallelization decision
-  STEP 3: MUST spawn workers according to strategy
-  STEP 4: ONLY THEN proceed with delegation
+  STEP 3: MUST check current WIP (background agents already running)
+  STEP 4: MUST enforce WIP limits (max 3 concurrent agents)
+  STEP 5: MUST spawn workers according to strategy AND limits
+  STEP 6: ONLY THEN proceed with delegation
 
   IF analysis skipped THEN
     GATE VIOLATION (25-execution-strategy.md)

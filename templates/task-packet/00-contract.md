@@ -115,6 +115,150 @@ Detailed checklist of requirements that must be met:
 
 ---
 
+## Lean Flow Analysis (MANDATORY)
+
+**Purpose:** Prevent token limit failures and verification chaos (see `principles/LEAN-FLOW.md`)
+
+### Batch Size Assessment
+
+**Estimated Files:** [X files]
+
+**Batch Size Evaluation:**
+```
+File Count Assessment:
+├─ 1-5 files   → ✅ IDEAL: Small batch, proceed
+├─ 6-14 files  → ⚠️ ACCEPTABLE: Document decomposition consideration
+├─ 15-26 files → ❌ TOO LARGE: MUST decompose into 2-3 task packets
+└─ 27+ files   → ❌ CRITICAL: MUST decompose into 3+ task packets
+
+Your Task: [X files] → [Status]
+```
+
+**If 15+ files, MANDATORY decomposition:**
+```markdown
+### Decomposition Plan
+
+This task is too large (X files) and MUST be decomposed:
+
+**Subtask 1:** [Name] ([Y] files)
+- Files: [list]
+- Estimated tokens: ~[Y × 3000] tokens
+- Dependencies: [None | Depends on X]
+
+**Subtask 2:** [Name] ([Y] files)
+- Files: [list]
+- Estimated tokens: ~[Y × 3000] tokens
+- Dependencies: [Depends on Subtask 1]
+
+[Add more subtasks as needed]
+
+**Execution Strategy:**
+- Sequential (dependencies) OR Parallel (independent)
+- WIP Limit: Max 3 background agents simultaneously
+```
+
+**If 6-14 files, document reasoning:**
+```markdown
+### Batch Size Justification
+
+Files: [X] (within acceptable range but requires justification)
+
+**Why not decomposed further:**
+- [Reason: High cohesion - all files tightly coupled]
+- [Reason: Single concern - one logical unit]
+- [Reason: Already minimal viable batch]
+
+**Contingency for token limits:**
+- [If token limit hit, will decompose into: X + Y]
+
+**Estimated tokens:** ~[X × 3000] = [total] tokens
+**Status:** Within 25K-32K limit? [Yes/No]
+```
+
+### Token Budget Estimation
+
+**Conservative Estimate:**
+```
+Files × Average Tokens Per File = Estimated Total
+[X] × 3,000 tokens = [total] tokens
+
+Agent Output Limit: 25K-32K tokens
+
+Status:
+├─ <20K tokens → ✅ SAFE
+├─ 20-25K tokens → ⚠️ APPROACHING LIMIT
+├─ 25-42K tokens → ❌ HIGH RISK (40% failure probability)
+└─ >42K tokens → ❌ GUARANTEED FAILURE
+
+Your Task: [total] tokens → [Status]
+```
+
+**If >42K tokens:**
+```
+⚠️ WARNING: Token budget risk
+
+REQUIRED ACTION: Decompose task into smaller batches
+
+Target: Each batch ≤42K tokens (≤14 files)
+```
+
+### Work In Progress (WIP) Planning
+
+**Concurrent Execution Assessment:**
+```
+How many background agents will run simultaneously?
+
+├─ 1 agent → ✅ IDEAL (complete before next)
+├─ 2-3 agents → ⚠️ ACCEPTABLE (within limits)
+└─ 4+ agents → ❌ EXCEEDS LIMIT (verification chaos)
+
+Planned WIP: [X agents]
+```
+
+**If planning parallel execution:**
+```markdown
+### Parallel Execution Plan
+
+**Agents to spawn:** [X]
+**WIP limit:** Maximum 3 concurrent background agents
+
+**Agent 1:** [Task description]
+- Files: [list]
+- Estimated tokens: [X]
+- Dependencies: [None]
+
+**Agent 2:** [Task description]
+- Files: [list]
+- Estimated tokens: [X]
+- Dependencies: [None | Depends on Agent 1]
+
+[If >3 agents, MUST decompose or run sequentially]
+
+**Coordination Strategy:**
+- [How will shared resources be managed?]
+- [Execution order if sequential?]
+- [Verification approach?]
+```
+
+### Decomposition Decision
+
+**Final Assessment:**
+
+**Proceed as single task packet?**
+- [ ] YES - Batch size ≤14 files AND token budget ≤42K AND WIP ≤3
+- [ ] NO - MUST decompose (batch >14 files OR tokens >42K OR WIP >3)
+
+**If NO, decomposition is MANDATORY:**
+```markdown
+See Decomposition Plan above.
+Each subtask created as separate task packet.
+Cannot proceed until decomposed.
+```
+
+**Reference:** `gates/05-lean-flow.md` for enforcement details
+
+---
+
 ## Resources and References
 
 ### Relevant Files
