@@ -4,7 +4,7 @@ This directory contains agent configurations that enable background workers to o
 
 ## Why Agent Configurations?
 
-When the Orchestrator spawns parallel engineers via the Task tool, those background agents need permission to create/edit files. By default, background agents **do not** inherit the main conversation's `bypassPermissions` setting.
+When the Orchestrator spawns parallel engineers via the Task tool, those spawned agents need permission to create/edit files. By default, spawned agents **do not** inherit the main conversation's `bypassPermissions` setting.
 
 **Solution:** Agent-specific `permissionMode: bypassPermissions` in configuration files.
 
@@ -106,10 +106,10 @@ Place in project's `.claude/agents/general-purpose.md` to override template.
 
 ## Testing Agent Permissions
 
-To verify background agents have correct permissions:
+To verify spawned agents have correct permissions:
 
 ```bash
-# Spawn a test background agent
+# Spawn a test spawned agent
 claude code --task "Create a test file: echo 'test' > test.txt"
 
 # Should succeed without permission prompt if bypassPermissions is set

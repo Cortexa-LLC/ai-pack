@@ -263,7 +263,7 @@ bd ready
 
 **Special Case: Spawned by Orchestrator**
 
-If you were spawned as a background agent by the Orchestrator, you'll have a Beads task assigned to you:
+If you were spawned by the Orchestrator, you'll have a Beads task assigned to you:
 
 ```bash
 # Find your assigned Beads task (documented in work log)

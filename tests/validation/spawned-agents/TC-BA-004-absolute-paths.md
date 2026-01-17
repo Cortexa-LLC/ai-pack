@@ -1,6 +1,6 @@
 # TC-BA-004: Absolute Path Requirements and Nested Directory Prevention
 
-**Category:** Background Agents
+**Category:** Spawned Agents
 **Priority:** Critical
 **Status:** Active
 **Last Updated:** 2026-01-15
@@ -90,7 +90,7 @@ mkdir server/API
 
      Use mkdir to create directories.
      """,
-     run_in_background=true
+     
    )
    ```
 
@@ -150,7 +150,7 @@ mkdir server/API
 
      Task packet: .ai/tasks/2026-01-15_test-ba-004/
      """,
-     run_in_background=true
+     
    )
    ```
 

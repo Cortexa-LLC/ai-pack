@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-01-15
 
-This document explains the required Claude Code configuration for ai-pack integration, particularly for background agent support.
+This document explains the required Claude Code configuration for ai-pack integration, particularly for spawned agent support.
 
 ---
 
@@ -20,7 +20,7 @@ The `.claude/settings.json` file controls Claude Code behavior including permiss
 
 ---
 
-## Required Configuration for Background Agents
+## Required Configuration for Spawned Agents
 
 Background agents spawned via the Task tool need file operation permissions. Without proper configuration, agents will fail when trying to create deliverables.
 
@@ -53,7 +53,7 @@ Background agents spawned via the Task tool need file operation permissions. Wit
 
 ## Configuration Sections
 
-### 1. Permissions (REQUIRED for Background Agents)
+### 1. Permissions (REQUIRED for Spawned Agents)
 
 ```json
 {
@@ -70,7 +70,7 @@ Background agents spawned via the Task tool need file operation permissions. Wit
 
 **Why this is needed:**
 
-During Tier 2 validation testing, we discovered background agents require explicit permissions to:
+During Tier 2 validation testing, we discovered spawned agents require explicit permissions to:
 
 1. **Create deliverable files** - Test artifacts, outputs, reports
 2. **Modify code files** - Implementation tasks
@@ -198,7 +198,7 @@ For running the ai-pack validation test suite (Tier 2 tests), you **MUST** use t
 ```
 
 **Why:**
-- Tests spawn background agents that create artifacts in `.ai/test-artifacts/`
+- Tests spawn spawned agents that create artifacts in `.ai/test-artifacts/`
 - Agents need to create multiple directories and files
 - Test contracts specify diverse output locations
 - Validation requires agents to operate autonomously
@@ -252,7 +252,7 @@ For running the ai-pack validation test suite (Tier 2 tests), you **MUST** use t
 
 ### Verification
 
-Test that background agents have write access:
+Test that spawned agents have write access:
 
 ```bash
 # This should succeed without permission prompts
@@ -268,7 +268,7 @@ If agents fail with permission errors, check:
 
 ## Common Issues
 
-### Issue 1: Background Agents Cannot Write Files
+### Issue 1: Spawned Agents Cannot Write Files
 
 **Symptoms:**
 - Agents fail with "permission denied" errors
@@ -344,6 +344,6 @@ Change `defaultMode` from `"promptUser"` to `"bypassPermissions"`:
 ## History
 
 - **2026-01-15:** Initial documentation based on Tier 2 validation findings
-  - Identified permission requirements for background agents
+  - Identified permission requirements for spawned agents
   - Validated 14-file batch limit
   - Confirmed defaultMode: "bypassPermissions" needed for testing

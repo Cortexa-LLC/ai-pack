@@ -829,7 +829,7 @@ WITHOUT rotation:
   ❌ Work log exceeds 25k token Read limit
   ❌ Orchestrator cannot read progress
   ❌ Coordination breaks down
-  ❌ Background agents appear stuck
+  ❌ Spawned agents appear stuck
 
 WITH rotation:
   ✅ Work logs stay under Read limit

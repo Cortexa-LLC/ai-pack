@@ -6,7 +6,7 @@ model: Sonnet
 permissionMode: bypassPermissions
 ---
 
-# General Purpose Background Agent
+# General Purpose Spawned Agent
 
 This agent is used by the Orchestrator for parallel execution of independent tasks.
 

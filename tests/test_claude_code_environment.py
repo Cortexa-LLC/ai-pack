@@ -7,7 +7,7 @@ Tests that actually execute in Claude Code environment:
 - Uses actual Read/Write/Edit tools
 - Tests real multi-agent coordination
 - Validates permissions in .claude/settings.json
-- Verifies background agent behavior
+- Verifies spawned agent behavior
 
 Status: EXECUTABLE (Requires Claude Code environment)
 Priority: CRITICAL (Production validation)
@@ -104,7 +104,7 @@ File exists with correct content.
         #     subagent_type="general-purpose",
         #     description="Test agent spawn",
         #     prompt=f"Read contract at {contract} and create the deliverable file",
-        #     run_in_background=True
+        #     
         # )
 
         print("\n📋 Test Documentation:")
@@ -462,10 +462,10 @@ class TestClaudeCodePermissions(unittest.TestCase):
 
 class TestClaudeCodeBackgroundAgents(unittest.TestCase):
     """
-    Test background agent behavior in Claude Code
+    Test spawned agent behavior in Claude Code
 
     Validates that:
-    1. Background agents execute independently
+    1. Spawned Agents execute independently
     2. Agent output captured correctly
     3. Agents complete and signal completion
     4. Files persist after agent completes
@@ -491,13 +491,13 @@ class TestClaudeCodeBackgroundAgents(unittest.TestCase):
             shutil.rmtree(cls.test_dir)
 
     def test_01_background_agent_execution(self):
-        """Test: Background agent executes independently"""
+        """Test: Spawned Agent executes independently"""
         print("\n" + "="*70)
-        print("CLAUDE CODE TEST 11: Background Agent Execution")
+        print("CLAUDE CODE TEST 11: Spawned Agent Execution")
         print("="*70)
 
-        print("\n🚀 Background agent workflow:")
-        print("   1. Spawn agent with run_in_background=True")
+        print("\n🚀 Spawned Agent workflow:")
+        print("   1. Spawn agent with ")
         print("   2. Agent executes asynchronously")
         print("   3. Main thread continues")
         print("   4. Agent completes and persists files")
@@ -505,17 +505,17 @@ class TestClaudeCodeBackgroundAgents(unittest.TestCase):
         output_file = self.test_dir / "background-output.txt"
 
         print(f"\n📋 Agent task: Create {output_file}")
-        print("   (In real environment: Task(..., run_in_background=True))")
+        print("   (In real environment: Task(..., ))")
 
-        # Simulate background agent creating file
-        output_file.write_text(f"Background agent completed at {datetime.now()}")
+        # Simulate spawned agent creating file
+        output_file.write_text(f"Spawned Agent completed at {datetime.now()}")
 
         # Verify file persisted
         self.assertTrue(output_file.exists())
-        print(f"\n✅ Background agent output persisted: {output_file}")
+        print(f"\n✅ Spawned Agent output persisted: {output_file}")
 
     def test_02_agent_completion_detection(self):
-        """Test: Detect when background agent completes"""
+        """Test: Detect when spawned agent completes"""
         print("\n" + "="*70)
         print("CLAUDE CODE TEST 12: Agent Completion Detection")
         print("="*70)

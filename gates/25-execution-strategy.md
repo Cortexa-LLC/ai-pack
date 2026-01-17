@@ -16,7 +16,7 @@ The Execution Strategy Gate is a **mandatory checkpoint** that enforces explicit
 
 ### Permission Configuration Check (CRITICAL)
 
-**BEFORE spawning parallel background agents, verify permissions:**
+**BEFORE spawning parallel agents, verify permissions:**
 
 ```bash
 # Check if permissions configured
@@ -41,7 +41,7 @@ cat .claude/settings.json | grep -A 10 permissions
 ```
 
 **Why this is required:**
-- Background agents (`run_in_background: true`) cannot prompt interactively
+- Spawned agents cannot prompt interactively
 - File operations need pre-approval
 - **Without this: Agents blocked immediately on first Write/Edit**
 

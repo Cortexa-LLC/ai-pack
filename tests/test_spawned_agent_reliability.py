@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-Background Agent Reliability Tests - CRITICAL
+Spawned Agent Reliability Tests - CRITICAL
 
 THE MOST IMPORTANT TESTS IN THE SUITE
 
-Tests that background agents (run_in_background=True):
+Tests that spawned agents ():
 1. Actually create files that persist to disk (not sandbox)
 2. Don't claim success when files aren't created
 3. Handle token limits correctly
 4. Artifacts are verifiable after agent completes
 5. Silent failures are detected
 
-This addresses the core problem: Background agents failing silently,
+This addresses the core problem: Spawned Agents failing silently,
 claiming success while producing no artifacts.
 
 Status: EXECUTABLE + REAL CLAUDE CODE EXECUTION
@@ -29,7 +29,7 @@ from pathlib import Path
 
 class TestBackgroundAgentArtifactPersistence(unittest.TestCase):
     """
-    CRITICAL: Test background agents create artifacts that actually persist
+    CRITICAL: Test spawned agents create artifacts that actually persist
 
     This is the #1 failure mode: Agent completes successfully but files
     don't exist or are in sandbox only.
@@ -50,9 +50,9 @@ class TestBackgroundAgentArtifactPersistence(unittest.TestCase):
         cls.test_dir.mkdir(parents=True, exist_ok=True)
 
         print(f"\n📁 Test directory: {cls.test_dir}")
-        print("\n🚨 CRITICAL TESTS: Background Agent Reliability")
+        print("\n🚨 CRITICAL TESTS: Spawned Agent Reliability")
         print("   These tests validate the #1 failure mode:")
-        print("   Background agents claiming success without creating files")
+        print("   Spawned Agents claiming success without creating files")
 
     @classmethod
     def tearDownClass(cls):
@@ -64,38 +64,38 @@ class TestBackgroundAgentArtifactPersistence(unittest.TestCase):
 
     def test_01_background_agent_creates_actual_file(self):
         """
-        CRITICAL TEST: Background agent creates file that persists to disk
+        CRITICAL TEST: Spawned Agent creates file that persists to disk
 
         FAILURE MODE: Agent reports success but file doesn't exist
         ROOT CAUSE: File created in sandbox, not repository
         """
         print("\n" + "="*70)
-        print("CRITICAL TEST 1: Background Agent File Persistence")
+        print("CRITICAL TEST 1: Spawned Agent File Persistence")
         print("="*70)
 
         # Define expected output file (MUST use absolute path)
         output_file = self.test_dir / "background-agent-output.txt"
 
-        print(f"\n📋 Background Agent Task:")
+        print(f"\n📋 Spawned Agent Task:")
         print(f"   Create file: {output_file}")
         print(f"   MUST use absolute path: {output_file.absolute()}")
 
-        # What the background agent command should be:
-        print("\n🚀 Spawning background agent:")
+        # What the spawned agent command should be:
+        print("\n🚀 Spawning spawned agent:")
         print("   Task(")
         print("       subagent_type='general-purpose',")
         print("       description='Create test file',")
         print("       prompt=f'''")
         print(f"           Create file at ABSOLUTE PATH: {output_file.absolute()}")
-        print("           Content: 'Background agent test'")
+        print("           Content: 'Spawned Agent test'")
         print("           Use Write tool with absolute path")
         print("           Verify file exists after writing")
         print("       ''',")
-        print("       run_in_background=True")
+        print("       ")
         print("   )")
 
         # Simulate agent creating file (in real test, agent does this)
-        output_file.write_text("Background agent test - created with absolute path")
+        output_file.write_text("Spawned Agent test - created with absolute path")
 
         # CRITICAL VALIDATION: Verify file exists at expected location
         print("\n✅ VALIDATION CHECKS:")
@@ -105,7 +105,7 @@ class TestBackgroundAgentArtifactPersistence(unittest.TestCase):
             print(f"   ✅ File exists: {output_file}")
         else:
             print(f"   ❌ CRITICAL FAILURE: File not found at {output_file}")
-            self.fail("Background agent did not create file")
+            self.fail("Spawned Agent did not create file")
 
         # Check 2: File is in repository (not sandbox)
         if self.repo_root in output_file.parents:
@@ -123,17 +123,17 @@ class TestBackgroundAgentArtifactPersistence(unittest.TestCase):
             self.fail("File exists but has no content")
 
         # Check 4: File has correct content
-        if "Background agent test" in content:
+        if "Spawned Agent test" in content:
             print(f"   ✅ Content correct")
         else:
             print(f"   ❌ CRITICAL FAILURE: Wrong content: {content[:50]}")
             self.fail("File has wrong content")
 
-        print("\n✅ CRITICAL TEST PASSED: Background agent created persistent file")
+        print("\n✅ CRITICAL TEST PASSED: Spawned Agent created persistent file")
 
     def test_02_background_agent_silent_failure_detection(self):
         """
-        CRITICAL TEST: Detect when background agent claims success but fails
+        CRITICAL TEST: Detect when spawned agent claims success but fails
 
         FAILURE MODE: Agent returns "success" but no artifacts created
         ROOT CAUSE: Agent doesn't verify file creation
@@ -204,7 +204,7 @@ class TestBackgroundAgentArtifactPersistence(unittest.TestCase):
         # Work log NOT created (simulating failure)
         # Code and Tests NOT created (simulating failure)
 
-        print(f"\n🤖 Background agent completed")
+        print(f"\n🤖 Spawned Agent completed")
         print(f"   Agent reported: 'Task complete'")
 
         # CRITICAL: Orchestrator verifies ALL deliverables
@@ -236,10 +236,10 @@ class TestBackgroundAgentArtifactPersistence(unittest.TestCase):
 
 class TestBackgroundAgentTokenLimits(unittest.TestCase):
     """
-    CRITICAL: Test background agents handle token limits correctly
+    CRITICAL: Test spawned agents handle token limits correctly
 
     FAILURE MODE: Agent hits token limit, task truncated, appears successful
-    ROOT CAUSE: No token limit detection in background agents
+    ROOT CAUSE: No token limit detection in spawned agents
     """
 
     @classmethod
@@ -263,7 +263,7 @@ class TestBackgroundAgentTokenLimits(unittest.TestCase):
 
     def test_01_detect_token_limit_failure(self):
         """
-        CRITICAL TEST: Detect when background agent hits token limit
+        CRITICAL TEST: Detect when spawned agent hits token limit
 
         FAILURE MODE: Agent hits token limit mid-task, files incomplete
         ROOT CAUSE: No detection of context overflow
@@ -352,7 +352,7 @@ And then it suddenly cut off mid-sen""")
 
 class TestBackgroundAgentWorkingDirectory(unittest.TestCase):
     """
-    CRITICAL: Test background agents use correct working directory
+    CRITICAL: Test spawned agents use correct working directory
 
     FAILURE MODE: Agent creates files in wrong directory (CWD vs repo root)
     ROOT CAUSE: Agent doesn't receive working directory context
@@ -379,7 +379,7 @@ class TestBackgroundAgentWorkingDirectory(unittest.TestCase):
 
     def test_01_background_agent_uses_absolute_paths(self):
         """
-        CRITICAL TEST: Background agent MUST use absolute paths
+        CRITICAL TEST: Spawned Agent MUST use absolute paths
 
         FAILURE MODE: Agent uses relative paths, files in wrong location
         ROOT CAUSE: Agent doesn't have working directory context
@@ -391,7 +391,7 @@ class TestBackgroundAgentWorkingDirectory(unittest.TestCase):
         # Define file with ABSOLUTE path
         absolute_path = self.test_dir / "absolute-path-file.txt"
 
-        print(f"\n📋 Background Agent Instructions:")
+        print(f"\n📋 Spawned Agent Instructions:")
         print(f"   MUST use: {absolute_path.absolute()}")
         print(f"   DO NOT use: 'absolute-path-file.txt' (relative)")
 
@@ -453,7 +453,7 @@ class TestBackgroundAgentWorkingDirectory(unittest.TestCase):
 
 class TestBackgroundAgentCompletionVerification(unittest.TestCase):
     """
-    CRITICAL: Test Orchestrator verifies background agent completion
+    CRITICAL: Test Orchestrator verifies spawned agent completion
 
     FAILURE MODE: Orchestrator assumes agent completed successfully
     ROOT CAUSE: No verification of agent completion status
@@ -507,7 +507,7 @@ class TestBackgroundAgentCompletionVerification(unittest.TestCase):
         completion_checklist["Tests created"] = True
         # But tests NOT passing, work log NOT updated, coverage NOT met
 
-        print(f"\n🤖 Background agent status: 'Completed'")
+        print(f"\n🤖 Spawned Agent status: 'Completed'")
 
         # CRITICAL: Orchestrator verifies checklist
         print(f"\n✅ ORCHESTRATOR VERIFICATION:")
@@ -537,11 +537,11 @@ class TestBackgroundAgentCompletionVerification(unittest.TestCase):
 
 if __name__ == "__main__":
     print("="*70)
-    print("CRITICAL: Background Agent Reliability Tests")
+    print("CRITICAL: Spawned Agent Reliability Tests")
     print("="*70)
     print("\n🚨 MOST IMPORTANT TESTS IN THE SUITE")
     print("\nThese tests validate the #1 failure mode:")
-    print("  - Background agents claiming success without creating artifacts")
+    print("  - Spawned Agents claiming success without creating artifacts")
     print("  - Silent failures that appear successful")
     print("  - Token limit failures in background execution")
     print("  - Files created in wrong locations (sandbox vs repository)")

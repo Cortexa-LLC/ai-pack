@@ -9,7 +9,7 @@
 
 ## Objective
 
-Validate that orchestrators execute the complete verification protocol before declaring background agent work as "completed successfully" and detect false success scenarios.
+Validate that orchestrators execute the complete verification protocol before declaring spawned agent work as "completed successfully" and detect false success scenarios.
 
 ## Background
 
@@ -37,7 +37,7 @@ Validate that orchestrators execute the complete verification protocol before de
 
 ## Prerequisites
 
-- Project with background agent capability
+- Project with spawned agent capability
 - `.claude/settings.json` configured
 - Test scenarios for both success and failure cases
 
@@ -80,7 +80,7 @@ Validate that orchestrators execute the complete verification protocol before de
 
      Create src/services/UserService.cs...
      """,
-     run_in_background=true
+     
    )
    ```
 
@@ -240,7 +240,7 @@ Validate that orchestrators execute the complete verification protocol before de
      Task packet: .ai/tasks/2026-01-15_test-or-001-success/
      Follow TDD. Update work log.
      """,
-     run_in_background=true
+     
    )
    ```
 

@@ -99,7 +99,7 @@ Task(subagent_type="general-purpose",
      prompt="Act as Engineer from .ai-pack/roles/engineer.md
 
 Task: Implement login feature with TDD. Report files created.",
-     run_in_background=true)
+     )
 ```
 
 **After (Fixed):**
@@ -116,7 +116,7 @@ CRITICAL WORKING DIRECTORY CONTEXT:
 TASK: Implement login feature with TDD
 REQUIREMENTS: Follow patterns in .ai-pack/roles/engineer.md
 DELIVERABLES: Use Write tool to create files. Report absolute paths.""",
-     run_in_background=true)
+     )
 ```
 
 ### Key Changes

@@ -300,7 +300,7 @@ class TestOrchestratorCoordination(unittest.TestCase):
         active_agents = []
 
         # Simulate spawning agents
-        print("Spawning background agents...")
+        print("Spawning spawned agents...")
         for i in range(5):
             if len(active_agents) < 3:
                 active_agents.append(f"Engineer-{i+1}")

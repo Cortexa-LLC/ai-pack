@@ -6,7 +6,7 @@ model: Sonnet
 permissionMode: bypassPermissions
 ---
 
-# Bash Background Agent
+# Bash Spawned Agent
 
 Specialized agent for bash command execution in background tasks.
 

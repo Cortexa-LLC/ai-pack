@@ -16,7 +16,7 @@ tests/
 ├── run_tests.py                        # ✨ AUTOMATED test runner
 ├── pre-change-validation.py            # ✨ Pre-commit validation (NEW v2.0)
 ├── test_*.py                           # ✨ EXECUTABLE test files
-│   ├── test_background_agent_permissions.py     # Background agent tests
+│   ├── test_background_agent_permissions.py     # Spawned Agent tests
 │   ├── test_integration_background_agent_spawn.py  # Integration tests
 │   ├── test_role_engineer.py           # ✨ Engineer role tests (NEW)
 │   ├── test_role_reviewer.py           # ✨ Reviewer role tests (NEW)
@@ -27,7 +27,7 @@ tests/
 ├── hooks/                              # ✨ Git hooks (NEW v2.0)
 │   └── pre-commit                      # Pre-commit validation hook
 ├── validation/                         # Test case documentation
-│   ├── background-agents/              # Background agent test cases
+│   ├── background-agents/              # Spawned Agent test cases
 │   ├── orchestrator/                   # Orchestrator behavior test cases
 │   ├── gates/                          # Gate enforcement test cases
 │   ├── workflows/                      # Workflow compliance test cases
@@ -48,9 +48,9 @@ tests/
 
 ## Test Case Categories
 
-### 1. Background Agent Tests (`validation/background-agents/`)
+### 1. Spawned Agent Tests (`validation/background-agents/`)
 
-**Focus:** Background agent file persistence, error detection, and completion verification
+**Focus:** Spawned Agent file persistence, error detection, and completion verification
 
 **Critical Issues Being Tested:**
 - Agent claims success but files not persisted
@@ -171,7 +171,7 @@ Each test case follows this structure:
 ```markdown
 # TC-XX-NNN: Test Case Title
 
-**Category:** [Background Agents | Orchestrator | Gates | Workflows | Integration]
+**Category:** [Spawned Agents | Orchestrator | Gates | Workflows | Integration]
 **Priority:** [Critical | High | Medium | Low]
 **Status:** [Draft | Active | Deprecated]
 **Last Updated:** YYYY-MM-DD
@@ -240,7 +240,7 @@ After each test run, create a report in `reports/`:
 
 These test cases MUST pass before any workflow change is deployed:
 
-### Background Agents
+### Spawned Agents
 - **TC-BA-001** - File Persistence Verification
 - **TC-BA-002** - Token Limit Detection
 - **TC-BA-003** - Working Directory Context
@@ -271,11 +271,11 @@ Add a new test case when:
 ### Test Case Naming
 
 - **Prefix:** `TC-{CATEGORY}-{NUMBER}`
-- **Categories:** BA (Background Agents), OR (Orchestrator), GT (Gates), WF (Workflows), INT (Integration)
+- **Categories:** BA (Spawned Agents), OR (Orchestrator), GT (Gates), WF (Workflows), INT (Integration)
 - **Number:** Sequential 001, 002, 003...
 
 **Examples:**
-- `TC-BA-001` - First background agent test
+- `TC-BA-001` - First spawned agent test
 - `TC-OR-005` - Fifth orchestrator test
 - `TC-GT-002` - Second gate test
 

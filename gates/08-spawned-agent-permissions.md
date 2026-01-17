@@ -1,15 +1,15 @@
-# Gate 08: Background Agent Permission Verification
+# Gate 08: Spawned Agent Permission Verification
 
 **Priority:** CRITICAL
 **Type:** BLOCKING
-**Enforcement:** Pre-Spawn (before background agents)
+**Enforcement:** Pre-Spawn (before spawned agents)
 **Last Updated:** 2026-01-15
 
 ---
 
 ## Purpose
 
-Prevent silent file persistence failures by verifying Write(*) permissions are configured BEFORE spawning background agents that need to create or modify files.
+Prevent silent file persistence failures by verifying Write(*) permissions are configured BEFORE spawning spawned agents that need to create or modify files.
 
 **Problem Prevented:**
 - Background agents claim success but files not persisted
@@ -29,7 +29,7 @@ Prevent silent file persistence failures by verifying Write(*) permissions are c
 
 ### Rule 1: Settings File Existence (BLOCKING)
 
-**Requirement:** `.claude/settings.json` MUST exist before spawning background agents.
+**Requirement:** `.claude/settings.json` MUST exist before spawning spawned agents.
 
 **Verification:**
 ```bash
@@ -61,11 +61,11 @@ Option 2: Manual setup
   Verify: python3 tests/tools/verify-background-agent-permissions.py
 
 Option 3: Run agents in FOREGROUND
-  Use run_in_background=false
+  Use interactive mode
   Agents will prompt for permissions interactively
   Trade-off: Sequential execution (no parallel)
 
-Cannot spawn background agent until fixed.
+Cannot spawn spawned agent until fixed.
 ```
 
 ---
@@ -127,7 +127,7 @@ EVIDENCE:
 - consumer-project PRD: 26KB generated, not persisted
 - Multiple specialist failures from missing permission
 
-Cannot spawn background agent until Write(*) configured.
+Cannot spawn spawned agent until Write(*) configured.
 ```
 
 ---
@@ -181,7 +181,7 @@ Set defaultMode to "bypassPermissions":
 
 WHY: Background agents must have pre-approved permissions.
 
-Cannot spawn background agent until defaultMode fixed.
+Cannot spawn spawned agent until defaultMode fixed.
 ```
 
 ---
@@ -223,7 +223,7 @@ Proceeding but verify permissions work correctly...
 
 ### Point 1: Before Spawning Background Planning Agents
 
-**When:** Before calling `Task(..., run_in_background=true)` for Cartographer, Architect, Designer, Inspector
+**When:** Before calling `Task(..., spawning agents)` for Cartographer, Architect, Designer, Inspector
 
 **Check:**
 ```python
@@ -260,7 +260,7 @@ def run_permission_verification():
 
 ### Point 2: Before Spawning Background Worker Agents
 
-**When:** Before calling `Task(..., run_in_background=true)` for Engineer/Worker roles that create files
+**When:** Before calling `Task(..., spawning agents)` for Engineer/Worker roles that create files
 
 **Check:**
 ```python
@@ -289,7 +289,7 @@ python3 tests/tools/verify-background-agent-permissions.py --repo-root /path/to/
 
 **Output:**
 ```
-🔍 Checking background agent permissions...
+🔍 Checking spawned agent permissions...
 
 ✅ .claude/settings.json exists
 ✅ settings.json is valid JSON
@@ -311,11 +311,11 @@ Background agents are properly configured for:
   - Reading project files
   - Running git commands
 
-Safe to spawn background agents with run_in_background=true
+Safe to spawn spawned agents with spawning agents
 
 ✅ PERMISSION VERIFICATION PASSED
 
-Safe to spawn background agents!
+Safe to spawn spawned agents!
 ```
 
 ---
@@ -336,7 +336,7 @@ Safe to spawn background agents!
       "Bash(npm:test)",
       "Bash(dotnet:*)"
     ],
-    "defaultMode": "bypassPermissions"  // REQUIRED for background agents
+    "defaultMode": "bypassPermissions"  // REQUIRED for spawned agents
   }
 }
 ```
@@ -359,13 +359,12 @@ Safe to spawn background agents!
 
 **Alternatives if permissions cannot be configured:**
 
-1. **Run agents in foreground:**
+1. **Run agents interactively:**
    ```python
    Task(
        subagent_type="general-purpose",
        description="Create PRD",
-       prompt="...",
-       run_in_background=False  # ← Foreground mode
+       prompt="..."
    )
    ```
    - Can prompt for permissions interactively
@@ -377,7 +376,7 @@ Safe to spawn background agents!
    - Create artifacts manually
    - Update task packet directly
 
-**Rationale:** Background agents MUST have Write(*) permission. No workaround exists for background execution without permissions.
+**Rationale:** Spawned agents MUST have Write(*) permission. No workaround exists for spawned execution without permissions.
 
 ---
 
@@ -453,7 +452,7 @@ python3 tests/tools/verify-background-agent-permissions.py
 ```
 1. Gate 08 (this gate): Verify permissions BEFORE spawning
    ↓ PASS
-2. Spawn background agent
+2. Spawn spawned agent
    ↓
 3. Agent executes with Write(*) permission
    ↓
@@ -472,7 +471,7 @@ python3 tests/tools/verify-background-agent-permissions.py
 ## Permission Gate Metrics
 
 **Before Gate 08:**
-- Permission failures: ~40% of background agents
+- Permission failures: ~40% of spawned agents
 - Files not persisted: ~40%
 - Manual extraction required: ~40%
 - Time to discover: 10-30 minutes
@@ -507,7 +506,7 @@ Task(
     Create Product Requirements Document for user authentication feature.
     Persist to: docs/product/2026-01-15-auth/prd.md
     """,
-    run_in_background=True  # Background agent
+    spawning agents  # Background agent
 )
 ```
 
@@ -562,7 +561,7 @@ Task(
     subagent_type="general-purpose",
     description="Create architecture design",
     prompt="Architect role. Create ADRs...",
-    run_in_background=True
+    spawning agents
 )
 ```
 
@@ -624,7 +623,7 @@ All permission checks passed:
 ✅ Read(*) configured
 ✅ defaultMode: bypassPermissions
 
-Safe to spawn background agents!
+Safe to spawn spawned agents!
 
 Proceeding with agent spawn...
 ```
@@ -688,7 +687,7 @@ export CLAUDE_BYPASS_PERMISSIONS=true
 
 **This gate is successful when:**
 
-✅ Zero permission failures in background agents
+✅ Zero permission failures in spawned agents
 ✅ 100% of artifacts persist when agents claim success
 ✅ No manual extraction required
 ✅ Immediate feedback when permissions missing
@@ -712,7 +711,7 @@ export CLAUDE_BYPASS_PERMISSIONS=true
 - `tests/tools/verify-background-agent-permissions.py`
 
 **Documentation:**
-- `roles/orchestrator.md` - Section 2.14 (Background Agent Permission Verification)
+- `roles/orchestrator.md` - Section 2.14 (Spawned Agent Permission Verification)
 - `templates/.claude/settings.json` - Template configuration
 - `templates/.claude/PERMISSIONS.md` - Permission documentation
 

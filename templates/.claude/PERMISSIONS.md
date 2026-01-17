@@ -76,7 +76,7 @@ These operations require explicit user approval:
 "defaultMode": "bypassPermissions"
 ```
 
-This setting enables auto-approval of operations in the `allow` list for **both foreground and background agents**. With this mode, any operation explicitly listed in the `allow` array will be auto-approved without prompting, enabling smooth parallel execution and interactive work.
+This setting enables auto-approval of operations in the `allow` list for **both foreground and spawned agents**. With this mode, any operation explicitly listed in the `allow` array will be auto-approved without prompting, enabling smooth parallel execution and interactive work.
 
 **Why `bypassPermissions`:**
 - Works for both foreground (interactive) and background (parallel) agents
@@ -109,7 +109,7 @@ The permissions in `settings.json` apply **globally** to:
 - ✅ Background agents CAN use safe git operations (pull, fetch, status, diff, log, branch, checkout)
 - ⚠️ Background agents CANNOT commit/push/merge (must request approval)
 - ⚠️ Background agents CANNOT use rm/destructive operations
-- ⚠️ If a background agent needs restricted operations, it will **fail and report the issue**
+- ⚠️ If a spawned agent needs restricted operations, it will **fail and report the issue**
 
 **Implication for orchestration:**
 - Background agents should focus on implementation (write code, run tests)
@@ -136,9 +136,9 @@ Projects can extend permissions by adding to the `allow` array:
 3. **Rollback**: User can always revert commits or restore from backup
 4. **Transparency**: All operations logged in conversation history
 
-## Behavior in Background Agents
+## Behavior in Spawned Agents
 
-When a background agent tries to use a restricted operation:
+When a spawned agent tries to use a restricted operation:
 
 1. **Agent cannot prompt for approval** (background = non-interactive)
 2. **Operation fails immediately**
@@ -168,16 +168,16 @@ The recommended workflow separates implementation from git operations:
 
 **Phase 1: Parallel Implementation (Background)**
 ```python
-# Spawn multiple background agents for parallel work
+# Spawn multiple spawned agents for parallel work
 Task(subagent_type="general-purpose",
      description="Implement feature A",
      prompt="Implement feature A...",
-     run_in_background=true)
+     )
 
 Task(subagent_type="general-purpose",
      description="Implement feature B",
      prompt="Implement feature B...",
-     run_in_background=true)
+     )
 ```
 
 **Phase 2: Wait and Monitor**
@@ -217,7 +217,7 @@ If you want agent assistance with git operations:
 Task(subagent_type="general-purpose",
      description="Review and commit changes",
      prompt="Review implementation and create commit...",
-     run_in_background=false)  # Interactive, can prompt for git approval
+     )  # Interactive, can prompt for git approval
 ```
 
 ## Examples

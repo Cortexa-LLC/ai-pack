@@ -393,7 +393,7 @@ The health check runs as a background task to avoid blocking the main session:
 ```
 /ai-pack health
   ↓
-Spawn background agent (Task tool, run_in_background=true)
+Spawn agent (Task tool, )
   ↓
 Agent performs Watchdog diagnostics
   ↓
@@ -423,7 +423,7 @@ Generate report covering:
 
 Save report to .ai/reports/health-{timestamp}.md and provide summary.
 """,
-     run_in_background=true)
+     )
 ```
 
 ## References

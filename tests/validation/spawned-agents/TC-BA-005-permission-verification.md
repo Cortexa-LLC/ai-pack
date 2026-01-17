@@ -1,6 +1,6 @@
-# TC-BA-005: Background Agent Permission Pre-Verification
+# TC-BA-005: Spawned Agent Permission Pre-Verification
 
-**Category:** Background Agents
+**Category:** Spawned Agents
 **Priority:** Critical
 **Status:** Active
 **Last Updated:** 2026-01-15
@@ -9,7 +9,7 @@
 
 ## Objective
 
-Validate that orchestrators verify Write(*) permissions are configured BEFORE spawning background agents for artifact persistence tasks (Cartographer, Architect, Designer).
+Validate that orchestrators verify Write(*) permissions are configured BEFORE spawning spawned agents for artifact persistence tasks (Cartographer, Architect, Designer).
 
 ## Background
 
@@ -28,7 +28,7 @@ Validate that orchestrators verify Write(*) permissions are configured BEFORE sp
 - Had to manually extract from agent output
 
 **The Problem:**
-Background agents (`run_in_background=true`) need Write(*) permission configured in `.claude/settings.json`. Without it:
+Background agents (``) need Write(*) permission configured in `.claude/settings.json`. Without it:
 - Write operations fail silently
 - No error thrown
 - Agent continues as if successful
@@ -113,7 +113,7 @@ Background agents (`run_in_background=true`) need Write(*) permission configured
      Verify: grep 'Write(*)' .claude/settings.json
 
    Option 3: Run planning agents in FOREGROUND
-     Remove run_in_background=true from Task calls
+     Remove  from Task calls
      Agents will prompt for Write permission interactively
 
    Cannot proceed with background planning agents until fixed.
@@ -152,7 +152,7 @@ Background agents (`run_in_background=true`) need Write(*) permission configured
 
 8. **Orchestrator proceeds to spawn agent:**
    ```python
-   # Permissions verified, safe to spawn background agent
+   # Permissions verified, safe to spawn spawned agent
    Task(
      subagent_type="general-purpose",
      description="Create PRD",
@@ -166,7 +166,7 @@ Background agents (`run_in_background=true`) need Write(*) permission configured
 
      Task packet: .ai/tasks/2026-01-15_test-ba-005/
      """,
-     run_in_background=true
+     
    )
    ```
 
@@ -194,11 +194,11 @@ Background agents (`run_in_background=true`) need Write(*) permission configured
 
 **Orchestrator Pre-Flight Check:**
 ```
-Checking background agent permissions...
+Checking spawned agent permissions...
 
 ❌ ERROR: Write(*) not configured
 
-BLOCKING: Cannot spawn background agents for artifact persistence
+BLOCKING: Cannot spawn spawned agents for artifact persistence
 without Write(*) permission.
 
 Please fix configuration using one of the provided solutions.
@@ -216,13 +216,13 @@ Please fix configuration using one of the provided solutions.
 
 **Orchestrator Pre-Flight Check:**
 ```
-Checking background agent permissions...
+Checking spawned agent permissions...
 
 ✅ .claude/settings.json exists
 ✅ Write(*) in allow list
 ✅ defaultMode: bypassPermissions
 
-Permissions verified. Proceeding to spawn background agent.
+Permissions verified. Proceeding to spawn spawned agent.
 ```
 
 **Agent Execution:**
@@ -298,7 +298,7 @@ Work complete.
 
 **Issue 2: Wrong defaultMode**
 ```json
-// ❌ WRONG - Doesn't work for background agents
+// ❌ WRONG - Doesn't work for spawned agents
 "defaultMode": "acceptEdits"
 
 // ✅ CORRECT
@@ -318,7 +318,7 @@ Work complete.
 #!/bin/bash
 # Permission Pre-Flight Check
 
-echo "Checking background agent permissions..."
+echo "Checking spawned agent permissions..."
 
 # Check 1: settings.json exists
 if [ ! -f .claude/settings.json ]; then
@@ -378,10 +378,10 @@ exit 0
 
 ```python
 # Instead of background
-Task(..., run_in_background=true)  # ❌ Needs Write(*) permission
+Task(..., )  # ❌ Needs Write(*) permission
 
 # Use foreground (interactive)
-Task(..., run_in_background=false)  # ✅ Can prompt for permissions
+Task(..., )  # ✅ Can prompt for permissions
 ```
 
 **Trade-offs:**
@@ -416,7 +416,7 @@ Task(..., run_in_background=false)  # ✅ Can prompt for permissions
 ## Metrics
 
 **Before Permission Pre-Flight Check:**
-- Silent permission failures: ~40% of background agents
+- Silent permission failures: ~40% of spawned agents
 - Manual extraction required: ~40%
 - Time to discover failure: 10-30 minutes
 
@@ -427,9 +427,9 @@ Task(..., run_in_background=false)  # ✅ Can prompt for permissions
 
 ## References
 
-- **Commit:** `a944a7c` - Add mandatory background agent permission verification
+- **Commit:** `a944a7c` - Add mandatory spawned agent permission verification
 - **Commit:** `59f9864` - Document VSCode setting requirement for background worker permissions
-- **Orchestrator Role:** Section 2.14 (Background Agent Permission Verification)
+- **Orchestrator Role:** Section 2.14 (Spawned Agent Permission Verification)
 - **PERMISSIONS.md:** templates/.claude/PERMISSIONS.md
 - **settings.json template:** templates/.claude/settings.json
 - **Real Failures:** consumer-project PRD (26KB not persisted), 6 ADRs not created

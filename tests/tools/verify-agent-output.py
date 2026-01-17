@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Agent Output Verification Utility
-Implements the 5-step verification protocol for background agents
+Implements the 5-step verification protocol for spawned agents
 Cross-platform Python implementation
 """
 
@@ -29,7 +29,7 @@ class VerificationResult:
     details: List[str]
 
 class AgentOutputVerifier:
-    """Verifies background agent output according to orchestrator protocol"""
+    """Verifies spawned agent output according to orchestrator protocol"""
 
     # Error patterns to detect
     ERROR_PATTERNS = {
@@ -344,7 +344,7 @@ class AgentOutputVerifier:
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description='Verify background agent output according to orchestrator protocol',
+        description='Verify spawned agent output according to orchestrator protocol',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 This tool implements the 5-step verification protocol:

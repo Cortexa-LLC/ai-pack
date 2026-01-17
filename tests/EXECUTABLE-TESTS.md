@@ -80,7 +80,7 @@ python3 -m unittest test_background_agent_permissions
 
 **Type:** Integration Tests
 **Purpose:** Verify actual file creation in repository
-**Based On:** TC-INT-001 (Background Agent File Persistence)
+**Based On:** TC-INT-001 (Spawned Agent File Persistence)
 
 **What It Tests:**
 ```python
@@ -407,7 +407,7 @@ jobs:
 - [ ] Task decomposition logic
 
 **Integration Tests (Future):**
-- [ ] Actual background agent spawn (requires Claude API)
+- [ ] Actual spawned agent spawn (requires Claude API)
 - [ ] Multi-file task execution
 - [ ] Parallel agent coordination
 - [ ] Gate blocking verification

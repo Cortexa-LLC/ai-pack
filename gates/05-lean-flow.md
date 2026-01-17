@@ -33,7 +33,7 @@ Task Packet Files:
 ├─ 15-26 files → ❌ FAIL: MUST decompose into 2-3 task packets
 └─ 27+ files   → ❌ FAIL: MUST decompose into 3+ task packets
 
-Background Agent Delegation:
+Agent Delegation:
 ├─ 1-5 files   → ✅ PASS: Ideal delegation
 ├─ 6-14 files  → ⚠️ CONDITIONAL PASS: Document why not decomposed
 ├─ 15+ files   → ❌ FAIL: MUST decompose into multiple agents
@@ -114,11 +114,11 @@ Proceeding with caution...
 
 ### Rule 2: Work In Progress (WIP) Limit Enforcement (BLOCKING)
 
-**Requirement:** Orchestrators MUST NOT exceed WIP limits for background agents.
+**Requirement:** Orchestrators MUST NOT exceed WIP limits for spawned agents.
 
 **WIP Limits:**
 ```
-Background Agents:
+Spawned Agents:
 ├─ 0-1 agents  → ✅ PASS: Ideal (complete before next)
 ├─ 2-3 agents  → ⚠️ ACCEPTABLE: Within limits
 ├─ 4-5 agents  → ❌ FAIL: Exceeds limit, blocks spawning
@@ -132,12 +132,12 @@ Active Task Packets:
 
 **Verification:**
 ```python
-# Before spawning background agent
-active_agents = count_active_background_agents()
+# Before spawning agent
+active_agents = count_active_agents()
 
 IF active_agents >= 3 THEN
   BLOCK with error: "WIP limit reached (${active_agents}/3)"
-  REQUIRE: Wait for agent completion OR run sequentially
+  REQUIRE: Wait for agent completion
   STATUS: BLOCKED until WIP reduced
 
 ELSE IF active_agents == 2 THEN
@@ -156,7 +156,7 @@ END IF
 ```
 ❌ WIP LIMIT EXCEEDED
 
-Current background agents: ${active_agents}
+Current agents: ${active_agents}
 Maximum allowed: 3 concurrent agents
 
 PROBLEM:
@@ -188,12 +188,7 @@ Option 1: Wait for completion
   - Run verification protocol as they complete
   - Spawn new agent after WIP drops below 3
 
-Option 2: Sequential execution
-  - Remove run_in_background=true
-  - Execute tasks one at a time
-  - Simpler coordination, often faster overall
-
-Option 3: Further decomposition
+Option 2: Further decomposition
   - Break work into even smaller batches
   - Complete and verify before next
 
@@ -205,7 +200,7 @@ Cannot spawn agent until WIP reduced.
 ```
 ⚠️ WIP APPROACHING LIMIT
 
-Current background agents: 3
+Current agents: 3
 Maximum allowed: 3 concurrent agents
 
 You are at the WIP limit. Consider:
@@ -360,14 +355,14 @@ fi
 
 ---
 
-### Point 2: Background Agent Spawning
+### Point 2: Agent Spawning
 
-**When:** Before calling `Task(..., run_in_background=true)`
+**When:** Before calling `Task(...)`
 
 **Check:**
 ```python
-# Count active background agents
-active_count = len(list_active_background_agents())
+# Count active agents
+active_count = len(list_active_agents())
 
 # Enforce WIP limit
 if active_count >= 3:
@@ -551,7 +546,7 @@ Cannot proceed until decomposed.
 
 ### Example 2: WIP Limit Enforcement
 
-**Scenario:** Orchestrator attempting to spawn 4th background agent
+**Scenario:** Orchestrator attempting to spawn 4th agent
 
 ```python
 # Current state
@@ -564,8 +559,7 @@ active_agents = [
 # Orchestrator attempts to spawn 4th agent
 Task(
     subagent_type="general-purpose",
-    description="Add email notifications",
-    run_in_background=True  # Would be 4th agent
+    description="Add email notifications"
 )
 ```
 
@@ -573,7 +567,7 @@ Task(
 ```
 ❌ GATE 05: LEAN FLOW - BLOCKED
 
-Current WIP: 3 background agents
+Current WIP: 3 agents
 Attempting to spawn: 4th agent
 Maximum allowed: 3 concurrent agents
 
@@ -596,12 +590,7 @@ Option 1: Wait for completion
   Run verification protocol
   Then spawn email notifications agent
 
-Option 2: Sequential execution
-  Task(..., run_in_background=False)
-  Execute email notifications sequentially
-  Simpler coordination
-
-Option 3: Defer work
+Option 2: Defer work
   Add to task queue
   Process after current WIP completes
 
@@ -658,7 +647,7 @@ Monitor agent output for token limit warnings...
 
 ✅ Average batch size < 5 files
 ✅ No task packets > 8 files without documented plan
-✅ WIP consistently ≤ 3 background agents
+✅ WIP consistently ≤ 3 agents
 ✅ Zero token limit failures
 ✅ Cycle time < 2 hours for small batches
 ✅ Verification failure rate < 15%

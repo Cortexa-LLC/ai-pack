@@ -191,14 +191,14 @@ Workers MUST coordinate:
 - Git commits (timing and conflict resolution)
 ```
 
-### Permission Configuration for Background Agents (CRITICAL)
+### Permission Configuration for Spawned Agents (CRITICAL)
 
-**PROBLEM:** Background agents run without interactive prompts and cannot request file operation permissions.
+**PROBLEM:** Spawned agents cannot request file operation permissions interactively.
 
 **ROOT CAUSE:** Two-part permission system:
 1. Settings in `.claude/settings.json` control parent conversation
-2. Agent configurations in `.claude/agents/` control background subagents
-3. **Background subagents do NOT inherit parent's `bypassPermissions` setting**
+2. Agent configurations in `.claude/agents/` control spawned subagents
+3. **Spawned subagents do NOT inherit parent's `bypassPermissions` setting**
 
 **SOLUTION (TWO PARTS REQUIRED):**
 
@@ -236,7 +236,7 @@ Workers MUST coordinate:
 }
 ```
 
-**Part 2: Agent Configurations (CRITICAL FOR BACKGROUND WORKERS)** - In `.claude/agents/general-purpose.md`:
+**Part 2: Agent Configurations (CRITICAL FOR SPAWNED WORKERS)** - In `.claude/agents/general-purpose.md`:
 
 ```yaml
 ---
@@ -250,16 +250,16 @@ permissionMode: bypassPermissions
 
 **Why BOTH Are Required:**
 - `.claude/settings.json` controls **main conversation** permissions
-- `.claude/agents/*.md` controls **background subagent** permissions
-- Background agents **do not** inherit `bypassPermissions` from parent
-- **Without agent config: Background agents blocked on first file operation**
+- `.claude/agents/*.md` controls **spawned subagent** permissions
+- Spawned agents **do not** inherit `bypassPermissions` from parent
+- **Without agent config: Spawned agents blocked on first file operation**
 
 **Setup Script Handles This:**
 The `.claude-setup.py` script copies both configurations automatically from ai-pack templates.
 
 **Common Mistakes:**
-1. ❌ Only setting `bypassPermissions` in settings.json (not enough for background agents)
-2. ❌ Using `settings.local.json` instead of `settings.json` (background agents ignore local settings)
+1. ❌ Only setting `bypassPermissions` in settings.json (not enough for spawned agents)
+2. ❌ Using `settings.local.json` instead of `settings.json` (spawned agents ignore local settings)
 3. ❌ Not creating `.claude/agents/` directory with agent configurations
 
 **Error Symptoms:**
@@ -281,7 +281,7 @@ cat .claude/settings.json | grep -A 10 permissions
 # Edit .claude/settings.json and add permissions section above
 
 # Option B: Use settings.local.json (individual developers)
-# But ensure settings.json ALSO has permissions for background agents
+# But ensure settings.json ALSO has permissions for spawned agents
 ```
 
 3. **Verify after fix:**
@@ -298,56 +298,43 @@ cat .claude/settings.json | grep -A 15 permissions
 3. Merging permissions into primary settings.json
 4. Respawning agents with corrected configuration
 
-**Alternative (Not Recommended):** Use interactive agents (no `run_in_background`) but this sacrifices true parallelism and loses significant performance benefits.
+### All Specialist Agents Require Proper Configuration
 
-### Non-Engineer Agents Also Run in Background
+**CRITICAL: Testers, Reviewers, and other specialist agents MUST be configured properly.**
 
-**CRITICAL: Testers, Reviewers, and other specialist agents MUST also run in background.**
-
-All delegated work (Engineers, Testers, Reviewers, Inspectors, etc.) should use `run_in_background: true` to enable:
-- **True parallelism** - Agents work concurrently without blocking
-- **Non-interactive operation** - No permission prompts during execution
+All delegated work (Engineers, Testers, Reviewers, Inspectors, etc.) requires:
+- **Parallel execution** - Agents work concurrently without blocking
+- **Proper permissions** - No permission prompts during execution
 - **Orchestrator monitoring** - Orchestrator can check status via Coordinator
 - **Faster completion** - Multiple quality gates can run simultaneously
 
 **Example - Delegating to Tester:**
 ```javascript
-// CORRECT: Background Tester
 Task(
   subagent_type="general-purpose",
   description="Validate test coverage",
-  prompt="Act as Tester role. Validate test coverage and TDD compliance...",
-  run_in_background=true  // ✅ Required for non-interactive operation
-)
-
-// INCORRECT: Interactive Tester
-Task(
-  subagent_type="general-purpose",
-  description="Validate test coverage",
-  prompt="Act as Tester role...",
-  run_in_background=false  // ❌ Will block and may prompt for permissions
+  prompt="Act as Tester role. Validate test coverage and TDD compliance..."
 )
 ```
 
 **Why This Matters:**
 - Testers run coverage tools (bash commands) and read many files
 - Reviewers analyze code and may suggest edits
-- Without background mode, these agents may pause for permission prompts
-- With background mode, they complete work autonomously
-- Orchestrator monitors via Coordinator reports, not direct blocking
+- Agents complete work autonomously
+- Orchestrator monitors via Coordinator reports
 
 **Quality Gate Pattern:**
 ```
-Engineer A (background) → completes work
+Engineer A → completes work
   ↓
-Tester (background) → validates tests
+Tester → validates tests
   ↓
-Reviewer (background) → validates code quality
+Reviewer → validates code quality
   ↓
 Orchestrator → receives completion reports from all three
 ```
 
-All three agents can potentially work in parallel (if work ready), or sequentially with non-blocking handoffs.
+All three agents can potentially work in parallel (if work ready), or sequentially with handoffs.
 
 ### Orchestrator Coordination Responsibilities
 

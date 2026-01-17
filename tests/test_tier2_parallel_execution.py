@@ -1,7 +1,7 @@
 """
 Tier 2: Parallel Agent Execution Tests
 
-Tests parallel execution of multiple background agents using real Claude Code
+Tests parallel execution of multiple spawned agents using real Claude Code
 Task tool spawning. These are SETUP tests that prepare contracts and spawn agents.
 """
 
@@ -12,7 +12,7 @@ import json
 
 
 class TestTier2ParallelExecution(unittest.TestCase):
-    """Test parallel execution of multiple background agents"""
+    """Test parallel execution of multiple spawned agents"""
 
     @classmethod
     def setUpClass(cls):
