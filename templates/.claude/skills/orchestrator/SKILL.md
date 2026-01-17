@@ -1,5 +1,5 @@
 ---
-description: Orchestrate complex multi-step tasks requiring coordination, delegation, and MANDATORY parallel execution for 2+ tasks. CRITICAL - You MUST spawn multiple background agents concurrently for multiple tasks, NOT work sequentially. Parallel execution is non-negotiable and reduces total time by N-fold speedup.
+description: Orchestrate complex multi-step tasks requiring coordination, delegation, and MANDATORY parallel execution for 2+ tasks. CRITICAL - You MUST spawn multiple spawned agents concurrently for multiple tasks, NOT work sequentially. Parallel execution is non-negotiable and reduces total time by N-fold speedup.
 ---
 
 # Orchestrator Role - Auto-Activated
@@ -31,7 +31,7 @@ You are now acting as the **Orchestrator** role from the ai-pack framework.
    └─ 2+ tasks → ⛔ PARALLEL BACKGROUND REQUIRED - NO EXCEPTIONS
 
 IF 2+ INDEPENDENT TASKS:
-  ✅ MUST spawn multiple Task() calls with run_in_background=true
+  ✅ MUST spawn multiple Task() calls with 
   ✅ MUST spawn ALL agents in SINGLE response
   ❌ NEVER work on tasks sequentially in foreground
   ❌ NEVER spawn agents one-by-one
@@ -56,7 +56,7 @@ RATIONALE:
 This is a CRITICAL ERROR. You MUST:
 1. Stop what you're doing
 2. Count the tasks
-3. Spawn parallel background agents
+3. Spawn parallel spawned agents
 4. Let them work concurrently
 ```
 
@@ -64,7 +64,7 @@ This is a CRITICAL ERROR. You MUST:
 
 **BACKGROUND WORKERS NEED SPECIAL PERMISSION CONFIGURATION:**
 
-Background agents (`run_in_background=true`) run in isolated contexts and may NOT inherit the `bypassPermissions` mode from `.claude/settings.json`.
+Background agents (concurrent spawning) run in isolated contexts and may NOT inherit the `bypassPermissions` mode from `.claude/settings.json`.
 
 **SOLUTION: User must enable VSCode setting:**
 ```json
@@ -149,7 +149,7 @@ Background agents frequently claim to create files but files don't persist to re
 
 **Example from Harvana:**
 ```
-Background Agent Reports:
+Spawned Agent Reports:
   "✅ Created tools/schema-validation/package.json"
   "✅ Created tools/schema-validation/validate-schema.js"
   "✅ Work complete!"
@@ -168,7 +168,7 @@ When agents run `Write(file_path="tools/schema-validation/package.json")` with a
 - But it's in THEIR working directory (temporary sandbox)
 - NOT in the actual repository the user is working in
 
-**THE SOLUTION: ALWAYS pass working directory context to background agents.**
+**THE SOLUTION: ALWAYS pass working directory context to spawned agents.**
 
 ### MANDATORY Delegation Pattern
 
@@ -191,7 +191,7 @@ CRITICAL WORKING DIRECTORY CONTEXT:
 
 Task: [specific task instructions]
 Report all files created with full absolute paths.",
-     run_in_background=true)
+     )
 ```
 
 **Why This Works:**
@@ -205,9 +205,9 @@ Report all files created with full absolute paths.",
 
 ## How to Delegate (CRITICAL)
 
-### ⚠️ CRITICAL: ALWAYS Use Background Agents
+### ⚠️ CRITICAL: ALWAYS Use Spawned Agents
 
-**DEFAULT: Task Tool with run_in_background=true** ✅ MANDATORY
+**DEFAULT: Task Tool with ** ✅ MANDATORY
 ```python
 # ⚠️ CRITICAL: Get working directory context FIRST
 PROJECT_ROOT=$(pwd)
@@ -227,7 +227,7 @@ REQUIREMENTS: Follow patterns in .ai-pack/roles/engineer.md
 DELIVERABLES: Report absolute paths of all files created using Write tool
 
 Use the Write tool to create files. Use Edit tool to modify files. Use Read tool to read files.""",
-     run_in_background=true)  # ✅ ALWAYS USE THIS - default for all agents
+     )  # ✅ ALWAYS USE THIS - default for all agents
 ```
 - Runs in **background** (autonomous, non-interactive, no permission prompts)
 - **Critical for parallel execution** (framework's main value)
@@ -293,7 +293,7 @@ REQUIREMENTS:
 - Update work log when done
 
 DELIVERABLES: Use Write tool to create files. Report absolute paths.""",
-     run_in_background=true)
+     )
 ```
 
 **Key Principles for Concise Instructions:**
@@ -391,7 +391,7 @@ FILES TO CREATE (3 total):
 REQUIREMENTS: Follow WunderGraph Cosmo patterns from ADR-006.
 
 DELIVERABLES: Use Write tool to create each file. Report absolute paths.""",
-     run_in_background=true)
+     )
 
 # Task 2: Server & Config (4 files)
 Task(subagent_type="general-purpose",
@@ -410,7 +410,7 @@ FILES TO CREATE (4 total):
 REQUIREMENTS: WunderGraph Cosmo router, port 9991.
 
 DELIVERABLES: Use Write tool to create each file. Report absolute paths.""",
-     run_in_background=true)
+     )
 
 # Task 3: Subgraph Schemas (9 files)
 Task(subagent_type="general-purpose",
@@ -434,7 +434,7 @@ FILES TO CREATE (9 total):
 REQUIREMENTS: Follow GraphQL federation patterns.
 
 DELIVERABLES: Use Write tool to create each file. Report absolute paths.""",
-     run_in_background=true)
+     )
 
 # Task 4: Auth & Middleware (3 files)
 Task(subagent_type="general-purpose",
@@ -452,7 +452,7 @@ FILES TO CREATE (3 total):
 REQUIREMENTS: Supabase JWT validation.
 
 DELIVERABLES: Use Write tool to create each file. Report absolute paths.""",
-     run_in_background=true)
+     )
 
 # Task 5: Docker & Docs (6 files)
 Task(subagent_type="general-purpose",
@@ -473,7 +473,7 @@ FILES TO CREATE (6 total):
 REQUIREMENTS: On-premise deployment config.
 
 DELIVERABLES: Use Write tool to create each file. Report absolute paths.""",
-     run_in_background=true)
+     )
 
 # All 5 agents run in parallel, each succeeds independently
 # Total time: ~20 minutes (vs 60 minutes if sequential)
@@ -531,7 +531,7 @@ Skill(skill="engineer", args="implement feature X")
 Task(subagent_type="general-purpose",
      description="Implement feature X",
      prompt="You are implementing a task following Engineer role from .ai-pack/roles/engineer.md. Use Write, Edit, Read tools. Implement feature X...",
-     run_in_background=true)
+     )
 
 # ❌ WRONG - will fail
 Task(subagent_type="engineer", ...)  # "engineer" is NOT a valid subagent type!
@@ -559,7 +559,7 @@ See: `.ai-pack/gates/25-execution-strategy.md` for parallel execution requiremen
    ```
    If missing, stop and run: `/ai-pack task-init <name>`
 
-2. **Verify permissions for background agents (CRITICAL):**
+2. **Verify permissions for spawned agents (CRITICAL):**
    ```bash
    # Check if permissions configured
    cat .claude/settings.json | grep -A 5 permissions
@@ -662,7 +662,7 @@ See: `.ai-pack/gates/25-execution-strategy.md` for parallel execution requiremen
 
 ## 🚨 MANDATORY PRE-FLIGHT CHECK (BLOCKING) 🚨
 
-**⛔ STOP! Before spawning ANY background agent, you MUST complete this check ⛔**
+**⛔ STOP! Before spawning ANY spawned agent, you MUST complete this check ⛔**
 
 This pre-flight check prevents the file persistence failure that has happened repeatedly in production.
 
@@ -722,7 +722,7 @@ Task: [Detailed task instructions]
 
 MANDATORY: Report all files created with FULL ABSOLUTE PATHS.
 """,
-     run_in_background=true)
+     )
 ```
 
 **⚠️ IF YOUR Task() CALL DOES NOT MATCH THIS FORMAT, FILES WILL NOT PERSIST.**
@@ -761,7 +761,7 @@ If you jumped to this section without completing the MANDATORY PRE-FLIGHT CHECK 
 Task(subagent_type="general-purpose",  # NOT "engineer"/"tester"/etc!
      description="Short task summary",
      prompt="You are implementing a task following [Engineer/Tester/Reviewer] role from .ai-pack/roles/[role].md. Use appropriate tools (Write, Edit, Read, Bash). [Detailed instructions]...",
-     run_in_background=true)  # Required for background execution
+     )  # Required for background execution
 ```
 
 **❌ WRONG PATTERN (What you've been doing):**
@@ -787,7 +787,7 @@ Make ONE OR MORE `Task(...)` tool calls. Period. That's it. Nothing else.
 Task(subagent_type="general-purpose",
      description="Validate Week 2 SDK tests",
      prompt="You are validating tests following Tester role from .ai-pack/roles/tester.md. Use Read and Bash tools. Validate tests for Week 2 SDKs...",
-     run_in_background=true)
+     )
 ```
 
 **After making Task call(s):**
@@ -831,7 +831,7 @@ SPEEDUP: 3x faster!
 ```python
 # Use Task tool to spawn parallel Engineers
 # Example: 3 independent features
-# CRITICAL: Use run_in_background=true for parallel execution
+# CRITICAL: Use  for parallel execution
 
 # ⚠️ CRITICAL: Get current working directory FIRST
 PROJECT_ROOT=$(pwd)
@@ -852,7 +852,7 @@ TASK: Implement feature A per task packet .ai/tasks/2026-01-10_feature-a/
 REQUIREMENTS: Follow TDD. Update work log.
 
 DELIVERABLES: Use Write tool to create files. Report absolute paths.",
-     run_in_background=true)
+     )
 
 Task(subagent_type="general-purpose",
      description="Implement feature B",
@@ -870,7 +870,7 @@ TASK: Implement feature B per task packet .ai/tasks/2026-01-10_feature-b/
 REQUIREMENTS: Follow TDD. Update work log.
 
 DELIVERABLES: Use Write tool to create files. Report absolute paths.",
-     run_in_background=true)
+     )
 
 Task(subagent_type="general-purpose",
      description="Implement feature C",
@@ -888,7 +888,7 @@ TASK: Implement feature C per task packet .ai/tasks/2026-01-10_feature-c/
 REQUIREMENTS: Follow TDD. Update work log.
 
 DELIVERABLES: Use Write tool to create files. Report absolute paths.",
-     run_in_background=true)
+     )
 ```
 
 **All Task calls must be in the SAME response to run in parallel.**
@@ -1101,17 +1101,17 @@ Orchestrator: "I see 3 independent features. I'll spawn 3 parallel engineers."
 Task(subagent_type="general-purpose",
      description="Implement user profile feature",
      prompt="You are implementing a task following Engineer role from .ai-pack/roles/engineer.md. Use Write tool to create components: ProfileView, ProfileViewModel, profile API endpoints. Follow TDD. Update work log. Report absolute paths of files created.",
-     run_in_background=true)
+     )
 
 Task(subagent_type="general-purpose",
      description="Implement notification system",
      prompt="You are implementing a task following Engineer role from .ai-pack/roles/engineer.md. Use Write tool to create: NotificationService, push notification handler, notification UI. Follow TDD. Update work log. Report absolute paths of files created.",
-     run_in_background=true)
+     )
 
 Task(subagent_type="general-purpose",
      description="Implement search functionality",
      prompt="You are implementing a task following Engineer role from .ai-pack/roles/engineer.md. Use Write tool to create: SearchBar component, search algorithm, result ranking. Follow TDD. Update work log. Report absolute paths of files created.",
-     run_in_background=true)
+     )
 
 [All 3 agents work concurrently - 20 minutes total] ✅✅✅
 
@@ -1127,7 +1127,7 @@ SPEEDUP: 3x faster than sequential!
 
 ### How to Check Background Worker Output
 
-When you spawn a Task with `run_in_background=true`, the tool result includes an **output_file** path:
+When you spawn a Task with concurrent spawning, the tool result includes an **output_file** path:
 
 ```
 Tool result: Background task started. Output file: /path/to/output.txt
@@ -1191,7 +1191,7 @@ Orchestrator: "Tests created successfully. Moving to next phase."
 **THE PROBLEM (Real Harvana Examples):**
 
 ```
-Background Agent Reports:
+Spawned Agent Reports:
   "✅ Created tools/schema-validation/package.json"
   "✅ Created tools/schema-validation/validate-schema.js"
   "✅ Created tools/schema-validation/export-schemas.js"
@@ -1260,7 +1260,7 @@ IF files missing THEN
     - Verify correctness
 
   OPTION 2: Re-run agent in foreground
-    - Spawn new agent WITHOUT run_in_background=true
+    - Spawn new agent WITHOUT 
     - Agent can prompt for Write permissions
     - Monitor completion directly
 
@@ -1287,7 +1287,7 @@ bd block <agent-task-id> "File persistence failed - 5 files missing from reposit
 
 ---
 
-**Why `run_in_background=true` is mandatory:**
+**Why concurrent spawning is mandatory:**
 - Engineers need to write/edit files without permission prompts
 - Background agents run autonomously with pre-approved permissions
 - Enables true parallel execution (all work concurrently)
@@ -1384,7 +1384,7 @@ CRITICAL WORKING DIRECTORY CONTEXT:
 
 Task: Validate tests, check TDD compliance, verify coverage.
 Report findings in 30-review.md with verdict: APPROVED or CHANGES REQUIRED.",
-        run_in_background=true)
+        )
    ```
    - Request test validation
    - Wait for APPROVED verdict (check work log or status tracker)
@@ -1405,13 +1405,13 @@ CRITICAL WORKING DIRECTORY CONTEXT:
 
 Task: Review code quality, check standards compliance, assess security.
 Report findings in 30-review.md with verdict: APPROVED or CHANGES REQUESTED.",
-        run_in_background=true)
+        )
    ```
    - Request code review (after Tester approval)
    - Wait for APPROVED verdict (check work log or status tracker)
    - If CHANGES REQUESTED, coordinate fixes with Engineer
 
-**CRITICAL: Use `run_in_background=true` for both quality gate agents:**
+**CRITICAL: Use concurrent spawning for both quality gate agents:**
 - Enables non-interactive operation (no permission prompts)
 - Allows autonomous execution of coverage tools and analysis
 - Orchestrator monitors via Coordinator reports, not blocking
@@ -1449,7 +1449,7 @@ If specialists used (PM, Architect, Designer, Inspector):
 **🚨 CRITICAL: Before declaring completion, you MUST verify file persistence:**
 
 ```bash
-# For EACH background agent that ran:
+# For EACH spawned agent that ran:
 # 1. List files agent claimed to create (from agent output)
 # 2. Verify EVERY file exists: ls -la <file-path>
 # 3. Check file is not empty: test -s <file-path>
@@ -1459,7 +1459,7 @@ If specialists used (PM, Architect, Designer, Inspector):
 **See: [MANDATORY POST-EXECUTION FILE VERIFICATION](#-mandatory-post-execution-file-verification-) section above**
 
 1. **Verify all subtasks complete:**
-   - ✅ All background agent files exist (VERIFIED, not assumed)
+   - ✅ All spawned agent files exist (VERIFIED, not assumed)
    - All acceptance criteria met
    - All tests passing
    - All reviews approved

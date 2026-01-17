@@ -133,7 +133,7 @@ def main() -> int:
     print("Next Steps")
     print("- Use task queue: python3 .codex/commands/task-queue.py")
     print("- Update work logs for active tasks")
-    print("- Verify artifacts persisted for background agents")
+    print("- Verify artifacts persisted for spawned agents")
 
     return 0
 

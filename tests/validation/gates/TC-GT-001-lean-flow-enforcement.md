@@ -24,7 +24,7 @@ Validate that Gate 05 (Lean Flow) correctly enforces small batch sizes, WIP limi
 **Solution:**
 Gate 05 enforces Lean Flow principles from "Accelerate" (Gene Kim, Jez Humble, Nicole Forsgren):
 - Small batch sizes (≤14 files per task packet)
-- WIP limits (≤3 concurrent background agents)
+- WIP limits (≤3 concurrent spawned agents)
 - Token budget pre-verification
 
 **Reference:** `principles/LEAN-FLOW.md`, `gates/05-lean-flow.md`
@@ -35,7 +35,7 @@ Gate 05 enforces Lean Flow principles from "Accelerate" (Gene Kim, Jez Humble, N
 
 - Project with ai-pack framework
 - Ability to create task packets
-- Ability to spawn background agents
+- Ability to spawn spawned agents
 - Understanding of batch size limits
 
 ---
@@ -199,14 +199,14 @@ Gate 05 enforces Lean Flow principles from "Accelerate" (Gene Kim, Jez Humble, N
 
 **Test B1: Ideal WIP (1 agent)**
 
-12. **Orchestrator spawns 1 background agent:**
+12. **Orchestrator spawns 1 spawned agent:**
     ```python
     # Check current WIP
     active_agents = count_active_background_agents()
     # Result: 0
 
     # Spawn agent
-    Task(..., run_in_background=True)
+    Task(..., )
     ```
 
 13. **Expected: Gate PASSES**
@@ -228,7 +228,7 @@ Gate 05 enforces Lean Flow principles from "Accelerate" (Gene Kim, Jez Humble, N
     active_agents = count_active_background_agents()
     # Result: 1
 
-    Task(..., run_in_background=True)
+    Task(..., )
     ```
 
 15. **Expected: Gate PASSES with note**
@@ -248,7 +248,7 @@ Gate 05 enforces Lean Flow principles from "Accelerate" (Gene Kim, Jez Humble, N
     active_agents = count_active_background_agents()
     # Result: 2
 
-    Task(..., run_in_background=True)
+    Task(..., )
     ```
 
 17. **Expected: Gate WARNS but PASSES**
@@ -275,14 +275,14 @@ Gate 05 enforces Lean Flow principles from "Accelerate" (Gene Kim, Jez Humble, N
     # Result: 3
 
     # Attempt to spawn 4th
-    Task(..., run_in_background=True)
+    Task(..., )
     ```
 
 19. **Expected: Gate BLOCKS**
     ```
     ❌ GATE 05: LEAN FLOW - BLOCKED
 
-    Current background agents: 3
+    Current spawned agents: 3
     Attempting to spawn: 4th agent
     Maximum allowed: 3 concurrent agents
 
@@ -319,7 +319,7 @@ Gate 05 enforces Lean Flow principles from "Accelerate" (Gene Kim, Jez Humble, N
       - Spawn new agent after WIP drops below 3
 
     Option 2: Sequential execution
-      - Remove run_in_background=true
+      - Remove 
       - Execute tasks one at a time
 
     Option 3: Further decomposition
@@ -737,7 +737,7 @@ Target: >95%
 - **Mitigation:** Adjust estimate based on file types in justification
 
 **Issue 3: Dynamic WIP Tracking**
-- Need real-time tracking of active background agents
+- Need real-time tracking of active spawned agents
 - **Implementation:** Orchestrator maintains agent registry
 - **Verification:** Count agents before each spawn
 

@@ -248,7 +248,7 @@ bd show bd-a1b2
 **Beads task exists but agent never started:**
 - Beads task created but agent spawn failed
 - Check Task tool errors in Orchestrator output
-- Verify background agent permissions configured
+- Verify spawned agent permissions configured
 
 ## Agent Registration Protocol
 
@@ -259,7 +259,7 @@ Orchestrators MUST follow this protocol when spawning agents:
 Task(subagent_type="general-purpose",
      description="Implement feature",
      prompt="...",
-     run_in_background=true)
+     )
 
 # 2. Create Beads task immediately
 bd create "Agent: Engineer - Implement feature" \

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-TC-BA-005: Background Agent Permission Verification (Executable Test)
+TC-BA-005: Spawned Agent Permission Verification (Executable Test)
 
 Automated test that verifies .claude/settings.json is properly configured
-for background agents.
+for spawned agents.
 """
 
 import json
@@ -14,7 +14,7 @@ from pathlib import Path
 
 class TestBackgroundAgentPermissions(unittest.TestCase):
     """
-    Executable tests for background agent permission configuration.
+    Executable tests for spawned agent permission configuration.
 
     Based on TC-BA-005: Permission Pre-Verification
     """
@@ -112,7 +112,7 @@ class TestBackgroundAgentPermissions(unittest.TestCase):
             "bypassPermissions",
             f"❌ defaultMode must be 'bypassPermissions'\n"
             f"Current: '{default_mode}'\n"
-            f"Background agents cannot prompt for permissions"
+            f"Spawned Agents cannot prompt for permissions"
         )
 
     def test_local_override_warning(self):
@@ -125,7 +125,7 @@ class TestBackgroundAgentPermissions(unittest.TestCase):
 
 class TestGate08Enforcement(unittest.TestCase):
     """
-    Tests for Gate 08: Background Agent Permission Enforcement
+    Tests for Gate 08: Spawned Agent Permission Enforcement
 
     Verifies the gate would block spawning if permissions missing.
     """
@@ -161,7 +161,7 @@ class TestGate08Enforcement(unittest.TestCase):
             f"❌ Gate 08 would BLOCK spawning:\n"
             f"  Write(*) configured: {has_write}\n"
             f"  defaultMode correct: {correct_mode}\n"
-            f"Cannot spawn background agents until both are true"
+            f"Cannot spawn spawned agents until both are true"
         )
 
     def test_gate_would_block_without_write(self):
@@ -229,16 +229,16 @@ def run_tests():
 
     if result.wasSuccessful():
         print("\n✅ ALL TESTS PASSED")
-        print("\nBackground agents are properly configured!")
-        print("Safe to spawn with run_in_background=true")
+        print("\nSpawned Agents are properly configured!")
+        print("Safe to spawn with ")
         return 0
     else:
         print("\n❌ TESTS FAILED")
-        print("\nFix configuration issues before spawning background agents.")
+        print("\nFix configuration issues before spawning spawned agents.")
         print("\nSolutions:")
         print("1. Run: python3 .ai-pack/templates/.claude-setup.py")
         print("2. Or manually add Write(*) and set defaultMode")
-        print("3. Or use foreground agents (run_in_background=false)")
+        print("3. Or use foreground agents ()")
         return 1
 
 

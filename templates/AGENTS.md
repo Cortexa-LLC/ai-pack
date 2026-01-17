@@ -149,7 +149,7 @@ Follow the execution strategy defined in the roles, especially `.ai-pack/roles/o
 - Orchestrator runs in the foreground and delegates work to role-specific agents.
 - Perform mandatory execution strategy analysis for 2+ subtasks; document PARALLEL/SEQUENTIAL/HYBRID.
 - For 3+ independent subtasks, parallel execution is required; launch workers together.
-- WIP limits for background agents: max 3, preferred 2, ideal 1.
+- WIP limits for spawned agents: max 3, preferred 2, ideal 1.
 - Background agents that write files require write permissions; otherwise run them in foreground.
 - For every spawned agent, create a corresponding Beads task and verify artifacts persist.
 

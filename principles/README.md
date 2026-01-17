@@ -20,7 +20,7 @@ This directory contains the core principles that underpin the AI-Pack framework.
 
 **Core Concepts:**
 - Small batch sizes (≤8 files per task packet)
-- Work In Progress (WIP) limits (≤3 background agents)
+- Work In Progress (WIP) limits (≤3 spawned agents)
 - Queue theory applications
 - Flow optimization over utilization
 - Build quality in (shift left)
@@ -73,7 +73,7 @@ Production failures in AI-Pack were directly caused by violating these principle
 
 **Example:**
 - **Principle:** WIP limits reduce cycle time
-- **Orchestrator Role:** Maximum 3 concurrent background agents
+- **Orchestrator Role:** Maximum 3 concurrent spawned agents
 
 ### Principles → Tests
 
@@ -108,7 +108,7 @@ Production failures in AI-Pack were directly caused by violating these principle
 
 **Why:** Queue theory - lower WIP = faster cycle time
 
-**How:** Maximum 3 background agents simultaneously
+**How:** Maximum 3 spawned agents simultaneously
 
 **Enforcement:** Gate 05 (Lean Flow), Orchestrator role
 
@@ -220,8 +220,8 @@ Redesign as incremental generator:
 ### WIP Metrics
 
 **Measure:**
-- Average concurrent background agents
-- Maximum concurrent background agents
+- Average concurrent spawned agents
+- Maximum concurrent spawned agents
 - Time at WIP limit
 
 **Target:**
@@ -277,7 +277,7 @@ Redesign as incremental generator:
 
 **Violates:** WIP Limits
 
-**Symptom:** 5+ background agents spawned simultaneously
+**Symptom:** 5+ spawned agents spawned simultaneously
 
 **Impact:** Verification overwhelm, coordination complexity
 

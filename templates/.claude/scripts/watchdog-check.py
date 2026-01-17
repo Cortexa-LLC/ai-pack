@@ -68,7 +68,7 @@ def check_orchestrator_role_violations():
     return True
 
 def check_permissions():
-    """Verify permissions configured for background agents."""
+    """Verify permissions configured for spawned agents."""
     settings_file = '.claude/settings.json'
     if not os.path.exists(settings_file):
         print("⚠️ WATCHDOG: settings.json missing")

@@ -10,7 +10,7 @@
 
 ### ✅ What We Have (18 tests - UPDATED 2026-01-15)
 
-**Background Agents (5 tests):**
+**Spawned Agents (5 tests):**
 - TC-BA-001: File Persistence Verification
 - TC-BA-002: Token Limit Detection
 - TC-BA-003: Working Directory Context
@@ -25,7 +25,7 @@
 - TC-GT-001: Lean Flow Enforcement
 
 **Integration (1 test):**
-- TC-INT-001: Background Agent File Persistence
+- TC-INT-001: Spawned Agent File Persistence
 
 **✨ NEW: Role Tests (9 tests):**
 - test_role_engineer.py (9 executable tests)
@@ -110,7 +110,7 @@
 **Gates (1 of 6+ gates tested):**
 - ✅ Gate 05: Lean Flow (tested)
 - ❌ Gate 00: Global Gates
-- ❌ Gate 08: Background Agent Permissions (documented but not tested)
+- ❌ Gate 08: Spawned Agent Permissions (documented but not tested)
 - ❌ Gate 10: Persistence Gate
 - ❌ Gate 20: Tool Policy
 - ❌ Gate 30: TDD Enforcement

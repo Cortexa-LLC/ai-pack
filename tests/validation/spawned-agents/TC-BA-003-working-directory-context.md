@@ -1,6 +1,6 @@
 # TC-BA-003: Working Directory Context Verification
 
-**Category:** Background Agents
+**Category:** Spawned Agents
 **Priority:** Critical
 **Status:** Active
 **Last Updated:** 2026-01-15
@@ -9,7 +9,7 @@
 
 ## Objective
 
-Validate that orchestrators pass working directory context to ALL background agents and that agents write files to the correct repository location (not isolated sandboxes).
+Validate that orchestrators pass working directory context to ALL spawned agents and that agents write files to the correct repository location (not isolated sandboxes).
 
 ## Background
 
@@ -25,7 +25,7 @@ Background agents run in isolated contexts with different working directories. W
 **File Creation Flow (Without Fix):**
 ```
 1. Orchestrator pwd: /Users/user/harvana
-2. Spawns background agent
+2. Spawns spawned agent
 3. Agent pwd: /tmp/claude-agent-a9a6821/  ← DIFFERENT!
 4. Agent: Write("tools/schema-validation/package.json")
 5. File created: /tmp/claude-agent-a9a6821/tools/schema-validation/package.json ✅
@@ -40,7 +40,7 @@ Background agents run in isolated contexts with different working directories. W
 
 ## Prerequisites
 
-- Project with background agent capability
+- Project with spawned agent capability
 - Test directory structure
 - `.claude/settings.json` configured
 
@@ -87,7 +87,7 @@ Background agents run in isolated contexts with different working directories. W
      Task packet: .ai/tasks/2026-01-15_test-ba-003/
      Follow TDD. Update work log.
      """,
-     run_in_background=true
+     
    )
    ```
 
@@ -146,7 +146,7 @@ Background agents run in isolated contexts with different working directories. W
      Task packet: .ai/tasks/2026-01-15_test-ba-003/
      Follow TDD. Update work log.
      """,
-     run_in_background=true
+     
    )
    ```
 
@@ -349,7 +349,7 @@ Task(
   Task packet: .ai/tasks/[task-id]/
   Follow TDD. Update work log.
   """,
-  run_in_background=true
+  
 )
 ```
 
@@ -410,7 +410,7 @@ Task(
 
 **Before Working Directory Context Fix:**
 - File persistence rate: ~30% (many files in sandbox)
-- Manual recovery required: ~70% of background agents
+- Manual recovery required: ~70% of spawned agents
 - Average time to discover: 10-30 minutes (after build fails)
 
 **After Working Directory Context Fix:**
@@ -420,7 +420,7 @@ Task(
 
 ## References
 
-- **Commit:** `801fb14` - CRITICAL FIX: Pass working directory context to ALL background agents
+- **Commit:** `801fb14` - CRITICAL FIX: Pass working directory context to ALL spawned agents
 - **Orchestrator Skill:** Lines 9-22 (FILE PERSISTENCE REQUIREMENT)
 - **Orchestrator Skill:** Lines 135-148 (Basic delegation pattern with context)
 - **Real Failure:** Harvana tools/schema-validation/package.json not created

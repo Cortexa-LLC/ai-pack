@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Background Agent Permission Verification Utility
+Spawned Agent Permission Verification Utility
 
-Verifies that .claude/settings.json is properly configured for background agents
+Verifies that .claude/settings.json is properly configured for spawned agents
 that need to write files to the repository.
 
 Based on TC-BA-005: Permission Pre-Verification test case.
@@ -19,7 +19,7 @@ from typing import Dict, List, Tuple
 
 
 class PermissionVerifier:
-    """Verifies background agent permissions are configured correctly"""
+    """Verifies spawned agent permissions are configured correctly"""
 
     def __init__(self, repo_root: Path):
         self.repo_root = repo_root
@@ -36,7 +36,7 @@ class PermissionVerifier:
         Returns:
             Tuple of (success, errors, warnings)
         """
-        print("🔍 Checking background agent permissions...\n")
+        print("🔍 Checking spawned agent permissions...\n")
 
         # Step 1: Check settings.json exists
         if not self._check_settings_exists():
@@ -84,7 +84,7 @@ class PermissionVerifier:
                 f"     cp .ai-pack/templates/.claude/settings.json .claude/\n"
                 f"\n"
                 f"   Option 3: Run agents in FOREGROUND\n"
-                f"     Use run_in_background=false\n"
+                f"     Use \n"
                 f"     Agents will prompt for permissions interactively"
             )
             return False
@@ -249,14 +249,14 @@ class PermissionVerifier:
             print("  - Editing existing files")
             print("  - Reading project files")
             print("  - Running git commands")
-            print("\nSafe to spawn background agents with run_in_background=true")
+            print("\nSafe to spawn spawned agents with ")
 
         print()
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Verify background agent permissions are configured correctly"
+        description="Verify spawned agent permissions are configured correctly"
     )
     parser.add_argument(
         "--repo-root",
@@ -282,11 +282,11 @@ def main():
     # Exit with appropriate code
     if not success:
         print("❌ PERMISSION VERIFICATION FAILED")
-        print("\nCannot safely spawn background agents until errors are fixed.")
+        print("\nCannot safely spawn spawned agents until errors are fixed.")
         print("\nOptions:")
         print("1. Fix errors above and retry")
         print("2. Run: python3 .ai-pack/templates/.claude-setup.py")
-        print("3. Use foreground agents (run_in_background=false)")
+        print("3. Use foreground agents ()")
         sys.exit(1)
     elif warnings:
         print("⚠️  PERMISSION VERIFICATION PASSED WITH WARNINGS")
@@ -294,7 +294,7 @@ def main():
         sys.exit(0)
     else:
         print("✅ PERMISSION VERIFICATION PASSED")
-        print("\nSafe to spawn background agents!")
+        print("\nSafe to spawn spawned agents!")
         sys.exit(0)
 
 

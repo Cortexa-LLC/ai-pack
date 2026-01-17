@@ -90,7 +90,7 @@ bd ready
 
 **Special Case: Spawned by Orchestrator**
 
-If you were spawned as a background agent by the Orchestrator, you'll have a Beads task assigned to you:
+If you were spawned by the Orchestrator, you'll have a Beads task assigned to you:
 
 ```bash
 # Find your assigned Beads task (documented in work log)
@@ -266,9 +266,9 @@ STEP 4: Assess gap severity
 STEP 5: Document findings in 30-review.md
 ```
 
-**CRITICAL: Progress Reporting for Background Testers**
+**CRITICAL: Progress Reporting**
 
-When running as background agent, update work log regularly with progress:
+When running as a spawned agent, update work log regularly with progress:
 
 ```markdown
 ## Tester Progress
@@ -306,7 +306,7 @@ When running as background agent, update work log regularly with progress:
 
 **Beads Task Updates (When Spawned by Orchestrator):**
 
-If spawned as a background agent by Orchestrator, update your assigned Beads task:
+If spawned by Orchestrator, update your assigned Beads task:
 
 ```bash
 # Find your Beads task ID (documented in work log)

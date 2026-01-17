@@ -434,7 +434,7 @@ def main():
         epilog="""
 Examples:
   %(prog)s --critical                       # Run critical tests
-  %(prog)s --category background-agents     # Run background agent tests
+  %(prog)s --category background-agents     # Run spawned agent tests
   %(prog)s --priority Critical              # Run all critical tests
   %(prog)s --test TC-BA-001                 # Run specific test
   %(prog)s --list                           # List all tests

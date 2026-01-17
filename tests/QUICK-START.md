@@ -26,7 +26,7 @@ python3 tools/run-validation.py --list
 Available Test Cases:
 
 Category: background-agents
-  [Critical] TC-BA-001: Background Agent File Persistence Verification
+  [Critical] TC-BA-001: Spawned Agent File Persistence Verification
   [Critical] TC-BA-002: Token Limit Detection and Error Reporting
 
 Category: orchestrator
@@ -46,7 +46,7 @@ This runs all tests marked as **Priority: Critical** - the must-pass tests befor
 ### Run Specific Category
 
 ```bash
-# Test background agents
+# Test spawned agents
 python3 tools/run-validation.py --category background-agents
 
 # Test orchestrator
@@ -77,7 +77,7 @@ When you run a test, here's what happens:
    Running: TC-BA-001
      Priority: Critical
      Status: Active
-     Title: TC-BA-001: Background Agent File Persistence Verification
+     Title: TC-BA-001: Spawned Agent File Persistence Verification
 
      Test case: /path/to/TC-BA-001-file-persistence.md
      Follow manual execution steps in test case document
@@ -108,7 +108,7 @@ When you run a test, here's what happens:
 
 These tests MUST pass before deploying workflow changes:
 
-### Background Agents
+### Spawned Agents
 ```bash
 python3 tools/run-validation.py --test TC-BA-001  # File Persistence
 python3 tools/run-validation.py --test TC-BA-002  # Token Limit Detection
@@ -195,7 +195,7 @@ ls -t *.md | head -1  # Latest report
 
 ## Test Results Summary
 
-### TC-BA-001: Background Agent File Persistence Verification
+### TC-BA-001: Spawned Agent File Persistence Verification
 
 **Status:** ✅ PASSED
 **Notes:** Manual execution successful
@@ -266,12 +266,12 @@ ls -t *.md | head -1  # Latest report
 
 ## Common Scenarios
 
-### Scenario 1: Testing Background Agent Fix
+### Scenario 1: Testing Spawned Agent Fix
 
 ```bash
 # 1. Make changes to orchestrator.md or agent behavior
 
-# 2. Run background agent tests
+# 2. Run spawned agent tests
 python3 tools/run-validation.py --category background-agents
 
 # 3. Follow test scenarios for TC-BA-001 and TC-BA-002

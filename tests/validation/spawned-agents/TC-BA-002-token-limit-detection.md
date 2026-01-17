@@ -1,6 +1,6 @@
 # TC-BA-002: Token Limit Detection and Error Reporting
 
-**Category:** Background Agents
+**Category:** Spawned Agents
 **Priority:** Critical
 **Status:** Active
 **Last Updated:** 2026-01-15
@@ -9,7 +9,7 @@
 
 ## Objective
 
-Validate that orchestrators detect when background agents hit token limits and correctly report this as a failure rather than success.
+Validate that orchestrators detect when spawned agents hit token limits and correctly report this as a failure rather than success.
 
 ## Background
 
@@ -86,7 +86,7 @@ Validate that orchestrators detect when background agents hit token limits and c
 
      Task packet: .ai/tasks/2026-01-15_test-ba-002/
      """,
-     run_in_background=true
+     
    )
    ```
 
@@ -169,7 +169,7 @@ Validate that orchestrators detect when background agents hit token limits and c
       Task packet: .ai/tasks/2026-01-15_test-ba-002/
       Follow TDD. Update work log.
       """,
-      run_in_background=true
+      
     )
     ```
 

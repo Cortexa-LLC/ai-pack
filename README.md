@@ -665,9 +665,9 @@ git commit -m "Add ai-pack framework with Claude Code integration"
 - ✅ Modular rules auto-loaded for all files
 - ✅ Complete framework integration in Claude Code
 
-**CRITICAL: Configure permissions for background agents:**
+**CRITICAL: Configure permissions for spawned agents:**
 ```bash
-# Background agents need file write permissions
+# Spawned agents need file write permissions
 # See docs/CLAUDE-CODE-CONFIGURATION.md for details
 ```
 

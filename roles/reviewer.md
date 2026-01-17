@@ -88,7 +88,7 @@ bd ready
 
 **Special Case: Spawned by Orchestrator**
 
-If you were spawned as a background agent by the Orchestrator, you'll have a Beads task assigned to you:
+If you were spawned by the Orchestrator, you'll have a Beads task assigned to you:
 
 ```bash
 # Find your assigned Beads task (documented in work log)
@@ -685,11 +685,11 @@ The Reviewer role enforces all standards from:
 
 ---
 
-### Progress Reporting for Background Reviews
+### Progress Reporting
 
-**CRITICAL: When running as background agent, report progress regularly.**
+**CRITICAL: When running as a spawned agent, report progress regularly.**
 
-Background Reviewers cannot be interrupted or queried mid-review. To enable Orchestrator/Coordinator monitoring, you MUST update the work log with progress milestones.
+Reviewers cannot be interrupted or queried mid-review. To enable Orchestrator/Coordinator monitoring, you MUST update the work log with progress milestones.
 
 **Progress Update Frequency:**
 - After reviewing every 5-10 files
@@ -759,7 +759,7 @@ Edit(
 
 **Beads Task Updates (When Spawned by Orchestrator):**
 
-If spawned as a background agent by Orchestrator, update your assigned Beads task:
+If spawned by Orchestrator, update your assigned Beads task:
 
 ```bash
 # Find your Beads task ID (documented in work log)

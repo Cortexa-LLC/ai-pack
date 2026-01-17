@@ -2,7 +2,7 @@
 Tier 2: Watchdog and Timer Validation Tests
 
 Tests that validate watchdog timers, progress monitoring, timeout enforcement,
-and resource cleanup for background agents.
+and resource cleanup for spawned agents.
 
 These tests ensure agents don't hang indefinitely and that the framework
 properly handles timeouts and failures.
@@ -15,7 +15,7 @@ import json
 
 
 class TestTier2WatchdogAndTimers(unittest.TestCase):
-    """Test watchdog timers and timeout enforcement for background agents"""
+    """Test watchdog timers and timeout enforcement for spawned agents"""
 
     @classmethod
     def setUpClass(cls):

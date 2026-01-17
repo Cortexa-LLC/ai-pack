@@ -1,4 +1,4 @@
-# TC-INT-001: Background Agent File Persistence Integration Test
+# TC-INT-001: Spawned Agent File Persistence Integration Test
 
 **Category:** Integration
 **Priority:** Critical
@@ -9,9 +9,9 @@
 
 ## Objective
 
-Validate that background agents can actually create files in the repository when Write(*) permissions are configured correctly, using REAL background agent execution (not simulation).
+Validate that spawned agents can actually create files in the repository when Write(*) permissions are configured correctly, using REAL spawned agent execution (not simulation).
 
-**This is an INTEGRATION TEST:** Spawns actual background agents and verifies physical file creation.
+**This is an INTEGRATION TEST:** Spawns actual spawned agents and verifies physical file creation.
 
 ## Background
 
@@ -35,7 +35,7 @@ Validate that background agents can actually create files in the repository when
 
 - Project with ai-pack framework
 - .claude/settings.json configured with Write(*) permission
-- Ability to spawn background agents
+- Ability to spawn spawned agents
 - Git repository initialized
 
 ---
@@ -51,7 +51,7 @@ Validate that background agents can actually create files in the repository when
 
    # Must see:
    # ✅ ALL CHECKS PASSED
-   # Safe to spawn background agents!
+   # Safe to spawn spawned agents!
    ```
 
 2. **Create test directory:**
@@ -72,7 +72,7 @@ Validate that background agents can actually create files in the repository when
 
 ---
 
-### Execution Phase: Spawn REAL Background Agent
+### Execution Phase: Spawn REAL Spawned Agent
 
 4. **Define expected outputs:**
    ```bash
@@ -87,11 +87,11 @@ Validate that background agents can actually create files in the repository when
    echo "  - $EXPECTED_FILE_3"
    ```
 
-5. **Spawn ACTUAL background agent:**
+5. **Spawn ACTUAL spawned agent:**
    ```python
    #!/usr/bin/env python3
    """
-   This spawns a REAL background agent using Claude Code Task tool.
+   This spawns a REAL spawned agent using Claude Code Task tool.
    Not a simulation - actual agent execution.
    """
 
@@ -108,17 +108,17 @@ Validate that background agents can actually create files in the repository when
    file_2 = test_dir / "test-file-2.txt"
    file_3 = test_dir / "subdirectory" / "test-file-3.json"
 
-   # CRITICAL: Spawn REAL background agent
-   print("Spawning REAL background agent...")
+   # CRITICAL: Spawn REAL spawned agent
+   print("Spawning REAL spawned agent...")
    print(f"Test directory: {test_dir}")
 
    Task(
        subagent_type="general-purpose",
        description="TC-INT-001: Test background file creation",
        prompt=f"""
-INTEGRATION TEST: TC-INT-001 Background Agent File Persistence
+INTEGRATION TEST: TC-INT-001 Spawned Agent File Persistence
 
-You are a background agent testing file creation capabilities.
+You are a spawned agent testing file creation capabilities.
 
 CRITICAL CONTEXT:
 - Repository root: {repo_root}
@@ -126,17 +126,17 @@ CRITICAL CONTEXT:
 - Current working directory may differ from repository root
 - MUST use absolute paths to ensure files go to repository
 
-TASK: Create 3 test files to verify background agent file persistence
+TASK: Create 3 test files to verify spawned agent file persistence
 
 FILE 1: {file_1}
 Content:
 ```markdown
 # TC-INT-001 Test File 1
 
-**Purpose:** Verify background agent can create markdown files
+**Purpose:** Verify spawned agent can create markdown files
 
 **Timestamp:** {time.time()}
-**Test:** Integration test for background agent permissions
+**Test:** Integration test for spawned agent permissions
 **Agent Type:** Background worker
 **Working Directory:** $(pwd when this file was created)
 
@@ -188,7 +188,7 @@ DO NOT use relative paths - they may write to sandbox.
 EXPECTED OUTCOME:
 All 3 files created in repository at specified absolute paths.
        """,
-       run_in_background=True  # ACTUAL background execution
+         # ACTUAL background execution
    )
 
    print("Background agent spawned!")
@@ -535,7 +535,7 @@ cat .claude/settings.local.json
 python3 tests/tools/verify-background-agent-permissions.py
 
 # Try foreground agent
-# Change run_in_background=False to see interactive errors
+# Change  to see interactive errors
 ```
 
 ---
@@ -706,7 +706,7 @@ False Negatives: <5% (rare timeout on slow systems)
 - `tests/tools/verify-background-agent-permissions.py`
 
 **Gates:**
-- Gate 08: Background Agent Permissions
+- Gate 08: Spawned Agent Permissions
 
 **Documentation:**
 - `roles/orchestrator.md` - Section 2.14

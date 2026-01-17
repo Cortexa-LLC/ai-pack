@@ -226,7 +226,7 @@ Added task size guidelines and decomposition strategy:
      subagent_type="general-purpose",
      description="Implement WunderGraph Gateway",  # 25 files!
      prompt="""Implement all 25 files for gateway...""",
-     run_in_background=true
+     
    )
    # Result: Token limit, 0 files created
    ```
@@ -241,7 +241,7 @@ Added task size guidelines and decomposition strategy:
      Task: Implement gateway foundation (3 config files)
      Task packet: .ai/tasks/2026-01-15_gateway-foundation/
      Follow TDD. Update work log.""",
-     run_in_background=true
+     
    )
 
    # Phase 1: Server (4 files) - parallel with Foundation
@@ -252,7 +252,7 @@ Added task size guidelines and decomposition strategy:
      Task: Implement GraphQL server (4 files)
      Task packet: .ai/tasks/2026-01-15_graphql-server/
      Follow TDD. Update work log.""",
-     run_in_background=true
+     
    )
 
    # ... wait for Phase 1 completion ...
@@ -265,7 +265,7 @@ Added task size guidelines and decomposition strategy:
      Task: Implement GraphQL schemas (9 related files)
      Task packet: .ai/tasks/2026-01-15_graphql-schemas/
      Follow TDD. Update work log.""",
-     run_in_background=true
+     
    )
 
    # ... and so on for Auth and Deployment ...

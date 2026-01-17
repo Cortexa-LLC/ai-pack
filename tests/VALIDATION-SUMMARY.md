@@ -13,7 +13,7 @@ A complete test validation framework to prevent production failures from recurri
 ### Core Components
 
 1. **Test Case Library** (`validation/`)
-   - Background agent tests (file persistence, token limits)
+   - Spawned Agent tests (file persistence, token limits)
    - Orchestrator tests (completion verification, artifact persistence)
    - Gate enforcement tests (TDD, code quality, task packets)
    - Workflow compliance tests
@@ -52,7 +52,7 @@ A complete test validation framework to prevent production failures from recurri
 
 ### TC-BA-003: Working Directory Context
 **Problem:** Agents write to sandbox instead of repository
-**Validates:** Working directory context passed to all background agents
+**Validates:** Working directory context passed to all spawned agents
 **Based On:** Harvana tools/schema-validation/package.json not created
 
 ### TC-BA-004: Absolute Path Requirements
@@ -108,7 +108,7 @@ python3 tools/run-validation.py --critical
 
 ## Production Failures Addressed
 
-### Background Agent Issues
+### Spawned Agent Issues
 
 **Problem 1: False Success Reporting**
 - Agent hit token limit
@@ -159,7 +159,7 @@ python3 tools/run-validation.py --critical
 
 | Category | Test Count | Status |
 |----------|------------|--------|
-| Background Agents | 5 | Active |
+| Spawned Agents | 5 | Active |
 | Orchestrator | 2 | Active |
 | Gates | 0 | TODO |
 | Workflows | 0 | TODO |
@@ -293,7 +293,7 @@ Clear success criteria
 
 - **False Success Rate:** ~100% (all agent failures reported as success)
 - **Detection Time:** After builds break (hours/days later)
-- **Wasted Work:** Hours per failed background agent
+- **Wasted Work:** Hours per failed spawned agent
 - **User Impact:** Confusion, lost confidence in framework
 
 ### After This Framework (Target)
@@ -311,7 +311,7 @@ Clear success criteria
 
 - `edf1d8a` - CRITICAL: Fix token limit failures + false success reporting
 - `e1764ec` - Add task decomposition guidance to prevent token limit failures
-- `801fb14` - CRITICAL FIX: Pass working directory context to ALL background agents
+- `801fb14` - CRITICAL FIX: Pass working directory context to ALL spawned agents
 - `4a1d8a6` - Add MANDATORY zero warnings + artifact persistence verification
 
 ### Documentation

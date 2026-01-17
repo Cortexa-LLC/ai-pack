@@ -40,7 +40,7 @@ def setup_settings_json():
     }
 
     if not settings_path.exists():
-        print("\nCreating .claude/settings.json with background agent permissions...")
+        print("\nCreating .claude/settings.json with spawned agent permissions...")
         with open(settings_path, 'w') as f:
             json.dump(required_config, f, indent=2)
         print("✓ Created .claude/settings.json")

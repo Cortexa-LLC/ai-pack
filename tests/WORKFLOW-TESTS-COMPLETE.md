@@ -2,7 +2,7 @@
 
 **Date:** 2026-01-15
 **Status:** COMPLETE - Ready for Production Validation
-**Test Coverage:** Background Agent Reliability + All Workflows + Gates
+**Test Coverage:** Spawned Agent Reliability + All Workflows + Gates
 
 ---
 
@@ -11,7 +11,7 @@
 **ALL CRITICAL TESTS IMPLEMENTED**
 
 Comprehensive test suite covering:
-1. ✅ **Background Agent Reliability** (MOST CRITICAL - 8 tests)
+1. ✅ **Spawned Agent Reliability** (MOST CRITICAL - 8 tests)
 2. ✅ **Task Packet Lifecycle** (10 tests)
 3. ✅ **Feature Workflow** (9 tests)
 4. ✅ **Bugfix Workflow** (6 tests)
@@ -25,7 +25,7 @@ Comprehensive test suite covering:
 
 ---
 
-## 🚨 CRITICAL: Background Agent Reliability Tests
+## 🚨 CRITICAL: Spawned Agent Reliability Tests
 
 **File:** `test_background_agent_reliability.py`
 **Priority:** HIGHEST - These address your #1 concern
@@ -37,7 +37,7 @@ Comprehensive test suite covering:
 ```
 test_01_background_agent_creates_actual_file()
 ```
-- ✅ Background agent creates file that persists to disk
+- ✅ Spawned Agent creates file that persists to disk
 - ✅ File in repository (not sandbox)
 - ✅ File readable after agent completes
 - ✅ Content correct
@@ -116,7 +116,7 @@ test_01_orchestrator_verifies_completion_checklist()
 
 ---
 
-## Test Results: Background Agent Reliability
+## Test Results: Spawned Agent Reliability
 
 ```bash
 $ python3 test_background_agent_reliability.py -v
@@ -295,7 +295,7 @@ OK
 - ✅ Multi-agent coordination
 - ✅ WIP limit enforcement
 - ✅ Permission enforcement
-- ✅ Background agent execution
+- ✅ Spawned Agent execution
 
 **Note:** These tests document what SHOULD happen in actual Claude Code execution. Currently run in simulation mode for validation.
 
@@ -336,7 +336,7 @@ OK
 ```bash
 cd tests/
 
-# Critical background agent tests
+# Critical spawned agent tests
 python3 test_background_agent_reliability.py -v
 
 # Workflow tests
@@ -373,19 +373,19 @@ OK (skipped=20)
 - **Test Files:** 8 files
 - **Tests:** 63 tests
 - **Workflow Coverage:** 0% (no workflow tests)
-- **Background Agent Reliability:** Basic tests only
+- **Spawned Agent Reliability:** Basic tests only
 
 ### After New Tests
 - **Test Files:** 16 files (+8)
 - **Tests:** 127 tests (+64)
 - **Workflow Coverage:** 100% (all 4 workflows)
-- **Background Agent Reliability:** Comprehensive (8 critical tests)
+- **Spawned Agent Reliability:** Comprehensive (8 critical tests)
 
 ### Coverage by Category
 
 | Category | Tests | Status |
 |----------|-------|--------|
-| **Background Agent Reliability** | 8 | ✅ CRITICAL |
+| **Spawned Agent Reliability** | 8 | ✅ CRITICAL |
 | Task Packet Lifecycle | 10 | ✅ Complete |
 | Feature Workflow | 9 | ✅ Complete |
 | Bugfix Workflow | 6 | ✅ Complete |
@@ -396,7 +396,7 @@ OK (skipped=20)
 | Role Tests | 42 | ✅ Complete |
 | Beads Integration | 11 | ✅ Complete |
 | Orchestrator | 7 | ✅ Complete |
-| Background Agents | 10 | ✅ Complete |
+| Spawned Agents | 10 | ✅ Complete |
 | **TOTAL** | **127** | **✅ COMPLETE** |
 
 ---
@@ -420,9 +420,9 @@ OK (skipped=20)
 
 ## Critical Success Criteria
 
-### ✅ Background Agent Reliability (HIGHEST PRIORITY)
+### ✅ Spawned Agent Reliability (HIGHEST PRIORITY)
 
-**Goal:** Eliminate silent failures in background agents
+**Goal:** Eliminate silent failures in spawned agents
 
 **Tests:**
 - ✅ Artifact persistence verified
@@ -463,7 +463,7 @@ OK (skipped=20)
 
 ### Validation Checklist
 
-- ✅ **Background Agent Reliability:** 8/8 critical tests passing
+- ✅ **Spawned Agent Reliability:** 8/8 critical tests passing
 - ✅ **All Workflows Tested:** 4/4 workflows validated
 - ✅ **All Roles Tested:** 8/8 roles validated
 - ✅ **Quality Gates:** 3/3 critical gates tested
@@ -495,13 +495,13 @@ task = Task(
     subagent_type="general-purpose",
     description="Test Engineer role",
     prompt=f"Act as Engineer. Create file at {absolute_path}",
-    run_in_background=True
+    
 )
 ```
 
-### 2. Validate Background Agent Behavior
+### 2. Validate Spawned Agent Behavior
 
-- Spawn real background agents
+- Spawn real spawned agents
 - Verify files persist to disk
 - Confirm no silent failures
 - Validate token limit handling
@@ -531,7 +531,7 @@ task = Task(
 1. **Role Modified:** Update corresponding role tests
 2. **Workflow Changed:** Update workflow tests
 3. **Gate Added/Modified:** Update gate tests
-4. **New Failure Mode:** Add to background agent reliability tests
+4. **New Failure Mode:** Add to spawned agent reliability tests
 
 ### Pre-Change Validation
 
@@ -560,7 +560,7 @@ This validates:
 - Critical failure modes covered
 
 **Most Critical Achievement:**
-✅ **Background Agent Reliability Tests** validate the #1 failure mode you experienced:
+✅ **Spawned Agent Reliability Tests** validate the #1 failure mode you experienced:
 - Silent failures detected
 - Artifact persistence verified
 - Token limits handled
@@ -568,7 +568,7 @@ This validates:
 - Complete deliverable verification
 
 **Production Ready Status:**
-Framework now has comprehensive test coverage validating all workflows, roles, gates, and the critical background agent reliability issues.
+Framework now has comprehensive test coverage validating all workflows, roles, gates, and the critical spawned agent reliability issues.
 
 **Next:** Execute Tier 2 tests in real Claude Code environment with actual agent spawning.
 

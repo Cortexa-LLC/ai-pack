@@ -162,14 +162,14 @@ Create 15 Python files:
         ]
 
         if REAL_AGENTS:
-            print("\n🚀 Spawning REAL background agent...")
+            print("\n🚀 Spawning REAL spawned agent...")
             # TODO: Implement real agent spawning when in Claude Code environment
             # from claude_code import Task
             # task = Task(
             #     subagent_type="general-purpose",
             #     description="Create 15-file user management system",
             #     prompt=f"Read contract at {contract.absolute()} and create all 15 deliverable files",
-            #     run_in_background=True
+            #     
             # )
             # Wait for completion, verify files
             self.skipTest("Real agent execution not yet implemented")

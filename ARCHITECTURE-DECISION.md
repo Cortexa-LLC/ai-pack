@@ -10,10 +10,10 @@
 
 ### The Real Goal: Parallel Execution
 
-The ai-pack framework's value proposition is **enabling parallel task execution** through background agents. The focus should be on:
+The ai-pack framework's value proposition is **enabling parallel task execution** through spawned agents. The focus should be on:
 
 1. **Making parallel execution easy and obvious** - When tasks can be parallelized
-2. **Encouraging Task tool usage** - Background agents for independent work
+2. **Encouraging Task tool usage** - Spawned agents for independent work
 3. **Coordination patterns** - How multiple agents work together effectively
 4. **Not enforcement** - Fighting LLM behavior with hooks is the wrong approach
 
@@ -38,7 +38,7 @@ Initially, we tried to **enforce** that Orchestrator couldn't execute directly:
 
 Instead of restricting what Orchestrator can't do, **highlight what parallel execution enables:**
 
-1. **Multiple independent tasks** - Spawn parallel background agents
+1. **Multiple independent tasks** - Spawn parallel spawned agents
 2. **Faster completion** - Work happens concurrently
 3. **Clean separation** - Each agent has its own context and work log
 4. **Coordination patterns** - Agents coordinate through shared state
@@ -85,7 +85,7 @@ Instead of restricting what Orchestrator can't do, **highlight what parallel exe
 
 **2. Use Task Tool for Parallel Execution**
 - Spawn multiple agents in single response
-- Use `run_in_background=true` for non-interactive execution
+- Use concurrent spawning for non-interactive execution
 - Each agent gets its own context and work log
 - Agents coordinate through shared files/state
 
@@ -165,17 +165,17 @@ Instead of preventing Orchestrator from executing:
 Task(subagent_type="general-purpose",
      description="Implement authentication",
      prompt="Implement user authentication feature...",
-     run_in_background=true)
+     )
 
 Task(subagent_type="general-purpose",
      description="Implement search",
      prompt="Implement search functionality...",
-     run_in_background=true)
+     )
 
 Task(subagent_type="general-purpose",
      description="Implement export",
      prompt="Implement data export feature...",
-     run_in_background=true)
+     )
 ```
 
 **Result:** All 3 features implemented concurrently, faster completion.
@@ -204,12 +204,12 @@ Task(subagent_type="general-purpose",
 Task(subagent_type="general-purpose",
      description="Test new feature",
      prompt="Run tests for feature X...",
-     run_in_background=true)
+     )
 
 Task(subagent_type="general-purpose",
      description="Review new feature",
      prompt="Review code quality for feature X...",
-     run_in_background=true)
+     )
 ```
 
 **Result:** Implementation done interactively, validation parallelized.
@@ -218,7 +218,7 @@ Task(subagent_type="general-purpose",
 
 - **orchestrator-enforcement.py hook** - Blocks execution tools
 - **Task tool delegation pattern** - Only valid delegation mechanism
-- **Background agents** - True parallel execution with autonomy
+- **Spawned agents** - True parallel execution with autonomy
 
 ## References
 

@@ -2,7 +2,7 @@
 """
 Coordination Timer - Periodic Agent Monitoring
 
-Triggers coordination check-ins every 30 seconds to monitor background agents.
+Triggers coordination check-ins every 30 seconds to monitor spawned agents.
 Cross-platform Python implementation.
 
 Usage: coordination-timer.py [interval_seconds] [max_checks]

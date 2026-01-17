@@ -113,7 +113,7 @@ Configures Claude Code behavior including hooks and permissions.
 }
 ```
 
-**Permission Configuration (Required for Background Agents):**
+**Permission Configuration (Required for Spawned Agents):**
 
 ```json
 {
@@ -136,7 +136,7 @@ Background agents spawned via the Task tool require explicit file permissions to
 - Write test results and reports
 - Execute task contracts that involve file operations
 
-Without these permissions, background agents will be blocked when attempting file operations.
+Without these permissions, spawned agents will be blocked when attempting file operations.
 
 **Permission Details:**
 
@@ -305,7 +305,7 @@ echo '{"user_input": "implement login"}' | python3 .claude/hooks/check-task-pack
 
 ## Troubleshooting
 
-### Background Agents Cannot Write Files
+### Spawned Agents Cannot Write Files
 
 **Symptom:** Background agents fail with permission errors when trying to create or modify files.
 

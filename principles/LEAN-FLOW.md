@@ -13,7 +13,7 @@
 
 **Evidence:**
 - Token limit failures: 25-file tasks exceed context budget
-- False success reporting: Too many parallel background agents to verify
+- False success reporting: Too many parallel spawned agents to verify
 - File persistence issues: Complex task packets with 15+ deliverables
 - Orchestrator overwhelm: Tracking too many in-flight work items
 
@@ -32,7 +32,7 @@
 - ⚠️ **ACCEPTABLE:** 6-14 files per task packet (requires decomposition plan)
 - ❌ **TOO LARGE:** 15+ files per task packet (MUST decompose)
 
-**Background Agent Delegation:**
+**Spawned Agent Delegation:**
 - ✅ **IDEAL:** Single-purpose agents (one deliverable each)
 - ⚠️ **ACCEPTABLE:** Multi-file agents (3-5 related files)
 - ❌ **TOO LARGE:** Complex agents (6+ files or multiple concerns)
@@ -157,9 +157,9 @@
 ### WIP Limits for AI-Pack
 
 **Orchestrator WIP Limits:**
-- ✅ **MAXIMUM:** 3 background agents running simultaneously
-- ⚠️ **PREFERRED:** 2 background agents (easier to verify)
-- 🎯 **IDEAL:** 1 background agent (complete before next)
+- ✅ **MAXIMUM:** 3 spawned agents running simultaneously
+- ⚠️ **PREFERRED:** 2 spawned agents (easier to verify)
+- 🎯 **IDEAL:** 1 spawned agent (complete before next)
 
 **Task Packet WIP Limits:**
 - ✅ **MAXIMUM:** 2 active task packets in `.ai/tasks/active/`
@@ -207,14 +207,14 @@ Reducing WIP from 6→2 cuts cycle time by 66%!
 **Orchestrator Example:**
 ```
 ❌ WRONG: High WIP
-- 5 background agents spawned
+- 5 spawned agents spawned
 - Orchestrator tracking 5 outputs
 - 5 verification protocols to run
 - Context consumed by coordination
 - Cycle time: 45 minutes
 
 ✅ CORRECT: Low WIP
-- 1 background agent spawned
+- 1 spawned agent spawned
 - Orchestrator tracks 1 output
 - 1 verification protocol
 - Minimal coordination overhead
@@ -225,7 +225,7 @@ Result: 5× faster completion per task!
 
 ### WIP Limit Enforcement
 
-**Gate: Maximum Concurrent Background Agents**
+**Gate: Maximum Concurrent Spawned Agents**
 ```python
 # In orchestrator skill
 
@@ -238,7 +238,7 @@ def spawn_background_agent(self, task):
         return """
         ⚠️ WIP LIMIT REACHED
 
-        Current background agents: {active_agents}
+        Current spawned agents: {active_agents}
         Maximum allowed: 3
 
         MUST complete and verify existing agents before spawning new ones.
@@ -246,11 +246,11 @@ def spawn_background_agent(self, task):
         Options:
         1. Wait for agent completion
         2. Decompose task further
-        3. Run agent in foreground (sequential)
+        3. Run agent in sequential execution
         """
 
     # WIP within limits, proceed
-    spawn_agent(task, run_in_background=true)
+    spawn_agent(task, spawning agents)
 ```
 
 ---
@@ -361,7 +361,7 @@ def spawn_background_agent(self, task):
 
 ### For Orchestrators
 
-**BEFORE Spawning Background Agents:**
+**BEFORE Spawning Spawned Agents:**
 1. Check WIP limit (max 3 agents)
 2. Verify batch size (max 8 files)
 3. Confirm token budget (< 25K)
@@ -440,7 +440,7 @@ def spawn_background_agent(self, task):
 ```python
 # Spawn 6 agents simultaneously
 for task in tasks:
-    Task(..., run_in_background=true)
+    Task(..., spawning agents)
 
 # Result: Overwhelmed orchestrator, verification chaos
 ```
@@ -451,7 +451,7 @@ for task in tasks:
 active_agents = 0
 for task in tasks:
     if active_agents < 3:
-        Task(..., run_in_background=true)
+        Task(..., spawning agents)
         active_agents += 1
     else:
         # Wait for completion or run sequentially
@@ -490,7 +490,7 @@ Orchestrator: "STOP. Verification failed. Must fix before proceeding."
 
 **Work In Progress:**
 - Current active task packets: 2
-- Current background agents: 1
+- Current spawned agents: 1
 - Target: ≤ 3 agents
 - Status: ✅ Within limits
 
@@ -537,7 +537,7 @@ Orchestrator: "STOP. Verification failed. Must fix before proceeding."
 **This framework is successful when:**
 
 ✅ Average batch size < 5 files
-✅ WIP consistently ≤ 3 background agents
+✅ WIP consistently ≤ 3 spawned agents
 ✅ Cycle time < 2 hours for small batches
 ✅ Verification failure rate < 15%
 ✅ No token limit failures (prevented by small batches)

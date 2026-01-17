@@ -154,7 +154,7 @@ This task is too large (X files) and MUST be decomposed:
 
 **Execution Strategy:**
 - Sequential (dependencies) OR Parallel (independent)
-- WIP Limit: Max 3 background agents simultaneously
+- WIP Limit: Max 3 spawned agents simultaneously
 ```
 
 **If 6-14 files, document reasoning:**
@@ -206,7 +206,7 @@ Target: Each batch ≤42K tokens (≤14 files)
 
 **Concurrent Execution Assessment:**
 ```
-How many background agents will run simultaneously?
+How many spawned agents will run simultaneously?
 
 ├─ 1 agent → ✅ IDEAL (complete before next)
 ├─ 2-3 agents → ⚠️ ACCEPTABLE (within limits)
@@ -220,7 +220,7 @@ Planned WIP: [X agents]
 ### Parallel Execution Plan
 
 **Agents to spawn:** [X]
-**WIP limit:** Maximum 3 concurrent background agents
+**WIP limit:** Maximum 3 concurrent spawned agents
 
 **Agent 1:** [Task description]
 - Files: [list]

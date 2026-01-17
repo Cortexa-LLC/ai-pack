@@ -295,7 +295,7 @@ When orchestrator detects work effort completion that triggers this gate:
    Task(subagent_type="general-purpose",
         description="Architectural review of [work effort]",
         prompt="Act as Architect role. Perform architectural review per gate/40-architectural-review.md. Produce ADRs, update architecture docs, identify refactoring opportunities.",
-        run_in_background=true)
+        )
    ```
 
 3. **Verify outputs:**

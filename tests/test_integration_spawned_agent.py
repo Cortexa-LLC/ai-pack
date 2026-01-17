@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-TC-INT-001: Background Agent File Persistence Integration Test (Executable)
+TC-INT-001: Spawned Agent File Persistence Integration Test (Executable)
 
-REAL integration test that spawns actual background agents and verifies
+REAL integration test that spawns actual spawned agents and verifies
 file creation in repository.
 
-WARNING: This test spawns REAL Claude Code background agents.
+WARNING: This test spawns REAL Claude Code spawned agents.
 Requires:
 - Claude Code CLI installed and configured
 - .claude/settings.json with Write(*) permission
@@ -24,7 +24,7 @@ from datetime import datetime
 
 class TestBackgroundAgentFilePersistence(unittest.TestCase):
     """
-    Integration test that spawns REAL background agents to verify:
+    Integration test that spawns REAL spawned agents to verify:
     1. Permissions work as configured
     2. Files persist to repository (not sandbox)
     3. Absolute paths resolve correctly
@@ -81,7 +81,7 @@ class TestBackgroundAgentFilePersistence(unittest.TestCase):
             print(f"\n🧹 Cleaned up test directory: {cls.test_dir}")
 
     def test_01_create_simple_file(self):
-        """Test: Background agent can create a simple text file"""
+        """Test: Spawned Agent can create a simple text file"""
         print("\n" + "="*70)
         print("TEST 1: Create Simple Text File")
         print("="*70)
@@ -158,7 +158,7 @@ print(f"Size: {{test_file.stat().st_size}} bytes")
         print("✅ File in repository (not sandbox)")
 
     def test_02_create_subdirectory_structure(self):
-        """Test: Background agent can create nested directories and files"""
+        """Test: Spawned Agent can create nested directories and files"""
         print("\n" + "="*70)
         print("TEST 2: Create Nested Directory Structure")
         print("="*70)
@@ -233,7 +233,7 @@ print(f"File size: {{test_file.stat().st_size}} bytes")
             self.fail(f"❌ Invalid JSON: {e}")
 
     def test_03_create_multiple_files_atomically(self):
-        """Test: Background agent can create multiple files in one operation"""
+        """Test: Spawned Agent can create multiple files in one operation"""
         print("\n" + "="*70)
         print("TEST 3: Create Multiple Files Atomically")
         print("="*70)
@@ -390,7 +390,7 @@ print(f"Resolved path: {{test_file.resolve()}}")
 def run_tests():
     """Run integration tests"""
     print("="*70)
-    print("TC-INT-001: Background Agent File Persistence Integration Test")
+    print("TC-INT-001: Spawned Agent File Persistence Integration Test")
     print("="*70)
     print("\n⚠️  WARNING: This spawns REAL file operations")
     print("Test artifacts will be created in .ai/test-artifacts/")
@@ -415,7 +415,7 @@ def run_tests():
 
     if result.wasSuccessful():
         print("\n✅ ALL INTEGRATION TESTS PASSED")
-        print("\nBackground agent file persistence verified!")
+        print("\nSpawned Agent file persistence verified!")
         print("Files created correctly in repository.")
         return 0
     else:

@@ -52,7 +52,7 @@ class TestTier2Setup(unittest.TestCase):
         Setup Test: Prepare task for real agent execution
 
         Creates a complete task packet that can be executed by a real
-        background agent spawned via Claude Code Task tool.
+        spawned agent spawned via Claude Code Task tool.
         """
         print("\n" + "="*70)
         print("TIER 2 SETUP: Simple File Creation Task")
@@ -77,7 +77,7 @@ class TestTier2Setup(unittest.TestCase):
         contract = task_dir / "00-contract.md"
         contract_content = f"""# Tier 2 Test Contract: Simple File Creation
 
-**Objective:** Validate background agent file creation with persistence verification
+**Objective:** Validate spawned agent file creation with persistence verification
 
 **Role:** Engineer
 
@@ -167,7 +167,7 @@ def test_user_count():
 
 ## Execution Instructions
 
-### For Background Agent:
+### For Spawned Agent:
 
 1. **Read this contract carefully**
 2. **Use ABSOLUTE PATHS** - All file paths are absolute
@@ -275,12 +275,12 @@ else:
 
 ## How to Execute This Test
 
-### Step 1: Spawn Background Agent
+### Step 1: Spawn Spawned Agent
 
-In Claude Code, use the Task tool to spawn a background agent:
+In Claude Code, use the Task tool to spawn a spawned agent:
 
 ```
-I need you to execute a task as a background agent.
+I need you to execute a task as a spawned agent.
 
 Read the contract at: {contract.absolute()}
 
@@ -400,7 +400,7 @@ if __name__ == "__main__":
     print("="*70)
     print("Tier 2 Real Execution Setup Tests")
     print("="*70)
-    print("\nValidates setup for real background agent execution")
+    print("\nValidates setup for real spawned agent execution")
     print()
 
     # Run tests

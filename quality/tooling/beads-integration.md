@@ -331,7 +331,7 @@ bd ready --assignee "Worker-1"  # Each worker filters by assignee
 
 ## Agent Coordination with Beads
 
-**Use Case:** When Orchestrator spawns parallel background agents for execution.
+**Use Case:** When Orchestrator spawns parallel spawned agents for execution.
 
 ### Orchestrator Pattern for Agent Tracking
 
@@ -342,7 +342,7 @@ When spawning agents with the Task tool, create corresponding Beads tasks:
 Task(subagent_type="general-purpose",
      description="Implement login feature",
      prompt="Act as Engineer. Implement login per task packet...",
-     run_in_background=true)
+     )
 
 # 2. Create Beads task IMMEDIATELY
 bd create "Agent: Engineer - Implement login feature" \
