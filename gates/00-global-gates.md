@@ -1,6 +1,6 @@
 # Global Gates
 
-**Version:** 1.1.0
+**Version:** 1.1.1
 **Last Updated:** 2026-01-17
 
 ## Overview
@@ -416,10 +416,15 @@ END BEFORE
 BEFORE creating any diagram in documentation:
   ✅ MUST: Use Mermaid syntax in markdown code blocks
   ✅ MUST: Use appropriate diagram type (flowchart, sequence, class, state)
-  ❌ NEVER: Use ASCII art, text diagrams, or Unicode box drawings
+  ❌ NEVER: Use ASCII art, text diagrams, or Unicode box drawings for conceptual diagrams
   ❌ NEVER: Use external tools like PlantUML, Draw.io, etc.
 
-  IF diagram is not Mermaid THEN
+  ✅ EXCEPTION: ASCII art IS acceptable for directory/file structure layouts
+    Example: project/
+             ├── src/
+             └── docs/
+
+  IF diagram is not Mermaid AND not a directory layout THEN
     REJECT documentation
     REQUIRE conversion to Mermaid
   END IF

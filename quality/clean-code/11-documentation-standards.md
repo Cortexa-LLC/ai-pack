@@ -11,25 +11,42 @@ Effective documentation balances completeness with maintainability. Code should 
 **CRITICAL REQUIREMENT:** All diagrams in documentation artifacts MUST use Mermaid format.
 
 **❌ PROHIBITED:**
-- ASCII art diagrams
-- Text-based box drawings
+- ASCII art diagrams (flowcharts, sequence diagrams, architecture diagrams)
+- Text-based box drawings for conceptual diagrams
 - Plain text flowcharts
-- Unicode box-drawing characters (┌─┐│└┘├┤┬┴┼)
-- Any other text-based visual representations
+- Unicode box-drawing characters for diagrams (┌─┐│└┘├┤┬┴┼)
+- Any other text-based visual representations of logic or architecture
 
 **✅ REQUIRED:**
-- Mermaid diagrams for ALL visual representations
+- Mermaid diagrams for ALL visual representations of logic, flow, architecture, and relationships
 - Use appropriate Mermaid diagram types (flowchart, sequence, class, state, etc.)
 - Include diagram source in markdown code blocks with `mermaid` language tag
 
+**✅ EXCEPTION - Directory Layouts:**
+ASCII art is **acceptable** for representing directory/file structures:
+```
+project/
+├── src/
+│   ├── components/
+│   └── utils/
+├── tests/
+└── docs/
+```
+
 **Rationale:**
+- Directory trees are standard text representations (like `tree` command output)
+- Not conceptual diagrams requiring visual rendering
+- Widely understood and expected format
+- Mermaid not well-suited for file system structures
+
+**Rationale for Mermaid Requirement:**
 - Mermaid diagrams render properly in GitHub, GitLab, and modern documentation tools
 - Mermaid syntax is version-controllable and diffable
 - Mermaid diagrams are maintainable and updateable without artistic skill
 - Text diagrams break with formatting changes and are hard to read
 - Mermaid provides consistent, professional visual output
 
-**Non-compliance:** Any documentation with text-based diagrams MUST be updated to use Mermaid before acceptance.
+**Non-compliance:** Any documentation with text-based diagrams (excluding directory layouts) MUST be updated to use Mermaid before acceptance.
 
 ## Documentation Hierarchy
 
@@ -291,7 +308,7 @@ stateDiagram-v2
 - ❌ Store docs in separate, disconnected locations
 - ❌ Write documentation that duplicates code
 - ❌ Skip documentation for complex algorithms
-- ❌ **Use ASCII art, text diagrams, or Unicode box drawings (MANDATORY: Use Mermaid only)**
+- ❌ **Use ASCII art for conceptual diagrams (MANDATORY: Use Mermaid only; Exception: directory layouts are acceptable)**
 
 ### Code Comments - When to Use
 
@@ -333,7 +350,7 @@ void ProcessData() { /* ... */ }
 - [ ] Preconditions and postconditions
 - [ ] Invariants that must be maintained
 - [ ] External markdown + Mermaid if multi-function
-- [ ] **MANDATORY: All diagrams use Mermaid (no ASCII art or text diagrams)**
+- [ ] **MANDATORY: All diagrams use Mermaid (no ASCII art for conceptual diagrams; directory layouts are acceptable)**
 
 ### For Public APIs
 - [ ] Purpose and use cases
@@ -447,10 +464,14 @@ The best documentation is the minimum needed to understand the code's intent, wi
 
 ---
 
-**Version:** 1.1.0
+**Version:** 1.1.1
 **Last Updated:** 2026-01-17
 
 ## Version History
+
+### 1.1.1 (2026-01-17)
+- Added exception: ASCII art acceptable for directory/file structure layouts
+- Clarified prohibition applies to conceptual diagrams only
 
 ### 1.1.0 (2026-01-17)
 - **BREAKING:** Added MANDATORY Mermaid diagramming standard
