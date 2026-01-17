@@ -6,6 +6,31 @@
 
 Effective documentation balances completeness with maintainability. Code should be self-documenting through clear naming and structure, with explicit documentation reserved for cases where code alone cannot convey intent, complexity, or context.
 
+## MANDATORY Diagramming Standard
+
+**CRITICAL REQUIREMENT:** All diagrams in documentation artifacts MUST use Mermaid format.
+
+**❌ PROHIBITED:**
+- ASCII art diagrams
+- Text-based box drawings
+- Plain text flowcharts
+- Unicode box-drawing characters (┌─┐│└┘├┤┬┴┼)
+- Any other text-based visual representations
+
+**✅ REQUIRED:**
+- Mermaid diagrams for ALL visual representations
+- Use appropriate Mermaid diagram types (flowchart, sequence, class, state, etc.)
+- Include diagram source in markdown code blocks with `mermaid` language tag
+
+**Rationale:**
+- Mermaid diagrams render properly in GitHub, GitLab, and modern documentation tools
+- Mermaid syntax is version-controllable and diffable
+- Mermaid diagrams are maintainable and updateable without artistic skill
+- Text diagrams break with formatting changes and are hard to read
+- Mermaid provides consistent, professional visual output
+
+**Non-compliance:** Any documentation with text-based diagrams MUST be updated to use Mermaid before acceptance.
+
 ## Documentation Hierarchy
 
 ### 1. Self-Documenting Code (Preferred)
@@ -251,7 +276,7 @@ stateDiagram-v2
 ### DO
 - ✅ Prefer self-documenting code over comments
 - ✅ Document "why" not "what"
-- ✅ Use diagrams for complex flows
+- ✅ Use Mermaid diagrams for ALL visual representations (MANDATORY)
 - ✅ Keep documentation close to code
 - ✅ Update docs when code changes
 - ✅ Use ADRs for significant decisions
@@ -266,6 +291,7 @@ stateDiagram-v2
 - ❌ Store docs in separate, disconnected locations
 - ❌ Write documentation that duplicates code
 - ❌ Skip documentation for complex algorithms
+- ❌ **Use ASCII art, text diagrams, or Unicode box drawings (MANDATORY: Use Mermaid only)**
 
 ### Code Comments - When to Use
 
@@ -307,6 +333,7 @@ void ProcessData() { /* ... */ }
 - [ ] Preconditions and postconditions
 - [ ] Invariants that must be maintained
 - [ ] External markdown + Mermaid if multi-function
+- [ ] **MANDATORY: All diagrams use Mermaid (no ASCII art or text diagrams)**
 
 ### For Public APIs
 - [ ] Purpose and use cases
@@ -420,5 +447,16 @@ The best documentation is the minimum needed to understand the code's intent, wi
 
 ---
 
-**Version:** 1.0.0
-**Last Updated:** 2026-01-08
+**Version:** 1.1.0
+**Last Updated:** 2026-01-17
+
+## Version History
+
+### 1.1.0 (2026-01-17)
+- **BREAKING:** Added MANDATORY Mermaid diagramming standard
+- Prohibited ASCII art, text diagrams, and Unicode box drawings
+- Added enforcement requirements and rationale
+- Updated all checklists and best practices
+
+### 1.0.0 (2026-01-08)
+- Initial documentation standards release

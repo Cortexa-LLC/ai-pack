@@ -1,7 +1,7 @@
 # Global Gates
 
-**Version:** 1.0.0
-**Last Updated:** 2026-01-07
+**Version:** 1.1.0
+**Last Updated:** 2026-01-17
 
 ## Overview
 
@@ -398,6 +398,41 @@ END BEFORE
 - Designing for scale not required
 - Adding error handling for impossible cases
 - Implementing "nice to have" features
+
+---
+
+### 9. Documentation Standards (MANDATORY)
+
+**Rule:** All documentation artifacts MUST follow established documentation standards, including mandatory Mermaid for diagrams.
+
+**Requirements:**
+- All diagrams MUST use Mermaid format (no ASCII art, no text diagrams, no Unicode box drawings)
+- Inline documentation for complex algorithms
+- ADRs for significant architectural decisions
+- Self-documenting code as primary documentation
+
+**Diagram Standard (MANDATORY, BLOCKING):**
+```
+BEFORE creating any diagram in documentation:
+  ✅ MUST: Use Mermaid syntax in markdown code blocks
+  ✅ MUST: Use appropriate diagram type (flowchart, sequence, class, state)
+  ❌ NEVER: Use ASCII art, text diagrams, or Unicode box drawings
+  ❌ NEVER: Use external tools like PlantUML, Draw.io, etc.
+
+  IF diagram is not Mermaid THEN
+    REJECT documentation
+    REQUIRE conversion to Mermaid
+  END IF
+END BEFORE
+```
+
+**Rationale:**
+- Mermaid renders properly in GitHub, GitLab, and modern documentation tools
+- Mermaid syntax is version-controllable and diffable
+- Mermaid diagrams are maintainable without artistic skill
+- Text diagrams break with formatting changes
+
+**Reference:** See [Documentation Standards](../quality/clean-code/11-documentation-standards.md) for complete requirements.
 
 ---
 
