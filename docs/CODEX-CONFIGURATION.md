@@ -48,6 +48,8 @@ Codex does not support slash commands. Use these scripts instead:
 ```bash
 python3 .codex/commands/health.py
 python3 .codex/commands/agents.py
+python3 .codex/commands/orchestrate.py
+python3 .codex/commands/task-queue.py
 ```
 
 ## Updating Existing Projects
