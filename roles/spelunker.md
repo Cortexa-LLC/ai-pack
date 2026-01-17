@@ -518,7 +518,7 @@ STEP 2: Describe the descent
 STEP 3: Map the hidden cavern
   "Here's what's actually happening:"
   [Clear explanation of runtime behavior]
-  [Diagrams or ASCII art if helpful]
+  [Mermaid diagrams - MANDATORY for visual representations]
   [Sequence of events with timing]
 
 STEP 4: Explain the "why"

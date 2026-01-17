@@ -101,7 +101,7 @@ What other options did we consider and why were they rejected?
 - Deployment architecture
 - Network topology (if applicable)
 
-**Diagram Format:** Mermaid, PlantUML, or exported images with source
+**Diagram Format:** MANDATORY: Mermaid only (see quality/clean-code/11-documentation-standards.md)
 
 **Example C4 Context Diagram (Mermaid):**
 ```mermaid
@@ -240,10 +240,8 @@ graph TB
 Location: `templates/architecture/adr-template.md`
 
 ### Architecture Diagram Tools
-- **Mermaid:** In-code diagrams (recommended for maintainability)
-- **PlantUML:** UML diagrams
-- **Draw.io / Lucidchart:** For complex diagrams
-- **C4 Model:** Use C4 notation for clarity
+- **Mermaid:** MANDATORY for all diagrams (in-code diagrams, version-controllable, maintainable)
+- **C4 Model:** Use C4 notation for clarity (implement with Mermaid)
 
 ### Documentation Structure
 ```
