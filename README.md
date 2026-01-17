@@ -20,7 +20,7 @@ AI-Pack is designed as a git submodule that projects include at `.ai-pack/`. It 
    - Testing best practices and TDD workflow
    - Architecture patterns and refactoring techniques
 
-These components work together seamlessly with AI coding assistants like Claude Code through `.ai-pack` integration.
+These components work together seamlessly with AI coding assistants like Claude Code and Codex through `.ai-pack` integration.
 
 ---
 
@@ -675,6 +675,35 @@ See:
 - [Claude Code Integration](#claude-code-integration) for integration details
 - [Claude Code Configuration](docs/CLAUDE-CODE-CONFIGURATION.md) for required settings
 
+### Quick Start with Codex Integration
+
+**Recommended setup for projects using Codex:**
+
+```bash
+# 1. Add ai-pack as submodule
+cd your-project
+git submodule add https://github.com/Cortexa-LLC/ai-pack .ai-pack
+git submodule update --init --recursive
+
+# 2. Run automated setup (creates AGENTS.md and .codex/)
+python3 .ai-pack/templates/.codex-setup.py
+
+# 3. Edit AGENTS.md with project-specific context
+
+# 4. Commit the integration
+git add .ai-pack .ai/ AGENTS.md
+git commit -m "Add ai-pack Codex integration"
+```
+
+**What you get:**
+- ✅ A Codex-ready `AGENTS.md` entry point
+- ✅ Task packet structure in `.ai/`
+- ✅ Access to ai-pack roles, gates, and workflows
+
+See:
+- [Codex Integration](#codex-integration) for integration details
+- [Codex Configuration](docs/CODEX-CONFIGURATION.md) for required settings
+
 ### Option 1: Git Submodule (Recommended for Teams)
 
 Add these standards to your project as a submodule:
@@ -829,6 +858,56 @@ The update script:
 - **Rules:** [templates/.claude/rules/README.md](templates/.claude/rules/README.md)
 - **Hooks:** [templates/.claude/hooks/README.md](templates/.claude/hooks/README.md)
 
+## Codex Integration
+
+AI-Pack includes Codex integration via a project-level `AGENTS.md`.
+
+### Setup for Consumer Projects
+
+Run the automated setup script after adding ai-pack as a submodule:
+
+```bash
+# After: git submodule add <url> .ai-pack
+python3 .ai-pack/templates/.codex-setup.py
+```
+
+This creates:
+```
+project-root/
+├── .ai/                  # Project workspace
+│   ├── tasks/            # Task packets
+│   └── repo-overrides.md # Project-specific rules
+├── .codex/               # Optional Codex-specific guidance
+│   └── rules/            # Extra rules referenced by AGENTS.md
+└── AGENTS.md             # Codex instructions (copy from templates/)
+```
+
+### How Codex Uses This
+
+- Reads `AGENTS.md` for entry-point instructions
+- Follows gates, roles, and workflows from `.ai-pack/`
+- Uses `.ai/tasks/` for structured task packets
+
+### Documentation
+
+- **Setup Guide:** [docs/CODEX-CONFIGURATION.md](docs/CODEX-CONFIGURATION.md)
+- **AGENTS Template:** [templates/AGENTS.md](templates/AGENTS.md)
+- **Optional Assets:** [templates/.codex/README.md](templates/.codex/README.md)
+
+### Updating Existing Projects
+
+```bash
+# 1. Update ai-pack submodule
+git submodule update --remote .ai-pack
+
+# 2. Run update script
+python3 .ai-pack/templates/.codex-update.py
+
+# 3. Commit updates
+git add AGENTS.md .codex/
+git commit -m "Update ai-pack Codex integration"
+```
+
 ## Integration with Other AI Assistants
 
 AI-Pack is designed to work with AI assistants that support `.ai-pack`:
@@ -838,6 +917,7 @@ AI-Pack is designed to work with AI assistants that support `.ai-pack`:
 3. AI assistants will apply these standards and workflows during development
 
 **For Claude Code:** Use the automated setup above for native integration.
+**For Codex:** Use `templates/.codex-setup.py` to install `AGENTS.md` and `.codex/`.
 
 ## Project-Specific Customization
 
