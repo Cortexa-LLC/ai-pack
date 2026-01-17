@@ -21,6 +21,7 @@ This creates:
 - `.ai/tasks/` for task packets
 - `.ai/repo-overrides.md` for project-specific rules
 - `.codex/` for optional Codex-specific guidance
+- `.codex/commands/` for CLI command equivalents
 
 ## Manual Setup
 
@@ -39,6 +40,15 @@ cp -r .ai-pack/templates/.codex .codex
 2. Update `.ai/repo-overrides.md` with project-specific rules.
 3. Add any Codex-specific rules in `.codex/rules/`.
 4. Keep `AGENTS.md` concise and link to `.ai-pack/` for shared standards.
+
+## CLI Command Equivalents
+
+Codex does not support slash commands. Use these scripts instead:
+
+```bash
+python3 .codex/commands/health.py
+python3 .codex/commands/agents.py
+```
 
 ## Updating Existing Projects
 

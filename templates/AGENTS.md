@@ -155,6 +155,17 @@ Follow the execution strategy defined in the roles, especially `.ai-pack/roles/o
 
 ---
 
+## Codex Command Equivalents
+
+Codex does not support slash commands. Use these CLI scripts instead:
+
+```bash
+python3 .codex/commands/health.py
+python3 .codex/commands/agents.py
+```
+
+---
+
 ## Workflow Selection
 
 Choose appropriate workflow for the task type:
