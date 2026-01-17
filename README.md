@@ -878,6 +878,7 @@ project-root/
 │   ├── tasks/            # Task packets
 │   └── repo-overrides.md # Project-specific rules
 ├── .codex/               # Optional Codex-specific guidance
+│   ├── commands/         # CLI equivalents for slash commands
 │   └── rules/            # Extra rules referenced by AGENTS.md
 └── AGENTS.md             # Codex instructions (copy from templates/)
 ```
@@ -887,6 +888,7 @@ project-root/
 - Reads `AGENTS.md` for entry-point instructions
 - Follows gates, roles, and workflows from `.ai-pack/`
 - Uses `.ai/tasks/` for structured task packets
+- Runs CLI equivalents from `.codex/commands/`
 
 ### Documentation
 

@@ -6,3 +6,4 @@ This directory contains optional Codex-specific guidance you can reference from
 Recommended use:
 - Add additional rules in `.codex/rules/`
 - Link those rules from `AGENTS.md` under "Project-Specific Rules"
+- Use `.codex/commands/` for CLI equivalents of ai-pack slash commands
