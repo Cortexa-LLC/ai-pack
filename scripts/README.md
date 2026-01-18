@@ -64,29 +64,39 @@ When adding new scripts to this directory:
 
 1. **Make executable:**
    ```bash
+   # Python scripts
+   chmod +x scripts/your-script.py
+
+   # Shell scripts
    chmod +x scripts/your-script.sh
    ```
 
 2. **Add shebang:**
    ```bash
+   # Python (preferred for cross-platform)
+   #!/usr/bin/env python3
+
+   # Bash (macOS/Linux only)
    #!/bin/bash
    ```
 
 3. **Include help:**
-   ```bash
-   show_help() {
-       cat << EOF
+   ```python
+   # Python example
+   def show_help():
+       print("""
    Your Script Name
 
-   Usage: $0 <command> [options]
+   Usage: python3 scripts/your-script.py <command> [options]
    ...
-   EOF
-   }
+   """)
    ```
 
 4. **Document here** in this README
 
 5. **Reference from docs/** if it's a major feature
+
+**Note:** Prefer Python (.py) over Bash (.sh) for cross-platform compatibility (Windows, macOS, Linux).
 
 ---
 
@@ -94,10 +104,10 @@ When adding new scripts to this directory:
 
 Potential future additions:
 
-- `slack-notifications.sh` - Slack integration
-- `metrics-dashboard.sh` - Generate metrics
-- `export-task-packets.sh` - Export task packets as PDF/HTML
-- `backup-beads.sh` - Backup Beads database
+- `slack-notifications.py` - Slack integration
+- `metrics-dashboard.py` - Generate metrics
+- `export-task-packets.py` - Export task packets as PDF/HTML
+- `backup-beads.py` - Backup Beads database
 
 ---
 
