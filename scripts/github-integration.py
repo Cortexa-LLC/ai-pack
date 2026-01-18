@@ -769,7 +769,23 @@ def create_epic(task_id: str):
     # Find tasks that depend on this epic
     story_tasks = [t for t in all_tasks if task_id in t.get('depends_on', [])]
 
-    # Create epic issue
+    # Get epic naming pattern
+    epic_config = config.get('epics', {})
+    naming_pattern = epic_config.get('naming_pattern', 'Epic: {title}')
+    epic_name = naming_pattern.replace('{title}', epic_title)
+
+    # Create epic as issue with story checklist
+    epic_ref = create_epic_as_issue(task_id, epic_name, epic_description, story_tasks, config, repository)
+
+    if epic_ref:
+        # Add epic reference to Beads task
+        run_command([
+            'bd', 'comment', task_id,
+            f"GitHub Epic: {epic_ref}"
+        ], check=False)
+
+def create_epic_as_issue(task_id: str, epic_name: str, epic_description: str, story_tasks: List[Dict], config: Dict, repository: str) -> Optional[str]:
+    """Create epic as a GitHub Issue with checklist."""
     epic_labels = config.get('labels', {}).get('epic_label', 'epic')
 
     # Build epic body with checklist
@@ -793,14 +809,14 @@ Epic managed by ai-pack
     epic_result = run_command([
         'gh', 'issue', 'create',
         '--repo', repository,
-        '--title', f"Epic: {epic_title}",
+        '--title', epic_name,
         '--body', epic_body,
         '--label', f'{epic_labels},ai-pack'
     ])
 
     if not epic_result:
         log_error("Failed to create epic issue")
-        return
+        return None
 
     epic_number = epic_result.stdout.strip().split('/')[-1]
     log_success(f"Created epic issue: #{epic_number}")
@@ -843,13 +859,8 @@ Managed by ai-pack
         else:
             log_error(f"Failed to create story issue for: {story_title}")
 
-    # Add epic reference to Beads task
-    run_command([
-        'bd', 'comment', task_id,
-        f"GitHub Epic: #{epic_number}"
-    ], check=False)
-
     log_success(f"Created epic #{epic_number} with {len(story_tasks)} stories")
+    return f"#{epic_number}"
 
 #==============================================================================
 # STATUS
@@ -974,6 +985,7 @@ Configuration:
     - Sync rules
     - Labels and priorities
     - CI/CD monitoring settings
+    - Epic naming pattern (epics.naming_pattern)
 
 Environment Variables:
     GITHUB_TOKEN       GitHub Personal Access Token
@@ -981,6 +993,7 @@ Environment Variables:
 
 Documentation:
     - Usage Guide: docs/GITHUB-INTEGRATION-USAGE.md
+    - Work Item Patterns: docs/WORK-ITEM-PATTERNS.md
     - Configuration: .github-integration.yml.example
     - Scripts: scripts/README.md
 """

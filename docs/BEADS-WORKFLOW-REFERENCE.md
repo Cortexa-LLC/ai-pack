@@ -14,6 +14,14 @@ Every task lifecycle operation MUST use Beads commands. Updating task packets al
 
 ---
 
+## Related Documentation
+
+- **[Work Item Patterns](WORK-ITEM-PATTERNS.md)** - Comprehensive guide to Epics, Stories, Tasks, Spikes, and Issues across Beads and GitHub
+- **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** - Mandatory rules for Beads usage
+- **[GitHub Integration Usage](GITHUB-INTEGRATION-USAGE.md)** - Sync Beads with GitHub Issues
+
+---
+
 ## Orchestrator Workflows
 
 ### Task Decomposition

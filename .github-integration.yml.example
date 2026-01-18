@@ -254,8 +254,11 @@ task_packets:
 # EPIC/STORY CONFIGURATION
 # =============================================================================
 epics:
-  # How to represent epics
-  representation: "project"  # "project" | "issue" | "milestone"
+  # Epics are created as GitHub Issues with story checklists
+  # This provides a simple, lightweight way to track epics that works everywhere
+  #
+  # For theme-level organization (multiple epics), create a GitHub Project manually
+  # and organize epic issues within it
 
   # Epic naming pattern
   naming_pattern: "Epic: {title}"

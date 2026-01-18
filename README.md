@@ -839,10 +839,11 @@ The update script:
 ### Features
 
 - Sync Beads tasks ↔ GitHub Issues bidirectionally
-- Create Epics/Stories from Beads task hierarchies
+- Create Epics/Stories from Beads task hierarchies as Issues with checklists ✅
 - Monitor CI/CD workflows and auto-create fix tasks
 - Import GitHub issues into Beads work queue
-- Track work across GitHub Projects and Beads
+- Track work in your GitHub Repository
+- Organize epics into GitHub Projects manually for theme-level tracking
 
 ### Quick Start
 
@@ -886,7 +887,9 @@ features:
     enabled: true                # Monitor CI/CD
 ```
 
-**See:** [GitHub Integration Usage Guide](docs/GITHUB-INTEGRATION-USAGE.md) for complete documentation.
+**Documentation:**
+- [GitHub Integration Usage Guide](docs/GITHUB-INTEGRATION-USAGE.md) - Complete setup and usage
+- [Work Item Patterns](docs/WORK-ITEM-PATTERNS.md) - Epics, Stories, Tasks, Spikes, Issues across Beads and GitHub
 
 **Note:** GitHub integration is completely optional. AI-Pack works fully without it.
 

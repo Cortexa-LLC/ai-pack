@@ -564,5 +564,8 @@ advanced:
 **For Configuration Details:**
 - See `.github-integration.yml.example`
 
+**For Work Item Patterns (Epics/Stories/Tasks/Spikes):**
+- See [WORK-ITEM-PATTERNS.md](WORK-ITEM-PATTERNS.md)
+
 **For MCP Server Details:**
 - See [GITHUB-MCP-INTEGRATION-GUIDE.md](GITHUB-MCP-INTEGRATION-GUIDE.md)

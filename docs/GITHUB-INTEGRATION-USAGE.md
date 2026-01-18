@@ -17,6 +17,114 @@ This guide explains how to integrate AI-Pack with hosted GitHub.com projects. Th
 
 ---
 
+## Understanding GitHub Concepts
+
+Before setting up integration, it's helpful to understand how GitHub organizes work:
+
+### Repository (Repo)
+**What:** A Git repository containing your code, documentation, and history.
+**Example:** `your-org/your-app`
+**Contains:** Code files, commits, branches, tags
+**GitHub URL:** `https://github.com/your-org/your-app`
+
+**Key point:** The integration requires specifying which repository to sync with.
+
+### Issues
+**What:** Individual work items tracked in a repository.
+**Example:** Issue #42: "Add user authentication"
+**Use cases:**
+- Bug reports
+- Feature requests
+- Tasks
+- Stories (in Agile workflow)
+- Epics (parent issues with checklist)
+
+**GitHub URL:** `https://github.com/your-org/your-app/issues/42`
+
+**How AI-Pack uses Issues:**
+- Each Beads task can sync to a GitHub Issue
+- Issues can be imported from GitHub to create Beads tasks
+- Epics are Issues with a checklist of Stories
+- Stories are Issues linked to an Epic
+
+### GitHub Projects (formerly Projects V2)
+**What:** Kanban-style boards for organizing and tracking Issues across repos.
+**Example:** "Q1 Product Roadmap" project
+**Use cases:**
+- Sprint planning
+- Release tracking
+- Team coordination
+- Visual workflow management
+
+**GitHub URL:** `https://github.com/orgs/your-org/projects/1`
+
+**How AI-Pack uses Projects:**
+- Optionally add Epics and Stories to a Project board
+- Visualize work progress across Issues
+- Track multiple repos in one view
+
+**Note:** Project support in the Python script is planned but not yet implemented. Currently, epics and stories are created as Issues with proper labeling and cross-references.
+
+### Representation Options
+
+Epics are represented as GitHub Issues with checklists - a simple, lightweight approach that works everywhere.
+
+**Epic Structure:**
+- Epic is a GitHub Issue with label `epic`
+- Contains checklist of Stories
+- Stories are Issues linked to Epic with label `story`
+- Works in all GitHub repos (personal, org, private, public)
+
+**For Theme-Level Organization:**
+Manually create a GitHub Project to organize multiple epics:
+1. Create a GitHub Project (e.g., "Q1 Product Features")
+2. Create multiple epics using the integration
+3. Manually add epic issues to the Project board
+
+**Hierarchy:**
+```
+GitHub Project (Theme: "Q1 Product Features") [Manual]
+  ├── Epic Issue #42: User Authentication [ai-pack creates]
+  │   ├── Story Issue #43: Design auth API
+  │   ├── Story Issue #44: Implement JWT
+  │   └── Story Issue #45: Add tests
+  └── Epic Issue #50: Payment Processing [ai-pack creates]
+      ├── Story Issue #51: Stripe integration
+      └── Story Issue #52: Payment UI
+```
+
+### Example Structure
+
+```
+Repository: your-org/your-app
+├── Issue #42: Epic: User Authentication (label: epic)
+│   ├── Issue #43: Design auth API (label: story)
+│   ├── Issue #44: Implement JWT tokens (label: story)
+│   ├── Issue #45: Add password hashing (label: story)
+│   └── Issue #46: Write auth tests (label: story)
+├── Issue #47: Fix login bug (label: bug)
+└── Issue #48: Update documentation (label: docs)
+
+Project: Q1 2026 Features
+├── Column: To Do
+│   └── #43, #44, #45, #46
+├── Column: In Progress
+│   └── #47
+└── Column: Done
+    └── #48
+```
+
+**How it works:**
+1. Beads tasks sync to Issues in the Repository
+2. Epics (issues with checklists) organize related Stories
+3. Optionally, Issues can be added to Projects for visual tracking
+4. Full bidirectional sync keeps Beads and GitHub in sync
+
+**For complete patterns on using Epics, Stories, Tasks, Spikes, and Issues across AI-Pack:**
+- See [Work Item Patterns](WORK-ITEM-PATTERNS.md) for comprehensive guide
+
+---
+
 ## Quick Start
 
 ### 1. Initialize Integration
@@ -306,7 +414,6 @@ Configure how epics appear in GitHub:
 
 ```yaml
 epics:
-  representation: "project"  # Options: "project" | "issue" | "milestone"
   naming_pattern: "Epic: {title}"
 
   story_template: |
@@ -322,6 +429,21 @@ epics:
     Part of Epic #{epic_number}
     Managed by ai-pack
 ```
+
+**Example:**
+
+```bash
+# Create epic from Beads task hierarchy
+python3 scripts/github-integration.py create-epic bd-epic1
+# Creates: Epic Issue #42 with checklist, Story Issues #43-46
+```
+
+**Theme-Level Organization:**
+To organize multiple epics into a theme:
+1. Manually create a GitHub Project (e.g., "Q1 Product Roadmap")
+2. Create epics using the integration
+3. Manually add epic issues to your Project board
+4. Use Project views for Kanban workflow across multiple epics
 
 ---
 
