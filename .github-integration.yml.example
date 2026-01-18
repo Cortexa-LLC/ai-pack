@@ -90,6 +90,66 @@ features:
     # Require TDD validation
     require_tdd_validation: true
 
+  # Agent/Role-Triggered Actions
+  # Auto-trigger GitHub operations when AI agents/roles perform actions
+  agent_triggers:
+    enabled: true
+
+    # Orchestrator triggers
+    orchestrator:
+      # Auto-create GitHub epic when Orchestrator creates epic in Beads
+      epic_creation: true
+      # Auto-sync when Orchestrator breaks down work
+      work_breakdown: true
+
+    # Program Manager triggers
+    program_manager:
+      # Auto-create GitHub issues when PM creates tracking tasks
+      issue_creation: true
+      # Auto-update milestones
+      milestone_updates: true
+
+    # Security role triggers
+    security:
+      # Auto-create GitHub security issues with security labels
+      sec_issue_creation: true
+      # Labels to apply
+      sec_labels:
+        - "security"
+        - "needs-review"
+      # Make issues private (if org supports it)
+      sec_private: true
+
+    # Engineer triggers
+    engineer:
+      # Auto-update issue status on task start
+      task_start: true
+      # Auto-update issue status on task complete
+      task_complete: true
+      # Auto-create draft PR on feature branch
+      auto_draft_pr: false
+
+    # Reviewer triggers
+    reviewer:
+      # Auto-comment review results on GitHub PR
+      review_comments: true
+      # Auto-approve PR if all checks pass
+      auto_approve: false
+
+    # Tester triggers
+    tester:
+      # Auto-create bug issues from test failures
+      bug_creation: true
+      # Auto-close bug issues when tests pass
+      bug_closure: true
+
+    # General role triggers
+    all_roles:
+      # Auto-sync on any task status change
+      status_change_sync: true
+      # Auto-comment work-log updates
+      worklog_sync: false
+
 # =============================================================================
 # LABELING - Automatic label management
 # =============================================================================

@@ -848,29 +848,40 @@ The update script:
 ### Quick Start
 
 ```bash
-# 1. Initialize integration
-./scripts/github-integration.py init
+# Note: Replace ${AI_PACK_ROOT} with your installation path
+# Common: .ai-pack, ai-pack, tools/ai-pack
+# See Setup Guide for path detection helpers
 
-# 2. Configure settings (edit .github-integration.yml)
+# 1. Initialize integration
+${AI_PACK_ROOT}/scripts/github-integration.py init
+
+# 2. Configure settings (edit ${AI_PACK_ROOT}/.github-integration.yml)
 # Enable features you want:
 #   - issue_sync
 #   - epic_management
 #   - ci_monitoring
+#   - agent_triggers  # Auto-sync on role actions
 
 # 3. Set GitHub token
 export GITHUB_TOKEN="ghp_your_token_here"
 # Or authenticate with: gh auth login
 
 # 4. Verify status
-./scripts/github-integration.py status
+${AI_PACK_ROOT}/scripts/github-integration.py status
 
 # 5. Start syncing
-./scripts/github-integration.py sync
+${AI_PACK_ROOT}/scripts/github-integration.py sync
 ```
 
 ### Configuration
 
-All features are configured via `.github-integration.yml`:
+All features are configured via `${AI_PACK_ROOT}/.github-integration.yml`:
+
+**Key Features:**
+- **Agent Triggers** - Auto-sync when AI roles perform actions (Orchestrator creates epic, Security creates SEC issue, etc.)
+- **Issue Sync** - Bidirectional Beads ↔ GitHub synchronization
+- **Epic Management** - Create epics and stories from Beads hierarchies
+- **CI Monitoring** - Watch workflows and auto-create fix tasks
 
 ```yaml
 github:
@@ -885,10 +896,21 @@ features:
     enabled: true                # Create epics/stories
   ci_monitoring:
     enabled: true                # Monitor CI/CD
+  agent_triggers:
+    enabled: true                # Auto-trigger on role actions
+    orchestrator:
+      epic_creation: true        # Auto-create epic on Orchestrator action
+    security:
+      sec_issue_creation: true   # Auto-create security issues
+    engineer:
+      task_start: true           # Auto-update on task start
+      task_complete: true        # Auto-update on completion
 ```
 
 **Documentation:**
-- [GitHub Integration Usage Guide](docs/GITHUB-INTEGRATION-USAGE.md) - Complete setup and usage
+- [GitHub Integration Setup](docs/GITHUB-INTEGRATION-SETUP.md) - Installation paths and environment setup
+- [GitHub Agent Triggers](docs/GITHUB-AGENT-TRIGGERS.md) - Auto-sync on role actions (Orchestrator, Security, Engineer, etc.)
+- [GitHub Integration Usage Guide](docs/GITHUB-INTEGRATION-USAGE.md) - Complete feature reference
 - [Work Item Patterns](docs/WORK-ITEM-PATTERNS.md) - Epics, Stories, Tasks, Spikes, Issues across Beads and GitHub
 
 **Note:** GitHub integration is completely optional. AI-Pack works fully without it.
