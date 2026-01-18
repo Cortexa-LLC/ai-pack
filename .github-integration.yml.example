@@ -1,9 +1,11 @@
-# GitHub MCP Integration Configuration
+# GitHub Integration Configuration
 # Version: 1.0.0
 #
 # Copy this file to .github-integration.yml and configure for your project
 # This file should NOT be committed if it contains sensitive data
 # Add .github-integration.yml to .gitignore
+#
+# Integration uses GitHub CLI (gh) which calls the GitHub REST/GraphQL API
 
 # =============================================================================
 # GITHUB CONNECTION
@@ -19,15 +21,13 @@ github:
   # GitHub Personal Access Token
   # STRONGLY RECOMMENDED: Use environment variable GITHUB_TOKEN instead
   # If both are set, environment variable takes precedence
+  # Authenticate with: gh auth login
+  # Or set: export GITHUB_TOKEN="ghp_your_token_here"
   token: "${GITHUB_TOKEN}"
 
   # GitHub API URL (for GitHub Enterprise)
   # Default: https://api.github.com
   api_url: "https://api.github.com"
-
-  # GitHub MCP Server URL (if using MCP server)
-  # Leave empty to use GitHub API directly
-  mcp_server_url: ""  # e.g., "http://localhost:3000"
 
 # =============================================================================
 # FEATURE TOGGLES - Enable/disable specific features

@@ -452,9 +452,9 @@ bd close bd-x1y2
 
 ### Documentation
 - `docs/GITHUB-INTEGRATION-USAGE.md` - Complete usage guide
-- `docs/GITHUB-MCP-INTEGRATION-ANALYSIS.md` - Feature analysis
-- `docs/GITHUB-MCP-INTEGRATION-GUIDE.md` - MCP server guide
-- `docs/GITHUB-MCP-SELF-HOSTING.md` - Self-hosting guide
+- `docs/GITHUB-INTEGRATION-SETUP.md` - Installation and path setup
+- `docs/GITHUB-AGENT-TRIGGERS.md` - Agent/role-triggered actions
+- `docs/WORK-ITEM-PATTERNS.md` - Epic/Story/Task patterns
 - `docs/GITHUB-INTEGRATION-SUMMARY.md` - This document
 
 ### README Updates
@@ -469,11 +469,8 @@ bd close bd-x1y2
 **Required (for integration):**
 - `yq` >= 4.0 (YAML parsing)
 - `jq` >= 1.6 (JSON parsing)
-- `gh` >= 2.0 (GitHub CLI)
+- `gh` >= 2.0 (GitHub CLI - calls GitHub REST/GraphQL API)
 - `bd` (Beads task system)
-
-**Optional:**
-- GitHub MCP Server (alternative to GitHub CLI)
 
 ### API Usage
 
@@ -658,5 +655,8 @@ advanced:
 **For Work Item Patterns (Epics/Stories/Tasks/Spikes):**
 - See [WORK-ITEM-PATTERNS.md](WORK-ITEM-PATTERNS.md)
 
-**For MCP Server Details:**
-- See [GITHUB-MCP-INTEGRATION-GUIDE.md](GITHUB-MCP-INTEGRATION-GUIDE.md)
+**For Agent/Role Triggers:**
+- See [GITHUB-AGENT-TRIGGERS.md](GITHUB-AGENT-TRIGGERS.md)
+
+**For Installation and Path Setup:**
+- See [GITHUB-INTEGRATION-SETUP.md](GITHUB-INTEGRATION-SETUP.md)

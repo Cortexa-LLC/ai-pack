@@ -866,8 +866,9 @@ export GITHUB_TOKEN="your_token"
 ---
 
 **See Also:**
-- [GitHub MCP Integration Analysis](GITHUB-MCP-INTEGRATION-ANALYSIS.md)
-- [GitHub MCP Integration Guide](GITHUB-MCP-INTEGRATION-GUIDE.md)
+- [GitHub Integration Setup](GITHUB-INTEGRATION-SETUP.md)
+- [GitHub Agent Triggers](GITHUB-AGENT-TRIGGERS.md)
+- [Work Item Patterns](WORK-ITEM-PATTERNS.md)
 - [Beads Integration](../quality/tooling/beads-integration.md)
 - [Orchestrator Role](../roles/orchestrator.md)
 - [Engineer Role](../roles/engineer.md)
