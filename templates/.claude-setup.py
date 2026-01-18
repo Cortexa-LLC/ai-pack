@@ -268,6 +268,347 @@ This file contains project-specific rules that override or extend the ai-pack fr
     return True
 
 
+def setup_github_extensions():
+    """Optionally set up GitHub integration role extensions."""
+    print_header("GitHub Integration (Optional)")
+
+    print("AI-Pack includes optional GitHub integration for:")
+    print("  • Auto-sync Beads tasks → GitHub Issues")
+    print("  • Agent-triggered actions (Orchestrator creates epic, Security creates SEC issue, etc.)")
+    print("  • Epic/Story management")
+    print("  • CI/CD monitoring")
+    print()
+
+    response = input("Enable GitHub integration? [y/N]: ").strip().lower()
+
+    if response != 'y':
+        print("Skipping GitHub integration setup")
+        print()
+        return True
+
+    print()
+    print("Setting up GitHub integration...")
+    print()
+
+    # Create .ai/roles/ directory
+    roles_dir = Path(".ai/roles")
+    roles_dir.mkdir(parents=True, exist_ok=True)
+    print(f"✅ Created {roles_dir}/")
+
+    # Create role extensions for key roles
+    extensions = {
+        "orchestrator-github-extension.md": """# Orchestrator GitHub Extension
+
+**Base Role:** `.ai-pack/roles/orchestrator.md` (immutable, managed by ai-pack)
+**Extension Type:** GitHub Integration
+
+## Overview
+
+This extension adds GitHub integration capabilities to the Orchestrator role,
+enabling automatic synchronization between Beads tasks and GitHub Issues.
+
+## GitHub Integration Features
+
+### Automatic Epic Creation
+
+When you create an epic in Beads with the Orchestrator role:
+
+```bash
+bd create "Epic: User Authentication System" --assignee Orchestrator
+```
+
+**Auto-triggers** (if enabled in configuration):
+- Creates GitHub Epic Issue with label `epic`
+- Creates Story Issues for all dependent tasks
+- Links stories in epic checklist
+- Bidirectional references (Beads ↔ GitHub)
+
+### Work Breakdown Sync
+
+When breaking down epics into stories:
+- Story creation automatically syncs to GitHub
+- Issues labeled with `story`
+- Linked to parent epic
+- Task packets created if configured
+
+## Configuration
+
+Enable in `${AI_PACK_ROOT}/.github-integration.yml`:
+
+```yaml
+features:
+  agent_triggers:
+    enabled: true
+    orchestrator:
+      epic_creation: true      # Auto-create epics
+      work_breakdown: true     # Auto-sync stories
+```
+
+## Usage
+
+### Manual Sync
+
+```bash
+# Initialize integration
+${AI_PACK_ROOT}/scripts/github-integration.py init
+
+# Create epic (manual sync)
+${AI_PACK_ROOT}/scripts/github-integration.py create-epic <beads-task-id>
+
+# Full sync
+${AI_PACK_ROOT}/scripts/github-integration.py sync
+```
+
+### Automatic Sync (Recommended)
+
+With agent triggers enabled, GitHub updates happen automatically when
+you create epics or break down work. No manual commands needed.
+
+## References
+
+- [GitHub Integration Setup](../.ai-pack/docs/GITHUB-INTEGRATION-SETUP.md)
+- [GitHub Agent Triggers](../.ai-pack/docs/GITHUB-AGENT-TRIGGERS.md)
+- [Work Item Patterns](../.ai-pack/docs/WORK-ITEM-PATTERNS.md)
+- [Base Orchestrator Role](../.ai-pack/roles/orchestrator.md)
+""",
+        "engineer-github-extension.md": """# Engineer GitHub Extension
+
+**Base Role:** `.ai-pack/roles/engineer.md` (immutable, managed by ai-pack)
+**Extension Type:** GitHub Integration
+
+## Overview
+
+This extension adds GitHub integration capabilities to the Engineer role,
+enabling automatic status updates when working on tasks.
+
+## GitHub Integration Features
+
+### Task Lifecycle Sync
+
+When you start or complete tasks:
+
+```bash
+bd start bd-story-123    # → GitHub issue labeled "in-progress"
+bd complete bd-story-123 # → GitHub issue marked complete
+```
+
+**Auto-triggers** (if enabled):
+- Updates issue labels
+- Adds status comments
+- Updates epic checklists
+- Moves cards on Project boards
+
+### Pull Request Integration
+
+Optional automatic draft PR creation when pushing feature branches.
+
+## Configuration
+
+Enable in `${AI_PACK_ROOT}/.github-integration.yml`:
+
+```yaml
+features:
+  agent_triggers:
+    enabled: true
+    engineer:
+      task_start: true           # Auto-update on bd start
+      task_complete: true        # Auto-update on bd complete
+      auto_draft_pr: false       # Optional: auto-create draft PRs
+```
+
+## Usage
+
+### Typical Engineer Workflow
+
+```bash
+# 1. Start task (syncs to GitHub)
+bd start bd-story-456
+
+# 2. Implement solution
+# ... work on code ...
+
+# 3. Complete task (syncs to GitHub)
+bd complete bd-story-456
+
+# GitHub issue automatically updated at each step
+```
+
+### Manual Operations
+
+```bash
+# Export specific task
+${AI_PACK_ROOT}/scripts/github-integration.py export
+
+# Create PR manually
+${AI_PACK_ROOT}/scripts/github-integration.py create-pr
+```
+
+## References
+
+- [GitHub Integration Setup](../.ai-pack/docs/GITHUB-INTEGRATION-SETUP.md)
+- [GitHub Agent Triggers](../.ai-pack/docs/GITHUB-AGENT-TRIGGERS.md)
+- [Base Engineer Role](../.ai-pack/roles/engineer.md)
+""",
+        "security-github-extension.md": """# Security GitHub Extension
+
+**Base Role:** `.ai-pack/roles/security.md` (not yet defined in base)
+**Extension Type:** GitHub Integration
+
+## Overview
+
+This extension defines GitHub integration for Security role, enabling
+automatic creation of private security issues for investigations.
+
+## GitHub Integration Features
+
+### SEC Issue Creation
+
+When Security role creates investigation tasks:
+
+```bash
+bd create "SEC: SQL injection in user search" --assignee Security
+```
+
+**Auto-triggers** (if enabled):
+- Creates private GitHub issue (org repos only)
+- Labels: `security`, `needs-review`
+- Assigns to security team
+- Tracks investigation progress
+
+### Security Investigation Workflow
+
+1. Security discovers vulnerability
+2. Creates SEC task in Beads
+3. GitHub issue auto-created (private)
+4. Investigation tracked in both systems
+5. Resolution synced back
+
+## Configuration
+
+Enable in `${AI_PACK_ROOT}/.github-integration.yml`:
+
+```yaml
+features:
+  agent_triggers:
+    enabled: true
+    security:
+      sec_issue_creation: true    # Auto-create SEC issues
+      sec_labels:
+        - "security"
+        - "needs-review"
+        - "vulnerability"
+      sec_private: true             # Private visibility (org only)
+      sec_assignees:
+        - "security-team"
+```
+
+## Usage
+
+### Creating Security Issue
+
+```bash
+# In Beads
+bd create "SEC: Investigation - XSS in comment form" \\
+  --assignee Security \\
+  --priority critical
+
+# Automatically creates private GitHub issue
+```
+
+### Manual Operations
+
+```bash
+# Create security issue manually
+${AI_PACK_ROOT}/scripts/github-integration.py create-security-issue <task-id>
+```
+
+## Security Considerations
+
+- **Private issues**: Only available in organization repositories
+- **Access control**: Limit who can see security issues
+- **Sync patterns**: Optionally exclude SEC tasks from public sync
+- **Audit trail**: Maintain investigation history
+
+## References
+
+- [GitHub Integration Setup](../.ai-pack/docs/GITHUB-INTEGRATION-SETUP.md)
+- [GitHub Agent Triggers](../.ai-pack/docs/GITHUB-AGENT-TRIGGERS.md)
+""",
+    }
+
+    # Write role extensions
+    created_files = []
+    for filename, content in extensions.items():
+        filepath = roles_dir / filename
+        filepath.write_text(content)
+        created_files.append(f".ai/roles/{filename}")
+        print(f"✅ Created {filepath}")
+
+    print()
+
+    # Update repo-overrides.md with GitHub extensions
+    overrides = Path(".ai/repo-overrides.md")
+    if overrides.exists():
+        with open(overrides, 'a') as f:
+            f.write("""
+
+## GitHub Integration
+
+This project uses GitHub integration for automated Beads ↔ GitHub synchronization.
+
+### Role Extensions
+
+This project extends the following roles with GitHub integration:
+- **Orchestrator**: See [.ai/roles/orchestrator-github-extension.md](.ai/roles/orchestrator-github-extension.md)
+- **Engineer**: See [.ai/roles/engineer-github-extension.md](.ai/roles/engineer-github-extension.md)
+- **Security**: See [.ai/roles/security-github-extension.md](.ai/roles/security-github-extension.md)
+
+### Setup Required
+
+To complete GitHub integration setup:
+
+1. **Initialize integration:**
+   ```bash
+   ${AI_PACK_ROOT}/scripts/github-integration.py init
+   ```
+
+2. **Configure** `${AI_PACK_ROOT}/.github-integration.yml`:
+   - Set repository: `your-org/your-repo`
+   - Enable agent triggers
+   - Configure role-specific options
+
+3. **Authenticate:**
+   ```bash
+   gh auth login
+   # OR
+   export GITHUB_TOKEN="ghp_your_token_here"
+   ```
+
+4. **Test:**
+   ```bash
+   ${AI_PACK_ROOT}/scripts/github-integration.py status
+   ```
+
+### Documentation
+
+- [Setup Guide](../.ai-pack/docs/GITHUB-INTEGRATION-SETUP.md)
+- [Agent Triggers](../.ai-pack/docs/GITHUB-AGENT-TRIGGERS.md)
+- [Work Item Patterns](../.ai-pack/docs/WORK-ITEM-PATTERNS.md)
+""")
+        print(f"✅ Updated {overrides} with GitHub integration section")
+
+    print()
+    print("✅ GitHub integration role extensions created")
+    print()
+    print("Next steps:")
+    print("  1. Run: ${AI_PACK_ROOT}/scripts/github-integration.py init")
+    print("  2. Configure: ${AI_PACK_ROOT}/.github-integration.yml")
+    print("  3. Authenticate: gh auth login")
+    print()
+
+    return True
+
+
 def verify_setup():
     """Verify the setup is complete."""
     print_header("Verifying Setup")
@@ -345,6 +686,7 @@ def main():
         ("Fixing hook paths", fix_hook_paths),
         ("Making hooks executable", make_hooks_executable),
         ("Creating .ai/ structure", create_ai_directory),
+        ("GitHub integration setup", setup_github_extensions),
         ("Verifying setup", verify_setup),
     ]
 
