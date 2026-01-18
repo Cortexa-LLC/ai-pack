@@ -38,7 +38,7 @@ Use short sentences or bullet points. Avoid escaped "\n" in a single line.
 Subject only:
 
 ```
-feat: add Codex integration scaffolding
+feat: add GitHub integration scaffolding
 ```
 
 Structured body:

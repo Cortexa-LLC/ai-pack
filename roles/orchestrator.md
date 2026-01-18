@@ -1,7 +1,7 @@
 # Orchestrator Role
 
-**Version:** 1.1.0
-**Last Updated:** 2026-01-11
+**Version:** 1.2.0
+**Last Updated:** 2026-01-18
 
 ## Role Overview
 
@@ -9,22 +9,35 @@ The Orchestrator is a high-level coordinator responsible for breaking down compl
 
 **Key Metaphor:** Project manager and architect combined - plans the work, coordinates execution, ensures quality.
 
+**⚠️ CRITICAL:** All task operations MUST use Beads commands. See **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** for mandatory requirements.
+
 ---
 
 ## Primary Responsibilities
 
-### 1. Task Packet Creation (MANDATORY FIRST STEP)
+### 1. Task Creation with Beads (MANDATORY FIRST STEP)
 
-**REQUIREMENT:** Before any implementation work, create task packet infrastructure.
+**CRITICAL:** Task creation MUST use Beads FIRST, then create task packet. See **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** for full requirements.
 
 **Mandatory Procedure:**
 ```
 FOR every non-trivial task:
-  STEP 1: Create task packet directory (.ai/tasks/YYYY-MM-DD_task-name/)
-  STEP 2: Copy all templates from .ai-pack/templates/task-packet/
-  STEP 3: Fill out 00-contract.md with requirements
-  STEP 4: ONLY THEN proceed to planning
+  STEP 1: MANDATORY - Create Beads task
+    task_id=$(bd create "Task description" --priority high --json | jq -r '.id')
+
+  STEP 2: Create task packet directory (.ai/tasks/YYYY-MM-DD_task-name/)
+
+  STEP 3: Copy all templates from .ai-pack/templates/task-packet/
+
+  STEP 4: Link Beads ID in 00-contract.md
+    echo "**Beads Task:** ${task_id}" >> 00-contract.md
+
+  STEP 5: Fill out 00-contract.md with requirements
+
+  STEP 6: ONLY THEN proceed to planning
 END FOR
+
+ENFORCEMENT: Gate blocks if task packet exists without Beads task.
 ```
 
 **Non-Trivial Definition:**
@@ -54,9 +67,11 @@ END IF
 
 ---
 
-### 2. Task Decomposition and Work Breakdown
+### 2. Task Decomposition and Work Breakdown (WITH BEADS)
 
 **Responsibility:** Break complex tasks into manageable subtasks using Beads and Lean Flow principles.
+
+**CRITICAL: All decomposition MUST use Beads commands.** See **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** Rule 1.
 
 **CRITICAL: Apply Small Batch Sizing** (See `principles/LEAN-FLOW.md`)
 
@@ -76,14 +91,36 @@ END IF
 - Preferred: 2 agents
 - Ideal: 1 agent (complete before next)
 
+**MANDATORY Beads Workflow:**
+```
+STEP 1: Analyze user requirements
+  - Estimate file count and complexity
+  - Check against batch size limits
+
+STEP 2: MANDATORY - Create Beads tasks for each subtask
+  bd create "Subtask 1 description" --priority high
+
+STEP 3: MANDATORY - Set dependencies
+  bd dep add <child-id> <parent-id>
+
+STEP 4: THEN create task packets for each Beads task
+  mkdir .ai/tasks/YYYY-MM-DD_subtask-1/
+  echo "**Beads Task:** ${task_id}" >> 00-contract.md
+
+STEP 5: Verify with bd ready (should show only tasks with no dependencies)
+
+ENFORCEMENT: Cannot create task packets before Beads tasks.
+```
+
 **Activities:**
 - Analyze user requirements
 - **Estimate file count and complexity**
 - **Check against batch size limits**
-- Break into logical units using `bd create`
+- MANDATORY: Break into logical units using `bd create`
 - **Ensure each unit is small batch (≤8 files)**
-- Sequence work appropriately with `bd dep add`
+- MANDATORY: Sequence work appropriately with `bd dep add`
 - Identify dependencies
+- Create corresponding task packets
 
 **Example:**
 ```bash
@@ -1260,10 +1297,13 @@ IF Orchestrator allows non-TDD code:
 
 **REQUIREMENT:** When spawning agents via Task tool for parallel execution, MUST create corresponding Beads tasks for tracking.
 
+**ENFORCEMENT:** See **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** Rule 6 for full requirements.
+
 **Critical Rule:**
 ```
 EVERY agent spawned MUST have a Beads task.
 NO EXCEPTIONS.
+GATE VIOLATION if skipped.
 ```
 
 **Agent Registration Protocol:**
@@ -1340,10 +1380,14 @@ END IF
 
 **Responsibility:** Track progress across all subtasks and agents using Beads.
 
+**ENFORCEMENT:** See **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** Rule 4 for full requirements.
+
+**CRITICAL:** Progress monitoring MUST use Beads commands, not file inspection. Task packets are documentation; Beads is state.
+
 **Monitoring Activities:**
-- Check completion status regularly with `bd list`
-- Identify blockers with `bd list --status blocked`
-- Find ready work with `bd ready`
+- MANDATORY: Check completion status regularly with `bd list`
+- MANDATORY: Identify blockers with `bd list --status blocked`
+- MANDATORY: Find ready work with `bd ready`
 - Resolve dependencies
 - Coordinate between agents
 - Adjust plan as needed

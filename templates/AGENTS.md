@@ -1,4 +1,4 @@
-# Codex Bootstrap Instructions
+# AI-Pack Bootstrap Instructions
 
 **Project:** [Your Project Name]
 **Repository:** [repo-url]
@@ -53,8 +53,6 @@ project-root/
 ├── .ai/                # Local workspace (project-specific)
 │   ├── tasks/          # Active task packets
 │   └── repo-overrides.md  # Project-specific rules
-├── .codex/             # Optional Codex-specific guidance
-│   └── rules/          # Extra rules referenced by AGENTS.md
 └── AGENTS.md           # This file
 ```
 
@@ -155,19 +153,6 @@ Follow the execution strategy defined in the roles, especially `.ai-pack/roles/o
 
 ---
 
-## Codex Command Equivalents
-
-Codex does not support slash commands. Use these CLI scripts instead:
-
-```bash
-python3 .codex/commands/health.py
-python3 .codex/commands/agents.py
-python3 .codex/commands/orchestrate.py
-python3 .codex/commands/task-queue.py
-```
-
----
-
 ## Workflow Selection
 
 Choose appropriate workflow for the task type:
@@ -186,7 +171,6 @@ Choose appropriate workflow for the task type:
 
 Override location:
 - **[.ai/repo-overrides.md](.ai/repo-overrides.md)** - Project-specific deltas
-- **[.codex/rules/](.codex/rules/)** - Optional Codex-specific rules
 
 Important project context:
 
