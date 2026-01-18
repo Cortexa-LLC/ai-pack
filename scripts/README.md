@@ -45,7 +45,7 @@ ${AI_PACK_ROOT}/scripts/github-integration.py sync
 - [Usage Guide](../docs/GITHUB-INTEGRATION-USAGE.md) - Complete feature guide
 - [Configuration Example](../.github-integration.yml.example) - Config template
 - [Work Item Patterns](../docs/WORK-ITEM-PATTERNS.md) - Epic/Story/Task patterns
-- [Integration Analysis](../docs/GITHUB-MCP-INTEGRATION-ANALYSIS.md) - Feature analysis
+- [Integration Summary](../docs/GITHUB-INTEGRATION-SUMMARY.md) - Overview and quick reference
 
 **Commands:**
 ```bash
