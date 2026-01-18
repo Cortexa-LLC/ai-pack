@@ -61,6 +61,32 @@ Implemented optional, configuration-driven GitHub integration for AI-Pack that e
 
 ### 3. Documentation
 
+#### Setup Guide (NEW)
+**File:** `docs/GITHUB-INTEGRATION-SETUP.md`
+
+**Contents:**
+- Installation path detection (${AI_PACK_ROOT})
+- Shell alias configuration
+- Project wrapper scripts
+- Environment variable setup
+- CI/CD path handling
+- GitHub Actions examples
+- Path reference conventions
+
+#### Agent Triggers Guide (NEW)
+**File:** `docs/GITHUB-AGENT-TRIGGERS.md`
+
+**Contents:**
+- Auto-trigger on role actions
+- Orchestrator epic creation
+- Security SEC issue handling
+- Engineer task lifecycle sync
+- Reviewer PR comments
+- Tester bug automation
+- Configuration examples
+- Beads hooks implementation
+- Troubleshooting triggers
+
 #### Usage Guide
 **File:** `docs/GITHUB-INTEGRATION-USAGE.md`
 
@@ -75,6 +101,17 @@ Implemented optional, configuration-driven GitHub integration for AI-Pack that e
 - Troubleshooting
 - Examples
 
+#### Work Item Patterns (NEW)
+**File:** `docs/WORK-ITEM-PATTERNS.md`
+
+**Contents:**
+- Epic, Story, Task, Spike, Issue definitions
+- Beads representation
+- GitHub representation
+- Task packet integration
+- Workflow examples
+- Hierarchy and relationships
+
 #### Scripts README
 **File:** `scripts/README.md`
 
@@ -83,15 +120,17 @@ Implemented optional, configuration-driven GitHub integration for AI-Pack that e
 - GitHub integration quick reference
 - Prerequisites
 - Commands list
+- Path-agnostic examples
 
 #### Main README Update
 **File:** `README.md`
 
 **Added:**
 - GitHub Integration section
-- Quick start example
+- Agent triggers overview
+- Quick start with ${AI_PACK_ROOT}
 - Configuration snippet
-- Link to full documentation
+- Links to all documentation
 
 ---
 
@@ -175,6 +214,58 @@ Implemented optional, configuration-driven GitHub integration for AI-Pack that e
 - `github_labels`
 - `github_assignees`
 - `github_milestone`
+
+### Feature 5: Agent/Role-Triggered Actions
+
+**Automatic Triggering:**
+- Integration triggers based on AI agent/role actions
+- No manual sync commands needed
+- Seamless Beads ↔ GitHub synchronization
+
+**Role-Specific Triggers:**
+
+**Orchestrator:**
+- Auto-create GitHub epic when Orchestrator creates epic in Beads
+- Auto-sync work breakdown (epic → stories)
+
+**Program Manager:**
+- Auto-create issues from PM tracking tasks
+- Auto-update milestones
+
+**Security:**
+- Auto-create security issues with `security` label
+- Private visibility for sensitive issues (org repos)
+- Auto-assign to security team
+
+**Engineer:**
+- Auto-update issue status on task start/complete
+- Optional auto-draft PR on feature branch
+
+**Reviewer:**
+- Auto-post review results as PR comments
+- Optional auto-approve if all checks pass
+
+**Tester:**
+- Auto-create bug issues from test failures
+- Auto-close bugs when tests pass
+
+**All Roles:**
+- Status change sync (start, block, complete)
+- Optional work-log comment sync
+
+**Configuration:**
+```yaml
+features:
+  agent_triggers:
+    enabled: true
+    orchestrator:
+      epic_creation: true
+    security:
+      sec_issue_creation: true
+    engineer:
+      task_start: true
+      task_complete: true
+```
 
 ---
 

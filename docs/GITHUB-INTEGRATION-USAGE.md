@@ -131,7 +131,7 @@ Project: Q1 2026 Features
 
 ```bash
 cd your-project
-./scripts/github-integration.py init
+.ai-pack/scripts/github-integration.py init
 ```
 
 This creates `.github-integration.yml` with default settings.
@@ -166,18 +166,18 @@ gh auth login
 ### 4. Verify Status
 
 ```bash
-./scripts/github-integration.py status
+.ai-pack/scripts/github-integration.py status
 ```
 
 ### 5. Start Syncing
 
 ```bash
 # Bidirectional sync
-./scripts/github-integration.py sync
+.ai-pack/scripts/github-integration.py sync
 
 # Or run individually
-./scripts/github-integration.py export  # Beads → GitHub
-./scripts/github-integration.py import  # GitHub → Beads
+.ai-pack/scripts/github-integration.py export  # Beads → GitHub
+.ai-pack/scripts/github-integration.py import  # GitHub → Beads
 ```
 
 ---
@@ -309,7 +309,7 @@ bd create "Implement user authentication" --priority high
 bd create "Add dark mode toggle" --priority normal
 
 # 2. Export to GitHub for team visibility
-./scripts/github-integration.py export
+.ai-pack/scripts/github-integration.py export
 
 # 3. Work on tasks locally
 bd start bd-a1b2
@@ -317,7 +317,7 @@ bd start bd-a1b2
 bd close bd-a1b2
 
 # 4. Sync status back to GitHub
-./scripts/github-integration.py sync
+.ai-pack/scripts/github-integration.py sync
 ```
 
 **When to use:** Solo development or small teams, Beads is primary tool.
@@ -330,7 +330,7 @@ bd close bd-a1b2
 # 1. Team creates issues in GitHub (with "ai-pack" label)
 
 # 2. Import to Beads
-./scripts/github-integration.py import
+.ai-pack/scripts/github-integration.py import
 
 # 3. Find imported work
 bd ready
@@ -341,7 +341,7 @@ bd start bd-x1y2
 bd close bd-x1y2
 
 # 5. Sync status back to GitHub
-./scripts/github-integration.py sync
+.ai-pack/scripts/github-integration.py sync
 ```
 
 **When to use:** Large teams, GitHub is primary tool, you want local Beads benefits.
@@ -352,11 +352,11 @@ bd close bd-x1y2
 
 ```bash
 # Run continuous sync (in background or separate terminal)
-./scripts/github-integration.py sync
+.ai-pack/scripts/github-integration.py sync
 
 # Or set up periodic sync via cron
 # Add to crontab:
-# */5 * * * * cd /path/to/project && ./scripts/github-integration.py sync
+# */5 * * * * cd /path/to/project && .ai-pack/scripts/github-integration.py sync
 ```
 
 **When to use:** Hybrid teams, both tools actively used.
@@ -367,10 +367,10 @@ bd close bd-x1y2
 
 ```bash
 # Monitor CI continuously
-./scripts/github-integration.py monitor
+.ai-pack/scripts/github-integration.py monitor
 
 # Or check on-demand
-./scripts/github-integration.py check-ci
+.ai-pack/scripts/github-integration.py check-ci
 ```
 
 **Configuration:**
@@ -400,7 +400,7 @@ bd create "Add password hashing" --depends-on ${epic_id}
 bd create "Write auth tests" --depends-on ${epic_id}
 
 # 2. Create GitHub epic with stories
-./scripts/github-integration.py create-epic ${epic_id}
+.ai-pack/scripts/github-integration.py create-epic ${epic_id}
 ```
 
 **GitHub Result:**
@@ -453,7 +453,7 @@ To organize multiple epics into a theme:
 
 **Check current status:**
 ```bash
-./scripts/github-integration.py check-ci
+.ai-pack/scripts/github-integration.py check-ci
 
 # Output:
 # Recent Workflows:
@@ -464,7 +464,7 @@ To organize multiple epics into a theme:
 
 **Continuous monitoring:**
 ```bash
-./scripts/github-integration.py monitor
+.ai-pack/scripts/github-integration.py monitor
 
 # Runs indefinitely, checks every minute (configurable)
 # Creates issues/tasks automatically on failure
@@ -541,8 +541,8 @@ cp .github-integration.yml.example .github-integration-web.yml
 
 # Edit each for different repos
 # Then use:
-CONFIG_FILE=.github-integration-api.yml ./scripts/github-integration.py sync
-CONFIG_FILE=.github-integration-web.yml ./scripts/github-integration.py sync
+CONFIG_FILE=.github-integration-api.yml .ai-pack/scripts/github-integration.py sync
+CONFIG_FILE=.github-integration-web.yml .ai-pack/scripts/github-integration.py sync
 ```
 
 ### GitHub Enterprise
@@ -608,10 +608,10 @@ Orchestrator can trigger GitHub operations:
 ```bash
 # In orchestrator role
 # After creating Beads tasks:
-./scripts/github-integration.py export
+.ai-pack/scripts/github-integration.py export
 
 # After epic planning:
-./scripts/github-integration.py create-epic ${epic_id}
+.ai-pack/scripts/github-integration.py create-epic ${epic_id}
 ```
 
 ### With Engineer
@@ -640,7 +640,7 @@ Set up automatic syncing via cron or systemd timer:
 crontab -e
 
 # Add:
-*/5 * * * * cd /path/to/project && ./scripts/github-integration.py sync >> /path/to/project/.github-sync.log 2>&1
+*/5 * * * * cd /path/to/project && .ai-pack/scripts/github-integration.py sync >> /path/to/project/.github-sync.log 2>&1
 ```
 
 **Systemd Timer (more sophisticated):**
@@ -782,7 +782,7 @@ bd create "Settings page" --depends-on ${sprint_id}
 bd create "Notifications" --depends-on ${sprint_id}
 
 # 3. Create GitHub epic with project
-./scripts/github-integration.py create-epic ${sprint_id}
+.ai-pack/scripts/github-integration.py create-epic ${sprint_id}
 
 # 4. Team sees epic in GitHub Projects
 # 5. Engineers pull work from Beads
@@ -797,7 +797,7 @@ bd ready
 # 1. Team reports bugs as GitHub issues (label: "bug", "ai-pack")
 
 # 2. Import to Beads for triage
-./scripts/github-integration.py import
+.ai-pack/scripts/github-integration.py import
 
 # 3. Triage in Beads
 bd list --json | jq '.[] | select(.title | contains("bug"))'
@@ -820,7 +820,7 @@ bd start bd-x1y2
 # ci_monitoring.auto_create_failure_tasks: true
 
 # 2. Start monitoring
-./scripts/github-integration.py monitor
+.ai-pack/scripts/github-integration.py monitor
 
 # 3. When CI fails:
 #    - Beads task auto-created with priority: critical
@@ -855,10 +855,10 @@ bd close bd-fail123
 
 **Getting Started:**
 ```bash
-./scripts/github-integration.py init
+.ai-pack/scripts/github-integration.py init
 # Edit .github-integration.yml
 export GITHUB_TOKEN="your_token"
-./scripts/github-integration.py sync
+.ai-pack/scripts/github-integration.py sync
 ```
 
 **Best Practice:** Start with just `issue_sync` enabled, add features as needed.

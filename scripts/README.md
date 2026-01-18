@@ -23,22 +23,28 @@ This directory contains automation scripts for AI-Pack workflows.
 
 **Quick Start:**
 ```bash
-# Initialize
-./scripts/github-integration.py init
+# Note: Replace ${AI_PACK_ROOT} with your actual path (.ai-pack, ai-pack, etc.)
+# See Setup Guide for path detection helpers
+
+# Initialize (from project root)
+${AI_PACK_ROOT}/scripts/github-integration.py init
 
 # Configure
-# Edit .github-integration.yml
+# Edit ${AI_PACK_ROOT}/.github-integration.yml
 
 # Set token
 export GITHUB_TOKEN="ghp_your_token_here"
 
 # Sync
-./scripts/github-integration.py sync
+${AI_PACK_ROOT}/scripts/github-integration.py sync
 ```
 
 **Documentation:**
-- [Usage Guide](../docs/GITHUB-INTEGRATION-USAGE.md) - Complete guide
+- [Setup Guide](../docs/GITHUB-INTEGRATION-SETUP.md) - Installation paths and environment setup
+- [Agent Triggers](../docs/GITHUB-AGENT-TRIGGERS.md) - Auto-sync on role actions
+- [Usage Guide](../docs/GITHUB-INTEGRATION-USAGE.md) - Complete feature guide
 - [Configuration Example](../.github-integration.yml.example) - Config template
+- [Work Item Patterns](../docs/WORK-ITEM-PATTERNS.md) - Epic/Story/Task patterns
 - [Integration Analysis](../docs/GITHUB-MCP-INTEGRATION-ANALYSIS.md) - Feature analysis
 
 **Commands:**
