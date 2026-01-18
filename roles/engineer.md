@@ -1,13 +1,15 @@
 # Engineer Role
 
-**Version:** 1.1.0
-**Last Updated:** 2026-01-11
+**Version:** 1.2.0
+**Last Updated:** 2026-01-18
 
 ## Role Overview
 
 The Engineer is an implementation specialist responsible for executing specific, well-defined tasks. Engineers write code, create tests, fix bugs, and document their work following established patterns and standards.
 
 **Key Metaphor:** Skilled craftsperson - takes clear specifications, implements with quality, reports progress.
+
+**⚠️ CRITICAL:** All task lifecycle operations MUST use Beads commands. See **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** for mandatory requirements.
 
 ---
 
@@ -191,9 +193,13 @@ END IF
 
 **REQUIREMENT:** Use Beads to find next available work and track progress.
 
+**ENFORCEMENT:** See **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** for full requirements. All task operations MUST use Beads commands.
+
+**CRITICAL:** Task discovery MUST use `bd ready` command, not manual task selection. See Rule 3 of Beads Enforcement Gate.
+
 **Finding Next Task:**
 ```bash
-# Step 1: Find tasks ready to work on (no blocking dependencies)
+# Step 1: MANDATORY - Find tasks ready to work on (no blocking dependencies)
 bd ready
 
 # Output shows available tasks:
@@ -214,19 +220,27 @@ bd show bd-a1b2
 
 **Starting Work:**
 ```bash
-# Mark task as in-progress
+# MANDATORY - Mark task as in-progress
 bd start bd-a1b2
 
+# GATE ENFORCEMENT: Work cannot begin without bd start command
 # This signals to Orchestrator and other engineers that you're working on it
 ```
 
 **During Implementation:**
 ```bash
-# If you discover subtasks
+# If you discover subtasks - MANDATORY use bd create
 bd create "Add password hashing utility" --depends-on bd-a1b2
 
-# If you get blocked
+# If you get blocked - MANDATORY use bd block
 bd block bd-a1b2 "Waiting for API key from DevOps"
+# THEN update work log
+echo "BLOCKER: Waiting for API key" >> .ai/tasks/*/20-work-log.md
+
+# When unblocked - MANDATORY use bd unblock
+bd unblock bd-a1b2
+# THEN update work log
+echo "UNBLOCKED: API key received" >> .ai/tasks/*/20-work-log.md
 
 # Check what's ready after current task
 bd ready
@@ -235,7 +249,11 @@ bd ready
 **Completing Work:**
 ```bash
 # When task fully implemented and tested
+# MANDATORY - Close in Beads FIRST
 bd close bd-a1b2
+
+# THEN update task packet
+echo "✅ Task complete" >> .ai/tasks/*/40-acceptance.md
 
 # Find next work
 bd ready
@@ -350,7 +368,10 @@ Test-Driven Development is NOT optional. It is a BLOCKING requirement enforced b
 ```
 1. Understand requirements
 2. Read existing code (establish context)
-3. MANDATORY TDD Cycle (BLOCKING):
+3. MANDATORY - Start Beads task
+   bd start <task-id>
+   # Task must be in "in_progress" before implementing
+4. MANDATORY TDD Cycle (BLOCKING):
 
    STEP 1: RED Phase (MANDATORY)
    ──────────────────────────────
@@ -607,10 +628,18 @@ WHILE working:
   run tests frequently
   verify changes locally
   check against requirements
-  update progress
+  update progress (work log only - Beads stays "in_progress")
+
   IF stuck THEN
-    document blocker
+    # MANDATORY - Block in Beads FIRST
+    bd block <task-id> "Reason for blocker"
+    # THEN document in work log
+    echo "BLOCKER: [reason]" >> .ai/tasks/*/20-work-log.md
     ask for help
+
+    # When unblocked
+    bd unblock <task-id>
+    echo "UNBLOCKED: [resolution]" >> .ai/tasks/*/20-work-log.md
   END IF
 END WHILE
 ```
@@ -630,7 +659,30 @@ END WHILE
 ✓ No TODO/FIXME left unaddressed
 ✓ Work log updated
 ✓ Commit messages clear
+✓ Beads task closed with bd close <task-id> (MANDATORY - BLOCKING)
 ✓ Ready for review
+```
+
+**⚠️ CRITICAL: Beads Task Closure (MANDATORY)**
+
+```bash
+# STEP 1: Verify all work complete (checklist above)
+
+# STEP 2: MANDATORY - Close in Beads FIRST
+bd close <task-id>
+
+# STEP 3: THEN update acceptance document
+echo "✅ Task complete" >> .ai/tasks/*/40-acceptance.md
+echo "Beads Task: <task-id> [CLOSED]" >> .ai/tasks/*/40-acceptance.md
+
+# STEP 4: Find next work
+bd ready
+
+IF task not closed in Beads THEN
+  GATE VIOLATION - Work incomplete
+  BLOCK acceptance
+  REQUIRE: bd close command
+END IF
 ```
 
 **⚠️ CRITICAL: Zero Warnings Requirement (BLOCKING)**

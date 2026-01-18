@@ -1,0 +1,290 @@
+# GitHub MCP Integration Configuration
+# Version: 1.0.0
+#
+# Copy this file to .github-integration.yml and configure for your project
+# This file should NOT be committed if it contains sensitive data
+# Add .github-integration.yml to .gitignore
+
+# =============================================================================
+# GITHUB CONNECTION
+# =============================================================================
+github:
+  # Enable/disable GitHub integration entirely
+  enabled: true
+
+  # GitHub repository (format: owner/repo)
+  # Can be overridden by GITHUB_REPO environment variable
+  repository: "your-org/your-repo"
+
+  # GitHub Personal Access Token
+  # STRONGLY RECOMMENDED: Use environment variable GITHUB_TOKEN instead
+  # If both are set, environment variable takes precedence
+  token: "${GITHUB_TOKEN}"
+
+  # GitHub API URL (for GitHub Enterprise)
+  # Default: https://api.github.com
+  api_url: "https://api.github.com"
+
+  # GitHub MCP Server URL (if using MCP server)
+  # Leave empty to use GitHub API directly
+  mcp_server_url: ""  # e.g., "http://localhost:3000"
+
+# =============================================================================
+# FEATURE TOGGLES - Enable/disable specific features
+# =============================================================================
+features:
+  # Issue Management
+  issue_sync:
+    enabled: true
+    # Auto-create GitHub issues from Beads tasks
+    auto_create_from_beads: true
+    # Auto-import GitHub issues into Beads
+    auto_import_to_beads: true
+    # Bidirectional sync (keep both in sync)
+    bidirectional_sync: true
+    # Sync interval in seconds (0 = manual only)
+    sync_interval: 300  # 5 minutes
+
+  # Epic/Story Management
+  epic_management:
+    enabled: true
+    # Use GitHub Projects for epics
+    use_projects: true
+    # Default project number for new epics
+    default_project: 1
+
+  # CI/CD Monitoring
+  ci_monitoring:
+    enabled: true
+    # Watch for workflow failures
+    watch_failures: true
+    # Auto-create issues for failures
+    auto_create_failure_issues: true
+    # Auto-create Beads tasks for failures
+    auto_create_failure_tasks: true
+    # Check interval in seconds
+    check_interval: 60
+    # Workflows to monitor (empty = all)
+    monitored_workflows: []
+      # - "CI"
+      # - "Tests"
+
+  # Pull Request Management
+  pr_management:
+    enabled: true
+    # Auto-create PRs from Beads tasks
+    auto_create_pr: false
+    # Require quality gate checks
+    require_quality_gates: true
+    # Auto-check PR status
+    auto_check_status: true
+
+  # Quality Gate Integration
+  quality_gates:
+    enabled: true
+    # Block work if CI failing
+    block_on_ci_failure: true
+    # Require test coverage
+    require_coverage: true
+    coverage_threshold: 80
+    # Require TDD validation
+    require_tdd_validation: true
+
+# =============================================================================
+# LABELING - Automatic label management
+# =============================================================================
+labels:
+  # Automatically add these labels to synced issues
+  auto_labels:
+    - "ai-pack"
+    - "beads-synced"
+
+  # Priority mapping (Beads → GitHub)
+  priority_mapping:
+    critical: "priority-critical"
+    high: "priority-high"
+    normal: "priority-normal"
+    low: "priority-low"
+
+  # Role-based labels for agent tracking
+  agent_labels:
+    enabled: true
+    prefix: "agent-"  # agent-engineer, agent-tester, etc.
+
+  # Epic/Story labels
+  epic_label: "epic"
+  story_label: "story"
+  task_label: "task"
+
+# =============================================================================
+# SYNC RULES - Control what gets synced
+# =============================================================================
+sync_rules:
+  # Which Beads tasks to sync to GitHub
+  beads_to_github:
+    # Only sync tasks with these statuses
+    statuses:
+      - "open"
+      - "in_progress"
+      - "blocked"
+    # Only sync tasks with these priorities
+    priorities:
+      - "critical"
+      - "high"
+      - "normal"
+    # Exclude tasks matching these patterns
+    exclude_patterns:
+      - "^Agent:"  # Don't sync agent tracking tasks
+      - "^Internal:"  # Don't sync internal tasks
+
+  # Which GitHub issues to import to Beads
+  github_to_beads:
+    # Only import issues with these labels
+    required_labels:
+      - "ai-pack"
+    # Exclude issues with these labels
+    exclude_labels:
+      - "wontfix"
+      - "duplicate"
+    # Only import open issues
+    only_open: true
+
+# =============================================================================
+# NOTIFICATIONS - Alert preferences
+# =============================================================================
+notifications:
+  # Where to send notifications
+  channels:
+    # CLI output
+    console: true
+    # GitHub issue comments
+    github_comments: true
+    # Beads comments
+    beads_comments: true
+
+  # What events to notify about
+  events:
+    ci_failure: true
+    issue_created: true
+    issue_closed: false
+    pr_created: true
+    pr_merged: true
+    quality_gate_failed: true
+
+# =============================================================================
+# CI/CD CONFIGURATION
+# =============================================================================
+ci_config:
+  # Failure handling
+  on_failure:
+    # Action: "issue" | "task" | "both" | "none"
+    action: "both"
+    # Assign failures to specific Beads assignee
+    assignee: "Engineer-CI"
+    # Priority for failure tasks
+    priority: "critical"
+
+  # Success handling
+  on_success:
+    # Close related Beads tasks automatically
+    auto_close_tasks: true
+    # Post success comments
+    post_comments: false
+
+  # Retry logic
+  retry:
+    # Auto-retry failed workflows
+    enabled: false
+    # Max retries
+    max_attempts: 2
+    # Delay between retries (seconds)
+    delay: 300
+
+# =============================================================================
+# ADVANCED SETTINGS
+# =============================================================================
+advanced:
+  # Rate limiting
+  rate_limit:
+    # Max requests per hour
+    max_requests: 4500  # GitHub allows 5000, leave buffer
+    # Backoff strategy: "linear" | "exponential"
+    backoff_strategy: "exponential"
+
+  # Caching
+  cache:
+    enabled: true
+    # Cache duration in seconds
+    ttl: 300
+    # Cache directory
+    directory: ".github-integration-cache"
+
+  # Logging
+  logging:
+    enabled: true
+    level: "info"  # debug | info | warning | error
+    file: ".github-integration.log"
+
+  # Dry run mode (test without making changes)
+  dry_run: false
+
+# =============================================================================
+# TASK PACKET INTEGRATION
+# =============================================================================
+task_packets:
+  # Link GitHub issues in task packet contracts
+  link_in_contract: true
+
+  # Create task packets for imported issues
+  auto_create_packets: true
+
+  # Task packet directory pattern
+  directory_pattern: ".ai/tasks/{date}_{task_name}/"
+
+  # Include GitHub metadata in task packets
+  include_metadata: true
+  metadata_fields:
+    - "github_issue_number"
+    - "github_issue_url"
+    - "github_labels"
+    - "github_assignees"
+    - "github_milestone"
+
+# =============================================================================
+# EPIC/STORY CONFIGURATION
+# =============================================================================
+epics:
+  # How to represent epics
+  representation: "project"  # "project" | "issue" | "milestone"
+
+  # Epic naming pattern
+  naming_pattern: "Epic: {title}"
+
+  # Story template
+  story_template: |
+    **Epic:** #{epic_number}
+    **Beads Task:** {beads_id}
+
+    {description}
+
+    ## Acceptance Criteria
+    {acceptance_criteria}
+
+    ---
+    Part of Epic #{epic_number}
+    Managed by ai-pack
+
+# =============================================================================
+# WEBHOOKS (Optional - for real-time sync)
+# =============================================================================
+webhooks:
+  enabled: false
+  # Port for webhook server
+  port: 3001
+  # Webhook secret (for signature verification)
+  secret: "${GITHUB_WEBHOOK_SECRET}"
+  # Events to listen for
+  events:
+    - "issues"
+    - "pull_request"
+    - "workflow_run"
