@@ -91,6 +91,16 @@ def main():
     else:
         print("⏩ Watchdog timer already running")
 
+    # Start GitHub integration timer (5-minute intervals, 10-hour max)
+    if not is_process_running('github-integration-timer.py'):
+        pid = start_background_script('github-integration-timer.py', '300', '120')
+        if pid:
+            print(f"✅ GitHub integration timer started (PID {pid})")
+        else:
+            print("⚠️  GitHub integration timer not started (may be disabled)")
+    else:
+        print("⏩ GitHub integration timer already running")
+
     print("✅ ai-pack monitoring active")
 
 if __name__ == '__main__':

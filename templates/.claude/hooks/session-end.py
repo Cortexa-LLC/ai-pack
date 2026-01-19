@@ -58,6 +58,12 @@ def main():
     else:
         print("  ⏩ No watchdog timer running")
 
+    # Stop GitHub integration timer
+    if kill_process_by_name('github-integration-timer.py'):
+        print("  ✅ GitHub integration timer stopped")
+    else:
+        print("  ⏩ No GitHub integration timer running")
+
     print("✅ ai-pack monitoring stopped")
 
 if __name__ == '__main__':
