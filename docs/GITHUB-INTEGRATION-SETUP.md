@@ -16,9 +16,21 @@ ai-pack/
 # Option 3: Tools subdirectory
 tools/ai-pack/
 
-# Option 4: Custom path
+# Option 4: Custom path (any location works)
 vendor/ai-pack/
+lib/ai-pack/
+external/dependencies/ai-pack/
 ```
+
+### How Auto-Detection Works
+
+The detection scripts provided below automatically find AI-Pack using:
+
+1. **Git submodule configuration** - Reads `.gitmodules` to find the exact path
+2. **Filesystem search** - Searches for directories named `ai-pack` or `.ai-pack`
+3. **Directory tree walk** - Walks up parent directories to find AI-Pack
+
+This works for **any installation location**, not just common paths.
 
 ## Environment Setup
 
@@ -27,15 +39,46 @@ vendor/ai-pack/
 Add to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.):
 
 ```bash
-# Detect AI-Pack location
-if [ -d ".ai-pack" ]; then
+# Detect AI-Pack location (works for any installation path)
+detect_ai_pack() {
+  # Method 1: Check git submodules (ai-pack is always a submodule)
+  if [ -f .gitmodules ]; then
+    local submodule_path=$(git config --file .gitmodules --get-regexp path | \
+                          grep -i 'ai-pack' | \
+                          awk '{print $2}' | \
+                          head -1)
+    if [ -n "$submodule_path" ] && [ -d "$submodule_path" ]; then
+      echo "$submodule_path"
+      return 0
+    fi
+  fi
+
+  # Method 2: Search for ai-pack directory (handles non-submodule cases)
+  local found=$(find . -maxdepth 3 -type d \( -name "ai-pack" -o -name ".ai-pack" \) 2>/dev/null | head -1)
+  if [ -n "$found" ]; then
+    echo "${found#./}"  # Remove leading ./
+    return 0
+  fi
+
+  # Method 3: Walk up directory tree
+  local dir="$PWD"
+  while [ "$dir" != "/" ]; do
+    if [ -d "$dir/.ai-pack" ]; then
+      # Return relative path from current directory
+      realpath --relative-to="$PWD" "$dir/.ai-pack" 2>/dev/null || echo ".ai-pack"
+      return 0
+    fi
+    dir=$(dirname "$dir")
+  done
+
+  # Not found
+  return 1
+}
+
+export AI_PACK_ROOT=$(detect_ai_pack)
+if [ -z "$AI_PACK_ROOT" ]; then
+  echo "Warning: AI-Pack not found, defaulting to .ai-pack"
   export AI_PACK_ROOT=".ai-pack"
-elif [ -d "ai-pack" ]; then
-  export AI_PACK_ROOT="ai-pack"
-elif [ -d "tools/ai-pack" ]; then
-  export AI_PACK_ROOT="tools/ai-pack"
-else
-  export AI_PACK_ROOT=".ai-pack"  # default
 fi
 
 # Convenience aliases
@@ -55,15 +98,34 @@ Create `scripts/gh-integration` in your project root:
 #!/bin/bash
 # Wrapper for GitHub integration - detects AI-Pack location
 
-# Detect AI-Pack installation
-if [ -d ".ai-pack" ]; then
-  AI_PACK_ROOT=".ai-pack"
-elif [ -d "ai-pack" ]; then
-  AI_PACK_ROOT="ai-pack"
-elif [ -d "tools/ai-pack" ]; then
-  AI_PACK_ROOT="tools/ai-pack"
-else
-  echo "Error: AI-Pack not found"
+# Detect AI-Pack installation (works for any path)
+detect_ai_pack() {
+  # Method 1: Check git submodules
+  if [ -f .gitmodules ]; then
+    local submodule_path=$(git config --file .gitmodules --get-regexp path | \
+                          grep -i 'ai-pack' | \
+                          awk '{print $2}' | \
+                          head -1)
+    if [ -n "$submodule_path" ] && [ -d "$submodule_path" ]; then
+      echo "$submodule_path"
+      return 0
+    fi
+  fi
+
+  # Method 2: Search for ai-pack directory
+  local found=$(find . -maxdepth 3 -type d \( -name "ai-pack" -o -name ".ai-pack" \) 2>/dev/null | head -1)
+  if [ -n "$found" ]; then
+    echo "${found#./}"
+    return 0
+  fi
+
+  return 1
+}
+
+AI_PACK_ROOT=$(detect_ai_pack)
+if [ -z "$AI_PACK_ROOT" ]; then
+  echo "Error: AI-Pack not found in this repository"
+  echo "Expected: Git submodule or directory named 'ai-pack' or '.ai-pack'"
   exit 1
 fi
 
@@ -168,16 +230,27 @@ jobs:
       - name: Detect AI-Pack location
         id: detect
         run: |
-          if [ -d ".ai-pack" ]; then
-            echo "path=.ai-pack" >> $GITHUB_OUTPUT
-          elif [ -d "ai-pack" ]; then
-            echo "path=ai-pack" >> $GITHUB_OUTPUT
-          elif [ -d "tools/ai-pack" ]; then
-            echo "path=tools/ai-pack" >> $GITHUB_OUTPUT
-          else
-            echo "Error: AI-Pack not found"
-            exit 1
+          # Method 1: Check git submodules
+          if [ -f .gitmodules ]; then
+            SUBMODULE_PATH=$(git config --file .gitmodules --get-regexp path | \
+                            grep -i 'ai-pack' | \
+                            awk '{print $2}' | \
+                            head -1)
+            if [ -n "$SUBMODULE_PATH" ] && [ -d "$SUBMODULE_PATH" ]; then
+              echo "path=$SUBMODULE_PATH" >> $GITHUB_OUTPUT
+              exit 0
+            fi
           fi
+
+          # Method 2: Search filesystem
+          FOUND=$(find . -maxdepth 3 -type d \( -name "ai-pack" -o -name ".ai-pack" \) 2>/dev/null | head -1)
+          if [ -n "$FOUND" ]; then
+            echo "path=${FOUND#./}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Error: AI-Pack not found"
+          exit 1
 
       - name: Sync Beads with GitHub
         env:
@@ -189,9 +262,10 @@ jobs:
 ### Cron Job
 
 ```bash
-# Detect AI-Pack location in cron
+# Detect AI-Pack location in cron (works for any installation path)
 */5 * * * * cd /path/to/project && \
-  AI_PACK_ROOT=$([ -d .ai-pack ] && echo .ai-pack || echo ai-pack) && \
+  AI_PACK_ROOT=$(git config --file .gitmodules --get-regexp path | grep -i 'ai-pack' | awk '{print $2}' | head -1) && \
+  [ -z "$AI_PACK_ROOT" ] && AI_PACK_ROOT=$(find . -maxdepth 3 -type d \( -name "ai-pack" -o -name ".ai-pack" \) 2>/dev/null | head -1 | sed 's|^\./||') && \
   ${AI_PACK_ROOT}/scripts/github-integration.py sync >> sync.log 2>&1
 ```
 
