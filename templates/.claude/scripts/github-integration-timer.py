@@ -7,6 +7,7 @@ Runs only during Claude Code sessions
 import sys
 import time
 import subprocess
+import json
 from pathlib import Path
 from datetime import datetime
 
@@ -98,6 +99,88 @@ def check_integration_enabled():
     except:
         return False
 
+def check_and_handle_ci_failures():
+    """Check for CI failures and auto-create issues/tasks if configured."""
+    try:
+        # Get latest workflow run
+        result = subprocess.run(
+            ['gh', 'run', 'list', '--limit', '1', '--json', 'name,status,conclusion,databaseId'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode != 0:
+            return
+
+        runs = json.loads(result.stdout)
+        if not runs:
+            return
+
+        latest_run = runs[0]
+        status = latest_run.get('status')
+        conclusion = latest_run.get('conclusion')
+        workflow_name = latest_run.get('name', 'Unknown')
+        run_id = latest_run.get('databaseId', '')
+
+        # Check if failure detected
+        if status == 'completed' and conclusion == 'failure':
+            log(f"CI FAILURE DETECTED: {workflow_name} (run {run_id})")
+
+            # Check if auto-create is enabled in config
+            ai_pack_root = detect_ai_pack_root()
+            if not ai_pack_root:
+                return
+
+            config_path = ai_pack_root / '.github-integration.yml'
+            if config_path.exists():
+                try:
+                    # Use yq to read config (same as github-integration.py)
+                    result = subprocess.run(
+                        ['yq', 'eval', '.features.ci_monitoring.auto_create_failure_tasks', str(config_path)],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    auto_create_tasks = result.stdout.strip() == 'true'
+
+                    result = subprocess.run(
+                        ['yq', 'eval', '.features.ci_monitoring.auto_create_failure_issues', str(config_path)],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    auto_create_issues = result.stdout.strip() == 'true'
+
+                    if auto_create_tasks:
+                        log(f"Auto-creating Beads task for CI failure...")
+                        # Create Beads task with proper priority and description
+                        result = subprocess.run(
+                            [
+                                'bd', 'create',
+                                f'Fix CI failure: {workflow_name}',
+                                '--priority', 'P0',  # P0 = critical
+                                '--description', f'CI workflow "{workflow_name}" failed (run {run_id}). Check workflow logs and fix the issue.'
+                            ],
+                            capture_output=True,
+                            text=True,
+                            timeout=10
+                        )
+                        if result.returncode == 0:
+                            log(f"✅ Beads task created for CI failure: {workflow_name}")
+                        else:
+                            log(f"Failed to create Beads task: {result.stderr}")
+
+                    if auto_create_issues:
+                        log(f"GitHub issue creation for CI failures requires full github-integration.py script")
+                        log(f"Run: {ai_pack_root}/scripts/github-integration.py monitor")
+
+                except Exception as e:
+                    log(f"Error checking config or creating tasks: {e}")
+
+    except Exception as e:
+        log(f"Error checking CI failures: {e}")
+
 def main():
     """Main timer loop."""
     if len(sys.argv) < 3:
@@ -134,6 +217,9 @@ def main():
             log("Checking CI status...")
             if run_integration_command('check-ci'):
                 log("CI check completed")
+
+                # Also check for failures and auto-create tasks if configured
+                check_and_handle_ci_failures()
             else:
                 log("CI check failed")
 
