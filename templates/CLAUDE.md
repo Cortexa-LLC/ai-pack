@@ -58,6 +58,86 @@ This project uses **Orchestrator as the default role** for all interactions. You
 
 ---
 
+## ⚠️ CRITICAL: Beads Task Management (MANDATORY)
+
+**ALL task operations MUST use Beads commands (`bd`).**
+
+This is **MANDATORY and ENFORCED** by the [Beads Enforcement Gate](.ai-pack/gates/06-beads-enforcement.md).
+
+### Why Beads?
+
+Beads is a git-backed task memory system that persists task state across AI sessions.
+Unlike task packets (which are documentation), **Beads is the source of truth for task state**.
+
+### Required Beads Commands
+
+```bash
+# Create tasks (ALWAYS FIRST STEP)
+bd create "Task description" --priority high
+
+# View tasks
+bd list                    # All tasks
+bd list --status open      # Open tasks
+bd ready                   # Tasks ready to work on
+
+# Work on tasks
+bd start <task-id>         # Start working
+bd close <task-id>         # Complete task
+bd block <task-id> "reason"  # Mark blocked
+
+# Dependencies
+bd dep add <child-id> <parent-id>  # Add dependency
+
+# Task details
+bd show <task-id>          # View full task info
+```
+
+### Orchestrator MUST Use Beads
+
+As Orchestrator (your default role), you MUST:
+
+1. **Create Beads tasks BEFORE task packets**
+   ```bash
+   # Step 1: Create Beads task
+   task_id=$(bd create "Implement user authentication" --priority high --json | jq -r '.id')
+
+   # Step 2: THEN create task packet
+   /ai-pack task-init user-authentication
+
+   # Step 3: Link in contract
+   echo "**Beads Task:** ${task_id}" >> .ai/tasks/*/00-contract.md
+   ```
+
+2. **Track all spawned agents with Beads**
+   ```bash
+   # When spawning Engineer agent
+   bd create "Agent: Engineer - Implement login API" --assignee "Engineer-1"
+   ```
+
+3. **Monitor progress with Beads**
+   ```bash
+   bd list --status in_progress   # See active work
+   bd list --status blocked        # See blockers
+   bd ready                        # Find next available work
+   ```
+
+4. **Manage dependencies with Beads**
+   ```bash
+   bd dep add <child-task> <parent-task>
+   ```
+
+### Enforcement
+
+**BLOCKING GATE:** Cannot proceed without Beads tasks.
+
+- Task packets without Beads tasks → BLOCKED
+- Agent spawns without Beads tasks → BLOCKED
+- Progress monitoring via file inspection → BLOCKED (use `bd list`)
+
+**Reference:** [Beads Enforcement Gate](.ai-pack/gates/06-beads-enforcement.md)
+
+---
+
 ## Framework Integration
 
 This project uses the **ai-pack framework** for structured AI-assisted development.
@@ -67,13 +147,17 @@ This project uses the **ai-pack framework** for structured AI-assisted developme
 ```
 project-root/
 ├── .ai-pack/           # Git submodule (read-only shared framework)
-│   ├── gates/          # Quality gates
+│   ├── gates/          # Quality gates (including Beads enforcement)
 │   ├── roles/          # Agent roles
 │   ├── workflows/      # Development workflows
 │   ├── templates/      # Task-packet templates
 │   └── quality/        # Clean code standards
+├── .beads/             # Beads task database (git-backed, persistent state)
+│   ├── beads.db        # Task state database
+│   ├── issues.jsonl    # Task history
+│   └── config.yaml     # Beads configuration
 ├── .ai/                # Local workspace (project-specific)
-│   ├── tasks/          # Active task packets
+│   ├── tasks/          # Active task packets (documentation)
 │   └── repo-overrides.md  # Project-specific rules
 ├── .claude/            # Claude Code integration (auto-loaded)
 │   ├── commands/ai-pack/  # Slash commands
@@ -83,6 +167,10 @@ project-root/
 │   └── settings.json   # Hook configuration
 └── CLAUDE.md           # This file
 ```
+
+**Key Distinction:**
+- **`.beads/`** = Source of truth for task STATE (open, closed, blocked, dependencies)
+- **`.ai/tasks/`** = Documentation of task IMPLEMENTATION (contracts, plans, work logs)
 
 ---
 
