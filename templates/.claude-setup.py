@@ -199,6 +199,49 @@ def fix_hook_paths():
         return False
 
 
+def copy_claude_md():
+    """Copy CLAUDE.md template to project root."""
+    print_header("Copying CLAUDE.md Template")
+
+    source = Path(".ai-pack/templates/CLAUDE.md")
+    target = Path("CLAUDE.md")
+
+    if not source.exists():
+        print(f"⚠️  {source} not found, skipping")
+        print()
+        return True
+
+    # Check if CLAUDE.md already exists
+    if target.exists():
+        print(f"⚠️  CLAUDE.md already exists")
+        response = input("Overwrite? [y/N]: ").strip().lower()
+        if response != 'y':
+            print("Skipping CLAUDE.md copy")
+            print()
+            return True
+        print("Overwriting existing CLAUDE.md")
+
+    # Copy the template
+    try:
+        shutil.copy2(source, target)
+        print(f"✅ Copied {source} → {target}")
+        print()
+        print("⚠️  IMPORTANT: Edit CLAUDE.md to customize for your project:")
+        print("   - Project name and repository URL")
+        print("   - Technology stack (language, framework, versions)")
+        print("   - Key architectural patterns")
+        print("   - Critical files and their purposes")
+        print("   - Testing strategy")
+        print("   - Build and deploy commands")
+        print()
+        return True
+
+    except Exception as e:
+        print(f"❌ Error copying CLAUDE.md: {e}")
+        print()
+        return False
+
+
 def make_hooks_executable():
     """Make hook scripts executable."""
     print_header("Configuring Hook Scripts")
@@ -662,9 +705,13 @@ def print_next_steps():
     """Print next steps for the user."""
     print_header("Next Steps")
 
-    print("1. Copy and customize CLAUDE.md:")
-    print("   cp .ai-pack/templates/CLAUDE.md .")
-    print("   # Edit CLAUDE.md with project-specific context")
+    print("1. Customize CLAUDE.md:")
+    print("   vim CLAUDE.md")
+    print("   # Edit with project-specific details:")
+    print("   #   - Project name and repo URL")
+    print("   #   - Technology stack")
+    print("   #   - Key files and patterns")
+    print("   #   - Build/test commands")
     print()
 
     print("2. Customize .ai/repo-overrides.md:")
@@ -699,6 +746,7 @@ def main():
     steps = [
         ("Checking prerequisites", check_prerequisites),
         ("Copying templates", copy_templates),
+        ("Copying CLAUDE.md", copy_claude_md),
         ("Fixing hook paths", fix_hook_paths),
         ("Making hooks executable", make_hooks_executable),
         ("Creating .ai/ structure", create_ai_directory),
