@@ -35,6 +35,21 @@ def check_prerequisites():
     """Check if prerequisites are met."""
     print_header("Checking Prerequisites")
 
+    # Check if we're in the right directory
+    cwd = Path.cwd()
+    if cwd.name == "ai-pack" or ".ai-pack" in str(cwd):
+        print("❌ Error: Running from wrong directory")
+        print()
+        print("This script should be run from your PROJECT root, not from the ai-pack directory.")
+        print()
+        print(f"Current directory: {cwd}")
+        print()
+        print("To fix:")
+        print("  1. Navigate to your project root (where you want .ai-pack as a submodule)")
+        print("  2. Run: python3 .ai-pack/templates/.claude-setup.py")
+        print()
+        return False
+
     # Check if .ai-pack exists
     if not Path(".ai-pack").exists():
         print("❌ Error: .ai-pack/ directory not found")
@@ -94,7 +109,8 @@ def copy_templates():
         print("Created:")
         for item in sorted(target_dir.rglob("*")):
             if item.is_file():
-                rel_path = item.relative_to(Path.cwd())
+                # Use relative path from target_dir to avoid path resolution issues
+                rel_path = item.relative_to(target_dir.parent)
                 print(f"  {rel_path}")
         print()
 
