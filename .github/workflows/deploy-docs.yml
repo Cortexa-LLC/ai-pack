@@ -31,9 +31,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./docs/website
-        run: |
-          npm ci
-          npm list @docusaurus/core
+        run: npm ci
 
       - name: Build documentation
         working-directory: ./docs/website
