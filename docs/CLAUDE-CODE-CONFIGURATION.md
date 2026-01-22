@@ -1,6 +1,8 @@
 # Claude Code Configuration Guide
 
-**Last Updated:** 2026-01-15
+**Last Updated:** 2026-01-16
+
+> **⚠️ IMPORTANT:** The setup script (`python3 .ai-pack/templates/.claude-setup.py`) now creates the recommended configuration automatically. This document explains the configuration in detail.
 
 This document explains the required Claude Code configuration for ai-pack integration, particularly for spawned agent support.
 
@@ -24,21 +26,64 @@ The `.claude/settings.json` file controls Claude Code behavior including permiss
 
 Background agents spawned via the Task tool need file operation permissions. Without proper configuration, agents will fail when trying to create deliverables.
 
-### Complete settings.json
+### Recommended settings.json (Auto-created by setup script)
 
 ```json
 {
+  "description": "AI-Pack Framework Configuration for Claude Code",
   "permissions": {
     "allow": [
       "Write(*)",
       "Edit(*)",
-      "Read(*)"
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(git pull:*)",
+      "Bash(git fetch:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(npm:*)",
+      "Bash(dotnet:*)",
+      "Bash(pytest:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)"
     ],
-    "defaultMode": "bypassPermissions"
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~/*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f *)",
+      "Bash(sudo rm*)",
+      "Bash(sudo chmod*)"
+    ],
+    "defaultMode": "acceptEdits"
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "description": "Start ai-pack monitoring timers (coordination + watchdog)",
+        "hooks": [{
+          "type": "command",
+          "command": "python3 .claude/hooks/session-start.py"
+        }]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "description": "Stop ai-pack monitoring timers",
+        "hooks": [{
+          "type": "command",
+          "command": "python3 .claude/hooks/session-end.py"
+        }]
+      }
+    ],
     "UserPromptSubmit": [
       {
+        "description": "Enforce task packet gate before implementation work",
+        "matcher": "",
         "hooks": [{
           "type": "command",
           "command": "python3 .claude/hooks/check-task-packet.py"
@@ -48,6 +93,13 @@ Background agents spawned via the Task tool need file operation permissions. Wit
   }
 }
 ```
+
+**Key Features:**
+- ✅ `defaultMode: "acceptEdits"` - Balanced permission model (not the old `"bypassPermissions"`)
+- ✅ Explicit allow list for safe operations (file ops, safe git commands, build tools)
+- ✅ Explicit deny list for dangerous operations (destructive rm, force push, sudo)
+- ✅ Session hooks for monitoring timers
+- ✅ Task packet enforcement hook
 
 ---
 
@@ -87,8 +139,9 @@ During Tier 2 validation testing, we discovered spawned agents require explicit 
 
 **defaultMode Options:**
 
-- `"bypassPermissions"` - Agents inherit permissions automatically (recommended for development)
-- `"promptUser"` - Ask for permission each time (safer but interrupts agents)
+- `"acceptEdits"` - Auto-approve allowed operations, prompt for others (recommended, current default)
+- `"bypassPermissions"` - Agents inherit all permissions automatically (deprecated, less secure)
+- `"promptUser"` - Ask for permission each time (safest but interrupts agents)
 
 ### 2. Hooks (Optional but Recommended)
 
@@ -343,7 +396,12 @@ Change `defaultMode` from `"promptUser"` to `"bypassPermissions"`:
 
 ## History
 
+- **2026-01-16:** Updated to reflect improved security model
+  - Changed from `defaultMode: "bypassPermissions"` to `"acceptEdits"`
+  - Added explicit allow/deny lists for Bash commands
+  - Added SessionStart/SessionEnd hooks for monitoring
+  - Setup script now auto-creates recommended configuration
 - **2026-01-15:** Initial documentation based on Tier 2 validation findings
   - Identified permission requirements for spawned agents
   - Validated 14-file batch limit
-  - Confirmed defaultMode: "bypassPermissions" needed for testing
+  - Original config used `defaultMode: "bypassPermissions"` (now deprecated)
