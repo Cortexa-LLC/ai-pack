@@ -1,0 +1,52 @@
+name: Sync Documentation
+
+on:
+  # Run when framework files change
+  push:
+    branches: [ main ]
+    paths:
+      - 'gates/**'
+      - 'roles/**'
+      - 'workflows/**'
+      - 'quality/**'
+      - 'templates/**'
+      - 'README.md'
+      - 'scripts/migrate-docs.sh'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  sync-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run documentation migration
+        run: |
+          chmod +x ./scripts/migrate-docs.sh
+          ./scripts/migrate-docs.sh
+
+      - name: Fix MDX code blocks
+        run: |
+          # Add 'text' language to code blocks with curly braces
+          find docs/content -name "*.md" -exec sed -i 's/```$/```text/g' {} \;
+
+      - name: Check for changes
+        id: git-check
+        run: |
+          git add docs/content/
+          if git diff --staged --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.git-check.outputs.has_changes == 'true'
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git commit -m "docs: auto-sync documentation from framework changes"
+          git push

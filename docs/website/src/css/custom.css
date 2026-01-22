@@ -1,0 +1,251 @@
+/**
+ * AI-Pack Documentation - Custom Branding
+ *
+ * Brand colors from AI-Pack design:
+ * - Primary: Deep Cyan Blue (#1B7B8A)
+ * - Accent: Bright Cyan (#00CED1)
+ * - Dark: Navy/Charcoal (#1C2F3F)
+ */
+
+/* Light Mode - AI-Pack Branding */
+:root {
+  /* Primary - Cyan Blue */
+  --ifm-color-primary: #1B7B8A;
+  --ifm-color-primary-dark: #186f7c;
+  --ifm-color-primary-darker: #176975;
+  --ifm-color-primary-darkest: #135760;
+  --ifm-color-primary-light: #1e8798;
+  --ifm-color-primary-lighter: #1f8d9f;
+  --ifm-color-primary-lightest: #23a3b7;
+
+  /* AI-Pack Brand Colors */
+  --aipack-cyan: #1B7B8A;
+  --aipack-cyan-bright: #00CED1;
+  --aipack-navy: #1C2F3F;
+  --aipack-cyan-light: #D0E8E8;
+  --aipack-charcoal: #2A3F4F;
+
+  /* Success/Error States */
+  --ifm-color-success: #00CED1;
+  --ifm-color-success-dark: #1B7B8A;
+  --ifm-color-danger: #FF7B7B;
+
+  /* Typography - GitHub Pages style (smaller, more compact) */
+  --ifm-font-size-base: 15px;
+  --ifm-code-font-size: 90%;
+  --ifm-h1-font-size: 2rem;
+  --ifm-h2-font-size: 1.5rem;
+  --ifm-h3-font-size: 1.25rem;
+  --ifm-h4-font-size: 1.1rem;
+  --ifm-h5-font-size: 1rem;
+  --ifm-h6-font-size: 0.9rem;
+  --ifm-line-height-base: 1.6;
+  --ifm-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+
+  /* Code Highlighting */
+  --docusaurus-highlighted-code-line-bg: rgba(27, 123, 138, 0.1);
+}
+
+/* Dark Mode - AI-Pack Branding */
+[data-theme='dark'] {
+  /* Primary - Bright Cyan for dark mode */
+  --ifm-color-primary: #00CED1;
+  --ifm-color-primary-dark: #00b9bc;
+  --ifm-color-primary-darker: #00afb2;
+  --ifm-color-primary-darkest: #009093;
+  --ifm-color-primary-light: #00e3e6;
+  --ifm-color-primary-lighter: #00edf0;
+  --ifm-color-primary-lightest: #1ffcff;
+
+  /* Dark mode adjustments */
+  --ifm-background-color: #1a1a1a;
+  --ifm-background-surface-color: #262626;
+
+  /* Code highlighting */
+  --docusaurus-highlighted-code-line-bg: rgba(0, 206, 209, 0.15);
+}
+
+/* Hero Banner Customization */
+.hero--primary {
+  background: #0a1a43;
+  color: white;
+}
+
+[data-theme='dark'] .hero--primary {
+  background: #0a1a43;
+}
+
+.hero__title {
+  font-weight: 700;
+  font-size: 3rem;
+}
+
+.hero__subtitle {
+  font-size: 1.5rem;
+  opacity: 0.9;
+}
+
+/* Button Styling - Teal Accent */
+.button--secondary {
+  background-color: var(--aipack-cyan-bright);
+  color: white;
+  border: none;
+  font-weight: 600;
+}
+
+.button--secondary:hover {
+  background-color: #00caca;
+  color: white;
+}
+
+.button--outline {
+  border-color: white;
+  color: white;
+}
+
+.button--outline:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: white;
+  color: white;
+}
+
+/* Feature Cards */
+.text--center h3 {
+  color: var(--aipack-cyan);
+  font-weight: 600;
+}
+
+[data-theme='dark'] .text--center h3 {
+  color: var(--ifm-color-primary);
+}
+
+/* Badges and Tags */
+.badge--success {
+  background-color: var(--aipack-cyan-light);
+  color: var(--aipack-cyan);
+}
+
+/* Tables */
+table {
+  border-color: var(--aipack-cyan-light);
+}
+
+/* Admonitions */
+.admonition-tip {
+  border-left-color: var(--aipack-cyan);
+}
+
+.admonition-warning {
+  border-left-color: #FFB84D;
+}
+
+/* Navbar */
+.navbar {
+  box-shadow: 0 1px 3px rgba(10, 95, 95, 0.1);
+}
+
+/* Footer */
+.footer {
+  background-color: var(--aipack-navy);
+}
+
+[data-theme='dark'] .footer {
+  background-color: #0f1a24;
+}
+
+/* Mermaid Diagrams - AI-Pack Colors */
+[data-theme='light'] .mermaid .node rect,
+[data-theme='light'] .mermaid .node circle {
+  fill: var(--aipack-cyan-light);
+  stroke: var(--aipack-cyan);
+}
+
+/* Code Blocks */
+.prism-code {
+  border-left: 3px solid var(--aipack-cyan);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar-thumb {
+  background-color: var(--aipack-cyan);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--ifm-color-primary-dark);
+}
+
+/* Compact left sidebar navigation */
+.theme-doc-sidebar-container {
+  font-size: 14px;
+}
+
+.menu__link {
+  font-size: 14px;
+  padding: 0.4rem 0.75rem;
+}
+
+.menu__list-item-collapsible {
+  font-size: 14px;
+}
+
+.menu__caret::before {
+  background-size: 1rem 1rem;
+}
+
+/* GitHub Pages-style compact article styling */
+article {
+  font-size: 15px;
+}
+
+article h1 {
+  font-size: 2rem;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+article h2 {
+  font-size: 1.5rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+article h3 {
+  font-size: 1.25rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+article h4 {
+  font-size: 1.1rem;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+article p {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+article ul, article ol {
+  margin-bottom: 1rem;
+}
+
+article li {
+  margin-bottom: 0.25rem;
+}
+
+article code {
+  font-size: 0.9em;
+}
+
+article pre {
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
