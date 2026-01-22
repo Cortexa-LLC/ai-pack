@@ -29,13 +29,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: docs/website/package-lock.json
 
-      - name: Upgrade npm
-        working-directory: ./docs/website
-        run: npm install -g npm@latest
-
       - name: Install dependencies
         working-directory: ./docs/website
-        run: npm ci
+        run: |
+          npm ci
+          npm list @docusaurus/core
 
       - name: Build documentation
         working-directory: ./docs/website
