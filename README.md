@@ -1,5 +1,9 @@
 # AI-Pack
 
+<p align="center">
+  <img src="assets/Banner.png" alt="AI-Pack Banner" width="800" />
+</p>
+
 **A comprehensive AI agent workflow framework for software development**
 
 AI-Pack provides structured processes, quality gates, agent roles, and coding standards for AI agent-based software development. It ensures quality, consistency, and proper governance throughout the development lifecycle.
