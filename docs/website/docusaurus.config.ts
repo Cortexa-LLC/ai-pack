@@ -24,6 +24,7 @@ const config: Config = {
   projectName: 'ai-pack', // Usually your repo name
 
   onBrokenLinks: 'warn',
+  onBrokenAnchors: 'warn',
 
   i18n: {
     defaultLocale: 'en',
@@ -93,11 +94,11 @@ const config: Config = {
             },
             {
               label: 'Workflows',
-              to: '/docs/workflows/',
+              to: '/docs/workflows/bugfix',
             },
             {
               label: 'Roles',
-              to: '/docs/roles/',
+              to: '/docs/roles/archaeologist',
             },
           ],
         },
@@ -110,7 +111,7 @@ const config: Config = {
             },
             {
               label: 'Clean Code Standards',
-              to: '/docs/quality/clean-code',
+              to: '/docs/quality/clean-code/00-general-rules',
             },
           ],
         },

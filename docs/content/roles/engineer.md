@@ -16,7 +16,7 @@ The Engineer is an implementation specialist responsible for executing specific,
 
 **⚠️ CRITICAL:** All task lifecycle operations MUST use Beads commands. See **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** for mandatory requirements.
 
-**📚 Work Item Patterns:** For guidance on working with Epics, Stories, Tasks, Spikes, and Issues, see **[Work Item Patterns](../docs/WORK-ITEM-PATTERNS.md)**.
+**📚 Work Item Patterns:** For guidance on working with Epics, Stories, Tasks, Spikes, and Issues, see **[Work Item Patterns](../work-item-patterns)**.
 
 ---
 
