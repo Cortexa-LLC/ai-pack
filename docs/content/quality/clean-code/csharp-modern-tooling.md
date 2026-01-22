@@ -9,23 +9,6 @@ title: "Modern C# Code Quality Tooling (2026)"
 
 This document describes the modern, actively-maintained tooling stack for C# code quality in 2026.
 
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Why NOT StyleCop.Analyzers](#why-not-stylecop-analyzers)
-3. [Modern Tooling Stack](#modern-tooling-stack)
-4. [CSharpier - Automated Formatting](#csharpier---automated-formatting)
-5. [.NET Analyzers - Built-in Quality](#net-analyzers---built-in-quality)
-6. [Roslynator - Comprehensive Analysis](#roslynator---comprehensive-analysis)
-7. [EditorConfig - IDE Preferences](#editorconfig---ide-preferences)
-8. [Project Configuration](#project-configuration)
-9. [Build Enforcement](#build-enforcement)
-10. [Pre-Commit Workflow](#pre-commit-workflow)
-
----
-
 ## Overview
 
 **Modern C# Tooling Philosophy:**
