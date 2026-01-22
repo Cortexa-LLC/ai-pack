@@ -14,13 +14,13 @@ const config: Config = {
   // Set the production url of your site here
   // For GitHub Pages: https://YOUR_ORG.github.io
   // For custom domain: https://yourdomain.com
-  url: 'https://brywoodruff.github.io',
+  url: 'https://cortexa-llc.github.io',
 
   // For GitHub Pages with repo: /YOUR_REPO_NAME/
   // For custom domain or org.github.io repo: /
   baseUrl: '/ai-pack/',
 
-  organizationName: 'brywoodruff', // Usually your GitHub org/user name
+  organizationName: 'Cortexa-LLC', // Usually your GitHub org/user name
   projectName: 'ai-pack', // Usually your repo name
 
   onBrokenLinks: 'warn',
