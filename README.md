@@ -6,6 +6,8 @@
 
 **A comprehensive AI agent workflow framework for software development**
 
+📚 **[View Full Documentation](https://cortexa-llc.github.io/ai-pack/)**
+
 AI-Pack provides structured processes, quality gates, agent roles, and coding standards for AI agent-based software development. It ensures quality, consistency, and proper governance throughout the development lifecycle.
 
 ## Overview
