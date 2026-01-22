@@ -734,7 +734,7 @@ Theme (GitHub Project) - Optional, contains multiple epics
 ---
 
 **See Also:**
-- [Beads Enforcement Gate](./gates/06-beads-enforcement)
+- [Beads Enforcement Gate](./gates/beads-enforcement)
 - [Orchestrator Role](./roles/orchestrator)
 - [Engineer Role](./roles/engineer)
-- [Workflows](./workflows/)
+- [Workflows](./workflows/bugfix)

@@ -111,7 +111,7 @@ const config: Config = {
             },
             {
               label: 'Clean Code Standards',
-              to: '/docs/quality/clean-code/00-general-rules',
+              to: '/docs/quality/clean-code/general-rules',
             },
           ],
         },
