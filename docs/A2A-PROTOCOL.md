@@ -162,55 +162,59 @@ Output delivered by agents:
 ## Protocol Interaction Patterns
 
 ### Discovery Flow
-```
-Client Agent                     Remote Agent
-     |                                |
-     |------ Fetch Agent Card ------->|
-     |<----- Agent Card (JSON) -------|
-     |                                |
-     | (Parse capabilities)           |
+
+```mermaid
+sequenceDiagram
+    participant Client as Client Agent
+    participant Remote as Remote Agent
+
+    Client->>Remote: Fetch Agent Card
+    Remote-->>Client: Agent Card (JSON)
+    Note over Client: Parse capabilities
 ```
 
 ### Task Execution Flow (Synchronous)
-```
-Client Agent                     Remote Agent
-     |                                |
-     |------ Create Task ------------>|
-     |<----- Task ID ----------------|
-     |                                |
-     |------ Execute Task ----------->|
-     |       (with parameters)        |
-     |                                |
-     |<----- Task Complete ----------|
-     |       (with artifacts)         |
+
+```mermaid
+sequenceDiagram
+    participant Client as Client Agent
+    participant Remote as Remote Agent
+
+    Client->>Remote: Create Task
+    Remote-->>Client: Task ID
+    Client->>Remote: Execute Task<br/>(with parameters)
+    Remote-->>Client: Task Complete<br/>(with artifacts)
 ```
 
 ### Task Execution Flow (Streaming)
-```
-Client Agent                     Remote Agent
-     |                                |
-     |------ Create Task ------------>|
-     |<----- Task ID ----------------|
-     |                                |
-     |------ Stream Start ----------->|
-     |                                |
-     |<===== SSE: Progress Updates ===|
-     |<===== SSE: Partial Results ====|
-     |<===== SSE: Status Changes =====|
-     |                                |
-     |<----- Task Complete ----------|
-     |       (final artifacts)        |
+
+```mermaid
+sequenceDiagram
+    participant Client as Client Agent
+    participant Remote as Remote Agent
+
+    Client->>Remote: Create Task
+    Remote-->>Client: Task ID
+    Client->>Remote: Stream Start
+
+    loop Progress Updates
+        Remote--)Client: SSE: Progress Updates
+        Remote--)Client: SSE: Partial Results
+        Remote--)Client: SSE: Status Changes
+    end
+
+    Remote-->>Client: Task Complete<br/>(final artifacts)
 ```
 
 ### User Experience Negotiation
-```
-Client Agent                     Remote Agent
-     |                                |
-     |-- Request with UX preference ->|
-     |   (e.g., "json" or "iframe")   |
-     |                                |
-     |<-- Response with negotiated --|
-     |    content type                |
+
+```mermaid
+sequenceDiagram
+    participant Client as Client Agent
+    participant Remote as Remote Agent
+
+    Client->>Remote: Request with UX preference<br/>(e.g., "json" or "iframe")
+    Remote-->>Client: Response with negotiated<br/>content type
 ```
 
 ## JSON-RPC Methods
@@ -308,17 +312,20 @@ dotnet add package A2A
 - A2A handles agent-to-agent communication
 
 **Relationship:**
-```
-┌─────────────────┐
-│   Client Agent  │
-│   (Claude Code) │
-└────────┬────────┘
-         │
-         ├──── MCP ────> Tools & Context
-         │              (File system, APIs, etc.)
-         │
-         └──── A2A ────> Remote Agents
-                        (Engineer, Architect, etc.)
+
+```mermaid
+graph TD
+    A[Client Agent<br/>Claude Code] --> B[MCP]
+    A --> C[A2A]
+
+    B --> D[Tools & Context<br/>File system, APIs, etc.]
+    C --> E[Remote Agents<br/>Engineer, Architect, etc.]
+
+    style A fill:#e1f5ff
+    style B fill:#ffe1e1
+    style C fill:#e1ffe1
+    style D fill:#fff4e1
+    style E fill:#f0e1ff
 ```
 
 ## Planned Enhancements
