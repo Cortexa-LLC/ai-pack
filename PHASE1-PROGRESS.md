@@ -219,7 +219,36 @@
 ### Challenges Encountered
 1. 🔧 PyYAML dependency - resolved with simple YAML parser
 2. 🔧 .beads should be in .gitignore - added
-3. ⚠️ Manual agent execution needed (Phase 1 limitation)
+3. 🔧 Task ID uniqueness - added microsecond timestamps
+4. ⚠️ Sequential execution (Phase 1 limitation - see below)
+
+### Critical Phase 1 Implementation Details
+
+**Execution Mode: Foreground (Sequential)**
+- Agents execute using Claude Code Task tool in **foreground mode**
+- This **avoids bug #13890** which affects background task execution
+- Agents run one after another (sequential), not truly parallel
+- Spawn overhead is minimal (~0.06s), but execution is sequential
+
+**Why This Matters:**
+```
+Current (Phase 1):
+  Agent 1 spawns → executes (3 min) → completes
+  Agent 2 spawns → executes (3 min) → completes
+  Total: ~6 minutes
+
+Future (Phase 2):
+  Agent 1 spawns → executes (3 min) ┐
+  Agent 2 spawns → executes (3 min) ├─> Both running simultaneously
+  Total: ~3 minutes                  ┘
+```
+
+**What We're Validating:**
+- ✅ Infrastructure and spawning patterns
+- ✅ Task packet tracking
+- ✅ Agent tool access
+- ✅ Configuration system
+- ⚠️ NOT true parallel performance (Phase 2 feature)
 
 ### Phase 2 Considerations
 1. 📋 Direct Anthropic API will eliminate manual execution

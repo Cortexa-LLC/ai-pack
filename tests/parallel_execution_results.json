@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-01-23T13:04:24.157979",
+  "tests": [
+    {
+      "test": "Two Parallel Engineers",
+      "agents": 2,
+      "task_ids": [
+        "task-engineer-20260123-130423-923244",
+        "task-engineer-20260123-130423-976466"
+      ],
+      "spawn_times": [
+        0.062477827072143555,
+        0.05274319648742676
+      ],
+      "total_time": 0.11522102355957031,
+      "avg_time": 0.057610511779785156
+    },
+    {
+      "test": "Three Parallel Agents",
+      "agents": 3,
+      "task_ids": [
+        "task-engineer-20260123-130424-033170",
+        "task-engineer-20260123-130424-093666",
+        "task-tester-20260123-130424-153240"
+      ],
+      "spawn_times": [
+        0.05675697326660156,
+        0.060836076736450195,
+        0.059111833572387695
+      ],
+      "total_time": 0.17670488357543945,
+      "avg_time": 0.05890162785847982
+    }
+  ],
+  "metrics": {
+    "total_agents": 5,
+    "avg_spawn_time": 0.058385181427001956,
+    "min_spawn_time": 0.05274319648742676,
+    "max_spawn_time": 0.062477827072143555,
+    "target_met": true
+  },
+  "summary": {
+    "total_tests": 2,
+    "total_agents": 5,
+    "performance_target_met": true
+  }
+}
