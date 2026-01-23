@@ -69,3 +69,4 @@ htmlcov/
 
 # Unused Python packages
 ai_pack/
+.beads/
