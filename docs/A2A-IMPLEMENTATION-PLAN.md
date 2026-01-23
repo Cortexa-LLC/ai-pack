@@ -238,7 +238,32 @@ Implement login validation for email and password fields.
 - Limited to Claude Code tool ecosystem
 - Token management still has overhead
 
-**But provides immediate value** while Phase 2 is built.
+**Critical Implementation Detail:**
+- **Execution Mode**: Agents execute in **foreground** (sequential), not background
+- Uses Claude Code Task tool with `mode="delegate"` for synchronous execution
+- **Why this matters**: Avoids Claude Code bug [#13890](https://github.com/anthropics/claude-code/issues/13890) which affects background task execution
+- **Implication**: Multiple spawned agents execute one after another, not truly in parallel
+- **Performance**: Spawn overhead is minimal (< 0.1s), but execution is sequential
+
+**Sequential vs Parallel:**
+```
+Phase 1 (Current):
+  bd spawn engineer "task A"  → Executes (3 min)
+  bd spawn engineer "task B"  → Waits, then executes (3 min)
+  Total time: ~6 minutes (sequential)
+
+Phase 2 (Future with Go A2A):
+  bd spawn engineer "task A"  → Executes concurrently
+  bd spawn engineer "task B"  → Executes concurrently
+  Total time: ~3 minutes (parallel)
+```
+
+**But provides immediate value** while Phase 2 is built:
+- ✅ Infrastructure and patterns validated
+- ✅ Task packet system working
+- ✅ Agent configurations tested
+- ✅ Full tool access confirmed
+- ✅ Foundation for Phase 2 ready
 
 ## Phase 2: A2A Server with Direct API
 
