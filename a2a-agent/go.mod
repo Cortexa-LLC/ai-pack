@@ -1,4 +1,4 @@
-module github.com/cortexa-llc/ai-pack
+module github.com/cortexa-llc/ai-pack/a2a-agent
 
 go 1.21
 

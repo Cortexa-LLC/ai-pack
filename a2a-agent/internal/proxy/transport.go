@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/cortexa-llc/ai-pack/internal/config"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
 )
 
 // ProxyTransport wraps http.RoundTripper to rewrite URLs for corporate proxies

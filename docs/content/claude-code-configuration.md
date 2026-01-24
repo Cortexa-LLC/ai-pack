@@ -309,7 +309,7 @@ Test that spawned agents have write access:
 
 ```bash
 # This should succeed without permission prompts
-python3 tests/test_tier2_real_execution.py
+python3 tests/multi-agent-tests/test_real_execution.py
 ```text
 
 If agents fail with permission errors, check:

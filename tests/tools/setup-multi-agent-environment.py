@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tier 2 Test Environment Setup Script
+Multi-Agent Test Environment Setup Script
 
 Ensures all required configuration is in place for running tier 2 validation tests.
 Creates .claude/settings.json with proper permissions if missing.
@@ -86,7 +86,7 @@ def setup_settings_json():
                 return True
             else:
                 print("✗ Skipped updating settings.json")
-                print("  Warning: Tier 2 tests may fail without proper permissions")
+                print("  Warning: Multi-Agent tests may fail without proper permissions")
                 return False
 
     except Exception as e:
@@ -127,14 +127,14 @@ def verify_test_files():
         print("  You may not be in the ai-pack root directory")
         return False
 
-    tier2_tests = list(tests_dir.glob("test_tier2*.py"))
+    multi-agent_tests = list(tests_dir.glob("test_multi-agent*.py"))
     expected_count = 6
 
-    if len(tier2_tests) >= expected_count:
-        print(f"✓ Found {len(tier2_tests)} tier 2 test files")
+    if len(multi-agent_tests) >= expected_count:
+        print(f"✓ Found {len(multi-agent_tests)} tier 2 test files")
         return True
     else:
-        print(f"⚠ Found {len(tier2_tests)} tier 2 test files (expected {expected_count})")
+        print(f"⚠ Found {len(multi-agent_tests)} tier 2 test files (expected {expected_count})")
         print("  You may need to pull latest changes from git")
         return False
 
@@ -150,7 +150,7 @@ def main():
         print("\n✗ ERROR: Must run from ai-pack root directory")
         print("\nCurrent directory:", Path.cwd())
         print("Expected: */ai-pack")
-        print("\nRun: cd path/to/ai-pack && python3 tests/tools/setup-tier2-environment.py")
+        print("\nRun: cd path/to/ai-pack && python3 tests/tools/setup-multi-agent-environment.py")
         return 1
 
     changes_made = []
@@ -189,11 +189,11 @@ def main():
     print("=" * 60)
     print("\n1. Restart Claude Code (if settings.json was created/updated)")
     print("2. Run diagnostic to verify:")
-    print("   python3 tests/tools/check-tier2-environment.py")
+    print("   python3 tests/tools/check-multi-agent-environment.py")
     print("\n3. Run tier 2 tests:")
-    print("   python3 tests/test_tier2_real_execution.py")
+    print("   python3 tests/test_multi-agent_real_execution.py")
     print("\nOr run all tier 2 tests:")
-    print("   python3 tests/run_tests.py --tier2")
+    print("   python3 tests/run_tests.py --multi-agent")
     print("\n" + "=" * 60)
 
     return 0

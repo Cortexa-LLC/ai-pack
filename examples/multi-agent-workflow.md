@@ -17,8 +17,8 @@ This example demonstrates agent-to-agent communication using the A2A protocol.
 
 ```bash
 # Terminal 1: Start agent-server in server mode
-export ANTHROPIC_API_TOKEN=$(npx @"acme"/claude-code-token get_token)
-./bin/agent-server -server -config agent-server-proxy.json
+cd a2a-agent
+python3 scripts/start-server.py
 ```
 
 Server will be running on `http://localhost:8080`

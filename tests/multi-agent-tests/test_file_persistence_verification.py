@@ -8,7 +8,7 @@ are actually persisted to the repository and visible to the orchestrator.
 This addresses the concern: Are files being written to a sandbox/temporary
 filesystem or are they actually in the repository?
 
-Run with: python3 test_tier2_file_persistence_verification.py -v
+Run with: python3 test_multi-agent_file_persistence_verification.py -v
 """
 
 import json
@@ -38,7 +38,7 @@ class TestFilePersistenceVerification(unittest.TestCase):
                 raise RuntimeError("Not in a git repository")
             cls.repo_root = cls.repo_root.parent
 
-        cls.test_dir = cls.repo_root / ".ai" / "test-artifacts" / f"tier2-persistence-verify-{int(time.time())}"
+        cls.test_dir = cls.repo_root / ".ai" / "test-artifacts" / f"multi-agent-persistence-verify-{int(time.time())}"
         cls.test_dir.mkdir(parents=True, exist_ok=True)
 
         print("\n" + "="*70)
@@ -47,11 +47,11 @@ class TestFilePersistenceVerification(unittest.TestCase):
         print("Validates that background agent files actually persist")
         print("="*70 + "\n")
 
-    def test_01_verify_existing_tier2_artifacts(self):
+    def test_01_verify_existing_multi-agent_artifacts(self):
         """
         Verification: Check existing tier 2 test artifacts
 
-        Scans all existing tier2 test runs and verifies:
+        Scans all existing multi-agent test runs and verifies:
         - Files were actually created
         - Files are in repository
         - Files have content
@@ -65,20 +65,20 @@ class TestFilePersistenceVerification(unittest.TestCase):
         if not artifacts_dir.exists():
             self.skipTest("No test artifacts directory found")
 
-        # Find all tier2 test directories
-        tier2_dirs = list(artifacts_dir.glob("tier2-*"))
+        # Find all multi-agent test directories
+        multi-agent_dirs = list(artifacts_dir.glob("multi-agent-*"))
 
-        if not tier2_dirs:
-            self.skipTest("No tier2 test artifacts found")
+        if not multi-agent_dirs:
+            self.skipTest("No multi-agent test artifacts found")
 
-        print(f"\nFound {len(tier2_dirs)} tier2 test runs")
+        print(f"\nFound {len(multi-agent_dirs)} multi-agent test runs")
 
         total_files = 0
         total_size = 0
         missing_files = []
         empty_files = []
 
-        for test_dir in tier2_dirs:
+        for test_dir in multi-agent_dirs:
             print(f"\nChecking: {test_dir.name}")
 
             # Find all Python files in output directories
@@ -134,9 +134,9 @@ class TestFilePersistenceVerification(unittest.TestCase):
         Verification: Specific test output validation
 
         Checks specific expected files from each test type:
-        - tier2-real: model.py, service.py, test_service.py
-        - tier2-sequential: requirements.md, architecture.md, profile/*, tests/*
-        - tier2-parallel: feature-*/auth/*, feature-*/api/*, etc.
+        - multi-agent-real: model.py, service.py, test_service.py
+        - multi-agent-sequential: requirements.md, architecture.md, profile/*, tests/*
+        - multi-agent-parallel: feature-*/auth/*, feature-*/api/*, etc.
         """
         print("\n" + "="*70)
         print("VERIFICATION 2: Specific Test Outputs")
@@ -144,11 +144,11 @@ class TestFilePersistenceVerification(unittest.TestCase):
 
         artifacts_dir = self.repo_root / ".ai" / "test-artifacts"
 
-        # Check tier2-real outputs
-        real_dirs = list(artifacts_dir.glob("tier2-real-*"))
+        # Check multi-agent-real outputs
+        real_dirs = list(artifacts_dir.glob("multi-agent-real-*"))
         if real_dirs:
             latest_real = max(real_dirs, key=lambda p: p.stat().st_mtime)
-            print(f"\nChecking tier2-real: {latest_real.name}")
+            print(f"\nChecking multi-agent-real: {latest_real.name}")
 
             expected_files = [
                 latest_real / "output" / "model.py",
@@ -161,11 +161,11 @@ class TestFilePersistenceVerification(unittest.TestCase):
                 self.assertGreater(expected.stat().st_size, 50, f"Too small: {expected.name}")
                 print(f"  ✓ {expected.name} ({expected.stat().st_size} bytes)")
 
-        # Check tier2-sequential outputs
-        seq_dirs = list(artifacts_dir.glob("tier2-sequential-*"))
+        # Check multi-agent-sequential outputs
+        seq_dirs = list(artifacts_dir.glob("multi-agent-sequential-*"))
         if seq_dirs:
             latest_seq = max(seq_dirs, key=lambda p: p.stat().st_mtime)
-            print(f"\nChecking tier2-sequential: {latest_seq.name}")
+            print(f"\nChecking multi-agent-sequential: {latest_seq.name}")
 
             expected_outputs = [
                 latest_seq / "output" / "requirements.md",
@@ -182,11 +182,11 @@ class TestFilePersistenceVerification(unittest.TestCase):
             self.assertGreater(len(profile_files), 0, "Should have profile Python files")
             print(f"  ✓ {len(profile_files)} profile Python files")
 
-        # Check tier2-parallel outputs
-        parallel_dirs = list(artifacts_dir.glob("tier2-parallel-*"))
+        # Check multi-agent-parallel outputs
+        parallel_dirs = list(artifacts_dir.glob("multi-agent-parallel-*"))
         if parallel_dirs:
             latest_parallel = max(parallel_dirs, key=lambda p: p.stat().st_mtime)
-            print(f"\nChecking tier2-parallel: {latest_parallel.name}")
+            print(f"\nChecking multi-agent-parallel: {latest_parallel.name}")
 
             # Should have 5 features
             feature_dirs = list((latest_parallel / "output").glob("feature-*"))
@@ -216,8 +216,8 @@ class TestFilePersistenceVerification(unittest.TestCase):
         if not artifacts_dir.exists():
             self.skipTest("No test artifacts")
 
-        # Get all files in tier2 tests
-        all_files = list(artifacts_dir.rglob("tier2-*/output/**/*"))
+        # Get all files in multi-agent tests
+        all_files = list(artifacts_dir.rglob("multi-agent-*/output/**/*"))
         actual_files = [f for f in all_files if f.is_file()]
 
         print(f"\nChecking {len(actual_files)} files...")
@@ -253,10 +253,10 @@ class TestFilePersistenceVerification(unittest.TestCase):
 
         artifacts_dir = self.repo_root / ".ai" / "test-artifacts"
 
-        # Find a tier2-real output directory
-        real_dirs = list(artifacts_dir.glob("tier2-real-*"))
+        # Find a multi-agent-real output directory
+        real_dirs = list(artifacts_dir.glob("multi-agent-real-*"))
         if not real_dirs:
-            self.skipTest("No tier2-real test found")
+            self.skipTest("No multi-agent-real test found")
 
         latest = max(real_dirs, key=lambda p: p.stat().st_mtime)
         test_file = latest / "output" / "model.py"
