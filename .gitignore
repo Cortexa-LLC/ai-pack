@@ -76,3 +76,12 @@ setup-*-env.sh
 start-*-server.sh
 agent-server-proxy.json
 *-proxy.json
+
+# Test artifacts and results with personal paths
+TEST-MONITORING.md
+TEST-RESULTS.md
+TESTING-*.md
+tests/*-TEST-RESULTS.md
+tests/agent_integration_workspace/
+tests/workflow_test_workspace/
+.ai/test-artifacts/
