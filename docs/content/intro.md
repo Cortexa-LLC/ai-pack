@@ -40,6 +40,14 @@ Structured processes for different types of work:
 - Code refactoring
 - Research and investigation
 
+### 🤖 Agent-to-Agent (A2A) Workflow
+Lightweight agent spawning system for autonomous task delegation:
+- Specialized agent roles (Engineer, Tester, Reviewer)
+- Fast spawn times (~0.06s average)
+- Automatic task tracking via Beads
+- Full tool access with quality gates
+- Protocol handler support (`agent://` URLs)
+
 ### 📋 Task Memory System
 Persistent, git-backed task tracking using **[Beads](https://github.com/steveyegge/beads)**:
 - Cross-session memory that survives AI conversation boundaries
@@ -109,6 +117,7 @@ bd close bd-a1b2
 ## Documentation Structure
 
 - **[Getting Started](/docs/getting-started)** - Installation and setup guide
+- **[Agent-to-Agent (A2A)](/docs/framework/agent-to-agent)** - Multi-agent workflow system
 - **[Workflows](/docs/workflows/overview)** - Development process guides
 - **[Roles](/docs/roles/overview)** - Agent persona specifications
 - **[Quality Gates](/docs/gates/overview)** - Enforcement rules and controls

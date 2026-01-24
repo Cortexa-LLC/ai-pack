@@ -273,6 +273,7 @@ After setup, these commands are available:
 
 ## Next Steps
 
+- **[Agent-to-Agent (A2A)](./framework/agent-to-agent)** - Learn about the multi-agent workflow system
 - **[Workflows](./workflows/overview)** - Learn about development processes
 - **[Roles](./roles/overview)** - Understand agent personas
 - **[Quality Gates](./gates/overview)** - Review enforcement rules
