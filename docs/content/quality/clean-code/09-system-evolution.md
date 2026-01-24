@@ -122,7 +122,7 @@ Rather than treating replacement as failure, sacrificial architecture recognizes
 **Rapid Growth Scenarios**
 - "Exponential growth isn't kind to architectural decisions"
 - What works for thousands won't work for millions
-- Companies often rebuild multiple times during growth
+- Major tech companies often rebuild systems multiple times during rapid growth
 - Better to succeed and rebuild than over-engineer early
 
 **Proof-of-Concept Phases**
