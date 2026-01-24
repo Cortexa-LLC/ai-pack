@@ -32,7 +32,7 @@ class TestTier2ParallelExecution(unittest.TestCase):
         """
         # Create test directory with timestamp
         timestamp = int(datetime.now().timestamp())
-        test_dir = self.test_artifacts / f"tier2-parallel-{timestamp}"
+        test_dir = self.test_artifacts / f"multi-agent-parallel-{timestamp}"
         test_dir.mkdir(parents=True, exist_ok=True)
 
         # Create README

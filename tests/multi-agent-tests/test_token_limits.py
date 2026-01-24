@@ -11,10 +11,10 @@ Real-world scenarios where agents approach or exceed 25K-32K token output limits
 
 Priority: HIGHEST - Token limits are #1 cause of silent failures
 
-Run with: python3 test_tier2_token_limits.py -v
+Run with: python3 test_multi-agent_token_limits.py -v
 
 For REAL agent execution (requires Claude Code environment):
-Set environment variable: TIER2_REAL_AGENTS=true
+Set environment variable: MULTI_AGENT_REAL_EXECUTION=true
 """
 
 import json
@@ -28,7 +28,7 @@ from pathlib import Path
 
 
 # Check if running with real agents
-REAL_AGENTS = os.getenv('TIER2_REAL_AGENTS', 'false').lower() == 'true'
+REAL_AGENTS = os.getenv('MULTI_AGENT_REAL_EXECUTION', 'false').lower() == 'true'
 
 
 class TestTokenLimitStress(unittest.TestCase):
@@ -67,7 +67,7 @@ class TestTokenLimitStress(unittest.TestCase):
             print("📋 SIMULATION MODE")
             print("="*70)
             print("Tests validate logic without spawning real agents")
-            print("Set TIER2_REAL_AGENTS=true for real execution")
+            print("Set MULTI_AGENT_REAL_EXECUTION=true for real execution")
             print("="*70 + "\n")
 
     @classmethod
@@ -537,7 +537,7 @@ if __name__ == "__main__":
         print("⚠️  This will make actual API calls")
     else:
         print("\n📋 Running in simulation mode")
-        print("Set TIER2_REAL_AGENTS=true for real execution")
+        print("Set MULTI_AGENT_REAL_EXECUTION=true for real execution")
 
     print()
 

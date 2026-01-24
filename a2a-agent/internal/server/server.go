@@ -11,11 +11,11 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
-	"github.com/cortexa-llc/ai-pack/internal/auth"
-	"github.com/cortexa-llc/ai-pack/internal/config"
-	"github.com/cortexa-llc/ai-pack/internal/monitoring"
-	"github.com/cortexa-llc/ai-pack/internal/protocol"
-	"github.com/cortexa-llc/ai-pack/internal/proxy"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/auth"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/proxy"
 	"gopkg.in/yaml.v3"
 )
 

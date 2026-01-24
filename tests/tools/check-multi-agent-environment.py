@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tier 2 Test Environment Diagnostic
+Multi-Agent Test Environment Diagnostic
 Run this on both machines and compare results
 """
 
@@ -138,16 +138,16 @@ def check_test_files():
         print("✗ tests/ directory not found")
         return False
 
-    tier2_tests = list(tests_dir.glob("test_tier2*.py"))
-    print(f"Tier 2 test files found: {len(tier2_tests)}")
+    multi-agent_tests = list(tests_dir.glob("test_multi-agent*.py"))
+    print(f"Multi-Agent test files found: {len(multi-agent_tests)}")
     print(f"Expected: 6")
 
-    if tier2_tests:
+    if multi-agent_tests:
         print("\nAvailable tier 2 tests:")
-        for test in sorted(tier2_tests):
+        for test in sorted(multi-agent_tests):
             print(f"  {test.name}")
 
-    return len(tier2_tests) == 7
+    return len(multi-agent_tests) == 7
 
 def check_test_artifacts():
     """Check test artifacts directory"""
@@ -159,8 +159,8 @@ def check_test_artifacts():
     if artifacts_dir.exists():
         print("✓ Test artifacts directory exists")
 
-        tier2_runs = list(artifacts_dir.glob("tier2-*"))
-        print(f"Existing test runs: {len(tier2_runs)}")
+        multi-agent_runs = list(artifacts_dir.glob("multi-agent-*"))
+        print(f"Existing test runs: {len(multi-agent_runs)}")
     else:
         print("No .ai/test-artifacts directory (will be created on first run)")
 
@@ -174,8 +174,8 @@ def check_test_import():
 
     sys.path.insert(0, "tests")
     try:
-        import test_tier2_real_execution
-        print("✓ test_tier2_real_execution can be imported")
+        import test_multi-agent_real_execution
+        print("✓ test_multi-agent_real_execution can be imported")
         return True
     except Exception as e:
         print(f"✗ Import failed: {e}")
@@ -244,7 +244,7 @@ def main():
     else:
         print("Environment looks good!")
         print("\nTo run tier 2 tests:")
-        print("  python3 tests/test_tier2_real_execution.py")
+        print("  python3 tests/test_multi-agent_real_execution.py")
     print("=" * 60)
 
     return 0 if not critical_failed else 1

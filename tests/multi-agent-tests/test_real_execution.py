@@ -7,7 +7,7 @@ the setup is correct for Tier 2 testing.
 
 The actual agent spawning happens outside Python (via Claude Code Task tool).
 
-Run with: python3 test_tier2_real_execution.py -v
+Run with: python3 test_multi-agent_real_execution.py -v
 """
 
 import json
@@ -37,7 +37,7 @@ class TestTier2Setup(unittest.TestCase):
                 raise RuntimeError("Not in a git repository")
             cls.repo_root = cls.repo_root.parent
 
-        cls.test_dir = cls.repo_root / ".ai" / "test-artifacts" / f"tier2-real-{int(time.time())}"
+        cls.test_dir = cls.repo_root / ".ai" / "test-artifacts" / f"multi-agent-real-{int(time.time())}"
         cls.test_dir.mkdir(parents=True, exist_ok=True)
 
         print("\n" + "="*70)
@@ -59,7 +59,7 @@ class TestTier2Setup(unittest.TestCase):
         print("="*70)
 
         # Create task packet
-        task_dir = self.test_dir / "tasks" / "2026-01-15_tier2-simple-task"
+        task_dir = self.test_dir / "tasks" / "2026-01-15_multi-agent-simple-task"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         # Target directory

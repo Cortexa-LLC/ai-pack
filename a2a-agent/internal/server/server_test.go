@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cortexa-llc/ai-pack/internal/config"
-	"github.com/cortexa-llc/ai-pack/internal/monitoring"
-	"github.com/cortexa-llc/ai-pack/internal/protocol"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol"
 )
 
 // Initialize monitoring for all tests
