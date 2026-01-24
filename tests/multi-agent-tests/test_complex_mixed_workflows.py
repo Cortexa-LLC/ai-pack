@@ -37,7 +37,7 @@ class TestTier2ComplexMixedWorkflows(unittest.TestCase):
         Execution: Run this test, then spawn agents following the workflow
         """
         timestamp = int(datetime.now().timestamp())
-        test_dir = self.test_artifacts / f"tier2-complex-mixed-{timestamp}"
+        test_dir = self.test_artifacts / f"multi-agent-complex-mixed-{timestamp}"
         test_dir.mkdir(parents=True, exist_ok=True)
 
         # Create README

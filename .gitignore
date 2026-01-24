@@ -74,8 +74,10 @@ ai_pack/
 # Internal/corporate-specific configurations (not for public repo)
 setup-*-env.sh
 start-*-server.sh
-agent-server-proxy.json
-*-proxy.json
+.npmrc
+
+# A2A agent server binaries (built artifacts, not source)
+a2a-agent/bin/
 
 # Test artifacts and results with personal paths
 TEST-MONITORING.md

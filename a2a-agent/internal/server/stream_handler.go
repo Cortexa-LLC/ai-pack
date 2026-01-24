@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/cortexa-llc/ai-pack/internal/monitoring"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
 
 // handleStream handles SSE streaming for task progress

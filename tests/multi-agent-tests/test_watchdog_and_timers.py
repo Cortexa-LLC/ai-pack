@@ -34,7 +34,7 @@ class TestTier2WatchdogAndTimers(unittest.TestCase):
         Expected: Agent should be terminated by watchdog with proper error reporting
         """
         timestamp = int(datetime.now().timestamp())
-        test_dir = self.test_artifacts / f"tier2-watchdog-timeout-{timestamp}"
+        test_dir = self.test_artifacts / f"multi-agent-watchdog-timeout-{timestamp}"
         test_dir.mkdir(parents=True, exist_ok=True)
 
         # Create README
@@ -142,7 +142,7 @@ The watchdog should terminate this agent before completion.
         Expected: Progress notifications received at regular intervals
         """
         timestamp = int(datetime.now().timestamp())
-        test_dir = self.test_artifacts / f"tier2-progress-monitoring-{timestamp}"
+        test_dir = self.test_artifacts / f"multi-agent-progress-monitoring-{timestamp}"
         test_dir.mkdir(parents=True, exist_ok=True)
 
         readme = test_dir / "README.md"
@@ -246,7 +246,7 @@ Read all 15 files and verify they exist and have valid Python syntax.
         Expected: Agent reports specific error, no silent failure
         """
         timestamp = int(datetime.now().timestamp())
-        test_dir = self.test_artifacts / f"tier2-graceful-failure-{timestamp}"
+        test_dir = self.test_artifacts / f"multi-agent-graceful-failure-{timestamp}"
         test_dir.mkdir(parents=True, exist_ok=True)
 
         readme = test_dir / "README.md"
@@ -387,7 +387,7 @@ Agent should NOT proceed with partial/guessed implementation.
         Expected: No resource leaks after agent termination
         """
         timestamp = int(datetime.now().timestamp())
-        test_dir = self.test_artifacts / f"tier2-resource-cleanup-{timestamp}"
+        test_dir = self.test_artifacts / f"multi-agent-resource-cleanup-{timestamp}"
         test_dir.mkdir(parents=True, exist_ok=True)
 
         readme = test_dir / "README.md"

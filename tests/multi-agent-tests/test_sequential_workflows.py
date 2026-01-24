@@ -34,7 +34,7 @@ class TestTier2SequentialWorkflows(unittest.TestCase):
         """
         # Create test directory with timestamp
         timestamp = int(datetime.now().timestamp())
-        test_dir = self.test_artifacts / f"tier2-sequential-{timestamp}"
+        test_dir = self.test_artifacts / f"multi-agent-sequential-{timestamp}"
         test_dir.mkdir(parents=True, exist_ok=True)
 
         # Create README

@@ -1,0 +1,21 @@
+{
+  "server": {
+    "host": "localhost",
+    "port": 8080,
+    "max_concurrent_agents": 10,
+    "worker_pool_size": 10
+  },
+  "api": {
+    "anthropic_model": "claude-3-5-sonnet-20241022",
+    "max_tokens": 8000,
+    "timeout_seconds": 600
+  },
+  "logging": {
+    "level": "info",
+    "format": "json"
+  },
+  "metrics": {
+    "enabled": true,
+    "max_task_durations": 1000
+  }
+}

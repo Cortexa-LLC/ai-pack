@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/cortexa-llc/ai-pack/internal/monitoring"
-	"github.com/cortexa-llc/ai-pack/internal/protocol"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol"
 )
 
 // A2A Protocol Handlers

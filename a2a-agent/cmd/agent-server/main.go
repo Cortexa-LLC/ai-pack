@@ -11,9 +11,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cortexa-llc/ai-pack/internal/config"
-	"github.com/cortexa-llc/ai-pack/internal/monitoring"
-	"github.com/cortexa-llc/ai-pack/internal/server"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/server"
 )
 
 const (

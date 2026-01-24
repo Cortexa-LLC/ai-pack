@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cortexa-llc/ai-pack/internal/monitoring"
-	"github.com/cortexa-llc/ai-pack/internal/protocol"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol"
 )
 
 // Public API methods for the server
