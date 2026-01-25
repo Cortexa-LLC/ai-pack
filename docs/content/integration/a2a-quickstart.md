@@ -448,10 +448,10 @@ Shows:
 
 ## Next Steps
 
-1. **Read the A2A Usage Guide**: [docs/content/framework/a2a-usage-guide.md](content/framework/a2a-usage-guide.md)
-2. **Understand Beads Integration**: [docs/BEADS-AGENT-INTEGRATION.md](BEADS-AGENT-INTEGRATION.md)
-3. **Customize Agent Configs**: [agents/README.md](../agents/README.md)
-4. **Set Up Protocol Handler**: [docs/content/framework/protocol-handler.md](content/framework/protocol-handler.md)
+1. **Read the A2A Usage Guide**: [A2A Usage Guide](../framework/a2a-usage-guide.md)
+2. **Understand Beads Integration**: [Beads & Agent Integration](./beads-agent.md)
+3. **Understand Orchestrator Integration**: [Orchestrator & A2A Integration](./orchestrator-a2a.md)
+4. **Set Up Protocol Handler**: [Protocol Handler Setup](../framework/protocol-handler.md)
 
 ---
 
