@@ -347,7 +347,9 @@ func main() {
 	mux.HandleFunc("/a2a/discovery", s.HandleA2ADiscovery)  // A2A discovery
 	mux.HandleFunc("/a2a/execute", s.HandleA2AExecute)      // A2A execute
 	mux.HandleFunc("/a2a/status", s.HandleA2AStatus)        // A2A status
-	mux.HandleFunc("/stream/", s.HandleStream)              // SSE streaming
+	mux.HandleFunc("/stream/", s.HandleStream)              // SSE streaming (tasks)
+	mux.HandleFunc("/logs/stream", s.HandleLogsStream)      // SSE streaming (logs)
+	mux.HandleFunc("/logs/recent", s.HandleLogsRecent)      // Recent logs (JSON)
 
 	// Wrap with logging middleware
 	handler := server.LoggingMiddleware(mux)
@@ -363,11 +365,13 @@ func main() {
 	log.Printf("      - POST /a2a/status         (Task status - JSON-RPC 2.0)")
 	log.Printf("")
 	log.Printf("   🔄 Streaming:")
-	log.Printf("      - GET  /stream/:task_id    (Real-time progress - SSE)")
+	log.Printf("      - GET  /stream/:task_id    (Task progress - SSE)")
+	log.Printf("      - GET  /logs/stream        (Realtime logs - SSE)")
 	log.Printf("")
 	log.Printf("   🔧 Utility:")
 	log.Printf("      - GET  /health             (Health check)")
 	log.Printf("      - GET  /metrics            (Performance metrics)")
+	log.Printf("      - GET  /logs/recent?limit=N (Recent logs - JSON)")
 	log.Printf("")
 	log.Printf("   🎯 Features:")
 	log.Printf("      - A2A Protocol Compliance  ✅")

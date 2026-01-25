@@ -4,19 +4,170 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"sync"
+	"time"
 )
 
 // Global logger instance
 var Logger *slog.Logger
 
-// InitLogger initializes structured logging
+// LogEntry represents a single log entry
+type LogEntry struct {
+	Timestamp time.Time              `json:"timestamp"`
+	Level     string                 `json:"level"`
+	Message   string                 `json:"message"`
+	Attrs     map[string]interface{} `json:"attrs"`
+}
+
+// LogBuffer stores recent log entries
+type LogBuffer struct {
+	mu      sync.RWMutex
+	entries []LogEntry
+	maxSize int
+	subs    []chan LogEntry // Subscribers for streaming
+}
+
+var globalLogBuffer *LogBuffer
+
+// NewLogBuffer creates a new log buffer
+func NewLogBuffer(maxSize int) *LogBuffer {
+	return &LogBuffer{
+		entries: make([]LogEntry, 0, maxSize),
+		maxSize: maxSize,
+		subs:    make([]chan LogEntry, 0),
+	}
+}
+
+// Add adds a log entry to the buffer
+func (lb *LogBuffer) Add(entry LogEntry) {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+
+	// Add to buffer
+	lb.entries = append(lb.entries, entry)
+	if len(lb.entries) > lb.maxSize {
+		// Keep only the most recent entries
+		lb.entries = lb.entries[len(lb.entries)-lb.maxSize:]
+	}
+
+	// Broadcast to subscribers (non-blocking)
+	for _, sub := range lb.subs {
+		select {
+		case sub <- entry:
+		default:
+			// Skip if channel is full
+		}
+	}
+}
+
+// GetRecent returns the N most recent log entries
+func (lb *LogBuffer) GetRecent(n int) []LogEntry {
+	lb.mu.RLock()
+	defer lb.mu.RUnlock()
+
+	if n > len(lb.entries) {
+		n = len(lb.entries)
+	}
+
+	// Return the last N entries
+	start := len(lb.entries) - n
+	result := make([]LogEntry, n)
+	copy(result, lb.entries[start:])
+	return result
+}
+
+// Subscribe creates a new subscriber channel for log streaming
+func (lb *LogBuffer) Subscribe() chan LogEntry {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+
+	ch := make(chan LogEntry, 100)
+	lb.subs = append(lb.subs, ch)
+	return ch
+}
+
+// Unsubscribe removes a subscriber channel
+func (lb *LogBuffer) Unsubscribe(ch chan LogEntry) {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+
+	for i, sub := range lb.subs {
+		if sub == ch {
+			lb.subs = append(lb.subs[:i], lb.subs[i+1:]...)
+			close(ch)
+			break
+		}
+	}
+}
+
+// BufferedHandler wraps slog.Handler to also write to log buffer
+type BufferedHandler struct {
+	handler slog.Handler
+	buffer  *LogBuffer
+}
+
+func (h *BufferedHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.handler.Enabled(ctx, level)
+}
+
+func (h *BufferedHandler) Handle(ctx context.Context, r slog.Record) error {
+	// Create log entry for buffer
+	attrs := make(map[string]interface{})
+	r.Attrs(func(a slog.Attr) bool {
+		attrs[a.Key] = a.Value.Any()
+		return true
+	})
+
+	entry := LogEntry{
+		Timestamp: r.Time,
+		Level:     r.Level.String(),
+		Message:   r.Message,
+		Attrs:     attrs,
+	}
+
+	// Add to buffer
+	h.buffer.Add(entry)
+
+	// Pass through to underlying handler
+	return h.handler.Handle(ctx, r)
+}
+
+func (h *BufferedHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &BufferedHandler{
+		handler: h.handler.WithAttrs(attrs),
+		buffer:  h.buffer,
+	}
+}
+
+func (h *BufferedHandler) WithGroup(name string) slog.Handler {
+	return &BufferedHandler{
+		handler: h.handler.WithGroup(name),
+		buffer:  h.buffer,
+	}
+}
+
+// InitLogger initializes structured logging with buffering
 func InitLogger(level slog.Level) {
+	// Create log buffer (store last 1000 entries)
+	globalLogBuffer = NewLogBuffer(1000)
+
 	opts := &slog.HandlerOptions{
 		Level: level,
 	}
 
-	handler := slog.NewJSONHandler(os.Stdout, opts)
-	Logger = slog.New(handler)
+	// Create buffered handler that writes to both stdout and buffer
+	jsonHandler := slog.NewJSONHandler(os.Stdout, opts)
+	bufferedHandler := &BufferedHandler{
+		handler: jsonHandler,
+		buffer:  globalLogBuffer,
+	}
+
+	Logger = slog.New(bufferedHandler)
+}
+
+// GetLogBuffer returns the global log buffer
+func GetLogBuffer() *LogBuffer {
+	return globalLogBuffer
 }
 
 // LogTaskSpawned logs when a task is spawned
