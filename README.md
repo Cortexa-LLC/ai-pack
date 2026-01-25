@@ -10,6 +10,23 @@
 
 AI-Pack provides structured processes, quality gates, agent roles, and coding standards for AI agent-based software development. It ensures quality, consistency, and proper governance throughout the development lifecycle.
 
+---
+
+## ⚠️ Important: Submodule Reset Required (2026-01-24)
+
+**If you're updating from an earlier version**, you need to reset your `.ai-pack` submodule due to infrastructure changes.
+
+**Quick Fix** (automated):
+```bash
+python3 .ai-pack/scripts/reset-submodule.py
+```
+
+**Documentation**: See [docs/SUBMODULE-RESET.md](docs/SUBMODULE-RESET.md) for details and manual procedure.
+
+**What's New**: Go-based A2A server, parallel execution, SSE streaming, production infrastructure ✅
+
+---
+
 ## Overview
 
 AI-Pack is designed as a git submodule that projects include at `.ai-pack/`. It provides:
