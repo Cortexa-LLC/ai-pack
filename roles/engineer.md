@@ -494,10 +494,7 @@ END FOR
 
 **Commit Policy:**
 ```
-DO NOT commit during implementation.
-ONLY commit if orchestrator explicitly requests it via task metadata.
-Commits are orchestrator-controlled for work package management.
-```
+Check task packet for commit instructions.
 ```
 
 **Progress Reporting:**
@@ -652,20 +649,33 @@ END WHILE
 
 ### Before Completion
 
+**⚠️ CRITICAL: Do NOT claim completion unless ALL criteria are met**
+
 **Completion Checklist (MANDATORY - BLOCKING):**
 ```
 ✓ All acceptance criteria met
-✓ All tests passing (100%)
+✓ All tests passing (100%) - RUN TESTS TO VERIFY
 ✓ Code coverage 80-90%
 ✓ Code follows standards
 ✓ Build passes with ZERO WARNINGS (BLOCKING - all languages)
 ✓ Code formatted per language standards
 ✓ No TODO/FIXME left unaddressed
-✓ Work log updated
+✓ Work log updated with final status
 ✓ Beads task closed with bd close <task-id> (MANDATORY - BLOCKING)
 ✓ Ready for review
 
-⚠️ NOTE: Do NOT commit changes - orchestrator manages commits
+⚠️ If ANY criteria not met, task is NOT complete - continue working
+
+⚠️ If hitting iteration limits:
+   - Report current state honestly in work log
+   - Do NOT claim completion
+   - Document what's remaining
+   - Let orchestrator decide next steps
+```
+
+**Commit Handling:**
+```
+Check task packet for commit instructions.
 ```
 
 **⚠️ CRITICAL: Beads Task Closure (MANDATORY)**

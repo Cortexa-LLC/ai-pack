@@ -60,11 +60,12 @@ func handleSpawn(args []string) {
 	fs := flag.NewFlagSet("spawn", flag.ExitOnError)
 	_ = fs.Bool("async", false, "Execute task asynchronously (reserved for future use)")
 	wait := fs.Bool("wait", false, "Wait for task completion")
+	stream := fs.Bool("stream", false, "Stream real-time progress via SSE")
 	fs.Parse(args)
 
 	remainingArgs := fs.Args()
 	if len(remainingArgs) < 2 {
-		fmt.Println("Usage: agent [--async|--wait] <role> <beads-task-id>")
+		fmt.Println("Usage: agent [--wait] <role> <beads-task-id>")
 		os.Exit(1)
 	}
 
@@ -141,6 +142,14 @@ func handleSpawn(args []string) {
 
 	// Show initial metrics
 	showMetrics()
+
+	// If --stream flag, stream real-time progress via SSE
+	if *stream {
+		fmt.Println()
+		fmt.Println("📡 Streaming real-time progress...")
+		streamTaskProgress(taskInput)
+		return
+	}
 
 	// If --wait flag, poll until complete
 	if *wait {
@@ -344,6 +353,107 @@ func showMetrics() {
 	fmt.Printf("   Completed: %.0f\n", metrics["tasks_completed"])
 	fmt.Printf("   Failed: %.0f\n", metrics["tasks_failed"])
 	fmt.Println()
+}
+
+func streamTaskProgress(beadsTaskID string) {
+	internalTaskID := findInternalTaskID(beadsTaskID)
+	if internalTaskID == "" {
+		fmt.Printf("❌ No agent found for Beads task: %s\n", beadsTaskID)
+		os.Exit(1)
+	}
+
+	// Connect to SSE stream endpoint
+	streamURL := fmt.Sprintf("%s/stream/%s", ServerURL, internalTaskID)
+	resp, err := http.Get(streamURL)
+	if err != nil {
+		fmt.Printf("❌ Failed to connect to stream: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		fmt.Printf("❌ Stream connection failed with status %d\n", resp.StatusCode)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✓ Connected to task stream: %s\n", internalTaskID)
+	fmt.Println()
+
+	// Read SSE events line by line
+	// SSE format: "data: {...}\n\n"
+	buffer := make([]byte, 8192)
+	dataBuffer := ""
+
+	for {
+		n, err := resp.Body.Read(buffer)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			fmt.Printf("⚠️  Stream read error: %v\n", err)
+			break
+		}
+
+		dataBuffer += string(buffer[:n])
+
+		// Process complete SSE messages (terminated by "\n\n")
+		for {
+			idx := strings.Index(dataBuffer, "\n\n")
+			if idx == -1 {
+				break
+			}
+
+			message := dataBuffer[:idx]
+			dataBuffer = dataBuffer[idx+2:]
+
+			// Parse SSE event
+			if strings.HasPrefix(message, "data: ") {
+				jsonData := strings.TrimPrefix(message, "data: ")
+
+				var event map[string]interface{}
+				if err := json.Unmarshal([]byte(jsonData), &event); err != nil {
+					continue
+				}
+
+				// Display event based on type
+				eventType, _ := event["type"].(string)
+				timestamp, _ := event["timestamp"].(string)
+				data, _ := event["data"].(map[string]interface{})
+
+				switch eventType {
+				case "status_update":
+					status, _ := data["status"].(string)
+					progress, _ := data["progress"].(float64)
+					fmt.Printf("[%s] Status: %s (%.0f%%)\n", timestamp, status, progress*100)
+
+				case "api_call_start":
+					fmt.Printf("[%s] 🔄 API call starting...\n", timestamp)
+
+				case "api_call_complete":
+					fmt.Printf("[%s] ✅ API call complete\n", timestamp)
+
+				case "completed":
+					fmt.Printf("[%s] 🎉 Task completed!\n", timestamp)
+					fmt.Println()
+					showMetrics()
+					return
+
+				case "failed":
+					errorMsg, _ := data["error"].(string)
+					fmt.Printf("[%s] ❌ Task failed: %s\n", timestamp, errorMsg)
+					os.Exit(1)
+
+				default:
+					// Log unknown events for debugging
+					fmt.Printf("[%s] %s\n", timestamp, eventType)
+				}
+			}
+		}
+	}
+
+	fmt.Println()
+	fmt.Println("✓ Stream closed")
+	showMetrics()
 }
 
 func waitForTaskCompletion(beadsTaskID string) {
