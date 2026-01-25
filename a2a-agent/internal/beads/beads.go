@@ -141,18 +141,18 @@ func (c *Client) ValidateTaskID(taskID string) error {
 }
 
 // GetTaskDescription extracts the task description from either a Beads task ID or free-form text
-// Returns: (description, taskPacketPath, isBeadsTask, error)
-func (c *Client) GetTaskDescription(input string) (string, string, bool, error) {
+// Returns: (description, taskPacketPath, workingDirectory, isBeadsTask, error)
+func (c *Client) GetTaskDescription(input string) (string, string, string, bool, error) {
 	if IsBeadsTaskID(input) {
 		// Validate the task exists first
 		if err := c.ValidateTaskID(input); err != nil {
-			return "", "", true, err
+			return "", "", "", true, err
 		}
 
 		// Get the task (we know it exists now)
 		task, err := c.GetTask(input)
 		if err != nil {
-			return "", "", true, fmt.Errorf("failed to get Beads task: %w", err)
+			return "", "", "", true, fmt.Errorf("failed to get Beads task: %w", err)
 		}
 
 		// Use title and description
@@ -175,11 +175,18 @@ func (c *Client) GetTaskDescription(input string) (string, string, bool, error) 
 			taskPacketPath = extractTaskPacketPath(task.Description)
 		}
 
-		return description, taskPacketPath, true, nil
+		// Extract working directory from description
+		// Look for pattern: "Working directory: <path>"
+		workingDirectory := ""
+		if task.Description != "" {
+			workingDirectory = extractWorkingDirectory(task.Description)
+		}
+
+		return description, taskPacketPath, workingDirectory, true, nil
 	}
 
 	// It's free-form text
-	return input, "", false, nil
+	return input, "", "", false, nil
 }
 
 // extractTaskPacketPath extracts task packet path from description
@@ -187,6 +194,18 @@ func (c *Client) GetTaskDescription(input string) (string, string, bool, error) 
 func extractTaskPacketPath(description string) string {
 	// Pattern matches "Task packet: .ai/tasks/..." or "task packet: .ai/tasks/..."
 	re := regexp.MustCompile(`(?i)Task packet:\s*([^\s\n]+)`)
+	matches := re.FindStringSubmatch(description)
+	if len(matches) > 1 {
+		return strings.TrimSpace(matches[1])
+	}
+	return ""
+}
+
+// extractWorkingDirectory extracts working directory from description
+// Looks for pattern: "Working directory: <path>" or "working directory: <path>"
+func extractWorkingDirectory(description string) string {
+	// Pattern matches "Working directory: /path/..." or "working directory: /path/..."
+	re := regexp.MustCompile(`(?i)Working directory:\s*([^\n]+)`)
 	matches := re.FindStringSubmatch(description)
 	if len(matches) > 1 {
 		return strings.TrimSpace(matches[1])
