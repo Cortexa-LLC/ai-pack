@@ -381,7 +381,6 @@ func main() {
 	log.Printf("      - Max Tokens: %d", cfg.API.MaxTokens)
 	log.Printf("      - API Mode: %s", cfg.API.Mode)
 	if cfg.API.Mode == "proxy" && cfg.API.Proxy != nil {
-		log.Printf("      - Proxy Type: %s", cfg.API.Proxy.Type)
 		log.Printf("      - Proxy URL: %s", cfg.API.Proxy.BaseURL)
 	}
 	log.Printf("      - Config File: %s", *configPath)

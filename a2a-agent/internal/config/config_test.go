@@ -92,7 +92,6 @@ func TestLoadConfig_ProxyMode(t *testing.T) {
 		"api": {
 			"mode": "proxy",
 			"proxy": {
-				"type": "acme",
 				"base_url": "https://proxy.example.com/api"
 			}
 		}
@@ -115,9 +114,6 @@ func TestLoadConfig_ProxyMode(t *testing.T) {
 	}
 	if cfg.API.Proxy == nil {
 		t.Fatal("Expected proxy config to be set")
-	}
-	if cfg.API.Proxy.Type != "acme" {
-		t.Errorf("Expected proxy type '"acme"', got '%s'", cfg.API.Proxy.Type)
 	}
 	if cfg.API.Proxy.BaseURL != "https://proxy.example.com/api" {
 		t.Errorf("Expected proxy URL 'https://proxy.example.com/api', got '%s'", cfg.API.Proxy.BaseURL)
