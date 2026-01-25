@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol"
@@ -162,6 +164,9 @@ func (s *AgentServer) handleA2AStatus(w http.ResponseWriter, r *http.Request) {
 
 // getDiscoveryResponse builds the discovery response
 func (s *AgentServer) getDiscoveryResponse() *protocol.DiscoveryResponse {
+	// Dynamically discover available agents from filesystem
+	agents := s.discoverAvailableAgents()
+
 	return &protocol.DiscoveryResponse{
 		Name:        "ai-pack-agent-server",
 		Version:     Version,
@@ -172,26 +177,7 @@ func (s *AgentServer) getDiscoveryResponse() *protocol.DiscoveryResponse {
 			MaxConcurrent:   s.maxConcurrent,
 			SupportedModels: []string{s.model},
 		},
-		Agents: []protocol.AgentDescription{
-			{
-				Role:        "engineer",
-				Description: "Implementation specialist following TDD practices",
-				Tools:       []string{"read", "write", "edit", "bash", "grep", "glob"},
-				Timeout:     "10min",
-			},
-			{
-				Role:        "tester",
-				Description: "Testing specialist targeting >80% coverage",
-				Tools:       []string{"read", "write", "edit", "bash", "grep", "glob"},
-				Timeout:     "10min",
-			},
-			{
-				Role:        "reviewer",
-				Description: "Code review specialist for quality and security",
-				Tools:       []string{"read", "grep", "glob", "bash"},
-				Timeout:     "8min",
-			},
-		},
+		Agents: agents,
 		Endpoints: map[string]protocol.Endpoint{
 			"discovery": {
 				Path:        "/a2a/discovery",
@@ -215,6 +201,99 @@ func (s *AgentServer) getDiscoveryResponse() *protocol.DiscoveryResponse {
 			},
 		},
 	}
+}
+
+// discoverAvailableAgents scans the agents directory and builds descriptions
+func (s *AgentServer) discoverAvailableAgents() []protocol.AgentDescription {
+	var agents []protocol.AgentDescription
+
+	// Build set of all agent roles (combining framework and project overrides)
+	agentRoles := make(map[string]bool)
+
+	// Try multiple locations for agent configs:
+	// 1. Production: .ai-pack/agents/ (when deployed as submodule)
+	// 2. Development: ../agents/ (when running from a2a-agent dir)
+	// 3. Development: agents/ (when running from repo root)
+	frameworkAgentsDirs := []string{
+		s.rootDir + "/.ai-pack/agents",
+		s.rootDir + "/../agents",
+		s.rootDir + "/agents",
+	}
+
+	// Project overrides
+	projectAgentsDir := s.rootDir + "/.ai/agents"
+
+	// Check framework agents (try all possible locations)
+	for _, frameworkAgentsDir := range frameworkAgentsDirs {
+		if entries, err := os.ReadDir(frameworkAgentsDir); err == nil {
+			monitoring.Logger.Info("found_agents_directory", "path", frameworkAgentsDir)
+			for _, entry := range entries {
+				if entry.IsDir() {
+					continue
+				}
+
+				name := entry.Name()
+				var role string
+
+				if strings.HasSuffix(name, ".yml") {
+					role = strings.TrimSuffix(name, ".yml")
+				} else if strings.HasSuffix(name, ".yaml") {
+					role = strings.TrimSuffix(name, ".yaml")
+				} else {
+					continue
+				}
+
+				if role != "" {
+					monitoring.Logger.Info("discovered_agent", "role", role, "file", name)
+					agentRoles[role] = true
+				}
+			}
+		} else {
+			monitoring.Logger.Debug("agents_dir_not_found", "path", frameworkAgentsDir, "error", err)
+		}
+	}
+
+	// Check project overrides
+	if entries, err := os.ReadDir(projectAgentsDir); err == nil {
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+
+			name := entry.Name()
+			var role string
+
+			if strings.HasSuffix(name, ".yml") {
+				role = strings.TrimSuffix(name, ".yml")
+			} else if strings.HasSuffix(name, ".yaml") {
+				role = strings.TrimSuffix(name, ".yaml")
+			} else {
+				continue
+			}
+
+			if role != "" {
+				agentRoles[role] = true
+			}
+		}
+	}
+
+	// Load each agent config and build description
+	for role := range agentRoles {
+		config, err := s.loadAgentConfig(role)
+		if err != nil {
+			monitoring.Logger.Warn("failed_to_load_agent_config_for_discovery", "role", role, "error", err)
+			continue
+		}
+
+		agents = append(agents, protocol.AgentDescription{
+			Role:        config.Name,
+			Description: config.Description,
+			Tools:       config.Tools,
+			Timeout:     config.Delegation.Timeout,
+		})
+	}
+
+	return agents
 }
 
 // sendJSONRPCResponse sends a JSON-RPC response
