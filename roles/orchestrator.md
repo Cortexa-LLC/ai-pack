@@ -1378,6 +1378,255 @@ END IF
 
 ---
 
+### 2.14 A2A Background Agent Spawning
+
+**PURPOSE:** Enable Orchestrator to spawn long-running background agents via the A2A agent system.
+
+**WHEN TO USE A2A BACKGROUND AGENTS:**
+
+Use A2A background agents (via `agent` CLI) when:
+- Task is **long-running** (>10 minutes expected)
+- You **don't need to wait** for immediate results
+- Task should **persist across sessions** (survive terminal close)
+- Running **multiple independent** long-running tasks
+- Task doesn't require **conversation context** from current session
+
+Use Task tool (foreground agents) when:
+- Task requires **immediate results** for next step
+- You need to **see progress in real-time**
+- Agent needs **conversation context**
+- Task is **interactive** (back-and-forth required)
+- Task is **short-duration** (<10 minutes)
+
+**A2A AGENT SPAWNING PROTOCOL:**
+
+```
+WHEN spawning A2A background agent:
+  PREREQUISITE: A2A server must be running
+    # Check if server is running
+    curl -s http://localhost:3000/health >/dev/null || {
+      echo "⚠️ A2A server not running. Start with:"
+      echo "   python scripts/start-server.py"
+      BLOCK until server started
+    }
+
+  STEP 1: Create Beads task FIRST
+    task_id=$(bd create "Implement authentication API endpoints" \
+      --priority high \
+      --json | jq -r '.id')
+
+    # Returns task ID (e.g., xasm++-e3w, bd-a1b2)
+    echo "Created Beads task: $task_id"
+
+  STEP 2: Spawn A2A agent via agent CLI
+    agent engineer "$task_id"
+
+    # This will:
+    # - Open agent:// URL
+    # - Trigger protocol handler
+    # - A2A server starts agent in background
+    # - Agent reads task from Beads
+    # - Execution is async (non-blocking)
+
+  STEP 3: Document in work log
+    echo "Spawned A2A Engineer (Beads task: $task_id)" >> .ai/tasks/*/20-work-log.md
+    echo "Task: Implement authentication API endpoints" >> .ai/tasks/*/20-work-log.md
+    echo "Status: Running in background" >> .ai/tasks/*/20-work-log.md
+
+  STEP 4: Continue with other work
+    # Don't wait - agent runs in background
+    # Monitor progress via Beads commands (see below)
+END WHEN
+```
+
+**MONITORING A2A AGENTS:**
+
+```bash
+# Check status of all background agents
+bd list --status in_progress
+
+# Check specific agent's progress
+bd show xasm++-e3w
+
+# Check if agent encountered blockers
+bd list --status blocked
+
+# Find completed agents
+bd list --status closed
+```
+
+**COORDINATING A2A AGENTS:**
+
+```
+WHEN coordinating multiple A2A agents:
+  STEP 1: Spawn all independent agents
+    # These can run in parallel
+    agent engineer task-1  # API implementation
+    agent engineer task-2  # UI components
+    agent tester task-3    # Test suite
+
+  STEP 2: Set up dependencies for sequential work
+    # Task 4 depends on task 1 completing
+    bd dep add task-4 task-1
+
+    # Task 5 depends on both task 2 and task 3
+    bd dep add task-5 task-2
+    bd dep add task-5 task-3
+
+  STEP 3: Monitor and spawn dependent agents when ready
+    # Periodically check
+    bd ready  # Shows tasks ready to start
+
+    # When task-1 completes, spawn dependent work
+    IF "task-4" in $(bd ready) THEN
+      agent engineer task-4
+    END IF
+
+  STEP 4: Handle agent failures
+    IF bd show task-1 | grep -q "status: blocked" THEN
+      # Agent encountered blocker
+      blocker_reason=$(bd show task-1 | grep "blocked_reason")
+
+      # Address blocker (may require manual intervention)
+      # Then unblock and retry
+      bd unblock task-1
+      agent engineer task-1  # Retry
+    END IF
+END WHEN
+```
+
+**EXAMPLE: MIXED WORKFLOW (FOREGROUND + BACKGROUND)**
+
+```bash
+# Use case: Implement large feature with multiple components
+
+# STEP 1: Use Task tool for immediate planning
+planner = Task(
+  subagent_type="general-purpose",
+  prompt="Act as Architect. Review feature requirements and create
+         detailed implementation plan with component breakdown.",
+  description="Planning feature architecture"
+)
+# Wait for planner to complete - need results immediately
+
+# STEP 2: Based on plan, create Beads tasks for parallel execution
+bd create "Component A: API endpoints" --priority high    # xasm++-a1
+bd create "Component B: Data layer" --priority high       # xasm++-a2
+bd create "Component C: UI components" --priority high    # xasm++-a3
+bd create "Integration tests" --priority normal           # xasm++-a4
+bd create "Documentation" --priority low                  # xasm++-a5
+
+# STEP 3: Set up dependencies
+bd dep add xasm++-a4 xasm++-a1  # Tests depend on API
+bd dep add xasm++-a4 xasm++-a2  # Tests depend on data layer
+bd dep add xasm++-a4 xasm++-a3  # Tests depend on UI
+
+# STEP 4: Spawn background agents for independent work
+agent engineer xasm++-a1  # Background
+agent engineer xasm++-a2  # Background
+agent engineer xasm++-a3  # Background
+
+# STEP 5: Continue with other work while they run
+# Use foreground Task tool for immediate work:
+Task(
+  subagent_type="general-purpose",
+  prompt="Act as Engineer. Set up CI/CD pipeline configuration.",
+  description="CI/CD setup"
+)
+
+# STEP 6: Monitor background agents
+bd list --status in_progress
+
+# STEP 7: When components complete, spawn tests
+IF all([xasm++-a1, xasm++-a2, xasm++-a3]) completed THEN
+  agent tester xasm++-a4  # Background
+END IF
+
+# STEP 8: When tests pass, spawn documentation
+IF xasm++-a4 completed THEN
+  agent engineer xasm++-a5  # Background
+END IF
+```
+
+**AVAILABLE A2A AGENT ROLES:**
+
+```bash
+# Check available roles
+curl -s http://localhost:3000/a2a/v1/discovery | jq '.agents[].role'
+
+# Common roles:
+- engineer    # Implementation
+- tester      # Test validation
+- reviewer    # Code review
+- architect   # Architecture design
+- cartographer # Product requirements
+- inspector   # Bug investigation
+```
+
+**A2A AGENT FEATURES:**
+
+- **Async Execution**: Non-blocking, returns immediately
+- **Persistent**: Survives terminal close, session end
+- **Beads Integration**: Task state tracked automatically
+- **SSE Progress**: Real-time updates via Server-Sent Events
+- **Status Tracking**: Query anytime via `bd show`
+- **Failure Recovery**: Agent failures recorded in Beads
+
+**TROUBLESHOOTING:**
+
+```bash
+# Server not running
+python scripts/start-server.py
+
+# Check server health
+curl http://localhost:3000/health
+
+# View server logs
+tail -f logs/agent-server.log
+
+# Check agent configuration
+ls -la .ai-pack/agents/
+
+# Verify protocol handler registered
+# macOS: Auto-registered on first server start
+# Check: ~/Library/Application Support/ai-pack/AI-Pack Agent Handler.app
+
+# Manual agent execution (if protocol handler issues)
+curl -X POST http://localhost:3000/a2a/v1/execute \
+  -H "Content-Type: application/json" \
+  -d '{"role": "engineer", "task": "xasm++-e3w"}'
+```
+
+**DECISION TREE:**
+
+```
+Is task long-running (>10 min)?
+├─ YES → Use A2A background agent (agent CLI)
+└─ NO
+   └─ Need immediate results for next step?
+      ├─ YES → Use Task tool (foreground)
+      └─ NO → Use A2A background agent (agent CLI)
+
+Will you wait for results?
+├─ YES → Use Task tool (foreground)
+└─ NO → Use A2A background agent (agent CLI)
+
+Does agent need conversation context?
+├─ YES → Use Task tool (foreground)
+└─ NO → Use A2A background agent (agent CLI)
+
+Running multiple independent tasks?
+├─ YES → Use A2A background agents (agent CLI)
+└─ NO → Use Task tool (foreground)
+```
+
+**REFERENCE:**
+- A2A Quick Start: `docs/A2A-SERVER-QUICKSTART.md`
+- Beads Integration: `docs/BEADS-AGENT-INTEGRATION.md`
+- Agent Configurations: `.ai-pack/agents/*.yml`
+
+---
+
 ### 3. Progress Monitoring and Coordination
 
 **Responsibility:** Track progress across all subtasks and agents using Beads.
