@@ -253,7 +253,7 @@ graph TD
 ✅ Task requires **immediate results** for next step
 ✅ You want to **see progress in real-time**
 ✅ You need to **block and wait** for completion
-✅ Task is **short-duration** (<10 minutes)
+✅ Task is **short-duration** (less than 10 minutes)
 ✅ Task is **session-scoped** (doesn't need persistence)
 ✅ Real-time output is important for monitoring
 
@@ -469,8 +469,8 @@ claude> "Review the auth implementation from background agents"
 ### Q: Should I use Task tool or A2A for multi-step features?
 
 **A**: Depends on duration and blocking needs:
-- **Task tool**: Short tasks (<10 min) where you need immediate results
-- **A2A**: Long tasks (>10 min) that can run in background while you work on other things
+- **Task tool**: Short tasks (lesss than 10 min) where you need immediate results
+- **A2A**: Long tasks (greater than 10 min) that can run in background while you work on other things
 - **Mixed**: Use Task tool for planning, then spawn A2A agents for parallel implementation
 
 ### Q: How do agents get context if they can't see conversation history?
@@ -534,7 +534,7 @@ The ai-pack framework provides **two integrated and complementary** agent system
 | **Blocking** | Yes | No |
 | **Persistence** | Session only | Beads tracking |
 | **Context Source** | Task packet + description | Task packet + description |
-| **Duration** | Short (<10 min) | Long (>10 min) |
+| **Duration** | Short (less than 10 min) | Long (greater than 10 min) |
 | **Use Case** | Need immediate results | Can wait for completion |
 | **Spawning** | Task tool | agent CLI (via Bash) |
 | **Monitoring** | Real-time in session | Beads commands |
