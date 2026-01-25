@@ -185,8 +185,8 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string) (*protocol.ExecuteT
 		monitoring.Logger.Info("spawning_with_free_form_description", "description", taskInput)
 	}
 
-	// Get task description (from Beads or use free-form input)
-	taskDescription, _, err := s.beadsClient.GetTaskDescription(taskInput)
+	// Get task description and task packet path (from Beads or use free-form input)
+	taskDescription, taskPacketPath, _, err := s.beadsClient.GetTaskDescription(taskInput)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get task description: %w", err)
 	}
@@ -203,6 +203,15 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string) (*protocol.ExecuteT
 	// Create task packet
 	if err := s.createTaskPacket(taskID, role, taskDescription, config); err != nil {
 		return nil, fmt.Errorf("failed to create task packet: %w", err)
+	}
+
+	// Store task packet path in metadata if available
+	metadata := map[string]string{}
+	if beadsTaskID != "" {
+		metadata["beads_task_id"] = beadsTaskID
+	}
+	if taskPacketPath != "" {
+		metadata["task_packet_path"] = taskPacketPath
 	}
 
 	// If Beads task, mark as started
@@ -225,13 +234,7 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string) (*protocol.ExecuteT
 		Progress:   0.0,
 		streamChan: make(chan *protocol.StreamEvent, 100),
 		streamOpen: true,
-	}
-
-	// Store Beads task ID if applicable
-	if isBeadsTask {
-		execution.metadata = map[string]string{
-			"beads_task_id": beadsTaskID,
-		}
+		metadata:   metadata,
 	}
 
 	// Register task
@@ -456,8 +459,8 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 	return response, nil
 }
 
-func (s *AgentServer) buildPrompt(role, task, roleContext string, config *AgentConfig) string {
-	return fmt.Sprintf(`You are a %s agent.
+func (s *AgentServer) buildPrompt(role, task, roleContext string, config *AgentConfig, taskPacketPath string) string {
+	prompt := fmt.Sprintf(`You are a %s agent.
 
 **Your Role Context:**
 %s
@@ -468,29 +471,44 @@ func (s *AgentServer) buildPrompt(role, task, roleContext string, config *AgentC
 **Working Directory:**
 %s
 
-**IMPORTANT:** All file operations (Read, Write, Edit, Glob, Grep, Bash) must be performed relative to the working directory above. This is the project root directory where you should execute your work.
+All file operations (Read, Write, Edit, Glob, Grep, Bash) must be performed relative to the working directory above.`,
+		role,
+		roleContext,
+		task,
+		s.rootDir)
+
+	// Add task packet location if available (the role file defines how to use it)
+	if taskPacketPath != "" {
+		prompt += fmt.Sprintf(`
+
+**Task Packet Location:**
+%s
+
+The task packet contains:
+- 00-contract.md - Requirements and acceptance criteria
+- 10-plan.md - Implementation plan
+- 20-work-log.md - Progress tracking
+- 30-review.md - Review notes
+- 40-acceptance.md - Completion checklist
+
+Your role definition specifies how to use the task packet.`,
+			taskPacketPath)
+	}
+
+	prompt += fmt.Sprintf(`
 
 **Configuration:**
 - Timeout: %s
 - Tools: %v
 - Success Criteria: %v
 
-**Instructions:**
-1. Execute the task according to your role
-2. Follow all quality gates and standards
-3. Produce working, tested code where applicable
-4. Document your work clearly
-5. Ensure all file operations use the correct working directory
-
-Please complete this task now.`,
-		role,
-		roleContext,
-		task,
-		s.rootDir,
+Execute the task according to your role definition.`,
 		config.Delegation.Timeout,
 		config.Tools,
 		config.SuccessCriteria,
 	)
+
+	return prompt
 }
 
 func (s *AgentServer) updateTaskStatus(taskID, status, errorMsg string) {
@@ -554,8 +572,14 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 		return
 	}
 
+	// Get task packet path from metadata
+	taskPacketPath := ""
+	if execution.metadata != nil {
+		taskPacketPath = execution.metadata["task_packet_path"]
+	}
+
 	// Build prompt
-	prompt := s.buildPrompt(execution.Role, execution.Task, roleContext, execution.Config)
+	prompt := s.buildPrompt(execution.Role, execution.Task, roleContext, execution.Config, taskPacketPath)
 
 	// Save agent prompt
 	promptPath := filepath.Join(s.rootDir, ".beads", "tasks", taskID, "agent-prompt.txt")

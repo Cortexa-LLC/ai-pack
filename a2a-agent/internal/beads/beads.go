@@ -140,17 +140,18 @@ func (c *Client) ValidateTaskID(taskID string) error {
 }
 
 // GetTaskDescription extracts the task description from either a Beads task ID or free-form text
-func (c *Client) GetTaskDescription(input string) (string, bool, error) {
+// Returns: (description, taskPacketPath, isBeadsTask, error)
+func (c *Client) GetTaskDescription(input string) (string, string, bool, error) {
 	if IsBeadsTaskID(input) {
 		// Validate the task exists first
 		if err := c.ValidateTaskID(input); err != nil {
-			return "", true, err
+			return "", "", true, err
 		}
 
 		// Get the task (we know it exists now)
 		task, err := c.GetTask(input)
 		if err != nil {
-			return "", true, fmt.Errorf("failed to get Beads task: %w", err)
+			return "", "", true, fmt.Errorf("failed to get Beads task: %w", err)
 		}
 
 		// Use title and description
@@ -159,9 +160,17 @@ func (c *Client) GetTaskDescription(input string) (string, bool, error) {
 			description = fmt.Sprintf("%s\n\n%s", task.Title, task.Description)
 		}
 
-		return description, true, nil
+		// Check metadata for task packet location
+		taskPacketPath := ""
+		if task.Metadata != nil {
+			if path, ok := task.Metadata["task_packet"].(string); ok {
+				taskPacketPath = path
+			}
+		}
+
+		return description, taskPacketPath, true, nil
 	}
 
 	// It's free-form text
-	return input, false, nil
+	return input, "", false, nil
 }
