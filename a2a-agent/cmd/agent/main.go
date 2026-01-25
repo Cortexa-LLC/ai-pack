@@ -57,20 +57,32 @@ func main() {
 }
 
 func handleSpawn(args []string) {
-	fs := flag.NewFlagSet("spawn", flag.ExitOnError)
-	_ = fs.Bool("async", false, "Execute task asynchronously (reserved for future use)")
-	wait := fs.Bool("wait", false, "Wait for task completion")
-	stream := fs.Bool("stream", false, "Stream real-time progress via SSE")
-	fs.Parse(args)
+	// Parse flags manually to allow them anywhere in arguments
+	// agent engineer xasm++-m94 --wait should work
+	wait := false
+	stream := false
+	var positionalArgs []string
 
-	remainingArgs := fs.Args()
-	if len(remainingArgs) < 2 {
-		fmt.Println("Usage: agent [--wait] <role> <beads-task-id>")
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--wait" {
+			wait = true
+		} else if arg == "--stream" {
+			stream = true
+		} else if arg == "--async" {
+			// Reserved for future use, ignore
+		} else {
+			positionalArgs = append(positionalArgs, arg)
+		}
+	}
+
+	if len(positionalArgs) < 2 {
+		fmt.Println("Usage: agent <role> <beads-task-id> [--wait|--stream]")
 		os.Exit(1)
 	}
 
-	role := remainingArgs[0]
-	taskInput := strings.Join(remainingArgs[1:], " ")
+	role := positionalArgs[0]
+	taskInput := strings.Join(positionalArgs[1:], " ")
 
 	// Validate Beads task ID
 	if !isValidBeadsTask(taskInput) {
@@ -144,7 +156,7 @@ func handleSpawn(args []string) {
 	showMetrics()
 
 	// If --stream flag, stream real-time progress via SSE
-	if *stream {
+	if stream {
 		fmt.Println()
 		fmt.Println("📡 Streaming real-time progress...")
 		streamTaskProgress(taskInput)
@@ -152,7 +164,7 @@ func handleSpawn(args []string) {
 	}
 
 	// If --wait flag, poll until complete
-	if *wait {
+	if wait {
 		fmt.Println()
 		fmt.Println("⏳ Waiting for completion...")
 		waitForTaskCompletion(taskInput)
