@@ -137,37 +137,6 @@ func handleProtocolURL(agentURL, configPath string) {
 	}
 }
 
-// Legacy /spawn endpoint for backward compatibility
-func handleLegacySpawn(s *server.AgentServer) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		var req struct {
-			Role string `json:"role"`
-			Task string `json:"task"`
-		}
-
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
-
-		monitoring.Logger.Info("legacy_spawn_request", "role", req.Role, "task", req.Task)
-
-		result, err := s.SpawnAgentTask(req.Role, req.Task)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(result)
-	}
-}
-
 // Health check endpoint
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	health := map[string]interface{}{
@@ -283,7 +252,6 @@ func main() {
 
 	// Setup routes with logging middleware
 	mux := http.NewServeMux()
-	mux.HandleFunc("/spawn", handleLegacySpawn(s))          // Legacy endpoint
 	mux.HandleFunc("/health", handleHealth)                  // Health check
 	mux.HandleFunc("/metrics", handleMetrics(s))            // Metrics endpoint
 	mux.HandleFunc("/a2a/discovery", s.HandleA2ADiscovery)  // A2A discovery
@@ -307,8 +275,7 @@ func main() {
 	log.Printf("   🔄 Streaming:")
 	log.Printf("      - GET  /stream/:task_id    (Real-time progress - SSE)")
 	log.Printf("")
-	log.Printf("   🔧 Legacy & Utility:")
-	log.Printf("      - POST /spawn              (Legacy spawn endpoint)")
+	log.Printf("   🔧 Utility:")
 	log.Printf("      - GET  /health             (Health check)")
 	log.Printf("      - GET  /metrics            (Performance metrics)")
 	log.Printf("")
