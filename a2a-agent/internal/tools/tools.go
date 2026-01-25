@@ -18,17 +18,18 @@ func DefineTools() []anthropic.ToolParam {
 		defineReadTool(),
 		defineWriteTool(),
 		defineEditTool(),
+		defineMultiEditTool(),
 
 		// Search operations
 		defineGrepTool(),
 		defineGlobTool(),
 
-		// Web operations
-		defineWebSearchTool(),
-		defineWebFetchTool(),
+		// Shell operations
+		defineBashTool(),
 
-		// NOTE: Bash disabled for now - too risky until thoroughly tested
-		// defineBashTool(),
+		// NOTE: Web operations disabled - not yet implemented
+		// defineWebSearchTool(),
+		// defineWebFetchTool(),
 	}
 }
 
@@ -120,6 +121,44 @@ func defineEditTool() anthropic.ToolParam {
 	return anthropic.ToolParam{
 		Name:        anthropic.F("Edit"),
 		Description: anthropic.F("Edit a file by replacing an exact string match. The old_string must match exactly (including whitespace and indentation)."),
+		InputSchema: anthropic.F[interface{}](schema),
+	}
+}
+
+// defineMultiEditTool creates the MultiEdit tool for making multiple edits at once
+func defineMultiEditTool() anthropic.ToolParam {
+	schema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"file_path": map[string]interface{}{
+				"type":        "string",
+				"description": "Path to the file to edit (relative to working directory)",
+			},
+			"edits": map[string]interface{}{
+				"type": "array",
+				"description": "Array of edits to perform in order",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"old_string": map[string]interface{}{
+							"type":        "string",
+							"description": "The exact string to replace in the file",
+						},
+						"new_string": map[string]interface{}{
+							"type":        "string",
+							"description": "The string to replace it with",
+						},
+					},
+					"required": []string{"old_string", "new_string"},
+				},
+			},
+		},
+		"required": []string{"file_path", "edits"},
+	}
+
+	return anthropic.ToolParam{
+		Name:        anthropic.F("MultiEdit"),
+		Description: anthropic.F("Make multiple edits to a file in a single operation. Each edit replaces an exact string match."),
 		InputSchema: anthropic.F[interface{}](schema),
 	}
 }
@@ -223,6 +262,8 @@ func ExecuteTool(toolName string, toolInput map[string]interface{}, workingDir s
 		return executeWrite(toolInput, workingDir, settings)
 	case "Edit":
 		return executeEdit(toolInput, workingDir, settings)
+	case "MultiEdit":
+		return executeMultiEdit(toolInput, workingDir, settings)
 	case "Grep":
 		return executeGrep(toolInput, workingDir, settings)
 	case "Glob":
@@ -246,10 +287,20 @@ func executeBash(input map[string]interface{}, workingDir string, settings *clau
 	dangerousPatterns := []string{
 		"rm -rf /",
 		"rm -rf ~",
+		"rm -rf /*",
+		"rm -rf ~/*",
 		":(){ :|:& };:",  // fork bomb
 		"mkfs",
 		"dd if=/dev/zero",
+		"dd if=/dev/random",
 		"> /dev/sda",
+		"> /dev/sd",
+		"curl | sh",      // arbitrary code execution
+		"wget | sh",
+		"curl | bash",
+		"wget | bash",
+		"chmod -r",       // recursive permission changes can be dangerous
+		"chown -r",
 	}
 
 	cmdLower := strings.ToLower(command)
@@ -354,6 +405,69 @@ func executeEdit(input map[string]interface{}, workingDir string, settings *clau
 	}
 
 	return fmt.Sprintf("File edited: %s", filePath), nil
+}
+
+func executeMultiEdit(input map[string]interface{}, workingDir string, settings *claude.Settings) (string, error) {
+	filePath, _ := input["file_path"].(string)
+	editsRaw, ok := input["edits"].([]interface{})
+	if !ok {
+		return "", fmt.Errorf("invalid edits parameter: must be an array")
+	}
+
+	// Make path absolute relative to working directory
+	if !filepath.IsAbs(filePath) {
+		filePath = filepath.Join(workingDir, filePath)
+	}
+
+	// Check if operation is allowed by Claude settings
+	if allowed, reason := settings.IsOperationAllowed("Edit", filePath); !allowed {
+		return fmt.Sprintf("❌ Edit blocked by Claude settings on %s: %s", filePath, reason), nil
+	}
+
+	// Read file once
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Sprintf("Error reading file: %v", err), nil
+	}
+
+	content := string(data)
+	originalContent := content
+	editsApplied := 0
+
+	// Apply each edit in sequence
+	for i, editRaw := range editsRaw {
+		editMap, ok := editRaw.(map[string]interface{})
+		if !ok {
+			return fmt.Sprintf("Error: edit #%d is not a valid object", i+1), nil
+		}
+
+		oldString, _ := editMap["old_string"].(string)
+		newString, _ := editMap["new_string"].(string)
+
+		if oldString == "" {
+			return fmt.Sprintf("Error: edit #%d has empty old_string", i+1), nil
+		}
+
+		// Check if old_string exists in current content
+		if !strings.Contains(content, oldString) {
+			return fmt.Sprintf("Error: edit #%d - old_string not found in file after %d previous edits.\n\nSearched for:\n%s", i+1, editsApplied, oldString), nil
+		}
+
+		// Replace first occurrence
+		content = strings.Replace(content, oldString, newString, 1)
+		editsApplied++
+	}
+
+	// Only write if content changed
+	if content == originalContent {
+		return fmt.Sprintf("No changes made to %s (all edits were no-ops)", filePath), nil
+	}
+
+	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+		return fmt.Sprintf("Error writing file: %v", err), nil
+	}
+
+	return fmt.Sprintf("File edited: %s (%d edits applied)", filePath, editsApplied), nil
 }
 
 func executeGrep(input map[string]interface{}, workingDir string, settings *claude.Settings) (string, error) {
