@@ -13,6 +13,7 @@ import (
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol_handler"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/server"
 )
 
@@ -330,6 +331,18 @@ func main() {
 	log.Printf("")
 	log.Printf("   📂 Root directory: %s", rootDir)
 	log.Printf("")
+
+	// Register agent:// protocol handler (first run)
+	if !protocol_handler.IsRegistered() {
+		log.Printf("🔗 Registering agent:// protocol handler...")
+		log.Printf("")
+		if err := protocol_handler.Register(); err != nil {
+			log.Printf("⚠️  Could not auto-register protocol handler: %v", err)
+			log.Printf("   You can use the 'agent' CLI or set it up manually")
+			log.Printf("   See: docs/content/framework/protocol-handler.md")
+		}
+		log.Printf("")
+	}
 
 	monitoring.Logger.Info("server_ready",
 		"address", addr,
