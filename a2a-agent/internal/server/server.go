@@ -465,6 +465,11 @@ func (s *AgentServer) buildPrompt(role, task, roleContext string, config *AgentC
 **Your Task:**
 %s
 
+**Working Directory:**
+%s
+
+**IMPORTANT:** All file operations (Read, Write, Edit, Glob, Grep, Bash) must be performed relative to the working directory above. This is the project root directory where you should execute your work.
+
 **Configuration:**
 - Timeout: %s
 - Tools: %v
@@ -475,11 +480,13 @@ func (s *AgentServer) buildPrompt(role, task, roleContext string, config *AgentC
 2. Follow all quality gates and standards
 3. Produce working, tested code where applicable
 4. Document your work clearly
+5. Ensure all file operations use the correct working directory
 
 Please complete this task now.`,
 		role,
 		roleContext,
 		task,
+		s.rootDir,
 		config.Delegation.Timeout,
 		config.Tools,
 		config.SuccessCriteria,
