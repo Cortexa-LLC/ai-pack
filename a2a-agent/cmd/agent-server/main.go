@@ -273,14 +273,21 @@ func main() {
 
 	// If -server flag not set and no URL provided, show usage
 	if !*serverMode && len(args) == 0 {
-		fmt.Println("AI-Pack Agent - Usage:")
+		fmt.Println("AI-Pack Agent Server - Usage:")
 		fmt.Println("")
-		fmt.Println("  Protocol Handler Mode (default):")
-		fmt.Println("    agent-server agent://role/task-description")
-		fmt.Println("    Example: agent-server agent://engineer/create-hello-world")
+		fmt.Println("  Server Mode:")
+		fmt.Println("    agent-server --server [--config agent-server.json]")
 		fmt.Println("")
-		fmt.Println("  Server Mode (optional - for A2A protocol):")
-		fmt.Println("    agent-server -server [-config agent-server.json]")
+		fmt.Println("  Then use the agent CLI to spawn tasks:")
+		fmt.Println("    agent engineer <beads-task-id>")
+		fmt.Println("    agent engineer <beads-task-id> --wait")
+		fmt.Println("")
+		fmt.Println("  Example:")
+		fmt.Println("    # Start server")
+		fmt.Println("    agent-server --server")
+		fmt.Println("")
+		fmt.Println("    # Spawn agent (in another terminal)")
+		fmt.Println("    agent engineer bd-abc123")
 		fmt.Println("")
 		os.Exit(1)
 	}

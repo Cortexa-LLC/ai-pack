@@ -48,23 +48,32 @@ a2a-agent/
 ### Prerequisites
 
 - **Go 1.21+** installed
-- **Python 3.8+** (for startup script)
+- **Make** (optional, for build convenience)
 - **ANTHROPIC_API_KEY** environment variable or Claude Code authentication
+
+### Building
+
+```bash
+cd a2a-agent
+
+# Build both server and CLI
+make
+
+# Or build individually
+make server  # Builds bin/agent-server
+make agent   # Builds bin/agent
+```
+
+See [BUILD.md](BUILD.md) for all build options.
 
 ### Starting the Server
 
 ```bash
-# From ai-pack root directory
-cd a2a-agent
-python3 scripts/start-server.py
-```
+# Run the server
+./bin/agent-server --server
 
-Or manually:
-
-```bash
-cd a2a-agent
-go mod tidy
-go run cmd/agent-server/main.go
+# Or use make
+make dev-server
 ```
 
 ---
