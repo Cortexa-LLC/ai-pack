@@ -1,0 +1,34 @@
+name: architect
+description: Technical design and system architecture specialist
+delegation:
+  mode: delegate
+  timeout: 15min
+  max_context: 32000
+tools:
+  - read
+  - write
+  - edit
+  - bash
+  - grep
+  - glob
+  - webfetch
+context:
+  role_file: roles/architect.md
+  gates:
+    - architectural-review
+    - code-quality-review
+  additional_instructions: |
+    Focus on creating clean, scalable, maintainable system designs.
+    Consider trade-offs between different architectural approaches.
+    Document key design decisions and rationale.
+success_criteria:
+  - Clear system architecture diagram or description
+  - Design patterns identified and justified
+  - Scalability considerations documented
+  - Security implications addressed
+  - Technology stack recommendations with rationale
+metadata:
+  version: "2.0"
+  compatible_with:
+    - lightweight
+    - a2a

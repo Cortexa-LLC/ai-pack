@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/auth"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/beads"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol"
@@ -20,13 +22,14 @@ import (
 )
 
 const (
-	Version = "2.0.0-phase2"
+	Version = "2.1.0"
 )
 
 type AgentServer struct {
 	rootDir       string
 	anthropicKey  string
 	client        *anthropic.Client
+	beadsClient   *beads.Client
 	maxConcurrent int // Maximum concurrent agents (configurable)
 	maxTokens     int // Maximum tokens per API call
 	model         string // Anthropic model to use
@@ -48,6 +51,9 @@ type TaskExecution struct {
 	Progress  float64
 	Result    string
 	Error     string
+
+	// Beads integration
+	metadata map[string]string
 
 	// Streaming
 	streamChan chan *protocol.StreamEvent
@@ -97,6 +103,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		rootDir:       rootDir,
 		anthropicKey:  apiKey,
 		client:        client,
+		beadsClient:   beads.NewClient(),
 		maxConcurrent: maxConcurrent,
 		maxTokens:     maxTokens,
 		model:         model,
@@ -107,6 +114,13 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 
 	// Start worker pool
 	go server.startWorkerPool()
+
+	// Log Beads availability
+	if beads.IsInstalled() {
+		monitoring.Logger.Info("beads_available", "installed", true)
+	} else {
+		monitoring.Logger.Warn("beads_not_installed", "message", "Install Beads for better task tracking: https://github.com/steveyegge/beads")
+	}
 
 	return server, nil
 }
@@ -130,8 +144,42 @@ func (s *AgentServer) worker() {
 	}
 }
 
-func (s *AgentServer) spawnAgentTask(role, task string) (*protocol.ExecuteTaskResponse, error) {
-	// Generate task ID
+func (s *AgentServer) spawnAgentTask(role, taskInput string) (*protocol.ExecuteTaskResponse, error) {
+	// Validate and get task description
+	var beadsTaskID string
+	var isBeadsTask bool
+
+	// Check if it looks like a Beads task ID
+	if beads.IsBeadsTaskID(taskInput) {
+		// Validate the task exists in Beads
+		if err := s.beadsClient.ValidateTaskID(taskInput); err != nil {
+			return nil, fmt.Errorf("invalid Beads task: %w", err)
+		}
+
+		beadsTaskID = taskInput
+		isBeadsTask = true
+		monitoring.Logger.Info("spawning_with_beads_task", "task_id", beadsTaskID)
+
+		// Check dependencies
+		if beads.IsInstalled() {
+			depsOK, unmetDeps, err := s.beadsClient.CheckDependencies(beadsTaskID)
+			if err != nil {
+				monitoring.Logger.Warn("dependency_check_failed", "error", err.Error())
+			} else if !depsOK {
+				return nil, fmt.Errorf("task %s has unmet dependencies: %v\nPlease complete these tasks first", beadsTaskID, unmetDeps)
+			}
+		}
+	} else {
+		monitoring.Logger.Info("spawning_with_free_form_description", "description", taskInput)
+	}
+
+	// Get task description (from Beads or use free-form input)
+	taskDescription, _, err := s.beadsClient.GetTaskDescription(taskInput)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get task description: %w", err)
+	}
+
+	// Generate internal task ID
 	taskID := fmt.Sprintf("task-%s-%s", role, time.Now().Format("20060102-150405-000000"))
 
 	// Load agent configuration
@@ -141,21 +189,37 @@ func (s *AgentServer) spawnAgentTask(role, task string) (*protocol.ExecuteTaskRe
 	}
 
 	// Create task packet
-	if err := s.createTaskPacket(taskID, role, task, config); err != nil {
+	if err := s.createTaskPacket(taskID, role, taskDescription, config); err != nil {
 		return nil, fmt.Errorf("failed to create task packet: %w", err)
+	}
+
+	// If Beads task, mark as started
+	if isBeadsTask && beads.IsInstalled() {
+		if err := s.beadsClient.StartTask(beadsTaskID); err != nil {
+			monitoring.Logger.Warn("failed_to_start_beads_task", "error", err.Error())
+		} else {
+			monitoring.Logger.Info("beads_task_started", "task_id", beadsTaskID)
+		}
 	}
 
 	// Create task execution
 	execution := &TaskExecution{
 		TaskID:     taskID,
 		Role:       role,
-		Task:       task,
+		Task:       taskDescription,
 		Config:     config,
 		StartTime:  time.Now(),
 		Status:     "queued",
 		Progress:   0.0,
 		streamChan: make(chan *protocol.StreamEvent, 100),
 		streamOpen: true,
+	}
+
+	// Store Beads task ID if applicable
+	if isBeadsTask {
+		execution.metadata = map[string]string{
+			"beads_task_id": beadsTaskID,
+		}
 	}
 
 	// Register task
@@ -209,11 +273,24 @@ func (s *AgentServer) getTaskStatus(taskID string) (*protocol.TaskStatusResponse
 }
 
 func (s *AgentServer) loadAgentConfig(role string) (*AgentConfig, error) {
-	configPath := filepath.Join(s.rootDir, ".ai-pack", "agents", "lightweight", role+".yml")
+	// Try project-specific override first (.ai/agents/)
+	projectConfigPath := filepath.Join(s.rootDir, ".ai", "agents", role+".yml")
+	frameworkConfigPath := filepath.Join(s.rootDir, ".ai-pack", "agents", role+".yml")
+
+	var configPath string
+	if _, err := os.Stat(projectConfigPath); err == nil {
+		// Project override exists
+		configPath = projectConfigPath
+		monitoring.Logger.Info("loading_agent_config", "role", role, "source", "project_override")
+	} else {
+		// Use framework default
+		configPath = frameworkConfigPath
+		monitoring.Logger.Info("loading_agent_config", "role", role, "source", "framework_default")
+	}
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+		return nil, fmt.Errorf("failed to read config file %s: %w", configPath, err)
 	}
 
 	var config AgentConfig
@@ -225,7 +302,23 @@ func (s *AgentServer) loadAgentConfig(role string) (*AgentConfig, error) {
 }
 
 func (s *AgentServer) loadRoleContext(roleFile string) (string, error) {
-	rolePath := filepath.Join(s.rootDir, roleFile)
+	// Support override pattern: try .ai/ first, then .ai-pack/
+	var rolePath string
+
+	// If roleFile starts with .ai/, try project override first
+	if strings.HasPrefix(roleFile, ".ai/") {
+		projectPath := filepath.Join(s.rootDir, roleFile)
+		if _, err := os.Stat(projectPath); err == nil {
+			rolePath = projectPath
+		} else {
+			// Fallback to framework path
+			frameworkPath := strings.Replace(roleFile, ".ai/", ".ai-pack/", 1)
+			rolePath = filepath.Join(s.rootDir, frameworkPath)
+		}
+	} else {
+		// Direct path specified
+		rolePath = filepath.Join(s.rootDir, roleFile)
+	}
 
 	data, err := os.ReadFile(rolePath)
 	if err != nil {
@@ -479,7 +572,20 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	execution.Status = "completed"
 	execution.Progress = 1.0
 	execution.Result = result
+	beadsTaskID := ""
+	if execution.metadata != nil {
+		beadsTaskID = execution.metadata["beads_task_id"]
+	}
 	s.mu.Unlock()
+
+	// If this was a Beads task, mark it complete in Beads
+	if beadsTaskID != "" && beads.IsInstalled() {
+		if err := s.beadsClient.CompleteTask(beadsTaskID); err != nil {
+			monitoring.Logger.Warn("failed_to_complete_beads_task", "task_id", beadsTaskID, "error", err.Error())
+		} else {
+			monitoring.Logger.Info("beads_task_completed", "task_id", beadsTaskID)
+		}
+	}
 
 	durationMs := time.Since(startTime).Milliseconds()
 	s.updateTaskStatus(taskID, "completed", "")
