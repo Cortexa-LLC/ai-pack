@@ -34,13 +34,28 @@ FOR every non-trivial task:
   STEP 4: Link Beads ID in 00-contract.md
     echo "**Beads Task:** ${task_id}" >> 00-contract.md
 
-  STEP 5: Fill out 00-contract.md with requirements
+  STEP 5: Link task packet to Beads metadata
+    bd meta set ${task_id} task_packet .ai/tasks/YYYY-MM-DD_task-name
 
-  STEP 6: ONLY THEN proceed to planning
+  STEP 6: Fill out 00-contract.md with requirements
+
+  STEP 7: ONLY THEN proceed to planning
 END FOR
 
 ENFORCEMENT: Gate blocks if task packet exists without Beads task.
 ```
+
+**Bi-Directional Linking:**
+
+The linking process creates two critical connections:
+1. **Contract → Beads** (STEP 4): The task packet's 00-contract.md references the Beads task ID
+2. **Beads → Task Packet** (STEP 5): The Beads task metadata stores the task packet path
+
+This bi-directional linking ensures:
+- Orchestrators can navigate from task packet to Beads task status
+- Agents spawned with Beads task IDs can find the implementation plan
+- A2A server can pass task packet location to agents automatically
+- Full traceability between Beads tasks and implementation artifacts
 
 **Non-Trivial Definition:**
 - Requires more than 2 simple steps
