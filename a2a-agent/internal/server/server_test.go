@@ -21,8 +21,8 @@ func init() {
 func setupTestDir(t *testing.T) string {
 	tmpDir := t.TempDir()
 
-	// Create .ai-pack/agents/lightweight directory
-	agentDir := filepath.Join(tmpDir, ".ai-pack", "agents", "lightweight")
+	// Create .ai-pack/agents directory
+	agentDir := filepath.Join(tmpDir, ".ai-pack", "agents")
 	if err := os.MkdirAll(agentDir, 0755); err != nil {
 		t.Fatalf("Failed to create agent dir: %v", err)
 	}
@@ -43,7 +43,6 @@ func setupTestDir(t *testing.T) string {
 	testAgentConfig := `
 name: test-agent
 description: Test agent for unit tests
-tier: lightweight
 
 context:
   role_file: .ai-pack/roles/test-agent.md
@@ -190,9 +189,6 @@ func TestLoadAgentConfig_Success(t *testing.T) {
 	if cfg.Name != "test-agent" {
 		t.Errorf("Expected name 'test-agent', got '%s'", cfg.Name)
 	}
-	if cfg.Tier != "lightweight" {
-		t.Errorf("Expected tier 'lightweight', got '%s'", cfg.Tier)
-	}
 	if cfg.Context.RoleFile != ".ai-pack/roles/test-agent.md" {
 		t.Errorf("Expected role_file '.ai-pack/roles/test-agent.md', got '%s'", cfg.Context.RoleFile)
 	}
@@ -262,7 +258,6 @@ func TestCreateTaskPacket_Success(t *testing.T) {
 
 	config := &AgentConfig{
 		Name: "test-agent",
-		Tier: "lightweight",
 	}
 
 	taskID := "task-test-20260124-120000-000000"
@@ -307,7 +302,6 @@ func TestUpdateTaskStatus(t *testing.T) {
 
 	config := &AgentConfig{
 		Name: "test-agent",
-		Tier: "lightweight",
 	}
 
 	taskID := "task-test-status-update"
