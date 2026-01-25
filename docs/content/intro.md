@@ -41,12 +41,15 @@ Structured processes for different types of work:
 - Research and investigation
 
 ### 🤖 Agent-to-Agent (A2A) Workflow
-Lightweight agent spawning system for autonomous task delegation:
+Production-grade agent spawning system for autonomous task delegation:
 - Specialized agent roles (Engineer, Tester, Reviewer)
 - Fast spawn times (~0.06s average)
 - Automatic task tracking via Beads
 - Full tool access with quality gates
 - Protocol handler support (`agent://` URLs)
+- **Parallel execution** via Go-based A2A server ✅
+- **Real-time streaming** with SSE progress updates ✅
+- **Production infrastructure** with structured logging and metrics ✅
 
 ### 📋 Task Memory System
 Persistent, git-backed task tracking using **[Beads](https://github.com/steveyegge/beads)**:

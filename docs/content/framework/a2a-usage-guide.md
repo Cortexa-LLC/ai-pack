@@ -5,14 +5,14 @@ title: "A2A Usage Guide"
 
 # A2A Usage Guide
 
-**Version**: 1.0.0 (Phase 1)
-**Status**: Production Ready
+**Version**: 2.0.0 (Phase 2)
+**Status**: Production Ready ✅
 
 ---
 
 ## Overview
 
-AI-Pack Phase 1 provides a lightweight agent spawning system that enables you to delegate tasks to specialized AI agents. Each agent operates autonomously within its defined role and tool permissions.
+AI-Pack provides a production-grade agent spawning system that enables you to delegate tasks to specialized AI agents. Each agent operates autonomously within its defined role and tool permissions.
 
 **Key Features:**
 - 🤖 3 specialized agent roles (Engineer, Tester, Reviewer)
@@ -20,6 +20,9 @@ AI-Pack Phase 1 provides a lightweight agent spawning system that enables you to
 - 🛠️ Full tool access (file operations, web, bash, MCP servers)
 - ⚡ Fast spawn times (~0.06s average)
 - 🔒 Role-based permissions and quality gates
+- 🚀 **Parallel execution** via Go-based A2A server (Phase 2)
+- 📊 **Real-time streaming** with SSE progress updates (Phase 2)
+- 🏗️ **Production infrastructure** with structured logging and metrics (Phase 2)
 
 ---
 
@@ -46,7 +49,7 @@ AI-Pack Phase 1 provides a lightweight agent spawning system that enables you to
 4. **Task ID Return**: Unique task ID returned for tracking
 5. **Manual Execution**: Orchestrator (you) executes the agent via Task tool
 
-**Important**: In Phase 1, agents execute sequentially (one after another), not in parallel.
+**Note**: Phase 2 enables parallel execution via the Go-based A2A server. See the [Go A2A Server documentation](../../../a2a-agent/README.md) for details.
 
 ---
 
@@ -284,18 +287,20 @@ cat .beads/tasks/task-engineer-*/30-results.md
 - Architecture review
 - Best practices verification
 
-### 3. Sequential Workflows
+### 3. Parallel & Sequential Workflows
 
-In Phase 1, agents run sequentially. Structure your workflow accordingly:
+**Phase 2 supports parallel execution** for independent tasks via the Go A2A server:
 
 ```bash
-# Good: Clear sequence
+# Parallel execution (Phase 2): Independent tasks run concurrently
+.ai-pack/bd spawn engineer "implement backend API" &
+.ai-pack/bd spawn engineer "implement frontend UI" &
+wait  # Both run in parallel
+
+# Sequential execution: Dependent tasks run one after another
 .ai-pack/bd spawn engineer "task A"
 # Wait for completion, then:
 .ai-pack/bd spawn engineer "task B that depends on task A"
-
-# Phase 1 Note: Both agents will run one after another
-# Phase 2 will enable true parallel execution
 ```
 
 ### 4. Scope Control
@@ -491,48 +496,61 @@ Total: ~8 minutes (sequential)
 
 ---
 
-## Limitations (Phase 1)
+## Phase 2 Features ✅
 
-### Sequential Execution
+### ✅ Parallel Execution
 
-Agents run one after another, not concurrently:
-- Spawn overhead is minimal (~0.06s)
-- Execution time is additive
-- No parallel performance gains
+Agents can run concurrently via the Go A2A server:
+- Multiple agents execute simultaneously
+- 2x+ speedup for multi-agent workflows
+- Configurable concurrency limits
+- Independent goroutines per agent
 
-**Phase 2** will enable true concurrent execution via Go A2A server.
+### ✅ Real-Time Streaming
 
-### Foreground Execution
+SSE streaming provides live progress updates:
+- Stream task progress via `/stream/:task_id`
+- Monitor agent execution in real-time
+- Background execution support
+- Task status endpoints
 
-Agents execute in foreground (synchronous):
-- Avoids Claude Code bug #13890
-- Stable and reliable
-- Blocks until completion
+### ✅ A2A Protocol Compliance
 
-**Phase 2** will use background execution with direct Anthropic API.
+Full JSON-RPC 2.0 A2A protocol implementation:
+- Discovery endpoint: `/a2a/discovery`
+- Execution endpoint: `/a2a/execute`
+- Status endpoint: `/a2a/status`
+- Results aggregation
 
-### Tool Access
+### ✅ Production Infrastructure
 
-Limited to tools defined in YAML config:
-- Cannot dynamically add tools
-- Permissions set at spawn time
-- MCP access controlled by orchestrator
+Production-grade features:
+- Structured logging (JSON format)
+- Performance metrics collection
+- Health check endpoints (`/health`, `/metrics`)
+- Rate limiting support
+- Proxy support for enterprise environments
 
 ---
 
-## Migration to Phase 2
+## Go A2A Server
 
-Phase 1 infrastructure will carry forward to Phase 2:
-- ✅ Agent configurations (compatible)
-- ✅ Task packet structure (unchanged)
-- ✅ bd spawn CLI (same interface)
-- ✅ Beads integration (maintained)
+Phase 2 is powered by the Go-based A2A server located in `a2a-agent/`:
 
-**Changes in Phase 2:**
-- Parallel execution (concurrent agents)
-- Direct Anthropic API (better token efficiency)
-- SSE streaming (real-time progress)
-- Background execution (long-running tasks)
+**Starting the server:**
+```bash
+cd a2a-agent
+python3 scripts/start-server.py
+```
+
+**Features:**
+- A2A protocol compliance
+- SSE streaming
+- Parallel execution
+- Structured logging
+- Performance metrics
+
+See `a2a-agent/README.md` for complete documentation.
 
 ---
 
@@ -583,6 +601,9 @@ cat .beads/tasks/task-*/00-metadata.json
 
 ---
 
-**Version**: 1.0.0 (Phase 1)
-**Last Updated**: 2026-01-23
+**Version**: 2.0.0 (Phase 2)
+**Last Updated**: 2026-01-24
 **Status**: Production Ready ✅
+
+**Phase 1**: ✅ Sequential execution, task tracking, tool access
+**Phase 2**: ✅ Parallel execution, A2A protocol, SSE streaming, production infrastructure
