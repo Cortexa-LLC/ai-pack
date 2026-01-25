@@ -379,9 +379,8 @@ Test-Driven Development is NOT optional. It is a BLOCKING requirement enforced b
    ──────────────────────────────
    BEFORE writing ANY implementation code:
      a. Write test that fails
-     b. Commit: "Add failing test for [feature]"
-     c. Run tests to verify failure
-     d. VERIFY test fails for right reason
+     b. Run tests to verify failure
+     c. VERIFY test fails for right reason
 
    IF no failing test THEN
      STOP - Cannot proceed to implementation
@@ -393,7 +392,6 @@ Test-Driven Development is NOT optional. It is a BLOCKING requirement enforced b
    ONLY AFTER RED phase:
      a. Write MINIMAL code to make test pass
      b. Run tests to verify pass
-     c. Commit: "Make [feature] test pass"
 
    IF test doesn't pass THEN
      Fix implementation
@@ -405,7 +403,6 @@ Test-Driven Development is NOT optional. It is a BLOCKING requirement enforced b
    ONLY AFTER GREEN phase:
      a. Clean up code (remove duplication, improve design)
      b. Run tests continuously (must stay green)
-     c. Commit: "Refactor [feature]"
 
    IF tests turn red during refactor THEN
      STOP refactoring
@@ -487,14 +484,20 @@ FOR each logical unit of work:
   1. Implement one feature/fix
   2. Write/update tests
   3. Run tests → verify passing
-  4. Commit if appropriate
-  5. Update work log
-  6. IF tests fail THEN
+  4. Update work log
+  5. IF tests fail THEN
        fix immediately
        don't proceed until green
      END IF
-  7. Move to next unit
+  6. Move to next unit
 END FOR
+
+**Commit Policy:**
+```
+DO NOT commit during implementation.
+ONLY commit if orchestrator explicitly requests it via task metadata.
+Commits are orchestrator-controlled for work package management.
+```
 ```
 
 **Progress Reporting:**
@@ -532,11 +535,12 @@ Don't over-document:
 ```
 WHEN making changes:
   1. Update work log with what/why
-  2. Write clear commit messages
-  3. Update inline comments if logic complex
-  4. Update README/docs if user-facing
-  5. Document breaking changes
+  2. Update inline comments if logic complex
+  3. Update README/docs if user-facing
+  4. Document breaking changes
 END WHEN
+
+NOTE: Commits are managed by orchestrator, not by agent
 ```
 
 ---
@@ -553,7 +557,6 @@ END WHEN
 - Run builds (cmake --build, make, ninja, npm build, etc.)
 - Run coverage tools (gcov, lcov, coverage)
 - Run linters/formatters in check mode
-- Commit changes (with proper messages, when appropriate)
 
 ❌ MUST NOT (requires approval):
 - Delete files
@@ -580,7 +583,6 @@ END WHEN
 - Ignore failing tests
 - Remove tests without rationale
 - Accept coverage below target
-- Commit with failing tests
 ```
 
 ### Decision Authority
@@ -660,9 +662,10 @@ END WHILE
 ✓ Code formatted per language standards
 ✓ No TODO/FIXME left unaddressed
 ✓ Work log updated
-✓ Commit messages clear
 ✓ Beads task closed with bd close <task-id> (MANDATORY - BLOCKING)
 ✓ Ready for review
+
+⚠️ NOTE: Do NOT commit changes - orchestrator manages commits
 ```
 
 **⚠️ CRITICAL: Beads Task Closure (MANDATORY)**
@@ -726,10 +729,10 @@ cargo clippy -- -D warnings
 ✓ MUST show: 0 warnings
 
 IF any warnings exist THEN
-  STOP - DO NOT COMMIT
+  STOP - DO NOT PROCEED
   FIX all warnings
   RE-RUN build
-  ONLY commit when: 0 warnings
+  ONLY proceed when: 0 warnings
 END IF
 ```
 
@@ -839,9 +842,9 @@ Dependency Inversion:  Depend on abstractions, not concretions
 4. EditorConfig - Rule severity configuration
 ```
 
-**Pre-Commit Workflow:**
+**Quality Check Workflow:**
 ```
-BEFORE committing C# code:
+BEFORE completing task:
 
 STEP 1: Format code automatically
   $ dotnet csharpier .
@@ -857,7 +860,7 @@ STEP 3: Run tests
 
 IF any step fails THEN
   FIX immediately
-  DO NOT commit code with violations
+  DO NOT proceed with violations
   DO NOT skip formatting or analyzer checks
 END IF
 ```
