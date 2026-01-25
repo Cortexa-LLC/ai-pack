@@ -49,7 +49,8 @@ func main() {
 	}
 
 	// Build agent:// URL
-	taskEncoded := url.QueryEscape(taskInput)
+	// Use PathEscape for URL path segments (preserves + and other special chars)
+	taskEncoded := url.PathEscape(taskInput)
 	agentURL := fmt.Sprintf("agent://%s/%s", role, taskEncoded)
 
 	// Add async parameter if requested

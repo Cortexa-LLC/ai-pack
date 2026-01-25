@@ -315,6 +315,23 @@ func (s *AgentServer) loadAgentConfig(role string) (*AgentConfig, error) {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
+	// Normalize role_file path based on config source
+	// Role file paths in configs are relative to the ai-pack root
+	if source == "dev_parent" {
+		// Config loaded from ../agents/, role files are in ../roles/
+		if !filepath.IsAbs(config.Context.RoleFile) && !strings.HasPrefix(config.Context.RoleFile, ".ai") {
+			config.Context.RoleFile = filepath.Join("..", config.Context.RoleFile)
+		}
+	} else if source == "dev_root" {
+		// Config loaded from agents/, role files are in roles/
+		// Path is already correct as-is
+	} else if source == "framework" {
+		// Config loaded from .ai-pack/agents/, role files are in .ai-pack/roles/
+		if !filepath.IsAbs(config.Context.RoleFile) && !strings.HasPrefix(config.Context.RoleFile, ".ai") {
+			config.Context.RoleFile = filepath.Join(".ai-pack", config.Context.RoleFile)
+		}
+	}
+
 	return &config, nil
 }
 
