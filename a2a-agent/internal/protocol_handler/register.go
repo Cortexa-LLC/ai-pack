@@ -37,26 +37,100 @@ func IsRegistered() bool {
 	}
 }
 
+// ensureAgentServerBinary builds or verifies the agent-server binary exists
+func ensureAgentServerBinary(targetPath string) error {
+	// Check if binary already exists and is executable
+	if info, err := os.Stat(targetPath); err == nil {
+		if info.Mode()&0111 != 0 { // Has execute permission
+			fmt.Printf("✓ Found existing agent-server binary: %s\n", targetPath)
+			return nil
+		}
+	}
+
+	fmt.Printf("Building agent-server binary to: %s\n", targetPath)
+
+	// Create bin directory
+	binDir := filepath.Dir(targetPath)
+	if err := os.MkdirAll(binDir, 0755); err != nil {
+		return fmt.Errorf("failed to create bin directory: %w", err)
+	}
+
+	// Find the a2a-agent source directory
+	// Try to locate it relative to the current executable or working directory
+	var sourceDir string
+
+	// First, try current working directory
+	if wd, err := os.Getwd(); err == nil {
+		// Check if we're in the a2a-agent directory
+		if _, err := os.Stat(filepath.Join(wd, "cmd/agent-server/main.go")); err == nil {
+			sourceDir = wd
+		} else if _, err := os.Stat(filepath.Join(wd, "a2a-agent/cmd/agent-server/main.go")); err == nil {
+			sourceDir = filepath.Join(wd, "a2a-agent")
+		}
+	}
+
+	// If not found, try to find it relative to executable path
+	if sourceDir == "" {
+		if exePath, err := os.Executable(); err == nil {
+			exeDir := filepath.Dir(exePath)
+			// Try various common locations
+			candidates := []string{
+				filepath.Join(exeDir, ".."),
+				filepath.Join(exeDir, "../.."),
+				filepath.Join(exeDir, "../../a2a-agent"),
+			}
+			for _, candidate := range candidates {
+				if _, err := os.Stat(filepath.Join(candidate, "cmd/agent-server/main.go")); err == nil {
+					sourceDir = candidate
+					break
+				}
+			}
+		}
+	}
+
+	if sourceDir == "" {
+		return fmt.Errorf("cannot find a2a-agent source directory with cmd/agent-server/main.go\n" +
+			"Please build manually:\n" +
+			"  cd <ai-pack>/a2a-agent\n" +
+			"  go build -o \"%s\" ./cmd/agent-server", targetPath)
+	}
+
+	fmt.Printf("Building from source: %s\n", sourceDir)
+
+	// Build the binary
+	cmd := exec.Command("go", "build", "-o", targetPath, "./cmd/agent-server")
+	cmd.Dir = sourceDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to build agent-server: %w\n"+
+			"Try building manually:\n"+
+			"  cd %s\n"+
+			"  go build -o \"%s\" ./cmd/agent-server", err, sourceDir, targetPath)
+	}
+
+	fmt.Printf("✓ Built agent-server binary: %s\n", targetPath)
+	return nil
+}
+
 // registerMacOS registers the protocol handler on macOS
 func registerMacOS() error {
-	// Get the path to the current executable
-	exePath, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("failed to get executable path: %w", err)
-	}
-
-	// Resolve symlinks
-	realPath, err := filepath.EvalSymlinks(exePath)
-	if err != nil {
-		realPath = exePath
-	}
-
-	// Create a minimal .app bundle to register as protocol handler
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get home directory: %w", err)
 	}
 
+	// Determine the permanent binary location
+	binDir := filepath.Join(homeDir, "Library", "Application Support", "ai-pack", "bin")
+	binaryPath := filepath.Join(binDir, "agent-server")
+
+	// Build or locate the agent-server binary
+	if err := ensureAgentServerBinary(binaryPath); err != nil {
+		return fmt.Errorf("failed to ensure agent-server binary: %w", err)
+	}
+
+	// Create a minimal .app bundle to register as protocol handler
 	appPath := filepath.Join(homeDir, "Library", "Application Support", "ai-pack", "AI-Pack Agent Handler.app")
 	contentsDir := filepath.Join(appPath, "Contents")
 	macOSDir := filepath.Join(contentsDir, "MacOS")
@@ -100,8 +174,9 @@ func registerMacOS() error {
 	// Create wrapper script that calls agent-server
 	wrapperScript := fmt.Sprintf(`#!/bin/bash
 # AI-Pack agent:// protocol handler
+# Invokes agent-server with the agent:// URL
 exec "%s" "$@"
-`, realPath)
+`, binaryPath)
 
 	wrapperPath := filepath.Join(macOSDir, "agent-handler")
 	if err := os.WriteFile(wrapperPath, []byte(wrapperScript), 0755); err != nil {
