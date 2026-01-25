@@ -23,22 +23,22 @@ The A2A workflow enables:
 
 ```bash
 # Spawn an engineer to implement a feature
-.ai-pack/bd spawn engineer "implement a user authentication function"
+agent engineer "implement a user authentication function"
 
 # Spawn a tester to create tests
-.ai-pack/bd spawn tester "create tests for the auth function"
+agent tester "create tests for the auth function"
 
 # Spawn a reviewer to review code
-.ai-pack/bd spawn reviewer "review the authentication implementation"
+agent reviewer "review the authentication implementation"
 ```
 
 ### Multi-Agent Workflow Example
 
 ```bash
 # Complete feature development workflow
-.ai-pack/bd spawn engineer "implement user registration API"
-.ai-pack/bd spawn tester "create comprehensive test suite for user registration"
-.ai-pack/bd spawn reviewer "review user registration implementation for security"
+agent engineer "implement user registration API"
+agent tester "create comprehensive test suite for user registration"
+agent reviewer "review user registration implementation for security"
 ```
 
 ## Agent Roles
@@ -111,13 +111,13 @@ The A2A workflow enables:
 
 ```bash
 # Step 1: Implement the feature
-.ai-pack/bd spawn engineer "implement password reset with email verification"
+agent engineer "implement password reset with email verification"
 
 # Step 2: Create tests
-.ai-pack/bd spawn tester "create tests for password reset feature"
+agent tester "create tests for password reset feature"
 
 # Step 3: Review the implementation
-.ai-pack/bd spawn reviewer "review password reset for security issues"
+agent reviewer "review password reset for security issues"
 ```
 
 **Result**: Complete feature with implementation, tests, and security review.
@@ -126,10 +126,10 @@ The A2A workflow enables:
 
 ```bash
 # Step 1: Engineer reproduces and fixes
-.ai-pack/bd spawn engineer "fix authentication timeout bug in src/auth.py:45"
+agent engineer "fix authentication timeout bug in src/auth.py:45"
 
 # Step 2: Tester creates regression tests
-.ai-pack/bd spawn tester "create tests to prevent auth timeout bug from recurring"
+agent tester "create tests to prevent auth timeout bug from recurring"
 ```
 
 **Result**: Bug fixed with regression tests.
@@ -138,13 +138,13 @@ The A2A workflow enables:
 
 ```bash
 # Step 1: Review current code
-.ai-pack/bd spawn reviewer "analyze src/database.py for refactoring opportunities"
+agent reviewer "analyze src/database.py for refactoring opportunities"
 
 # Step 2: Implement refactoring
-.ai-pack/bd spawn engineer "refactor database.py based on reviewer recommendations"
+agent engineer "refactor database.py based on reviewer recommendations"
 
 # Step 3: Verify tests still pass
-.ai-pack/bd spawn tester "update and verify all tests after database refactoring"
+agent tester "update and verify all tests after database refactoring"
 ```
 
 **Result**: Clean refactoring with maintained test coverage.
@@ -248,12 +248,12 @@ See the [Protocol Handler Setup Guide](../PROTOCOL-HANDLER-SETUP) for complete i
 
 **Good:**
 ```bash
-.ai-pack/bd spawn engineer "implement UserRegistration class with validate_email, validate_password, and register_user methods. Include type hints and docstrings."
+agent engineer "implement UserRegistration class with validate_email, validate_password, and register_user methods. Include type hints and docstrings."
 ```
 
 **Bad:**
 ```bash
-.ai-pack/bd spawn engineer "do registration"
+agent engineer "do registration"
 ```
 
 ### 2. Appropriate Role Selection
@@ -268,9 +268,9 @@ In Phase 1, agents run sequentially. Structure your workflow accordingly:
 
 ```bash
 # Good: Clear sequence
-.ai-pack/bd spawn engineer "task A"
+agent engineer "task A"
 # Wait for completion, then:
-.ai-pack/bd spawn engineer "task B that depends on task A"
+agent engineer "task B that depends on task A"
 ```
 
 **Phase 2 Note**: Future versions will enable true parallel execution.
@@ -281,12 +281,12 @@ Keep tasks focused and well-scoped:
 
 **Good:**
 ```bash
-.ai-pack/bd spawn engineer "add email validation to UserRegistration.register_user method"
+agent engineer "add email validation to UserRegistration.register_user method"
 ```
 
 **Too Broad:**
 ```bash
-.ai-pack/bd spawn engineer "build entire user management system"
+agent engineer "build entire user management system"
 ```
 
 ## Performance Characteristics
