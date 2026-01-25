@@ -29,16 +29,23 @@ or you are unsure what this means choose another name with the '--name' option.
 
 ### Required Action
 
-**Option 1: Automated Reset (Recommended)**
+**Option 1: Automated Reset via Local Script**
 
-Use the provided Python script:
+If you can access the submodule:
 
 ```bash
 # From your project root (the repo that contains .ai-pack)
 python3 .ai-pack/scripts/reset-submodule.py
 ```
 
-**Option 2: Manual Reset**
+**Option 2: Automated Reset via Remote Download (Recommended if submodule is broken)**
+
+```bash
+# Download and execute from GitHub
+curl -fsSL https://raw.githubusercontent.com/Cortexa-LLC/ai-pack/main/scripts/reset-submodule.py | python3 -
+```
+
+**Option 3: Manual Reset**
 
 Follow the manual procedure in [SUBMODULE-RESET.md](SUBMODULE-RESET.md).
 

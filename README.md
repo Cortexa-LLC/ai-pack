@@ -18,7 +18,11 @@ AI-Pack provides structured processes, quality gates, agent roles, and coding st
 
 **Quick Fix** (automated):
 ```bash
+# If submodule is accessible
 python3 .ai-pack/scripts/reset-submodule.py
+
+# If submodule is broken, download from GitHub
+curl -fsSL https://raw.githubusercontent.com/Cortexa-LLC/ai-pack/main/scripts/reset-submodule.py | python3 -
 ```
 
 **Documentation**: See [docs/SUBMODULE-RESET.md](docs/SUBMODULE-RESET.md) for details and manual procedure.
