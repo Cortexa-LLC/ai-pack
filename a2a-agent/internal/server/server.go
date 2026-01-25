@@ -74,9 +74,9 @@ type AgentConfig struct {
 		Timeout    string `yaml:"timeout"`
 		MaxContext int    `yaml:"max_context"`
 	} `yaml:"delegation"`
-	Tools           []string          `yaml:"tools"`
-	SuccessCriteria []string          `yaml:"success_criteria"`
-	Metadata        map[string]string `yaml:"metadata"`
+	Tools           []string               `yaml:"tools"`
+	SuccessCriteria []string               `yaml:"success_criteria"`
+	Metadata        map[string]interface{} `yaml:"metadata"` // Changed from map[string]string to support arrays
 }
 
 func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model string, cfg *config.APIConfig) (*AgentServer, error) {
@@ -273,20 +273,37 @@ func (s *AgentServer) getTaskStatus(taskID string) (*protocol.TaskStatusResponse
 }
 
 func (s *AgentServer) loadAgentConfig(role string) (*AgentConfig, error) {
-	// Try project-specific override first (.ai/agents/)
-	projectConfigPath := filepath.Join(s.rootDir, ".ai", "agents", role+".yml")
-	frameworkConfigPath := filepath.Join(s.rootDir, ".ai-pack", "agents", role+".yml")
+	// Try paths in order:
+	// 1. Project override (.ai/agents/)
+	// 2. Framework (.ai-pack/agents/) - production
+	// 3. Development (../agents/) - when running from a2a-agent dir
+	// 4. Development (agents/) - when running from repo root
+	candidatePaths := []struct {
+		path   string
+		source string
+	}{
+		{filepath.Join(s.rootDir, ".ai", "agents", role+".yml"), "project_override"},
+		{filepath.Join(s.rootDir, ".ai-pack", "agents", role+".yml"), "framework"},
+		{filepath.Join(s.rootDir, "..", "agents", role+".yml"), "dev_parent"},
+		{filepath.Join(s.rootDir, "agents", role+".yml"), "dev_root"},
+	}
 
 	var configPath string
-	if _, err := os.Stat(projectConfigPath); err == nil {
-		// Project override exists
-		configPath = projectConfigPath
-		monitoring.Logger.Info("loading_agent_config", "role", role, "source", "project_override")
-	} else {
-		// Use framework default
-		configPath = frameworkConfigPath
-		monitoring.Logger.Info("loading_agent_config", "role", role, "source", "framework_default")
+	var source string
+
+	for _, candidate := range candidatePaths {
+		if _, err := os.Stat(candidate.path); err == nil {
+			configPath = candidate.path
+			source = candidate.source
+			break
+		}
 	}
+
+	if configPath == "" {
+		return nil, fmt.Errorf("no config found for role %s (tried: .ai/agents, .ai-pack/agents, ../agents, agents)", role)
+	}
+
+	monitoring.Logger.Info("loading_agent_config", "role", role, "source", source, "path", configPath)
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
