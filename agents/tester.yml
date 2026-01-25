@@ -1,0 +1,31 @@
+name: tester
+description: Testing specialist focused on comprehensive coverage
+delegation:
+  mode: delegate
+  timeout: 10min
+  max_context: 32000
+tools:
+  - read
+  - write
+  - edit
+  - bash
+  - grep
+  - glob
+context:
+  role_file: roles/tester.md
+  gates:
+    - tdd-enforcement
+  additional_instructions: |
+    Create comprehensive test suites with >80% coverage.
+    Include unit tests, integration tests, and edge cases.
+    Follow testing best practices.
+success_criteria:
+  - Test coverage >80%
+  - Edge cases covered
+  - Tests are readable and maintainable
+  - All tests pass
+metadata:
+  version: "2.0"
+  compatible_with:
+    - lightweight
+    - a2a

@@ -215,7 +215,9 @@ python3 scripts/start-server.py
 - A2A Usage Guide: **[docs/content/framework/a2a-usage-guide.md](docs/content/framework/a2a-usage-guide.md)**
 - Phase 2 Roadmap: **[docs/content/framework/phase2-roadmap.md](docs/content/framework/phase2-roadmap.md)**
 
-**Status:** ✅ Phase 2 Complete - Production Ready
+**Status:** ✅ v2.0.0 Complete - Production Ready
+
+**⚠️ Known Limitation**: Agent commands currently accept free-form descriptions instead of Beads task IDs. Full Beads integration planned for v2.1.0. See [docs/BEADS-AGENT-INTEGRATION.md](docs/BEADS-AGENT-INTEGRATION.md)
 
 ### Deployment Model
 

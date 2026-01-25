@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "2.0.0-phase2"
+const Version = "2.1.0"
 
 func main() {
 	// Parse command-line flags
@@ -31,10 +31,29 @@ func main() {
 	}
 
 	role := args[0]
-	task := strings.Join(args[1:], " ")
+	taskInput := strings.Join(args[1:], " ")
+
+	// Check if input is a Beads task ID (preferred) or free-form description
+	isBeadsTask := strings.HasPrefix(taskInput, "bd-") && len(taskInput) > 3
+
+	if isBeadsTask {
+		// Beads task ID - validate it exists
+		fmt.Printf("🎯 Validating Beads task: %s\n", taskInput)
+
+		// Quick validation check (don't import beads package here, let server validate)
+		// Just show user we detected it as a Beads task
+		fmt.Printf("   Task ID detected, agent-server will validate task exists\n")
+	} else {
+		// Free-form description - show deprecation warning
+		fmt.Printf("⚠️  Using free-form description (deprecated)\n")
+		fmt.Printf("   For better task tracking, use Beads:\n")
+		fmt.Printf("     bd create \"%s\"\n", taskInput)
+		fmt.Printf("     agent %s <task-id>\n", role)
+		fmt.Println()
+	}
 
 	// Build agent:// URL
-	taskEncoded := url.QueryEscape(task)
+	taskEncoded := url.QueryEscape(taskInput)
 	agentURL := fmt.Sprintf("agent://%s/%s", role, taskEncoded)
 
 	// Add async parameter if requested
@@ -59,18 +78,30 @@ func usage() {
 	fmt.Println("AI-Pack Agent CLI - Convenience wrapper for agent:// protocol")
 	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  agent [flags] <role> <task description>")
+	fmt.Println("  agent [flags] <role> <beads-task-id>          (recommended)")
+	fmt.Println("  agent [flags] <role> <task description>       (deprecated)")
 	fmt.Println()
 	fmt.Println("Examples:")
+	fmt.Println("  # Recommended: Use Beads task tracking")
+	fmt.Println("  bd create \"Create hello world function\"")
+	fmt.Println("  agent engineer bd-a1b2")
+	fmt.Println()
+	fmt.Println("  # Deprecated: Free-form description")
 	fmt.Println("  agent engineer \"create hello world function\"")
-	fmt.Println("  agent tester \"run all unit tests\"")
-	fmt.Println("  agent --async reviewer \"review latest PR\"")
+	fmt.Println()
+	fmt.Println("  # Async execution")
+	fmt.Println("  agent --async tester bd-x7z9")
 	fmt.Println()
 	fmt.Println("Flags:")
 	flag.PrintDefaults()
 	fmt.Println()
 	fmt.Println("This command generates an agent:// URL and opens it using your")
 	fmt.Println("system's registered protocol handler (agent-server).")
+	fmt.Println()
+	fmt.Println("For best results, create tasks in Beads first:")
+	fmt.Println("  bd create \"Task description\"")
+	fmt.Println("  bd show bd-xxxx")
+	fmt.Println("  agent <role> bd-xxxx")
 }
 
 func openURL(url string) error {

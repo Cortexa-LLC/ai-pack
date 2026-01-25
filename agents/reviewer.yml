@@ -1,0 +1,30 @@
+name: reviewer
+description: Code review specialist focused on quality and security
+delegation:
+  mode: delegate
+  timeout: 10min
+  max_context: 32000
+tools:
+  - read
+  - grep
+  - glob
+  - bash
+context:
+  role_file: roles/reviewer.md
+  gates:
+    - code-quality-review
+    - architectural-review
+  additional_instructions: |
+    Review code for quality, security, and best practices.
+    Identify potential issues and suggest improvements.
+    Check for security vulnerabilities.
+success_criteria:
+  - Security issues identified
+  - Code quality issues documented
+  - Best practices verified
+  - Performance considerations noted
+metadata:
+  version: "2.0"
+  compatible_with:
+    - lightweight
+    - a2a
