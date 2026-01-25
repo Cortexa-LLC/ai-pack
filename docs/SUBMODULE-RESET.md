@@ -15,11 +15,39 @@ This means Git has cached submodule repository data at `.git/modules/.ai-pack` t
 
 ## Quick Fix (Automated)
 
-Use the provided Python script to automatically reset the submodule:
+### Option A: From Existing Submodule
+
+If you can access the submodule:
 
 ```bash
 # From your project root (the repo that contains .ai-pack as a submodule)
 python3 .ai-pack/scripts/reset-submodule.py
+```
+
+### Option B: Download from GitHub (Recommended if submodule is broken)
+
+If your submodule is broken or inaccessible:
+
+```bash
+# Download and execute directly
+curl -fsSL https://raw.githubusercontent.com/Cortexa-LLC/ai-pack/main/scripts/reset-submodule.py | python3 -
+
+# Or download, inspect, then execute (safer)
+curl -fsSL https://raw.githubusercontent.com/Cortexa-LLC/ai-pack/main/scripts/reset-submodule.py -o reset-submodule.py
+python3 reset-submodule.py
+rm reset-submodule.py  # Clean up after
+```
+
+**Using wget:**
+
+```bash
+# Download and execute
+wget -qO- https://raw.githubusercontent.com/Cortexa-LLC/ai-pack/main/scripts/reset-submodule.py | python3 -
+
+# Or download first
+wget https://raw.githubusercontent.com/Cortexa-LLC/ai-pack/main/scripts/reset-submodule.py
+python3 reset-submodule.py
+rm reset-submodule.py
 ```
 
 The script will:
