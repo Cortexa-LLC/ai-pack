@@ -5,7 +5,7 @@ title: "A2A Usage Guide"
 
 # A2A Usage Guide
 
-**Version**: 2.0.0 (Phase 2)
+**Version**: 2.0.0
 **Status**: Production Ready ✅
 
 ---
@@ -15,14 +15,14 @@ title: "A2A Usage Guide"
 AI-Pack provides a production-grade agent spawning system that enables you to delegate tasks to specialized AI agents. Each agent operates autonomously within its defined role and tool permissions.
 
 **Key Features:**
-- 🤖 3 specialized agent roles (Engineer, Tester, Reviewer)
+- 🤖 5 specialized agent roles (Engineer, Tester, Reviewer, Architect, Cartographer)
 - 📦 Automatic task tracking via Beads
 - 🛠️ Full tool access (file operations, web, bash, MCP servers)
 - ⚡ Fast spawn times (~0.06s average)
 - 🔒 Role-based permissions and quality gates
-- 🚀 **Parallel execution** via Go-based A2A server (Phase 2)
-- 📊 **Real-time streaming** with SSE progress updates (Phase 2)
-- 🏗️ **Production infrastructure** with structured logging and metrics (Phase 2)
+- 🚀 **Parallel execution** via Go-based A2A server
+- 📊 **Real-time streaming** with SSE progress updates
+- 🏗️ **Production infrastructure** with structured logging and metrics
 
 ---
 
@@ -49,7 +49,7 @@ agent reviewer "review the authentication implementation"
 4. **Task ID Return**: Unique task ID returned for tracking
 5. **Manual Execution**: Orchestrator (you) executes the agent via Task tool
 
-**Note**: Phase 2 enables parallel execution via the Go-based A2A server. See the [Go A2A Server documentation](../../../a2a-agent/README.md) for details.
+**Note**: The Go-based A2A server enables true parallel execution. See the [A2A Server Quickstart](../integration/a2a-quickstart.md) for details.
 
 ---
 
@@ -289,10 +289,10 @@ agent engineer "do registration"
 
 ### 3. Parallel & Sequential Workflows
 
-**Phase 2 supports parallel execution** for independent tasks via the Go A2A server:
+**The A2A server supports parallel execution** for independent tasks:
 
 ```bash
-# Parallel execution (Phase 2): Independent tasks run concurrently
+# Parallel execution: Independent tasks run concurrently
 agent engineer "implement backend API" &
 agent engineer "implement frontend UI" &
 wait  # Both run in parallel
@@ -492,11 +492,11 @@ Agent 3: spawn (0.06s) + execute (2min) = ~2min
 Total: ~8 minutes (sequential)
 ```
 
-**Phase 2 Note**: Parallel execution will reduce total time to ~3 minutes.
+**Note**: Parallel execution reduces total time to ~3 minutes.
 
 ---
 
-## Phase 2 Features ✅
+## Production Features ✅
 
 ### ✅ Parallel Execution
 
@@ -535,7 +535,7 @@ Production-grade features:
 
 ## Go A2A Server
 
-Phase 2 is powered by the Go-based A2A server located in `a2a-agent/`:
+The production-ready A2A server is located in `a2a-agent/`:
 
 **Starting the server:**
 ```bash
@@ -601,9 +601,8 @@ cat .beads/tasks/task-*/00-metadata.json
 
 ---
 
-**Version**: 2.0.0 (Phase 2)
+**Version**: 2.0.0
 **Last Updated**: 2026-01-24
 **Status**: Production Ready ✅
 
-**Phase 1**: ✅ Sequential execution, task tracking, tool access
-**Phase 2**: ✅ Parallel execution, A2A protocol, SSE streaming, production infrastructure
+**Features**: ✅ Parallel execution, A2A protocol, SSE streaming, production infrastructure, task tracking, full tool access
