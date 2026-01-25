@@ -24,10 +24,13 @@ The Orchestrator is a high-level coordinator responsible for breaking down compl
 **Mandatory Procedure:**
 ```
 FOR every non-trivial task:
-  STEP 1: MANDATORY - Create Beads task with task packet reference in description
-    # The description MUST include "Task packet: <path>" for agent discovery
+  STEP 1: MANDATORY - Create Beads task with working directory and task packet reference
+    # The description MUST include:
+    #   - "Working directory: <absolute-path>" for multi-project support
+    #   - "Task packet: <relative-path>" for agent discovery
     task_id=$(bd create "Implement user authentication
 
+Working directory: /Users/yourname/Projects/your-project
 Task packet: .ai/tasks/2026-01-24_user-auth/
 
 Create login/logout endpoints with JWT tokens and session management." \
@@ -48,28 +51,64 @@ END FOR
 ENFORCEMENT: Gate blocks if task packet exists without Beads task.
 ```
 
-**Critical Format Requirement:**
+**Critical Format Requirements:**
 
-The Beads task description MUST include this exact pattern on its own line:
+The Beads task description MUST include these exact patterns on their own lines:
 ```
+Working directory: /absolute/path/to/project
 Task packet: .ai/tasks/YYYY-MM-DD_task-name/
 ```
 
-The A2A server parses this line to find the implementation plan. Without it, agents won't know where to find the task packet files.
+**Why Both Are Required:**
+1. **Working directory**: Tells the agent which project to execute in (critical for multi-project servers)
+2. **Task packet**: Tells the agent where to find the implementation plan (relative to working directory)
+
+Without these, agents will execute in the wrong project or fail to find the task packet.
 
 **Example Beads Task Creation:**
 ```bash
-# Good - includes task packet path
+# Good - includes both working directory and task packet path
 bd create "Implement dark mode feature
 
+Working directory: /Users/yourname/Projects/my-app
 Task packet: .ai/tasks/2026-01-24_dark-mode/
 
 Add theme toggle, persist user preference, update all components to support dark theme." \
   --priority high
 
-# Bad - missing task packet path
+# Bad - missing working directory (single-project only, not recommended)
+bd create "Implement dark mode feature
+
+Task packet: .ai/tasks/2026-01-24_dark-mode/
+
+Description..." --priority high
+
+# Bad - missing both (agent won't know where to work or find files)
 bd create "Implement dark mode feature" --priority high
 ```
+
+**Multi-Project Support:**
+
+With working directory specified, a single A2A server can handle agents for multiple projects:
+```bash
+# Project A task
+bd create "Feature A
+
+Working directory: /Users/yourname/Projects/project-a
+Task packet: .ai/tasks/2026-01-24_feature-a/
+
+Description..." --priority high
+
+# Project B task (different project, same server)
+bd create "Feature B
+
+Working directory: /Users/yourname/Projects/project-b
+Task packet: .ai/tasks/2026-01-24_feature-b/
+
+Description..." --priority high
+```
+
+Each agent will execute in its specified working directory.
 
 **Bi-Directional Linking:**
 
