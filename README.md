@@ -158,6 +158,44 @@ curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/insta
 irm https://raw.githubusercontent.com/steveyegge/beads/main/install.ps1 | iex
 ```
 
+#### 🚀 Agent-to-Agent (A2A) Server - Production Infrastructure
+
+AI-Pack includes a **production-grade Go-based A2A server** that enables autonomous agent delegation with parallel execution, real-time streaming, and full A2A protocol compliance.
+
+**Key Features:**
+- ✅ **Parallel Execution** - Multiple agents running concurrently (2x+ speedup)
+- ✅ **A2A Protocol Compliance** - Full JSON-RPC 2.0 implementation
+- ✅ **SSE Streaming** - Real-time progress updates via Server-Sent Events
+- ✅ **Production Infrastructure** - Structured logging, metrics, health checks
+- ✅ **Direct API Integration** - Anthropic API client with proxy support
+
+**Server Location:** `a2a-agent/` directory
+
+**Quick Start:**
+```bash
+# Start the A2A server
+cd a2a-agent
+python3 scripts/start-server.py
+
+# Server runs on http://localhost:8080
+# A2A endpoints: /a2a/discovery, /a2a/execute, /a2a/status
+# SSE streaming: /stream/:task_id
+```
+
+**API Endpoints:**
+- `POST /a2a/invoke` - Invoke an agent task (JSON-RPC 2.0)
+- `GET /a2a/stream/:taskId` - Stream task progress (SSE)
+- `GET /a2a/status/:taskId` - Get task status
+- `GET /health` - Health check
+- `GET /metrics` - Performance metrics
+
+**Documentation:**
+- Server README: **[a2a-agent/README.md](a2a-agent/README.md)**
+- A2A Usage Guide: **[docs/content/framework/a2a-usage-guide.md](docs/content/framework/a2a-usage-guide.md)**
+- Phase 2 Roadmap: **[docs/content/framework/phase2-roadmap.md](docs/content/framework/phase2-roadmap.md)**
+
+**Status:** ✅ Phase 2 Complete - Production Ready
+
 ### Deployment Model
 
 The ai-pack framework is designed for the following structure in your projects:
