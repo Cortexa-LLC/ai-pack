@@ -82,7 +82,12 @@ You should see:
       - SSE Streaming            ✅
       - Parallel Execution       ✅ (max 3 concurrent)
       - Beads Integration        ✅
+
+🔗 Registering agent:// protocol handler...
+✅ Protocol handler registered
 ```
+
+**Note**: On first run, the server automatically registers the `agent://` protocol handler for your system. This allows the `agent` CLI to work.
 
 Leave this terminal running.
 
