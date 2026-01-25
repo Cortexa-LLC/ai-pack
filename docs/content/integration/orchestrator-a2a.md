@@ -61,7 +61,7 @@ Task(
 - Tasks requiring **immediate results** for next step
 - Tasks requiring **real-time progress visibility**
 - Tasks where you want to **block and wait** for completion
-- Short-duration tasks (<10 minutes)
+- Short-duration tasks (less than 10 minutes)
 
 ### Example
 

@@ -1399,7 +1399,7 @@ Use A2A background agents (via `agent` CLI) when:
 Use Task tool (foreground agents) when:
 - Task requires **immediate results** for next step
 - You need to **see progress in real-time**
-- Task is **short-duration** (<10 minutes)
+- Task is **short-duration** (less than 10 minutes)
 - Blocking on completion is acceptable
 
 **CRITICAL: Context Requirements**
