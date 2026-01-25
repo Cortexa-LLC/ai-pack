@@ -333,9 +333,27 @@ func waitForTaskCompletion(beadsTaskID string) {
 		resp.Body.Close()
 
 		var status map[string]interface{}
-		json.Unmarshal(body, &status)
+		if err := json.Unmarshal(body, &status); err != nil {
+			fmt.Printf("⚠️  Failed to parse status response: %v\n", err)
+			time.Sleep(2 * time.Second)
+			continue
+		}
 
-		statusStr := status["status"].(string)
+		// Check if status field exists and is a string
+		statusVal, ok := status["status"]
+		if !ok || statusVal == nil {
+			// Task might not be registered yet, wait and retry
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		statusStr, ok := statusVal.(string)
+		if !ok {
+			fmt.Printf("⚠️  Unexpected status type: %v\n", statusVal)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
 		if statusStr == "completed" {
 			fmt.Println("✅ Agent completed!")
 			showMetrics()
@@ -363,12 +381,16 @@ func findInternalTaskID(beadsTaskID string) string {
 		}
 
 		var meta map[string]interface{}
-		json.Unmarshal(data, &meta)
+		if err := json.Unmarshal(data, &meta); err != nil {
+			continue
+		}
 
-		// Check if description matches Beads task ID
-		if desc, ok := meta["description"].(string); ok {
-			if desc == beadsTaskID {
-				return filepath.Base(taskDir)
+		// Check config.metadata.beads_task_id
+		if config, ok := meta["config"].(map[string]interface{}); ok {
+			if metadata, ok := config["metadata"].(map[string]interface{}); ok {
+				if btid, ok := metadata["beads_task_id"].(string); ok && btid == beadsTaskID {
+					return filepath.Base(taskDir)
+				}
 			}
 		}
 	}
