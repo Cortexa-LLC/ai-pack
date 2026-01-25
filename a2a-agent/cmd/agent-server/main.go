@@ -128,7 +128,8 @@ func handleProtocolURL(agentURL, configPath string) {
 	}
 
 	// URL decode the task
-	task, err := url.QueryUnescape(taskEncoded)
+	// Use PathUnescape to properly handle + characters (QueryUnescape treats + as space)
+	task, err := url.PathUnescape(taskEncoded)
 	if err != nil {
 		task = taskEncoded // Use as-is if decode fails
 	}
