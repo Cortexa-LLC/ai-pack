@@ -29,14 +29,40 @@ func NewClient() *Client {
 }
 
 // IsBeadsTaskID checks if a string is a Beads task ID
+// Supports both default "bd-" prefix and custom prefixes like "a2a-agent-"
 func IsBeadsTaskID(input string) bool {
-	return strings.HasPrefix(input, "bd-") && len(input) > 3
+	// Check if it looks like a Beads task ID: <prefix>-<hash>
+	// Must contain at least one dash and have characters after it
+	if !strings.Contains(input, "-") {
+		return false
+	}
+
+	// Split on last dash to get hash part
+	parts := strings.Split(input, "-")
+	if len(parts) < 2 {
+		return false
+	}
+
+	// Hash part should be alphanumeric and reasonably short (2-10 chars typically)
+	hashPart := parts[len(parts)-1]
+	if len(hashPart) < 2 || len(hashPart) > 10 {
+		return false
+	}
+
+	// Check if hash part is alphanumeric
+	for _, r := range hashPart {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '+') {
+			return false
+		}
+	}
+
+	return true
 }
 
 // GetTask retrieves a task from Beads
 func (c *Client) GetTask(taskID string) (*Task, error) {
 	if !IsBeadsTaskID(taskID) {
-		return nil, fmt.Errorf("invalid Beads task ID: %s (expected format: bd-xxxx)", taskID)
+		return nil, fmt.Errorf("invalid Beads task ID: %s (expected format: <prefix>-<hash>)", taskID)
 	}
 
 	// Run: bd show <task-id> --json
@@ -50,12 +76,17 @@ func (c *Client) GetTask(taskID string) (*Task, error) {
 		return nil, fmt.Errorf("failed to get Beads task %s: %w", taskID, err)
 	}
 
-	var task Task
-	if err := json.Unmarshal(output, &task); err != nil {
+	// bd show --json returns an array with one task
+	var tasks []Task
+	if err := json.Unmarshal(output, &tasks); err != nil {
 		return nil, fmt.Errorf("failed to parse Beads task: %w", err)
 	}
 
-	return &task, nil
+	if len(tasks) == 0 {
+		return nil, fmt.Errorf("task %s not found", taskID)
+	}
+
+	return &tasks[0], nil
 }
 
 // StartTask marks a task as started in Beads
@@ -123,7 +154,7 @@ func IsInstalled() bool {
 // ValidateTaskID validates that a Beads task ID exists and is accessible
 func (c *Client) ValidateTaskID(taskID string) error {
 	if !IsBeadsTaskID(taskID) {
-		return fmt.Errorf("invalid Beads task ID format: %s (expected format: bd-xxxx)", taskID)
+		return fmt.Errorf("invalid Beads task ID format: %s (expected format: <prefix>-<hash>)", taskID)
 	}
 
 	// Verify Beads is installed
