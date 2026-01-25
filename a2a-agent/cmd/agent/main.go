@@ -33,16 +33,12 @@ func main() {
 	role := args[0]
 	taskInput := strings.Join(args[1:], " ")
 
-	// Check if input is a Beads task ID (preferred) or free-form description
-	isBeadsTask := strings.HasPrefix(taskInput, "bd-") && len(taskInput) > 3
+	// Check if input is a Beads task ID by querying Beads
+	// This works with ANY Beads prefix (bd-, xasm++-, etc.)
+	isBeadsTask := isValidBeadsTask(taskInput)
 
 	if isBeadsTask {
-		// Beads task ID - validate it exists
-		fmt.Printf("🎯 Validating Beads task: %s\n", taskInput)
-
-		// Quick validation check (don't import beads package here, let server validate)
-		// Just show user we detected it as a Beads task
-		fmt.Printf("   Task ID detected, agent-server will validate task exists\n")
+		fmt.Printf("🎯 Beads task: %s\n", taskInput)
 	} else {
 		// Free-form description - show deprecation warning
 		fmt.Printf("⚠️  Using free-form description (deprecated)\n")
@@ -102,6 +98,18 @@ func usage() {
 	fmt.Println("  bd create \"Task description\"")
 	fmt.Println("  bd show bd-xxxx")
 	fmt.Println("  agent <role> bd-xxxx")
+}
+
+func isValidBeadsTask(taskID string) bool {
+	// Quick format check - must contain a separator like - or +
+	if !strings.Contains(taskID, "-") && !strings.Contains(taskID, "+") {
+		return false
+	}
+
+	// Ask Beads if this task exists (works with any prefix)
+	cmd := exec.Command("bd", "show", taskID)
+	err := cmd.Run()
+	return err == nil
 }
 
 func openURL(url string) error {
