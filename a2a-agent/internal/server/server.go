@@ -14,10 +14,12 @@ import (
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/auth"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/beads"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/claude"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/proxy"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/tools"
 	"gopkg.in/yaml.v3"
 )
 
@@ -26,19 +28,20 @@ const (
 )
 
 type AgentServer struct {
-	rootDir       string
-	anthropicKey  string
-	client        *anthropic.Client
-	beadsClient   *beads.Client
-	maxConcurrent int // Maximum concurrent agents (configurable)
-	maxTokens     int // Maximum tokens per API call
-	model         string // Anthropic model to use
+	rootDir        string
+	anthropicKey   string
+	client         *anthropic.Client
+	beadsClient    *beads.Client
+	claudeSettings *claude.Settings // Claude Code settings (deny patterns, etc.)
+	maxConcurrent  int              // Maximum concurrent agents (configurable)
+	maxTokens      int              // Maximum tokens per API call
+	model          string           // Anthropic model to use
 
 	// Concurrent execution tracking
-	mu            sync.RWMutex
-	activeTasks   map[string]*TaskExecution
-	taskQueue     chan *TaskExecution
-	workerPool    chan struct{} // Semaphore for max concurrent agents
+	mu          sync.RWMutex
+	activeTasks map[string]*TaskExecution
+	taskQueue   chan *TaskExecution
+	workerPool  chan struct{} // Semaphore for max concurrent agents
 }
 
 type TaskExecution struct {
@@ -74,9 +77,11 @@ type AgentConfig struct {
 		Timeout    string `yaml:"timeout"`
 		MaxContext int    `yaml:"max_context"`
 	} `yaml:"delegation"`
-	Tools           []string               `yaml:"tools"`
-	SuccessCriteria []string               `yaml:"success_criteria"`
-	Metadata        map[string]interface{} `yaml:"metadata"` // Changed from map[string]string to support arrays
+	Tools            []string               `yaml:"tools"`
+	SuccessCriteria  []string               `yaml:"success_criteria"`
+	Metadata         map[string]interface{} `yaml:"metadata"` // Changed from map[string]string to support arrays
+	ExtendedThinking bool                   `yaml:"extended_thinking"` // Enable extended thinking mode
+	MaxTurns         int                    `yaml:"max_turns"`         // Max agentic turns (default 25)
 }
 
 func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model string, cfg *config.APIConfig) (*AgentServer, error) {
@@ -111,17 +116,29 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 
 	client := anthropic.NewClient(clientOpts...)
 
+	// Load Claude Code settings (global + project-specific)
+	claudeSettings, err := claude.LoadSettings(rootDir)
+	if err != nil {
+		monitoring.Logger.Warn("failed_to_load_claude_settings", "error", err.Error())
+		claudeSettings = &claude.Settings{} // Empty settings (allow all)
+	} else {
+		monitoring.Logger.Info("claude_settings_loaded",
+			"deny_patterns", len(claudeSettings.Permissions.Deny),
+			"ask_patterns", len(claudeSettings.Permissions.Ask))
+	}
+
 	server := &AgentServer{
-		rootDir:       rootDir,
-		anthropicKey:  apiKey,
-		client:        client,
-		beadsClient:   beads.NewClient(),
-		maxConcurrent: maxConcurrent,
-		maxTokens:     maxTokens,
-		model:         model,
-		activeTasks:   make(map[string]*TaskExecution),
-		taskQueue:     make(chan *TaskExecution, 100),
-		workerPool:    make(chan struct{}, maxConcurrent),
+		rootDir:        rootDir,
+		anthropicKey:   apiKey,
+		client:         client,
+		beadsClient:    beads.NewClient(),
+		claudeSettings: claudeSettings,
+		maxConcurrent:  maxConcurrent,
+		maxTokens:      maxTokens,
+		model:          model,
+		activeTasks:    make(map[string]*TaskExecution),
+		taskQueue:      make(chan *TaskExecution, 100),
+		workerPool:     make(chan struct{}, maxConcurrent),
 	}
 
 	// Start worker pool
@@ -551,10 +568,166 @@ func (s *AgentServer) updateTaskStatus(taskID, status, errorMsg string) {
 	}
 }
 
+// executeAgenticLoop runs the agentic loop with tool support
+func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, initialPrompt string, workingDir string, config *AgentConfig, logMsg func(string)) (string, error) {
+	// Define tools (matches Claude Code's exact tool names)
+	toolDefs := tools.DefineTools()
+
+	// Build messages starting with user prompt
+	messages := []anthropic.MessageParam{
+		anthropic.NewUserMessage(anthropic.NewTextBlock(initialPrompt)),
+	}
+
+	// Determine max turns
+	maxTurns := config.MaxTurns
+	if maxTurns == 0 {
+		maxTurns = 25 // Default
+	}
+
+	logMsg(fmt.Sprintf("🔄 Starting agentic loop (max_turns: %d, extended_thinking: %v)", maxTurns, config.ExtendedThinking))
+
+	var finalResult strings.Builder
+	totalInputTokens := int64(0)
+	totalOutputTokens := int64(0)
+
+	for turn := 1; turn <= maxTurns; turn++ {
+		logMsg(fmt.Sprintf("   Turn %d/%d...", turn, maxTurns))
+
+		// Prepare API params
+		params := anthropic.MessageNewParams{
+			Model:     anthropic.F(s.model),
+			MaxTokens: anthropic.F(int64(s.maxTokens)),
+			Messages:  anthropic.F(messages),
+			Tools:     anthropic.F(toolDefs),
+		}
+
+		// Note: Extended thinking support requires newer SDK version
+		// TODO: Add when SDK updated
+		if config.ExtendedThinking {
+			logMsg("      ⚠️  Extended thinking requested but not yet supported in SDK")
+		}
+
+		// Make API call
+		apiStart := time.Now()
+		message, err := s.client.Messages.New(ctx, params)
+		if err != nil {
+			return "", fmt.Errorf("API call failed on turn %d: %w", turn, err)
+		}
+
+		apiDuration := time.Since(apiStart).Milliseconds()
+		totalInputTokens += message.Usage.InputTokens
+		totalOutputTokens += message.Usage.OutputTokens
+
+		logMsg(fmt.Sprintf("      API: %dms | in:%d out:%d", apiDuration, message.Usage.InputTokens, message.Usage.OutputTokens))
+
+		// Process response blocks
+		var toolUses []anthropic.ToolUseBlock
+		hasText := false
+
+		for _, block := range message.Content {
+			switch b := block.AsUnion().(type) {
+			case anthropic.TextBlock:
+				finalResult.WriteString(b.Text)
+				finalResult.WriteString("\n")
+				hasText = true
+				logMsg(fmt.Sprintf("      💬 Text: %d chars", len(b.Text)))
+
+			case anthropic.ToolUseBlock:
+				toolUses = append(toolUses, b)
+				logMsg(fmt.Sprintf("      🔧 Tool: %s", b.Name))
+			}
+		}
+
+		// If no tool uses and we have text, we're done
+		if len(toolUses) == 0 {
+			if hasText {
+				logMsg(fmt.Sprintf("✅ Agent completed in %d turns", turn))
+				logMsg(fmt.Sprintf("   Total tokens: %d (in:%d out:%d)", totalInputTokens+totalOutputTokens, totalInputTokens, totalOutputTokens))
+				break
+			}
+			return "", fmt.Errorf("no output from agent on turn %d", turn)
+		}
+
+		// Execute tools and build tool results
+		var toolResultBlocks []anthropic.ContentBlockParamUnion
+		for _, toolUse := range toolUses {
+			// Parse tool input from JSON
+			var inputMap map[string]interface{}
+			if err := json.Unmarshal(toolUse.Input, &inputMap); err != nil {
+				logMsg(fmt.Sprintf("         ❌ Failed to parse tool input for %s: %v", toolUse.Name, err))
+				continue
+			}
+
+			// Execute tool with Claude settings
+			result, err := tools.ExecuteTool(toolUse.Name, inputMap, workingDir, s.claudeSettings)
+			if err != nil {
+				logMsg(fmt.Sprintf("         ❌ Tool execution failed: %v", err))
+				result = fmt.Sprintf("Error: %v", err)
+			} else {
+				// Truncate long results for logging
+				displayResult := result
+				if len(displayResult) > 100 {
+					displayResult = displayResult[:100] + "..."
+				}
+				logMsg(fmt.Sprintf("         ✓ %s", displayResult))
+			}
+
+			// Add tool result to blocks
+			toolResultBlocks = append(toolResultBlocks, anthropic.NewToolResultBlock(toolUse.ID, result, false))
+		}
+
+		// Add assistant message with tool uses
+		var assistantContent []anthropic.ContentBlockParamUnion
+		for _, block := range message.Content {
+			if textBlock, ok := block.AsUnion().(anthropic.TextBlock); ok {
+				assistantContent = append(assistantContent, anthropic.NewTextBlock(textBlock.Text))
+			} else if toolBlock, ok := block.AsUnion().(anthropic.ToolUseBlock); ok {
+				assistantContent = append(assistantContent, anthropic.ToolUseBlockParam{
+					ID:    anthropic.F(toolBlock.ID),
+					Name:  anthropic.F(toolBlock.Name),
+					Input: anthropic.F[interface{}](toolBlock.Input),
+					Type:  anthropic.F(anthropic.ToolUseBlockParamTypeToolUse),
+				})
+			}
+		}
+		messages = append(messages, anthropic.NewAssistantMessage(assistantContent...))
+
+		// Add tool results as user message
+		messages = append(messages, anthropic.NewUserMessage(toolResultBlocks...))
+	}
+
+	monitoring.GlobalMetrics.IncrementAPICallsSuccess()
+	monitoring.LogAPICall(ctx, taskID, s.model, int(totalInputTokens+totalOutputTokens))
+
+	return finalResult.String(), nil
+}
+
 func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	ctx := context.Background()
 	taskID := execution.TaskID
 	startTime := time.Now()
+
+	// Create execution log
+	logPath := filepath.Join(s.rootDir, ".beads", "tasks", taskID, "execution.log")
+	logFile, err := os.Create(logPath)
+	if err != nil {
+		monitoring.Logger.Error("log_create_error", "task_id", taskID, "error", err)
+	}
+	defer logFile.Close()
+
+	logMsg := func(msg string) {
+		timestamp := time.Now().Format("15:04:05")
+		line := fmt.Sprintf("[%s] %s\n", timestamp, msg)
+		if logFile != nil {
+			logFile.WriteString(line)
+			logFile.Sync()
+		}
+		monitoring.Logger.Info("agent_log", "task_id", taskID, "message", msg)
+	}
+
+	logMsg("🚀 Agent execution started")
+	logMsg(fmt.Sprintf("   Role: %s", execution.Role))
+	logMsg(fmt.Sprintf("   Task: %s", execution.Task))
 
 	monitoring.LogTaskStarted(ctx, taskID, execution.Role)
 	monitoring.GlobalMetrics.IncrementTasksSpawned()
@@ -565,6 +738,7 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	execution.Progress = 0.1
 	s.mu.Unlock()
 	s.updateTaskStatus(taskID, "in_progress", "")
+	logMsg("📝 Status updated: in_progress")
 
 	// Send stream event
 	s.sendStreamEvent(execution, "status_update", map[string]interface{}{
@@ -573,12 +747,15 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	})
 
 	// Load role context
+	logMsg(fmt.Sprintf("📖 Loading role context: %s", execution.Config.Context.RoleFile))
 	roleContext, err := s.loadRoleContext(execution.Config.Context.RoleFile)
 	if err != nil {
 		monitoring.Logger.Error("role_context_load_error", "task_id", taskID, "error", err)
+		logMsg(fmt.Sprintf("❌ Failed to load role context: %v", err))
 		s.failTask(execution, fmt.Sprintf("Failed to load role context: %v", err))
 		return
 	}
+	logMsg("✅ Role context loaded")
 
 	// Get task packet path and working directory from metadata
 	taskPacketPath := ""
@@ -586,19 +763,25 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	if execution.metadata != nil {
 		if path := execution.metadata["task_packet_path"]; path != "" {
 			taskPacketPath = path
+			logMsg(fmt.Sprintf("📦 Task packet: %s", taskPacketPath))
 		}
 		if dir := execution.metadata["working_directory"]; dir != "" {
 			workingDir = dir
+			logMsg(fmt.Sprintf("📂 Working directory: %s", workingDir))
 		}
 	}
 
 	// Build prompt
+	logMsg("🔨 Building agent prompt...")
 	prompt := s.buildPrompt(execution.Role, execution.Task, roleContext, execution.Config, taskPacketPath, workingDir)
+	logMsg(fmt.Sprintf("✅ Prompt built (%d chars)", len(prompt)))
 
 	// Save agent prompt
 	promptPath := filepath.Join(s.rootDir, ".beads", "tasks", taskID, "agent-prompt.txt")
 	if err := os.WriteFile(promptPath, []byte(prompt), 0644); err != nil {
 		monitoring.Logger.Warn("prompt_save_error", "task_id", taskID, "error", err)
+	} else {
+		logMsg(fmt.Sprintf("💾 Prompt saved: %s", promptPath))
 	}
 
 	// Update progress
@@ -609,36 +792,12 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 		"progress": 0.3,
 	})
 
-	// Execute via Anthropic API
-	apiStartTime := time.Now()
-	monitoring.Logger.Info("api_call_start", "task_id", taskID, "model", s.model)
-
-	message, err := s.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.F(s.model),
-		MaxTokens: anthropic.F(int64(s.maxTokens)),
-		Messages: anthropic.F([]anthropic.MessageParam{
-			anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)),
-		}),
-	})
-
-	apiDurationMs := time.Since(apiStartTime).Milliseconds()
-
+	// Execute via agentic loop with tool support
+	result, err := s.executeAgenticLoop(ctx, taskID, prompt, workingDir, execution.Config, logMsg)
 	if err != nil {
-		monitoring.Logger.Error("api_call_failed", "task_id", taskID, "error", err, "duration_ms", apiDurationMs)
-		monitoring.GlobalMetrics.IncrementAPICallsFailed()
-		s.failTask(execution, fmt.Sprintf("API error: %v", err))
+		logMsg(fmt.Sprintf("❌ Agentic loop failed: %v", err))
+		s.failTask(execution, fmt.Sprintf("Execution error: %v", err))
 		return
-	}
-
-	monitoring.GlobalMetrics.IncrementAPICallsSuccess()
-	monitoring.LogAPICall(ctx, taskID, s.model, int(message.Usage.InputTokens+message.Usage.OutputTokens))
-
-	// Extract response
-	var result string
-	for _, block := range message.Content {
-		if textBlock, ok := block.AsUnion().(anthropic.TextBlock); ok {
-			result += textBlock.Text
-		}
 	}
 
 	// Update progress
@@ -650,12 +809,17 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	})
 
 	// Save results
+	logMsg("💾 Saving results...")
 	resultsPath := filepath.Join(s.rootDir, ".beads", "tasks", taskID, "30-results.md")
 	resultsContent := fmt.Sprintf("# Task Results: %s\n\n**Role**: %s\n**Task**: %s\n**Completed**: %s\n\n## Agent Output\n\n%s\n",
 		taskID, execution.Role, execution.Task, time.Now().Format(time.RFC3339), result)
 
 	if err := os.WriteFile(resultsPath, []byte(resultsContent), 0644); err != nil {
 		monitoring.Logger.Warn("results_save_error", "task_id", taskID, "error", err)
+		logMsg(fmt.Sprintf("⚠️  Failed to save results: %v", err))
+	} else {
+		logMsg(fmt.Sprintf("✅ Results saved: %s", resultsPath))
+		logMsg(fmt.Sprintf("   Output length: %d chars", len(result)))
 	}
 
 	// Complete task
@@ -671,10 +835,13 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 
 	// If this was a Beads task, mark it complete in Beads
 	if beadsTaskID != "" && beads.IsInstalled() {
+		logMsg(fmt.Sprintf("🔗 Marking Beads task complete: %s", beadsTaskID))
 		if err := s.beadsClient.CompleteTask(beadsTaskID); err != nil {
 			monitoring.Logger.Warn("failed_to_complete_beads_task", "task_id", beadsTaskID, "error", err.Error())
+			logMsg(fmt.Sprintf("⚠️  Failed to complete Beads task: %v", err))
 		} else {
 			monitoring.Logger.Info("beads_task_completed", "task_id", beadsTaskID)
+			logMsg("✅ Beads task marked complete")
 		}
 	}
 
@@ -688,6 +855,9 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	// Close stream
 	s.closeStream(execution)
 
+	logMsg(fmt.Sprintf("🎉 Task completed successfully (duration: %dms)", durationMs))
+	logMsg("=" + strings.Repeat("=", 70))
+
 	monitoring.LogTaskCompleted(ctx, taskID, execution.Role, durationMs)
 	monitoring.GlobalMetrics.IncrementTasksCompleted(durationMs)
 }
@@ -695,6 +865,17 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	ctx := context.Background()
 	durationMs := time.Since(execution.StartTime).Milliseconds()
+
+	// Log failure to execution log
+	logPath := filepath.Join(s.rootDir, ".beads", "tasks", execution.TaskID, "execution.log")
+	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err == nil {
+		timestamp := time.Now().Format("15:04:05")
+		logFile.WriteString(fmt.Sprintf("[%s] ❌ Task failed: %s\n", timestamp, errorMsg))
+		logFile.WriteString(fmt.Sprintf("[%s]    Duration: %dms\n", timestamp, durationMs))
+		logFile.WriteString(fmt.Sprintf("[%s] %s\n", timestamp, strings.Repeat("=", 70)))
+		logFile.Close()
+	}
 
 	s.mu.Lock()
 	execution.Status = "failed"

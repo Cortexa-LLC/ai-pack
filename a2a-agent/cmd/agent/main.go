@@ -1,116 +1,396 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
-const Version = "2.1.0"
+const Version = "2.2.0"
+const ServerURL = "http://localhost:8080"
 
 func main() {
-	// Parse command-line flags
-	async := flag.Bool("async", false, "Execute task asynchronously (return immediately)")
-	version := flag.Bool("version", false, "Show version information")
-	flag.Usage = usage
-	flag.Parse()
-
-	if *version {
-		fmt.Printf("AI-Pack Agent CLI v%s\n", Version)
-		os.Exit(0)
-	}
-
-	args := flag.Args()
-	if len(args) < 2 {
+	if len(os.Args) < 2 {
 		usage()
 		os.Exit(1)
 	}
 
-	role := args[0]
-	taskInput := strings.Join(args[1:], " ")
+	command := os.Args[1]
 
-	// Check if input is a Beads task ID by querying Beads
-	// This works with ANY Beads prefix (bd-, xasm++-, etc.)
-	isBeadsTask := isValidBeadsTask(taskInput)
+	switch command {
+	case "status":
+		handleStatus(os.Args[2:])
+	case "results":
+		handleResults(os.Args[2:])
+	case "logs":
+		handleLogs(os.Args[2:])
+	case "list":
+		handleList(os.Args[2:])
+	case "wait":
+		handleWait(os.Args[2:])
+	case "diff":
+		handleDiff(os.Args[2:])
+	case "files":
+		handleFiles(os.Args[2:])
+	case "cancel":
+		handleCancel(os.Args[2:])
+	case "retry":
+		handleRetry(os.Args[2:])
+	case "metrics":
+		handleMetrics(os.Args[2:])
+	case "version", "--version", "-v":
+		fmt.Printf("AI-Pack Agent CLI v%s\n", Version)
+	case "help", "--help", "-h":
+		usage()
+	default:
+		// Assume it's a spawn command: agent <role> <task-id>
+		handleSpawn(os.Args[1:])
+	}
+}
 
-	if isBeadsTask {
-		fmt.Printf("🎯 Beads task: %s\n", taskInput)
-	} else {
-		// Free-form description - show deprecation warning
-		fmt.Printf("⚠️  Using free-form description (deprecated)\n")
-		fmt.Printf("   For better task tracking, use Beads:\n")
-		fmt.Printf("     bd create \"%s\"\n", taskInput)
-		fmt.Printf("     agent %s <task-id>\n", role)
-		fmt.Println()
+func handleSpawn(args []string) {
+	fs := flag.NewFlagSet("spawn", flag.ExitOnError)
+	async := fs.Bool("async", false, "Execute task asynchronously")
+	wait := fs.Bool("wait", false, "Wait for task completion")
+	fs.Parse(args)
+
+	remainingArgs := fs.Args()
+	if len(remainingArgs) < 2 {
+		fmt.Println("Usage: agent [--async|--wait] <role> <beads-task-id>")
+		os.Exit(1)
 	}
 
+	role := remainingArgs[0]
+	taskInput := strings.Join(remainingArgs[1:], " ")
+
+	// Validate Beads task ID
+	if !isValidBeadsTask(taskInput) {
+		fmt.Printf("❌ Error: '%s' is not a valid Beads task ID\n", taskInput)
+		fmt.Println()
+		fmt.Println("Create a Beads task first:")
+		fmt.Printf("  bd create \"Working directory: %s\n", mustGetWorkingDir())
+		fmt.Println("  Task packet: .ai/tasks/YYYY-MM-DD_task-name/")
+		fmt.Println("  ")
+		fmt.Println("  Task description...\" --priority high")
+		fmt.Println()
+		fmt.Println("Then spawn the agent:")
+		fmt.Printf("  agent %s <task-id>\n", role)
+		os.Exit(1)
+	}
+
+	fmt.Printf("🎯 Beads task: %s\n", taskInput)
+
 	// Build agent:// URL
-	// Use PathEscape for URL path segments (preserves + and other special chars)
 	taskEncoded := url.PathEscape(taskInput)
 	agentURL := fmt.Sprintf("agent://%s/%s", role, taskEncoded)
 
-	// Add async parameter if requested
-	if *async {
+	if *async && !*wait {
 		agentURL += "?async=true"
 	}
 
 	fmt.Printf("🔗 Opening: %s\n", agentURL)
-	fmt.Println()
 
-	// Open the URL (OS will invoke the registered protocol handler)
+	// Open the URL
 	if err := openURL(agentURL); err != nil {
 		fmt.Printf("❌ Failed to open agent:// URL: %v\n", err)
-		fmt.Println()
-		fmt.Println("Make sure the agent:// protocol is registered.")
-		fmt.Println("See PROTOCOL-REGISTRATION.md for setup instructions.")
 		os.Exit(1)
+	}
+
+	// Wait a moment for the task to be registered
+	time.Sleep(2 * time.Second)
+
+	// Show initial metrics
+	showMetrics()
+
+	// If --wait flag, poll until complete
+	if *wait {
+		fmt.Println()
+		fmt.Println("⏳ Waiting for completion...")
+		waitForTaskCompletion(taskInput)
 	}
 }
 
-func usage() {
-	fmt.Println("AI-Pack Agent CLI - Convenience wrapper for agent:// protocol")
+func handleStatus(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: agent status <task-id>")
+		os.Exit(1)
+	}
+
+	taskID := args[0]
+
+	// Try to get internal task ID from Beads task ID
+	internalTaskID := findInternalTaskID(taskID)
+	if internalTaskID == "" {
+		fmt.Printf("❌ No agent found for Beads task: %s\n", taskID)
+		os.Exit(1)
+	}
+
+	resp, err := http.Get(fmt.Sprintf("%s/a2a/status/%s", ServerURL, internalTaskID))
+	if err != nil {
+		fmt.Printf("❌ Failed to get status: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	var status map[string]interface{}
+	json.Unmarshal(body, &status)
+
+	fmt.Printf("Task: %s\n", taskID)
+	fmt.Printf("Status: %v\n", status["status"])
+	fmt.Printf("Progress: %v\n", status["progress"])
+	if status["error"] != nil {
+		fmt.Printf("Error: %v\n", status["error"])
+	}
+}
+
+func handleResults(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: agent results <task-id>")
+		os.Exit(1)
+	}
+
+	taskID := args[0]
+	internalTaskID := findInternalTaskID(taskID)
+	if internalTaskID == "" {
+		fmt.Printf("❌ No agent found for Beads task: %s\n", taskID)
+		os.Exit(1)
+	}
+
+	resultsFile := filepath.Join(".beads", "tasks", internalTaskID, "30-results.md")
+	data, err := os.ReadFile(resultsFile)
+	if err != nil {
+		fmt.Printf("❌ No results found: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println(string(data))
+}
+
+func handleLogs(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: agent logs <task-id>")
+		os.Exit(1)
+	}
+
+	taskID := args[0]
+	internalTaskID := findInternalTaskID(taskID)
+	if internalTaskID == "" {
+		fmt.Printf("❌ No agent found for Beads task: %s\n", taskID)
+		os.Exit(1)
+	}
+
+	logFile := filepath.Join(".beads", "tasks", internalTaskID, "execution.log")
+	data, err := os.ReadFile(logFile)
+	if err != nil {
+		fmt.Printf("❌ No logs found: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println(string(data))
+}
+
+func handleList(args []string) {
+	fs := flag.NewFlagSet("list", flag.ExitOnError)
+	running := fs.Bool("running", false, "Show only running agents")
+	fs.Parse(args)
+
+	// List .beads/tasks/task-* directories
+	matches, _ := filepath.Glob(".beads/tasks/task-*")
+
+	fmt.Println("Active Agents:")
 	fmt.Println()
-	fmt.Println("Usage:")
-	fmt.Println("  agent [flags] <role> <beads-task-id>          (recommended)")
-	fmt.Println("  agent [flags] <role> <task description>       (deprecated)")
+	for _, taskDir := range matches {
+		metaFile := filepath.Join(taskDir, "00-metadata.json")
+		data, err := os.ReadFile(metaFile)
+		if err != nil {
+			continue
+		}
+
+		var meta map[string]interface{}
+		json.Unmarshal(data, &meta)
+
+		status := meta["status"].(string)
+		if *running && status != "in_progress" {
+			continue
+		}
+
+		taskID := filepath.Base(taskDir)
+		role := meta["role"]
+		description := meta["description"]
+		beadsTaskID := ""
+		if config, ok := meta["config"].(map[string]interface{}); ok {
+			if md, ok := config["metadata"].(map[string]interface{}); ok {
+				if btid, ok := md["beads_task_id"].(string); ok {
+					beadsTaskID = btid
+				}
+			}
+		}
+
+		fmt.Printf("  %s [%s]\n", taskID, status)
+		fmt.Printf("    Role: %s\n", role)
+		fmt.Printf("    Beads: %s\n", beadsTaskID)
+		fmt.Printf("    Task: %v\n", description)
+		fmt.Println()
+	}
+}
+
+func handleWait(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: agent wait <task-id>")
+		os.Exit(1)
+	}
+
+	taskID := args[0]
+	waitForTaskCompletion(taskID)
+}
+
+func handleDiff(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: agent diff <task-id>")
+		os.Exit(1)
+	}
+
+	// Show git diff
+	cmd := exec.Command("git", "diff")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Run()
+}
+
+func handleFiles(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: agent files <task-id>")
+		os.Exit(1)
+	}
+
+	// Show modified files
+	cmd := exec.Command("git", "status", "--short")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Run()
+}
+
+func handleCancel(args []string) {
+	fmt.Println("❌ Cancel not yet implemented")
+	os.Exit(1)
+}
+
+func handleRetry(args []string) {
+	fmt.Println("❌ Retry not yet implemented")
+	os.Exit(1)
+}
+
+func handleMetrics(args []string) {
+	showMetrics()
+}
+
+func showMetrics() {
+	resp, err := http.Get(fmt.Sprintf("%s/metrics", ServerURL))
+	if err != nil {
+		fmt.Printf("⚠️  Could not get metrics: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	var metrics map[string]interface{}
+	json.Unmarshal(body, &metrics)
+
 	fmt.Println()
-	fmt.Println("Examples:")
-	fmt.Println("  # Recommended: Use Beads task tracking")
-	fmt.Println("  bd create \"Create hello world function\"")
-	fmt.Println("  agent engineer bd-a1b2")
+	fmt.Println("📊 Server Metrics:")
+	fmt.Printf("   Tasks spawned: %.0f\n", metrics["tasks_spawned"])
+	fmt.Printf("   In progress: %.0f\n", metrics["tasks_in_progress"])
+	fmt.Printf("   Completed: %.0f\n", metrics["tasks_completed"])
+	fmt.Printf("   Failed: %.0f\n", metrics["tasks_failed"])
 	fmt.Println()
-	fmt.Println("  # Deprecated: Free-form description")
-	fmt.Println("  agent engineer \"create hello world function\"")
-	fmt.Println()
-	fmt.Println("  # Async execution")
-	fmt.Println("  agent --async tester bd-x7z9")
-	fmt.Println()
-	fmt.Println("Flags:")
-	flag.PrintDefaults()
-	fmt.Println()
-	fmt.Println("This command generates an agent:// URL and opens it using your")
-	fmt.Println("system's registered protocol handler (agent-server).")
-	fmt.Println()
-	fmt.Println("For best results, create tasks in Beads first:")
-	fmt.Println("  bd create \"Task description\"")
-	fmt.Println("  bd show bd-xxxx")
-	fmt.Println("  agent <role> bd-xxxx")
+}
+
+func waitForTaskCompletion(beadsTaskID string) {
+	internalTaskID := findInternalTaskID(beadsTaskID)
+	if internalTaskID == "" {
+		fmt.Printf("❌ No agent found for Beads task: %s\n", beadsTaskID)
+		os.Exit(1)
+	}
+
+	for {
+		resp, err := http.Get(fmt.Sprintf("%s/a2a/status/%s", ServerURL, internalTaskID))
+		if err != nil {
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		var status map[string]interface{}
+		json.Unmarshal(body, &status)
+
+		statusStr := status["status"].(string)
+		if statusStr == "completed" {
+			fmt.Println("✅ Agent completed!")
+			showMetrics()
+			break
+		} else if statusStr == "failed" {
+			fmt.Println("❌ Agent failed!")
+			if status["error"] != nil {
+				fmt.Printf("   Error: %v\n", status["error"])
+			}
+			break
+		}
+
+		time.Sleep(5 * time.Second)
+	}
+}
+
+func findInternalTaskID(beadsTaskID string) string {
+	// Search .beads/tasks/ for metadata matching this Beads task ID
+	matches, _ := filepath.Glob(".beads/tasks/task-*")
+	for _, taskDir := range matches {
+		metaFile := filepath.Join(taskDir, "00-metadata.json")
+		data, err := os.ReadFile(metaFile)
+		if err != nil {
+			continue
+		}
+
+		var meta map[string]interface{}
+		json.Unmarshal(data, &meta)
+
+		// Check if description matches Beads task ID
+		if desc, ok := meta["description"].(string); ok {
+			if desc == beadsTaskID {
+				return filepath.Base(taskDir)
+			}
+		}
+	}
+	return ""
 }
 
 func isValidBeadsTask(taskID string) bool {
-	// Quick format check - must contain a separator like - or +
 	if !strings.Contains(taskID, "-") && !strings.Contains(taskID, "+") {
 		return false
 	}
 
-	// Ask Beads if this task exists (works with any prefix)
 	cmd := exec.Command("bd", "show", taskID)
 	err := cmd.Run()
 	return err == nil
+}
+
+func mustGetWorkingDir() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "/path/to/project"
+	}
+	return wd
 }
 
 func openURL(url string) error {
@@ -128,4 +408,42 @@ func openURL(url string) error {
 	}
 
 	return cmd.Run()
+}
+
+func usage() {
+	fmt.Println("AI-Pack Agent CLI v" + Version)
+	fmt.Println()
+	fmt.Println("Usage:")
+	fmt.Println("  agent <role> <beads-task-id> [--async|--wait]    Spawn an agent")
+	fmt.Println("  agent status <task-id>                            Check agent status")
+	fmt.Println("  agent results <task-id>                           Show agent results")
+	fmt.Println("  agent logs <task-id>                              Show agent logs")
+	fmt.Println("  agent list [--running]                            List agents")
+	fmt.Println("  agent wait <task-id>                              Wait for completion")
+	fmt.Println("  agent diff <task-id>                              Show git diff")
+	fmt.Println("  agent files <task-id>                             List modified files")
+	fmt.Println("  agent metrics                                     Show server metrics")
+	fmt.Println("  agent version                                     Show version")
+	fmt.Println()
+	fmt.Println("Examples:")
+	fmt.Println("  # Create Beads task with proper format")
+	fmt.Println("  bd create \"Feature title")
+	fmt.Println()
+	fmt.Println("  Working directory: /Users/you/Projects/project")
+	fmt.Println("  Task packet: .ai/tasks/2026-01-24_feature/")
+	fmt.Println()
+	fmt.Println("  Description...\" --priority high")
+	fmt.Println()
+	fmt.Println("  # Spawn agent")
+	fmt.Println("  agent engineer xasm++-vp5")
+	fmt.Println()
+	fmt.Println("  # Spawn and wait for completion")
+	fmt.Println("  agent engineer xasm++-vp5 --wait")
+	fmt.Println()
+	fmt.Println("  # Check status")
+	fmt.Println("  agent status xasm++-vp5")
+	fmt.Println()
+	fmt.Println("  # List all agents")
+	fmt.Println("  agent list")
+	fmt.Println()
 }
