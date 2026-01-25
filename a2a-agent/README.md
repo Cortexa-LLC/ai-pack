@@ -78,6 +78,105 @@ make dev-server
 
 ---
 
+## Agent CLI Usage
+
+The `agent` CLI provides commands for spawning and managing agent tasks using Beads task IDs.
+
+### Spawning Agents
+
+```bash
+# Spawn agent (fire and forget)
+agent engineer <beads-task-id>
+
+# Spawn and wait for completion (polling)
+agent engineer <beads-task-id> --wait
+
+# Spawn and stream real-time progress (SSE)
+agent engineer <beads-task-id> --stream
+```
+
+**Example:**
+```bash
+# Create a Beads task first
+bd create "Implement user authentication" --priority high
+
+# Spawn engineer agent with Beads task ID
+agent engineer xasm++-vp5
+
+# Or stream progress in real-time
+agent engineer xasm++-vp5 --stream
+```
+
+### Monitoring Tasks
+
+```bash
+# Check task status
+agent status <beads-task-id>
+
+# View task results
+agent results <beads-task-id>
+
+# View execution logs
+agent logs <beads-task-id>
+
+# List all active agents
+agent list
+
+# List only running agents
+agent list --running
+```
+
+### Metrics and Utilities
+
+```bash
+# Show server metrics
+agent metrics
+
+# Show modified files (git)
+agent files <beads-task-id>
+
+# Show git diff
+agent diff <beads-task-id>
+
+# Wait for task completion
+agent wait <beads-task-id>
+```
+
+### How Task IDs Work
+
+**You use Beads task IDs everywhere.** The CLI handles internal task ID conversion automatically:
+
+1. You provide Beads task ID (e.g., `xasm++-vp5`)
+2. CLI finds corresponding internal task ID (e.g., `task-engineer-20260125-150405`)
+3. CLI uses internal ID for API calls
+4. You never need to know about internal IDs
+
+**Task metadata location:**
+```
+.beads/tasks/task-engineer-20260125-150405/
+├── 00-metadata.json      # Task metadata (includes beads_task_id)
+├── 10-plan.md           # Agent's plan
+├── 20-work-log.md       # Progress tracking
+├── 30-results.md        # Final results
+├── agent-prompt.txt     # Prompt sent to agent
+└── execution.log        # Execution log
+```
+
+### Streaming vs Polling
+
+**Streaming (`--stream`):**
+- Real-time SSE updates
+- Lower latency
+- Better for monitoring multiple agents
+- Recommended for orchestrators
+
+**Polling (`--wait`):**
+- Checks status every 5 seconds
+- Simpler implementation
+- Good for simple scripts
+
+---
+
 ## Configuration
 
 Server configuration is in `configs/agent-server.json`:

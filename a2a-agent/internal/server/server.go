@@ -578,10 +578,10 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 		anthropic.NewUserMessage(anthropic.NewTextBlock(initialPrompt)),
 	}
 
-	// Determine max turns
+	// Determine max turns - set high, agent decides when it's done
 	maxTurns := config.MaxTurns
 	if maxTurns == 0 {
-		maxTurns = 25 // Default
+		maxTurns = 100 // High safety limit, agent should complete naturally
 	}
 
 	logMsg(fmt.Sprintf("🔄 Starting agentic loop (max_turns: %d, extended_thinking: %v)", maxTurns, config.ExtendedThinking))
@@ -590,8 +590,10 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 	totalInputTokens := int64(0)
 	totalOutputTokens := int64(0)
 
+	completedNormally := false
+
 	for turn := 1; turn <= maxTurns; turn++ {
-		logMsg(fmt.Sprintf("   Turn %d/%d...", turn, maxTurns))
+		logMsg(fmt.Sprintf("   Turn %d...", turn))
 
 		// Prepare API params
 		params := anthropic.MessageNewParams{
@@ -643,6 +645,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 			if hasText {
 				logMsg(fmt.Sprintf("✅ Agent completed in %d turns", turn))
 				logMsg(fmt.Sprintf("   Total tokens: %d (in:%d out:%d)", totalInputTokens+totalOutputTokens, totalInputTokens, totalOutputTokens))
+				completedNormally = true
 				break
 			}
 			return "", fmt.Errorf("no output from agent on turn %d", turn)
@@ -694,6 +697,12 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 
 		// Add tool results as user message
 		messages = append(messages, anthropic.NewUserMessage(toolResultBlocks...))
+	}
+
+	// If we reach here, we hit the turn limit (safety net)
+	if !completedNormally {
+		logMsg(fmt.Sprintf("⚠️  Agent hit turn limit (%d) - returning current state", maxTurns))
+		// Return what we have - don't fail the task, let the output speak for itself
 	}
 
 	monitoring.GlobalMetrics.IncrementAPICallsSuccess()
