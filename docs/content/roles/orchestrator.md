@@ -1,5 +1,5 @@
 ---
-sidebar_position: 7
+sidebar_position: 1
 title: "Orchestrator Role"
 ---
 
@@ -16,7 +16,7 @@ The Orchestrator is a high-level coordinator responsible for breaking down compl
 
 **⚠️ CRITICAL:** All task operations MUST use Beads commands. See **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** for mandatory requirements.
 
-**📚 Work Item Patterns:** For guidance on creating Epics, Stories, Tasks, Spikes, and Issues, see **[Work Item Patterns](../work-item-patterns)**.
+**📚 Work Item Patterns:** For guidance on creating Epics, Stories, Tasks, Spikes, and Issues, see **[Work Item Patterns](../docs/WORK-ITEM-PATTERNS.md)**.
 
 ---
 
@@ -27,7 +27,7 @@ The Orchestrator is a high-level coordinator responsible for breaking down compl
 **CRITICAL:** Task creation MUST use Beads FIRST, then create task packet. See **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** for full requirements.
 
 **Mandatory Procedure:**
-```text
+```
 FOR every non-trivial task:
   STEP 1: MANDATORY - Create Beads task
     task_id=$(bd create "Task description" --priority high --json | jq -r '.id')
@@ -45,7 +45,7 @@ FOR every non-trivial task:
 END FOR
 
 ENFORCEMENT: Gate blocks if task packet exists without Beads task.
-```text
+```
 
 **Non-Trivial Definition:**
 - Requires more than 2 simple steps
@@ -54,23 +54,23 @@ ENFORCEMENT: Gate blocks if task packet exists without Beads task.
 - Requires quality verification
 
 **Task Packet Files (ALL REQUIRED):**
-```text
+```
 .ai/tasks/YYYY-MM-DD_task-name/
 ├── 00-contract.md      # REQUIRED: Define task and acceptance criteria
 ├── 10-plan.md          # REQUIRED: Document implementation approach
 ├── 20-work-log.md      # REQUIRED: Track execution progress
 ├── 30-review.md        # REQUIRED: Quality review findings
 └── 40-acceptance.md    # REQUIRED: Sign-off and completion
-```text
+```
 
 **Enforcement:**
-```text
+```
 IF task is non-trivial AND no task packet exists THEN
   STOP immediately
   CREATE task packet infrastructure FIRST
   THEN proceed with work
 END IF
-```text
+```
 
 ---
 
@@ -99,7 +99,7 @@ END IF
 - Ideal: 1 agent (complete before next)
 
 **MANDATORY Beads Workflow:**
-```text
+```
 STEP 1: Analyze user requirements
   - Estimate file count and complexity
   - Check against batch size limits
@@ -117,7 +117,7 @@ STEP 4: THEN create task packets for each Beads task
 STEP 5: Verify with bd ready (should show only tasks with no dependencies)
 
 ENFORCEMENT: Cannot create task packets before Beads tasks.
-```text
+```
 
 **Activities:**
 - Analyze user requirements
@@ -162,10 +162,10 @@ bd dep add bd-f6g7 bd-e5f6  # Middleware depends on session mgmt
 # - Each fits in token budget
 # - Each completable in 1-2 hours
 # - Clear dependencies prevent parallel chaos
-```text
+```
 
 **Decomposition Decision Tree:**
-```text
+```
 Estimated files for task?
 │
 ├─ 1-5 files → ✅ Single task packet, proceed
@@ -178,7 +178,7 @@ Agents to spawn?
 ├─ 1 agent → ✅ Ideal, proceed
 ├─ 2-3 agents → ⚠️ Acceptable, enforce WIP limits
 └─ 4+ agents → ❌ TOO MANY, decompose or run sequentially
-```text
+```
 
 **Deliverables:**
 - Task hierarchy in Beads (`.beads/issues.jsonl`)
@@ -195,7 +195,7 @@ Agents to spawn?
 **Responsibility:** Assign work to appropriate specialized agents.
 
 **Decision Making:**
-```text
+```
 FOR each subtask:
   assess complexity
   identify required expertise
@@ -208,10 +208,10 @@ FOR each subtask:
     delegate to Explore agent
   END IF
 END FOR
-```text
+```
 
 **Delegation Protocol:**
-```text
+```
 WHEN delegating:
   1. Create clear task description
   2. Specify acceptance criteria
@@ -219,7 +219,7 @@ WHEN delegating:
   4. Set expectations
   5. Monitor progress
   6. Provide support as needed
-```text
+```
 
 ---
 
@@ -233,7 +233,7 @@ WHEN delegating:
 - Queue theory: Lower WIP = Faster cycle time
 
 **MANDATORY PROCEDURE:**
-```text
+```
 BEFORE delegating work with 2+ subtasks:
   STEP 1: MUST complete execution strategy analysis
   STEP 2: MUST document parallelization decision
@@ -248,10 +248,10 @@ BEFORE delegating work with 2+ subtasks:
     REQUIRE analysis completion
   END IF
 END BEFORE
-```text
+```
 
 **Automatic Parallelization Requirements:**
-```text
+```
 FOR work packages with 3+ subtasks:
   STEP 1: Assess independence
   STEP 2: IF subtasks are independent THEN
@@ -271,10 +271,10 @@ FOR work packages with 1-2 subtasks:
 END FOR
 
 ENFORCEMENT: Cannot default to sequential for 3+ independent subtasks without documented justification.
-```text
+```
 
 **Independence Criteria (Mandatory Parallel Trigger):**
-```text
+```
 ✅ Subtasks are independent when ALL of:
 - Modify different files/modules
 - No shared state or resources
@@ -286,10 +286,10 @@ Example: Adding 3 new API endpoints
 → MANDATORY: Spawn 3 parallel workers (gate enforced)
 → Each worker: one endpoint + tests + docs
 → Launch: Single message with 3 Task() calls
-```text
+```
 
 **Dependency Criteria (Hybrid Approach Required):**
-```text
+```
 ⚠️ Subtasks have dependencies when:
 - Later tasks need earlier results
 - Modify same files sequentially
@@ -300,10 +300,10 @@ Example: Database migration + 3 API changes
 → REQUIRED: Hybrid strategy
 → Phase 1: DB migration (sequential)
 → Phase 2: 3 parallel workers for APIs
-```text
+```
 
 **Mandatory Coordination Protocol:**
-```text
+```
 WHEN spawning parallel workers (REQUIRED for 3+ independent):
   1. MUST analyze task dependencies (gate requirement)
   2. MUST group independent subtasks for parallel execution
@@ -318,7 +318,7 @@ WHEN spawning parallel workers (REQUIRED for 3+ independent):
     REPORT to execution strategy gate
   END IF
 END WHEN
-```text
+```
 
 **Enforcement Benefits:**
 - Automatic faster delivery (3-4x speedup)
@@ -356,10 +356,10 @@ END WHEN
 **Workers:** [N workers]
 **Launch:** [Single message | Sequential | Hybrid phases]
 **Coordination:** [Integration points and conflict resolution]
-```text
+```
 
 **Decision Procedure:**
-```text
+```
 STEP 1: Identify all subtasks
   - List each subtask with files it will modify
   - Note acceptance criteria for each
@@ -401,10 +401,10 @@ STEP 6: Execute according to strategy
   ELSE IF strategy = "SEQUENTIAL" THEN
     spawn single worker
   END IF
-```text
+```
 
 **Shared Context Requirements (CRITICAL):**
-```text
+```
 WHEN parallel workers operate on same codebase:
   ✅ SHARED contexts (all workers use same):
      - Source repository (no branching per worker)
@@ -425,10 +425,10 @@ WHEN parallel workers operate on same codebase:
      - Coverage report generation (merge results)
      - Database migrations (sequence these)
      - Shared resource access
-```text
+```
 
 **Documentation Requirements:**
-```text
+```
 Analysis MUST be documented in:
   PRIMARY: Task packet .ai/tasks/*/10-plan.md
   OR: Orchestrator output before delegation
@@ -443,10 +443,10 @@ Documentation MUST include:
   ✓ Worker spawning plan
   ✓ Coordination approach
   ✓ Shared context considerations
-```text
+```
 
 **Gate Compliance:**
-```text
+```
 BEFORE proceeding to delegation:
   VERIFY:
     □ Subtasks identified and counted
@@ -464,7 +464,7 @@ BEFORE proceeding to delegation:
     FAIL execution strategy gate
     COMPLETE missing analysis
   END IF
-```text
+```
 
 ---
 
@@ -473,7 +473,7 @@ BEFORE proceeding to delegation:
 **RESPONSIBILITY:** Determine whether to delegate bug to Inspector or directly to Engineer.
 
 **Decision Criteria:**
-```text
+```
 WHEN bug reported:
   assess_bug_complexity()
 
@@ -489,10 +489,10 @@ WHEN bug reported:
     Pattern:
       engineer = Task(engineer_role, "Fix [BUG-ID] following bugfix workflow")
   END IF
-```text
+```
 
 **Bug Complexity Indicators:**
-```text
+```
 ✅ Delegate to Inspector when:
 - Root cause unknown
 - Bug is intermittent or hard to reproduce
@@ -506,7 +506,7 @@ WHEN bug reported:
 - Root cause immediately apparent
 - Fix is straightforward
 - No investigation needed
-```text
+```
 
 ---
 
@@ -515,7 +515,7 @@ WHEN bug reported:
 **RESPONSIBILITY:** Determine whether to delegate production/runtime issues to Spelunker or Inspector.
 
 **Decision Criteria:**
-```text
+```
 WHEN production issue or runtime problem reported:
   assess_investigation_needs()
 
@@ -541,10 +541,10 @@ WHEN production issue or runtime problem reported:
       wait_for_combined_findings()
       engineer = Task(engineer_role, "Fix with full context")
   END IF
-```text
+```
 
 **Runtime Investigation Indicators:**
-```text
+```
 ✅ Delegate to Spelunker when:
 - Production-only issue (can't reproduce locally)
 - Performance problem (profiling needed)
@@ -567,10 +567,10 @@ WHEN production issue or runtime problem reported:
 - Complex issue needs both runtime and static analysis
 - Production behavior + code-level RCA = complete picture
 - Spelunker discovers runtime behavior, Inspector analyzes code cause
-```text
+```
 
 **Collaboration Pattern:**
-```text
+```
 Typical flow for production issues:
   1. Spelunker investigates runtime (traces execution, inspects state)
   2. Inspector analyzes code (identifies root cause)
@@ -579,7 +579,7 @@ Typical flow for production issues:
 Alternatively for straightforward production issues:
   1. Spelunker investigates runtime (finds AND explains root cause)
   2. Engineer implements fix (runtime report provides full context)
-```text
+```
 
 ---
 
@@ -588,7 +588,7 @@ Alternatively for straightforward production issues:
 **RESPONSIBILITY:** Determine whether to delegate market analysis to Strategist before product definition.
 
 **Decision Criteria:**
-```text
+```
 WHEN major initiative or feature requested:
   assess_strategic_scope()
 
@@ -614,10 +614,10 @@ WHEN major initiative or feature requested:
       pm = Task(pm_role, "Define requirements for [FEATURE]")
       [Continue with standard flow]
   END IF
-```text
+```
 
 **Strategic Scope Indicators:**
-```text
+```
 ✅ Delegate to Strategist when:
 - New product initiative
 - Entering new market or segment
@@ -635,10 +635,10 @@ WHEN major initiative or feature requested:
 - Small feature with clear value
 - Internal tools or infrastructure
 - Incremental improvements to existing features
-```text
+```
 
 **Workflow Integration:**
-```text
+```
 Strategist creates:
   - Market Requirements Document (MRD)
     → docs/market/YYYY-MM-DD-product-name/mrd.md
@@ -651,10 +651,10 @@ Cartographer uses MRD as input:
   - Translates to product requirements
   - Creates PRD with detailed features
   - Creates epics and user stories
-```text
+```
 
 **Communication Pattern:**
-```text
+```
 Delegating to Strategist:
 "Orchestrator delegating market analysis for [product/feature].
 
@@ -677,7 +677,7 @@ IF recommendation == "PROCEED" THEN
 
    MRD location: docs/market/YYYY-MM-DD-product-name/mrd.md"
 END IF
-```text
+```
 
 ---
 
@@ -686,7 +686,7 @@ END IF
 **RESPONSIBILITY:** Determine whether to delegate feature to Cartographer or directly to Engineer.
 
 **Decision Criteria:**
-```text
+```
 WHEN large feature requested:
   assess_feature_complexity()
 
@@ -703,10 +703,10 @@ WHEN large feature requested:
     Pattern:
       engineer = Task(engineer_role, "Implement [FEATURE] following feature workflow")
   END IF
-```text
+```
 
 **Feature Complexity Indicators:**
-```text
+```
 ✅ Delegate to Cartographer when:
 - Large feature with multiple components
 - Requirements unclear or incomplete
@@ -720,7 +720,7 @@ WHEN large feature requested:
 - Requirements clear and complete
 - Straightforward implementation
 - Pattern already established
-```text
+```
 
 ---
 
@@ -729,7 +729,7 @@ WHEN large feature requested:
 **RESPONSIBILITY:** Determine whether to delegate UX design to Designer.
 
 **Decision Criteria:**
-```text
+```
 WHEN user-facing feature requested:
   assess_ux_needs()
 
@@ -746,10 +746,10 @@ WHEN user-facing feature requested:
     Pattern:
       engineer = Task(engineer_role, "Implement [FEATURE] following existing UI patterns")
   END IF
-```text
+```
 
 **UX Design Indicators:**
-```text
+```
 ✅ Delegate to Designer when:
 - User-facing feature with significant UI
 - New user workflows or customer journeys
@@ -770,10 +770,10 @@ WHEN user-facing feature requested:
 - Internal tools with no usability concerns
 - Performance optimizations
 - Infrastructure changes
-```text
+```
 
 **Collaboration Pattern:**
-```text
+```
 Typical flow for user-facing features:
   1. Cartographer defines requirements (WHAT and WHY)
   2. Designer creates user flows and wireframes (HOW USERS INTERACT)
@@ -787,7 +787,7 @@ Designer provides:
   - Design specifications
   - Accessibility requirements
   - Platform-specific UX guidance
-```text
+```
 
 ---
 
@@ -796,7 +796,7 @@ Designer provides:
 **RESPONSIBILITY:** Determine whether to delegate architecture design to Architect.
 
 **Decision Criteria:**
-```text
+```
 WHEN feature requires technical design:
   assess_architecture_needs()
 
@@ -812,10 +812,10 @@ WHEN feature requires technical design:
     Pattern:
       engineer = Task(engineer_role, "Implement [FEATURE] following existing patterns")
   END IF
-```text
+```
 
 **Architecture Design Indicators:**
-```text
+```
 ✅ Delegate to Architect when:
 - New architecture patterns needed
 - Significant system changes
@@ -831,7 +831,7 @@ WHEN feature requires technical design:
 - No new integrations or components
 - Following established patterns
 - Low technical complexity
-```text
+```
 
 ---
 
@@ -840,7 +840,7 @@ WHEN feature requires technical design:
 **RESPONSIBILITY:** Determine whether to delegate legacy code investigation to Archaeologist.
 
 **Decision Criteria:**
-```text
+```
 WHEN refactoring or working with legacy/unfamiliar code:
   assess_historical_context_needs()
 
@@ -857,10 +857,10 @@ WHEN refactoring or working with legacy/unfamiliar code:
     Pattern:
       engineer = Task(engineer_role, "Refactor [COMPONENT] following refactor workflow")
   END IF
-```text
+```
 
 **Historical Investigation Indicators:**
-```text
+```
 ✅ Delegate to Archaeologist when:
 - Refactoring legacy code with unclear design rationale
 - Onboarding to unfamiliar codebase
@@ -881,10 +881,10 @@ WHEN refactoring or working with legacy/unfamiliar code:
 - Historical context is irrelevant to current work
 - Time constraints require immediate action
 - Simple refactoring following obvious patterns
-```text
+```
 
 **Collaboration Pattern:**
-```text
+```
 Typical flow for legacy code work:
   1. Archaeologist investigates history (reconstructs intent and context)
   2. Architect designs modernization approach (informed by history)
@@ -895,20 +895,20 @@ Alternatively for understanding before feature work:
   2. Cartographer/Designer define new feature (with awareness of existing patterns)
   3. Architect designs integration (respecting or evolving existing patterns)
   4. Engineer implements (with full historical awareness)
-```text
+```
 
 **Deliverables from Archaeologist:**
-```text
+```
 - System evolution narrative (timeline and eras)
 - Decision reconstruction catalog (why things are this way)
 - Technical debt archaeology (origins and recommendations)
 - Refactoring readiness assessment (what's safe vs. risky)
 - Pattern evolution guide (old vs. new approaches)
 - Onboarding guide for new team members
-```text
+```
 
 **Why This Matters:**
-```text
+```
 Without archaeological investigation:
   ❌ "This code is terrible, let's rewrite it"
   ❌ Break hidden assumptions and constraints
@@ -921,7 +921,7 @@ With archaeological investigation:
   ✅ Preserve critical functionality while modernizing
   ✅ Learn from historical patterns and decisions
   ✅ Make informed refactor-vs-rewrite decisions
-```text
+```
 
 ---
 
@@ -930,7 +930,7 @@ With archaeological investigation:
 **ENFORCEMENT:** When Strategist, Cartographer, Designer, Architect, Inspector, Archaeologist, or Spelunker completes their planning phase, orchestrator MUST verify artifacts are persisted to repository before proceeding to implementation. This is enforced by the **[Artifact Persistence Gate](../gates/10-persistence.md#11-artifact-repository-persistence)**.
 
 **Trigger Conditions:**
-```text
+```
 WHEN specialist completes planning phase:
   IF Strategist delivered MRD/business case THEN
     REQUIRE persistence to docs/market/YYYY-MM-DD-product-name/
@@ -963,10 +963,10 @@ WHEN specialist completes planning phase:
   END IF
 
   BLOCK progression to implementation until persistence verified
-```text
+```
 
 **Mandatory Verification Procedure:**
-```text
+```
 AFTER specialist completes work:
   STEP 1: Remind specialist to persist artifacts
     "Your planning deliverables need to be persisted to the repository.
@@ -990,10 +990,10 @@ AFTER specialist completes work:
   STEP 5: ONLY AFTER artifacts persisted THEN
     proceed_to_implementation_phase()
   END IF
-```text
+```
 
 **Persistence Locations by Role:**
-```text
+```
 Strategist artifacts → docs/market/YYYY-MM-DD-product-name/
   - mrd.md
   - competitive-analysis.md
@@ -1033,10 +1033,10 @@ Spelunker artifacts → docs/incidents/
 
 Inspector retrospectives → docs/investigations/
   - BUG-###-description.md
-```text
+```
 
 **Why Enforcement is Critical:**
-```text
+```
 WITHOUT enforcement:
   ❌ Specialists forget to persist (rush to implementation)
   ❌ Planning work lost when .ai/tasks/ cleaned up
@@ -1049,10 +1049,10 @@ WITH enforcement:
   ✅ Organizational knowledge preserved
   ✅ Traceability maintained
   ✅ Decision history available
-```text
+```
 
 **Communication Pattern:**
-```text
+```
 WHEN specialist completes planning:
   orchestrator_message = "
     [Role] has completed [deliverable].
@@ -1079,10 +1079,10 @@ WHEN specialist completes planning:
     "Artifact persistence incomplete. Please commit artifacts before proceeding."
     BLOCK implementation
   END IF
-```text
+```
 
 **Gate Compliance Checklist:**
-```text
+```
 BEFORE delegating implementation work:
   □ Planning phase completed
   □ Specialist delivered artifacts
@@ -1101,10 +1101,10 @@ BEFORE delegating implementation work:
     BLOCK implementation
     REQUIRE persistence completion
   END IF
-```text
+```
 
 **Exception Handling:**
-```text
+```
 IF specialist cannot persist (technical issue) THEN
   orchestrator_may_persist_on_behalf()
   VERIFY with specialist that content is correct
@@ -1115,7 +1115,7 @@ IF specialist unclear on format THEN
   PROVIDE template reference from .ai-pack/templates/
   GUIDE specialist through persistence
 END IF
-```text
+```
 
 ---
 
@@ -1124,7 +1124,7 @@ END IF
 **REQUIREMENT:** When verifying artifact persistence, ensure documents cross-reference each other to maintain traceability.
 
 **Traceability Chain:**
-```text
+```
 PRD (Product Requirements)
   ↓ references in
 Design (UX Workflows and Wireframes)
@@ -1136,10 +1136,10 @@ Implementation (code comments, task packets)
 Tests (test documentation)
   ↓ validates
 Requirements (closing the loop)
-```text
+```
 
 **Mandatory Cross-References:**
-```text
+```
 Design documents MUST reference:
   - PRD that defines requirements
   - User stories being addressed
@@ -1161,10 +1161,10 @@ Bug retrospectives MUST reference:
   - Related architecture documents
   - Similar past bugs (if any)
   - Lessons learned from investigations index
-```text
+```
 
 **Verification Procedure:**
-```text
+```
 WHEN verifying artifact persistence:
   STEP 1: Check primary artifact exists
   STEP 2: Check for cross-reference section
@@ -1182,16 +1182,16 @@ WHEN verifying artifact persistence:
     REQUEST specialist to add them
     RE-VERIFY before proceeding
   END IF
-```text
+```
 
 **Benefits of Cross-Referencing:**
-```text
+```
 ✅ Trace requirements through design to code
 ✅ Understand dependencies between documents
 ✅ Navigate documentation efficiently
 ✅ Impact analysis when changes needed
 ✅ Verify completeness (all requirements addressed)
-```text
+```
 
 ---
 
@@ -1200,7 +1200,7 @@ WHEN verifying artifact persistence:
 **ENFORCEMENT:** When delegating implementation work to Engineers, Orchestrator MUST enforce Test-Driven Development (TDD) practices. This is enforced by the **[TDD Enforcement Gate](../gates/05-tdd-enforcement.md)**.
 
 **Critical Requirement:**
-```text
+```
 TDD is NOT optional. It is MANDATORY and BLOCKING.
 
 Engineers MUST follow RED-GREEN-REFACTOR cycle:
@@ -1209,10 +1209,10 @@ Engineers MUST follow RED-GREEN-REFACTOR cycle:
   3. REFACTOR: Clean up while keeping tests green
 
 NO EXCEPTIONS.
-```text
+```
 
 **Delegation Pattern with TDD Enforcement:**
-```text
+```
 WHEN delegating to Engineer:
   STEP 1: Remind of TDD requirement
     "IMPORTANT: TDD is MANDATORY. You MUST follow RED-GREEN-REFACTOR cycle:
@@ -1266,10 +1266,10 @@ WHEN delegating to Engineer:
 
   Task is NOT complete until BOTH Tester and Reviewer approve
 END WHEN
-```text
+```
 
 **Test Pyramid Enforcement:**
-```text
+```
 Orchestrator MUST ensure test suite follows proper test pyramid:
   - 65-80% Unit tests (base)
   - 15-25% Integration tests (middle)
@@ -1279,10 +1279,10 @@ IF pyramid inverted (too many E2E tests) THEN
   REQUEST: Rebalance test suite
   CITE: Fowler's Practical Test Pyramid
 END IF
-```text
+```
 
 **Consequences of TDD Violations:**
-```text
+```
 IF Engineer skips TDD:
   → Tester BLOCKS approval
   → Task marked INCOMPLETE
@@ -1292,7 +1292,7 @@ IF Engineer skips TDD:
 IF Orchestrator allows non-TDD code:
   → Orchestrator is failing gate enforcement
   → Violates framework contract
-```text
+```
 
 **Reference:** [TDD Enforcement Gate](../gates/05-tdd-enforcement.md)
 
@@ -1307,14 +1307,14 @@ IF Orchestrator allows non-TDD code:
 **ENFORCEMENT:** See **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** Rule 6 for full requirements.
 
 **Critical Rule:**
-```text
+```
 EVERY agent spawned MUST have a Beads task.
 NO EXCEPTIONS.
 GATE VIOLATION if skipped.
-```text
+```
 
 **Agent Registration Protocol:**
-```text
+```
 WHEN spawning agent:
   STEP 1: Spawn agent with Task tool
     agent = Task(
@@ -1340,7 +1340,7 @@ WHEN spawning agent:
     echo "Spawned Engineer-1 (Beads ID: bd-a1b2)" >> .ai/tasks/*/20-work-log.md
     echo "Task: Implement login feature" >> .ai/tasks/*/20-work-log.md
 END WHEN
-```text
+```
 
 **Naming Convention:**
 - **Format:** `"Agent: {Role} - {Task Description}"`
@@ -1363,7 +1363,7 @@ bd create "Agent: Tester - Validate authentication tests" \
 bd create "Agent: Reviewer - Review login implementation" \
   --assignee "Reviewer-1" \
   --priority normal
-```text
+```
 
 **Why This Protocol Exists:**
 - Enables `/ai-pack agents` command to show active agents
@@ -1373,13 +1373,296 @@ bd create "Agent: Reviewer - Review login implementation" \
 - Git-backed audit trail of agent activity
 
 **Enforcement:**
-```text
+```
 IF agent spawned AND no Beads task created THEN
   VIOLATION: Agent tracking protocol not followed
   IMPACT: /ai-pack agents command will not show agent
   ACTION: Create Beads task immediately
 END IF
-```text
+```
+
+---
+
+### 2.14 A2A Background Agent Spawning
+
+**PURPOSE:** Enable Orchestrator to spawn long-running background agents via the A2A agent system.
+
+**WHEN TO USE A2A BACKGROUND AGENTS:**
+
+Use A2A background agents (via `agent` CLI) when:
+- Task is **long-running** (>10 minutes expected)
+- You **don't need to wait** for immediate results
+- Task should **persist across sessions** (survive terminal close)
+- Running **multiple independent** long-running tasks
+- Real-time progress visibility **not critical**
+
+Use Task tool (foreground agents) when:
+- Task requires **immediate results** for next step
+- You need to **see progress in real-time**
+- Task is **short-duration** (<10 minutes)
+- Blocking on completion is acceptable
+
+**CRITICAL: Context Requirements**
+
+BOTH agent types (Task tool and A2A) receive context from:
+1. **Task packet** in `.ai/tasks/YYYY-MM-DD_name/` (contract, plan, requirements)
+2. **Task description** passed during spawning (role, instructions, task packet location)
+
+**NEITHER has access to conversation history** (see bug 13890).
+
+**ALWAYS ensure task packets are complete before spawning ANY agent type.**
+
+**A2A AGENT SPAWNING PROTOCOL:**
+
+```
+WHEN spawning A2A background agent:
+  PREREQUISITE: A2A server must be running
+    # Check if server is running
+    curl -s http://localhost:3000/health >/dev/null || {
+      echo "⚠️ A2A server not running. Start with:"
+      echo "   python scripts/start-server.py"
+      BLOCK until server started
+    }
+
+  STEP 1: Create Beads task FIRST with complete context
+    task_id=$(bd create "Act as Engineer from .ai-pack/roles/engineer.md.
+Task packet: .ai/tasks/2026-01-24_auth-api/
+Implement authentication API endpoints: /login and /logout.
+Follow TDD process. Update work log when complete." \
+      --priority high \
+      --json | jq -r '.id')
+
+    # Returns task ID (e.g., xasm++-e3w, bd-a1b2)
+    echo "Created Beads task: $task_id"
+
+    # IMPORTANT: Task description must include:
+    # - Role to assume (Act as Engineer/Tester/etc.)
+    # - Task packet location (.ai/tasks/...)
+    # - Specific requirements
+    # - Process to follow (TDD, update logs, etc.)
+
+  STEP 2: Spawn A2A agent via agent CLI
+    agent engineer "$task_id"
+
+    # This will:
+    # - Open agent:// URL
+    # - Trigger protocol handler
+    # - A2A server starts agent in background
+    # - Agent reads task from Beads
+    # - Execution is async (non-blocking)
+
+  STEP 3: Document in work log
+    echo "Spawned A2A Engineer (Beads task: $task_id)" >> .ai/tasks/*/20-work-log.md
+    echo "Task: Implement authentication API endpoints" >> .ai/tasks/*/20-work-log.md
+    echo "Status: Running in background" >> .ai/tasks/*/20-work-log.md
+
+  STEP 4: Continue with other work
+    # Don't wait - agent runs in background
+    # Monitor progress via Beads commands (see below)
+END WHEN
+```
+
+**MONITORING A2A AGENTS:**
+
+```bash
+# Check status of all background agents
+bd list --status in_progress
+
+# Check specific agent's progress
+bd show xasm++-e3w
+
+# Check if agent encountered blockers
+bd list --status blocked
+
+# Find completed agents
+bd list --status closed
+```
+
+**COORDINATING A2A AGENTS:**
+
+```
+WHEN coordinating multiple A2A agents:
+  STEP 1: Spawn all independent agents
+    # These can run in parallel
+    agent engineer task-1  # API implementation
+    agent engineer task-2  # UI components
+    agent tester task-3    # Test suite
+
+  STEP 2: Set up dependencies for sequential work
+    # Task 4 depends on task 1 completing
+    bd dep add task-4 task-1
+
+    # Task 5 depends on both task 2 and task 3
+    bd dep add task-5 task-2
+    bd dep add task-5 task-3
+
+  STEP 3: Monitor and spawn dependent agents when ready
+    # Periodically check
+    bd ready  # Shows tasks ready to start
+
+    # When task-1 completes, spawn dependent work
+    IF "task-4" in $(bd ready) THEN
+      agent engineer task-4
+    END IF
+
+  STEP 4: Handle agent failures
+    IF bd show task-1 | grep -q "status: blocked" THEN
+      # Agent encountered blocker
+      blocker_reason=$(bd show task-1 | grep "blocked_reason")
+
+      # Address blocker (may require manual intervention)
+      # Then unblock and retry
+      bd unblock task-1
+      agent engineer task-1  # Retry
+    END IF
+END WHEN
+```
+
+**EXAMPLE: MIXED WORKFLOW (FOREGROUND + BACKGROUND)**
+
+```bash
+# Use case: Implement large feature with multiple components
+
+# STEP 1: Use Task tool for immediate planning
+planner = Task(
+  subagent_type="general-purpose",
+  prompt="Act as Architect from .ai-pack/roles/architect.md.
+         Task packet: .ai/tasks/2026-01-24_auth/
+         Review requirements in 00-contract.md and create detailed
+         implementation plan with component breakdown in 10-plan.md.",
+  description="Planning feature architecture"
+)
+# Wait for planner to complete - need results immediately
+
+# STEP 2: Based on plan, create Beads tasks with complete context
+bd create "Act as Engineer. Task packet: .ai/tasks/2026-01-24_auth/
+Component A: Implement API endpoints per plan. Follow TDD." --priority high  # xasm++-a1
+
+bd create "Act as Engineer. Task packet: .ai/tasks/2026-01-24_auth/
+Component B: Implement data layer per plan. Follow TDD." --priority high  # xasm++-a2
+
+bd create "Act as Engineer. Task packet: .ai/tasks/2026-01-24_auth/
+Component C: Implement UI components per plan. Follow TDD." --priority high  # xasm++-a3
+
+bd create "Act as Tester. Task packet: .ai/tasks/2026-01-24_auth/
+Validate integration tests meet coverage requirements." --priority normal  # xasm++-a4
+
+bd create "Act as Engineer. Task packet: .ai/tasks/2026-01-24_auth/
+Update documentation with API endpoints and usage." --priority low  # xasm++-a5
+
+# STEP 3: Set up dependencies
+bd dep add xasm++-a4 xasm++-a1  # Tests depend on API
+bd dep add xasm++-a4 xasm++-a2  # Tests depend on data layer
+bd dep add xasm++-a4 xasm++-a3  # Tests depend on UI
+
+# STEP 4: Spawn background agents for independent work
+agent engineer xasm++-a1  # Background
+agent engineer xasm++-a2  # Background
+agent engineer xasm++-a3  # Background
+
+# STEP 5: Continue with other work while they run
+# Use foreground Task tool for immediate work:
+Task(
+  subagent_type="general-purpose",
+  prompt="Act as Engineer from .ai-pack/roles/engineer.md.
+         Task packet: .ai/tasks/2026-01-24_auth/
+         Set up CI/CD pipeline configuration per plan.",
+  description="CI/CD setup"
+)
+
+# STEP 6: Monitor background agents
+bd list --status in_progress
+
+# STEP 7: When components complete, spawn tests
+IF all([xasm++-a1, xasm++-a2, xasm++-a3]) completed THEN
+  agent tester xasm++-a4  # Background
+END IF
+
+# STEP 8: When tests pass, spawn documentation
+IF xasm++-a4 completed THEN
+  agent engineer xasm++-a5  # Background
+END IF
+```
+
+**AVAILABLE A2A AGENT ROLES:**
+
+```bash
+# Check available roles
+curl -s http://localhost:3000/a2a/v1/discovery | jq '.agents[].role'
+
+# Common roles:
+- engineer    # Implementation
+- tester      # Test validation
+- reviewer    # Code review
+- architect   # Architecture design
+- cartographer # Product requirements
+- inspector   # Bug investigation
+```
+
+**A2A AGENT FEATURES:**
+
+- **Async Execution**: Non-blocking, returns immediately
+- **Persistent**: Survives terminal close, session end
+- **Beads Integration**: Task state tracked automatically
+- **SSE Progress**: Real-time updates via Server-Sent Events
+- **Status Tracking**: Query anytime via `bd show`
+- **Failure Recovery**: Agent failures recorded in Beads
+
+**TROUBLESHOOTING:**
+
+```bash
+# Server not running
+python scripts/start-server.py
+
+# Check server health
+curl http://localhost:3000/health
+
+# View server logs
+tail -f logs/agent-server.log
+
+# Check agent configuration
+ls -la .ai-pack/agents/
+
+# Verify protocol handler registered
+# macOS: Auto-registered on first server start
+# Check: ~/Library/Application Support/ai-pack/AI-Pack Agent Handler.app
+
+# Manual agent execution (if protocol handler issues)
+curl -X POST http://localhost:3000/a2a/v1/execute \
+  -H "Content-Type: application/json" \
+  -d '{"role": "engineer", "task": "xasm++-e3w"}'
+```
+
+**DECISION TREE:**
+
+```
+Is task long-running (>10 min)?
+├─ YES → Use A2A background agent (agent CLI)
+└─ NO
+   └─ Need immediate results for next step?
+      ├─ YES → Use Task tool (foreground)
+      └─ NO → Use A2A background agent (agent CLI)
+
+Will you wait for results?
+├─ YES → Use Task tool (foreground)
+└─ NO → Use A2A background agent (agent CLI)
+
+Need real-time progress visibility?
+├─ YES → Use Task tool (foreground)
+└─ NO → Use A2A background agent (agent CLI)
+
+Running multiple independent long tasks?
+├─ YES → Use A2A background agents (agent CLI)
+└─ NO → Use Task tool (foreground)
+
+REMEMBER: Both agent types require complete task packets.
+Neither has access to conversation history.
+```
+
+**REFERENCE:**
+- A2A Quick Start: `docs/A2A-SERVER-QUICKSTART.md`
+- Beads Integration: `docs/BEADS-AGENT-INTEGRATION.md`
+- Agent Configurations: `.ai-pack/agents/*.yml`
 
 ---
 
@@ -1417,7 +1700,7 @@ bd ready
 
 # Check specific task details
 bd show bd-e5f6  # See why it's blocked
-```text
+```
 
 **Blocker Resolution:**
 ```bash
@@ -1438,7 +1721,7 @@ IF blocker detected THEN
   # When blocker resolved
   bd unblock <task-id>
 END IF
-```text
+```
 
 **Agent-Specific Monitoring:**
 ```bash
@@ -1462,10 +1745,10 @@ bd show bd-g7h8  # View specific agent's progress
 
 # Use /ai-pack agents command for formatted report
 /ai-pack agents  # Shows all active agents in readable format
-```text
+```
 
 **Agent Completion Tracking:**
-```text
+```
 WHEN agent completes work:
   # Agent should close its own Beads task
   bd close bd-g7h8
@@ -1478,7 +1761,7 @@ WHEN agent completes work:
     bd close bd-g7h8  # Orchestrator closes it
   END IF
 END WHEN
-```text
+```
 
 **Multi-Agent Coordination:**
 ```bash
@@ -1499,7 +1782,7 @@ bd show bd-g7h8  # Check last_update timestamp
 
 # Check work logs for detailed progress
 tail -20 .ai/tasks/*/20-work-log.md
-```text
+```
 
 ---
 
@@ -1510,7 +1793,7 @@ tail -20 .ai/tasks/*/20-work-log.md
 **Conflict Types:**
 
 **Technical Conflicts:**
-```text
+```
 Example: Two subtasks modify the same code region
 
 Resolution:
@@ -1519,10 +1802,10 @@ Resolution:
 3. Update task dependencies
 4. Coordinate timing
 5. Verify integration
-```text
+```
 
 **Resource Conflicts:**
-```text
+```
 Example: Multiple agents need same resource
 
 Resolution:
@@ -1530,10 +1813,10 @@ Resolution:
 2. Sequence access
 3. Consider parallel alternatives
 4. Coordinate timing
-```text
+```
 
 **Requirement Conflicts:**
-```text
+```
 Example: Contradictory requirements discovered
 
 Resolution:
@@ -1541,7 +1824,7 @@ Resolution:
 2. Consult user for clarification
 3. Update requirements
 4. Adjust affected tasks
-```text
+```
 
 ---
 
@@ -1550,7 +1833,7 @@ Resolution:
 **Responsibility:** Ensure work meets quality standards through mandatory reviews and verification.
 
 **Quality Gates:**
-```text
+```
 BEFORE marking complete:
   ✓ All subtasks completed
   ✓ All tests passing
@@ -1560,7 +1843,7 @@ BEFORE marking complete:
   ✓ All review findings addressed
   ✓ Documentation complete
   ✓ Acceptance criteria met
-```text
+```
 
 **Quality Checks:**
 - Monitor test results
@@ -1577,16 +1860,16 @@ BEFORE marking complete:
 **ENFORCEMENT:** For all work packages involving code changes, orchestrator MUST coordinate mandatory validation by Tester and Reviewer agents. This is enforced by the **[Code Quality Review Gate](../gates/35-code-quality-review.md)**.
 
 **Trigger Condition:**
-```text
+```
 IF work package includes code changes THEN
   REQUIRE Tester validation (TDD and test sufficiency)
   REQUIRE Reviewer validation (code quality and standards)
   BLOCK completion until both validations pass
 END IF
-```text
+```
 
 **Mandatory Review Procedure:**
-```text
+```
 STEP 1: Detect code changes
   code_changes = identify_modified_code_files(work_package)
 
@@ -1638,12 +1921,12 @@ STEP 4: Verify both validations passed
     WORK STATUS = INCOMPLETE
     report_blocking_issues()
   END IF
-```text
+```
 
 **Review Orchestration Strategy:**
 
 **Sequential Review (Recommended):**
-```text
+```
 Execute reviews sequentially to optimize feedback cycle:
   1. Tester validation FIRST
      - Catches test issues early
@@ -1661,10 +1944,10 @@ Execute reviews sequentially to optimize feedback cycle:
      - Worker addresses Reviewer findings
      - Re-validate with Tester (tests still pass?)
      - Re-validate with Reviewer
-```text
+```
 
 **Parallel Review (Alternative):**
-```text
+```
 Execute reviews in parallel for faster feedback:
   Launch both in single message block:
     - Task(tester, "Validate TDD and tests")
@@ -1673,10 +1956,10 @@ Execute reviews in parallel for faster feedback:
   Consolidate feedback and coordinate fixes
 
   Use when: High confidence in test quality
-```text
+```
 
 **Enforcement Rules:**
-```text
+```
 RULE 1: Cannot skip reviews for code changes
   IF code changes present AND reviews not performed THEN
     GATE VIOLATION: "Code Quality Review Gate - Reviews required"
@@ -1700,10 +1983,10 @@ RULE 3: Both validations must pass
     BLOCK acceptance
     BLOCK sign-off
   END IF
-```text
+```
 
 **Blocking Conditions (Work Incomplete):**
-```text
+```
 ❌ From Tester:
 - TDD not followed
 - Coverage < 80%
@@ -1719,10 +2002,10 @@ RULE 3: Both validations must pass
 - Architecture violations
 - Poor error handling
 - Acceptance criteria not met
-```text
+```
 
 **Documentation Requirements:**
-```text
+```
 All review findings MUST be documented in:
   .ai/tasks/${task_id}/30-review.md
 
@@ -1730,10 +2013,10 @@ Required sections:
   - Tester Validation (verdict, findings, status)
   - Reviewer Validation (verdict, findings, status)
   - Combined Result (overall verdict, blocking issues, next steps)
-```text
+```
 
 **Gate Compliance Verification:**
-```text
+```
 BEFORE marking work complete, verify:
   □ Code changes identified
   □ Tester delegated and completed (if code changes)
@@ -1750,7 +2033,7 @@ ELSE
   FAIL Code Quality Review Gate
   WORK INCOMPLETE
 END IF
-```text
+```
 
 ---
 
@@ -1761,17 +2044,17 @@ END IF
 **Communication Protocol:**
 
 **Regular Updates:**
-```text
+```
 Provide progress updates:
 - Completed subtasks
 - Current work
 - Upcoming tasks
 - Any issues or blockers
 - Estimated completion
-```text
+```
 
 **Escalation Triggers:**
-```text
+```
 Escalate to user when:
 - Requirements ambiguous
 - Major blocker encountered
@@ -1779,23 +2062,23 @@ Escalate to user when:
 - Trade-offs require decision
 - Timeline concerns
 - Scope creep detected
-```text
+```
 
 **Escalation Format:**
-```text
+```
 Issue: [Clear description]
 Impact: [Effect on task/timeline]
 Options: [Possible solutions]
 Recommendation: [Suggested approach]
 Request: [What you need from user]
-```text
+```
 
 ---
 
 ## Capabilities and Permissions
 
 ### Agent Spawning
-```text
+```
 ✅ CAN:
 - Launch Worker agents for implementation
 - Launch Tester agents for TDD validation (MANDATORY for code changes)
@@ -1804,20 +2087,20 @@ Request: [What you need from user]
 - Launch Plan agents for design
 - Run multiple agents in parallel
 - Resume agents for follow-up work
-```text
+```
 
 ### Task Management
-```text
+```
 ✅ CAN:
 - Create task packets in .ai/tasks/
 - Update task status
 - Modify plans as needed
 - Track progress
 - Manage dependencies
-```text
+```
 
 ### Decision Authority
-```text
+```
 ✅ CAN decide:
 - Task breakdown approach
 - Work sequencing
@@ -1830,7 +2113,7 @@ Request: [What you need from user]
 - Trade-offs affecting user
 - Scope expansions
 - Timeline changes
-```text
+```
 
 ---
 
@@ -1839,33 +2122,33 @@ Request: [What you need from user]
 ### With User
 
 **Initial Engagement:**
-```text
+```
 1. Acknowledge request
 2. Clarify requirements
 3. Present high-level plan
 4. Get approval before starting
-```text
+```
 
 **During Execution:**
-```text
+```
 1. Provide progress updates
 2. Report blockers immediately
 3. Escalate decisions
 4. Request clarification when needed
-```text
+```
 
 **Upon Completion:**
-```text
+```
 1. Summarize what was done
 2. Highlight any issues encountered
 3. Confirm acceptance criteria met
 4. Request final approval
-```text
+```
 
 ### With Worker Agents
 
 **Delegation:**
-```text
+```
 "Implement the user login API endpoint.
 
 Requirements:
@@ -1881,21 +2164,21 @@ Acceptance criteria:
 - All tests passing
 - 90%+ test coverage
 - Security best practices followed"
-```text
+```
 
 **Support:**
-```text
+```
 IF worker reports blocker THEN
   provide guidance
   clarify requirements
   adjust approach if needed
 END IF
-```text
+```
 
 ### With Reviewer Agents
 
 **Review Request:**
-```text
+```
 "Review the authentication implementation.
 
 Focus areas:
@@ -1909,7 +2192,7 @@ Files changed:
 - src/api/auth.js
 - src/models/user.js
 - tests/api/auth.test.js"
-```text
+```
 
 ---
 
@@ -1942,40 +2225,40 @@ Must ask user before:
 ## When to Escalate to User
 
 ### Requirement Issues
-```text
+```
 ESCALATE when:
 - Requirements ambiguous
 - Requirements contradictory
 - Requirements incomplete
 - Scope unclear
-```text
+```
 
 ### Technical Decisions
-```text
+```
 ESCALATE when:
 - Multiple valid approaches with trade-offs
 - Performance vs. maintainability trade-offs
 - Technology selection needed
 - Breaking changes required
-```text
+```
 
 ### Blockers
-```text
+```
 ESCALATE when:
 - Critical dependency missing
 - External service unavailable
 - Third-party library issues
 - Insufficient permissions
-```text
+```
 
 ### Quality Concerns
-```text
+```
 ESCALATE when:
 - Cannot meet quality targets
 - Technical debt significant
 - Security concerns
 - Performance concerns
-```text
+```
 
 ---
 
@@ -1983,7 +2266,7 @@ ESCALATE when:
 
 ### Scenario 1: Feature Implementation
 
-```text
+```
 User: "Add dark mode to the application"
 
 Orchestrator:
@@ -2022,11 +2305,11 @@ Orchestrator:
    - Summarize work done
    - Report any issues
    - Request user acceptance
-```text
+```
 
 ### Scenario 2: Bug Fix
 
-```text
+```
 User: "Users can't login after recent deployment"
 
 Orchestrator:
@@ -2059,7 +2342,7 @@ Orchestrator:
    - Coordinate deployment
    - Monitor results
    - Confirm resolution
-```text
+```
 
 ---
 
