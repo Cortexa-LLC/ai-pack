@@ -545,7 +545,7 @@ The ai-pack framework provides **two integrated and complementary** agent system
 **Key Integration Point**: All agents tracked via Beads, enabling unified monitoring and coordination.
 
 **Orchestrator decides** which system to use based on:
-- **Task duration** (short <10min → Task tool, long >10min → A2A)
+- **Task duration** (short less than 10min → Task tool, long >10min → A2A)
 - **Blocking needs** (need results now → Task tool, can wait → A2A)
 - **Progress visibility** (real-time monitoring → Task tool, async check → A2A)
 - **Persistence** (session only → Task tool, cross-session → A2A)
