@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -59,7 +58,7 @@ func main() {
 
 func handleSpawn(args []string) {
 	fs := flag.NewFlagSet("spawn", flag.ExitOnError)
-	async := fs.Bool("async", false, "Execute task asynchronously")
+	_ = fs.Bool("async", false, "Execute task asynchronously (reserved for future use)")
 	wait := fs.Bool("wait", false, "Wait for task completion")
 	fs.Parse(args)
 
@@ -89,19 +88,51 @@ func handleSpawn(args []string) {
 
 	fmt.Printf("🎯 Beads task: %s\n", taskInput)
 
-	// Build agent:// URL
-	taskEncoded := url.PathEscape(taskInput)
-	agentURL := fmt.Sprintf("agent://%s/%s", role, taskEncoded)
-
-	if *async && !*wait {
-		agentURL += "?async=true"
+	// Execute task via HTTP API
+	requestBody := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"method":  "execute",
+		"params": map[string]string{
+			"role": role,
+			"task": taskInput,
+		},
+		"id": 1,
 	}
 
-	fmt.Printf("🔗 Opening: %s\n", agentURL)
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		fmt.Printf("❌ Failed to create request: %v\n", err)
+		os.Exit(1)
+	}
 
-	// Open the URL
-	if err := openURL(agentURL); err != nil {
-		fmt.Printf("❌ Failed to open agent:// URL: %v\n", err)
+	fmt.Printf("🚀 Spawning %s agent...\n", role)
+
+	resp, err := http.Post(
+		fmt.Sprintf("%s/a2a/execute", ServerURL),
+		"application/json",
+		strings.NewReader(string(jsonData)),
+	)
+	if err != nil {
+		fmt.Printf("❌ Failed to execute task: %v\n", err)
+		fmt.Printf("   Is the agent server running? (agent-server --server)\n")
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		fmt.Printf("❌ Failed to parse response: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Check for JSON-RPC error
+	if errObj, ok := result["error"].(map[string]interface{}); ok {
+		fmt.Printf("❌ Server error: %v\n", errObj["message"])
+		if data, ok := errObj["data"].(string); ok && data != "" {
+			fmt.Printf("   %s\n", data)
+		}
 		os.Exit(1)
 	}
 
