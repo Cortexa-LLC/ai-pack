@@ -12,8 +12,8 @@ func TestExtractHost(t *testing.T) {
 	}{
 		{
 			name:     "HTTPS URL with path",
-			url:      "https://api.acme.com/api/v1/anthropic",
-			expected: "api.acme.com",
+			url:      "https://proxy.example.com/gateway/v1/anthropic",
+			expected: "proxy.example.com",
 		},
 		{
 			name:     "HTTP URL with path",
@@ -50,8 +50,8 @@ func TestExtractPath(t *testing.T) {
 	}{
 		{
 			name:     "HTTPS URL with path",
-			url:      "https://api.acme.com/api/v1/anthropic",
-			expected: "/api/v1/anthropic",
+			url:      "https://proxy.example.com/gateway/v1/anthropic",
+			expected: "/gateway/v1/anthropic",
 		},
 		{
 			name:     "HTTP URL with path",

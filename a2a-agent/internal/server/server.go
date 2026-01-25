@@ -80,18 +80,30 @@ type AgentConfig struct {
 }
 
 func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model string, cfg *config.APIConfig) (*AgentServer, error) {
-	// Try to get API key from multiple sources (env var or Claude Code helper)
-	apiKey, err := auth.GetAPIKey()
+	// Get authentication credentials
+	// ANTHROPIC_API_TOKEN = Bearer token (for corporate proxies)
+	// ANTHROPIC_API_KEY = API key (standard x-api-key header)
+	apiKey, isBearerToken, err := auth.GetAPIKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get API key: %w", err)
 	}
 
 	// Build client options
-	clientOpts := []option.RequestOption{option.WithAPIKey(apiKey)}
+	var clientOpts []option.RequestOption
 
-	// Add custom HTTP client for proxy support
-	if httpClient := proxy.NewHTTPClient(cfg); httpClient != nil {
-		clientOpts = append(clientOpts, option.WithHTTPClient(httpClient))
+	if isBearerToken {
+		// For Bearer tokens, we need to use a custom HTTP client that sets Authorization header
+		clientOpts = append(clientOpts, option.WithHTTPClient(proxy.NewBearerTokenClient(apiKey, cfg)))
+		monitoring.Logger.Info("api_configuration", "auth_type", "bearer_token")
+	} else {
+		// Standard API key - let SDK set x-api-key header
+		clientOpts = append(clientOpts, option.WithAPIKey(apiKey))
+
+		// Add custom HTTP client for proxy support (URL rewriting only)
+		if httpClient := proxy.NewHTTPClient(cfg); httpClient != nil {
+			clientOpts = append(clientOpts, option.WithHTTPClient(httpClient))
+		}
+		monitoring.Logger.Info("api_configuration", "auth_type", "api_key")
 	}
 
 	// Log proxy mode

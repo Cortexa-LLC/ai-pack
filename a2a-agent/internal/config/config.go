@@ -34,8 +34,7 @@ type APIConfig struct {
 
 // ProxyConfig holds proxy-specific settings
 type ProxyConfig struct {
-	Type    string `json:"type"`     // "acme", "custom"
-	BaseURL string `json:"base_url"` // Full proxy base URL
+	BaseURL string `json:"base_url"` // Full proxy base URL (e.g., "https://proxy.example.com/api")
 }
 
 // LoggingConfig holds logging settings

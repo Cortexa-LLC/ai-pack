@@ -20,25 +20,25 @@ type ClaudeSettings struct {
 // 1. ANTHROPIC_API_TOKEN environment variable (bearer token for corporate proxies)
 // 2. ANTHROPIC_API_KEY environment variable (standard API key)
 // 3. Claude Code API key helper (from ~/.claude/settings.json)
-// 4. Return error if none found
-func GetAPIKey() (string, error) {
-	// Try bearer token first (for corporate proxies like Acme)
+// Returns: (key/token, isBearerToken, error)
+func GetAPIKey() (string, bool, error) {
+	// Try bearer token first (for corporate proxies)
 	if token := os.Getenv("ANTHROPIC_API_TOKEN"); token != "" {
-		return token, nil
+		return token, true, nil
 	}
 
 	// Try standard API key
 	if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
-		return apiKey, nil
+		return apiKey, false, nil
 	}
 
 	// Try Claude Code API key helper
 	apiKey, err := getAPIKeyFromClaudeCode()
 	if err == nil && apiKey != "" {
-		return apiKey, nil
+		return apiKey, false, nil
 	}
 
-	return "", fmt.Errorf("ANTHROPIC_API_TOKEN or ANTHROPIC_API_KEY not set and Claude Code API key helper not available")
+	return "", false, fmt.Errorf("ANTHROPIC_API_TOKEN or ANTHROPIC_API_KEY not set and Claude Code API key helper not available")
 }
 
 // getAPIKeyFromClaudeCode retrieves API key using Claude Code's API key helper
@@ -75,7 +75,7 @@ func getAPIKeyFromClaudeCode() (string, error) {
 
 // executeAPIKeyHelper runs the API key helper command and returns the token
 func executeAPIKeyHelper(helperCmd string) (string, error) {
-	// Parse the command (e.g., "npx @"acme"/claude-code-token@latest get_token")
+	// Parse the command (e.g., "npx @company/api-token get_token")
 	parts := strings.Fields(helperCmd)
 	if len(parts) == 0 {
 		return "", fmt.Errorf("empty API key helper command")
