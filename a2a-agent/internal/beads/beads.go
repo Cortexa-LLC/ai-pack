@@ -10,11 +10,11 @@ import (
 
 // Task represents a Beads task
 type Task struct {
-	ID           string   `json:"id"`
-	Title        string   `json:"title"`
-	Description  string   `json:"description"`
-	Status       string   `json:"status"`
-	Dependencies []string `json:"dependencies,omitempty"`
+	ID           string                 `json:"id"`
+	Title        string                 `json:"title"`
+	Description  string                 `json:"description"`
+	Status       string                 `json:"status"`
+	Dependencies []interface{}          `json:"dependencies,omitempty"` // Can be strings or objects
 	Metadata     map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -131,13 +131,28 @@ func (c *Client) CheckDependencies(taskID string) (bool, []string, error) {
 	}
 
 	var unmetDeps []string
-	for _, depID := range task.Dependencies {
-		dep, err := c.GetTask(depID)
+	for _, dep := range task.Dependencies {
+		// Dependencies can be either strings or objects with an "id" field
+		var depID string
+		switch v := dep.(type) {
+		case string:
+			depID = v
+		case map[string]interface{}:
+			if id, ok := v["id"].(string); ok {
+				depID = id
+			} else {
+				continue // Skip if no valid ID
+			}
+		default:
+			continue // Skip unknown types
+		}
+
+		depTask, err := c.GetTask(depID)
 		if err != nil {
 			return false, nil, fmt.Errorf("failed to check dependency %s: %w", depID, err)
 		}
 
-		if dep.Status != "closed" && dep.Status != "done" {
+		if depTask.Status != "closed" && depTask.Status != "done" {
 			unmetDeps = append(unmetDeps, depID)
 		}
 	}
