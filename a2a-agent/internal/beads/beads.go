@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 )
 
@@ -160,7 +161,7 @@ func (c *Client) GetTaskDescription(input string) (string, string, bool, error) 
 			description = fmt.Sprintf("%s\n\n%s", task.Title, task.Description)
 		}
 
-		// Check metadata for task packet location
+		// Check metadata for task packet location (if Beads supports metadata)
 		taskPacketPath := ""
 		if task.Metadata != nil {
 			if path, ok := task.Metadata["task_packet"].(string); ok {
@@ -168,9 +169,27 @@ func (c *Client) GetTaskDescription(input string) (string, string, bool, error) 
 			}
 		}
 
+		// If no metadata, try parsing from description
+		// Look for pattern: "Task packet: <path>"
+		if taskPacketPath == "" && task.Description != "" {
+			taskPacketPath = extractTaskPacketPath(task.Description)
+		}
+
 		return description, taskPacketPath, true, nil
 	}
 
 	// It's free-form text
 	return input, "", false, nil
+}
+
+// extractTaskPacketPath extracts task packet path from description
+// Looks for pattern: "Task packet: <path>" or "task packet: <path>"
+func extractTaskPacketPath(description string) string {
+	// Pattern matches "Task packet: .ai/tasks/..." or "task packet: .ai/tasks/..."
+	re := regexp.MustCompile(`(?i)Task packet:\s*([^\s\n]+)`)
+	matches := re.FindStringSubmatch(description)
+	if len(matches) > 1 {
+		return strings.TrimSpace(matches[1])
+	}
+	return ""
 }
