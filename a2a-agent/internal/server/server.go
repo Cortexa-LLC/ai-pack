@@ -566,7 +566,7 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 
 	// Execute via Anthropic API
 	apiStartTime := time.Now()
-	monitoring.Logger.Info("api_call_start", "task_id", taskID, "model", "claude-3-5-sonnet-20241022")
+	monitoring.Logger.Info("api_call_start", "task_id", taskID, "model", s.model)
 
 	message, err := s.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.F(s.model),
@@ -586,7 +586,7 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	}
 
 	monitoring.GlobalMetrics.IncrementAPICallsSuccess()
-	monitoring.LogAPICall(ctx, taskID, "claude-3-5-sonnet-20241022", int(message.Usage.InputTokens+message.Usage.OutputTokens))
+	monitoring.LogAPICall(ctx, taskID, s.model, int(message.Usage.InputTokens+message.Usage.OutputTokens))
 
 	// Extract response
 	var result string

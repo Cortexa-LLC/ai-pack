@@ -59,7 +59,7 @@ func DefaultConfig() *Config {
 			WorkerPoolSize:     10,
 		},
 		API: APIConfig{
-			AnthropicModel: "claude-3-5-sonnet-20241022",
+			AnthropicModel: "claude-sonnet-4-5-20250929",
 			MaxTokens:      8000,
 			TimeoutSeconds: 600,
 			Mode:           "direct", // "direct" or "proxy"
