@@ -24,37 +24,63 @@ The Orchestrator is a high-level coordinator responsible for breaking down compl
 **Mandatory Procedure:**
 ```
 FOR every non-trivial task:
-  STEP 1: MANDATORY - Create Beads task
-    task_id=$(bd create "Task description" --priority high --json | jq -r '.id')
+  STEP 1: MANDATORY - Create Beads task with task packet reference in description
+    # The description MUST include "Task packet: <path>" for agent discovery
+    task_id=$(bd create "Implement user authentication
+
+Task packet: .ai/tasks/2026-01-24_user-auth/
+
+Create login/logout endpoints with JWT tokens and session management." \
+      --priority high --json | jq -r '.id')
 
   STEP 2: Create task packet directory (.ai/tasks/YYYY-MM-DD_task-name/)
 
   STEP 3: Copy all templates from .ai-pack/templates/task-packet/
 
   STEP 4: Link Beads ID in 00-contract.md
-    echo "**Beads Task:** ${task_id}" >> 00-contract.md
+    echo "**Beads Task:** ${task_id}" >> .ai/tasks/YYYY-MM-DD_task-name/00-contract.md
 
-  STEP 5: Link task packet to Beads metadata
-    bd meta set ${task_id} task_packet .ai/tasks/YYYY-MM-DD_task-name
+  STEP 5: Fill out 00-contract.md with requirements
 
-  STEP 6: Fill out 00-contract.md with requirements
-
-  STEP 7: ONLY THEN proceed to planning
+  STEP 6: ONLY THEN proceed to planning
 END FOR
 
 ENFORCEMENT: Gate blocks if task packet exists without Beads task.
+```
+
+**Critical Format Requirement:**
+
+The Beads task description MUST include this exact pattern on its own line:
+```
+Task packet: .ai/tasks/YYYY-MM-DD_task-name/
+```
+
+The A2A server parses this line to find the implementation plan. Without it, agents won't know where to find the task packet files.
+
+**Example Beads Task Creation:**
+```bash
+# Good - includes task packet path
+bd create "Implement dark mode feature
+
+Task packet: .ai/tasks/2026-01-24_dark-mode/
+
+Add theme toggle, persist user preference, update all components to support dark theme." \
+  --priority high
+
+# Bad - missing task packet path
+bd create "Implement dark mode feature" --priority high
 ```
 
 **Bi-Directional Linking:**
 
 The linking process creates two critical connections:
 1. **Contract → Beads** (STEP 4): The task packet's 00-contract.md references the Beads task ID
-2. **Beads → Task Packet** (STEP 5): The Beads task metadata stores the task packet path
+2. **Beads → Task Packet** (STEP 1): The Beads task description includes "Task packet: <path>"
 
 This bi-directional linking ensures:
 - Orchestrators can navigate from task packet to Beads task status
-- Agents spawned with Beads task IDs can find the implementation plan
-- A2A server can pass task packet location to agents automatically
+- Agents spawned with Beads task IDs automatically receive task packet location
+- A2A server parses task packet path from description and includes it in agent prompts
 - Full traceability between Beads tasks and implementation artifacts
 
 **Non-Trivial Definition:**
