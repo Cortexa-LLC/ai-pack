@@ -32,13 +32,13 @@ AI-Pack provides a production-grade agent spawning system that enables you to de
 
 ```bash
 # Spawn an engineer to implement a feature
-.ai-pack/bd spawn engineer "implement a user authentication function"
+agent engineer "implement a user authentication function"
 
 # Spawn a tester to create tests
-.ai-pack/bd spawn tester "create tests for the auth function"
+agent tester "create tests for the auth function"
 
 # Spawn a reviewer to review code
-.ai-pack/bd spawn reviewer "review the authentication implementation"
+agent reviewer "review the authentication implementation"
 ```
 
 ### What Happens When You Spawn
@@ -77,7 +77,7 @@ AI-Pack provides a production-grade agent spawning system that enables you to de
 
 **Example:**
 ```bash
-.ai-pack/bd spawn engineer "implement a REST API endpoint for user registration with validation"
+agent engineer "implement a REST API endpoint for user registration with validation"
 ```
 
 ### Tester Agent
@@ -103,7 +103,7 @@ AI-Pack provides a production-grade agent spawning system that enables you to de
 
 **Example:**
 ```bash
-.ai-pack/bd spawn tester "create comprehensive tests for the UserRegistration class with >80% coverage"
+agent tester "create comprehensive tests for the UserRegistration class with >80% coverage"
 ```
 
 ### Reviewer Agent
@@ -129,7 +129,7 @@ AI-Pack provides a production-grade agent spawning system that enables you to de
 
 **Example:**
 ```bash
-.ai-pack/bd spawn reviewer "review the user registration implementation for security issues"
+agent reviewer "review the user registration implementation for security issues"
 ```
 
 ---
@@ -140,13 +140,13 @@ AI-Pack provides a production-grade agent spawning system that enables you to de
 
 ```bash
 # Step 1: Implement the feature
-.ai-pack/bd spawn engineer "implement a password reset feature with email verification"
+agent engineer "implement a password reset feature with email verification"
 
 # Step 2: Create tests
-.ai-pack/bd spawn tester "create tests for the password reset feature"
+agent tester "create tests for the password reset feature"
 
 # Step 3: Review the implementation
-.ai-pack/bd spawn reviewer "review password reset implementation for security"
+agent reviewer "review password reset implementation for security"
 ```
 
 **Result**: Complete feature with implementation, tests, and security review.
@@ -155,10 +155,10 @@ AI-Pack provides a production-grade agent spawning system that enables you to de
 
 ```bash
 # Step 1: Engineer reproduces and fixes
-.ai-pack/bd spawn engineer "fix the authentication timeout bug in src/auth.py:45"
+agent engineer "fix the authentication timeout bug in src/auth.py:45"
 
 # Step 2: Tester creates regression tests
-.ai-pack/bd spawn tester "create tests to prevent the auth timeout bug from recurring"
+agent tester "create tests to prevent the auth timeout bug from recurring"
 ```
 
 **Result**: Bug fixed with regression tests.
@@ -167,13 +167,13 @@ AI-Pack provides a production-grade agent spawning system that enables you to de
 
 ```bash
 # Step 1: Review current code
-.ai-pack/bd spawn reviewer "analyze src/database.py for refactoring opportunities"
+agent reviewer "analyze src/database.py for refactoring opportunities"
 
 # Step 2: Implement refactoring
-.ai-pack/bd spawn engineer "refactor database.py based on reviewer recommendations"
+agent engineer "refactor database.py based on reviewer recommendations"
 
 # Step 3: Verify tests still pass
-.ai-pack/bd spawn tester "update and verify all tests after database refactoring"
+agent tester "update and verify all tests after database refactoring"
 ```
 
 **Result**: Clean refactoring with maintained test coverage.
@@ -182,10 +182,10 @@ AI-Pack provides a production-grade agent spawning system that enables you to de
 
 ```bash
 # Generate API documentation
-.ai-pack/bd spawn engineer "add comprehensive docstrings to all public methods in src/api/"
+agent engineer "add comprehensive docstrings to all public methods in src/api/"
 
 # Review documentation quality
-.ai-pack/bd spawn reviewer "review API documentation for completeness and clarity"
+agent reviewer "review API documentation for completeness and clarity"
 ```
 
 **Result**: Well-documented codebase.
@@ -194,13 +194,13 @@ AI-Pack provides a production-grade agent spawning system that enables you to de
 
 ```bash
 # Comprehensive security review
-.ai-pack/bd spawn reviewer "perform security audit of user authentication system"
+agent reviewer "perform security audit of user authentication system"
 
 # Fix identified issues
-.ai-pack/bd spawn engineer "implement password hashing and fix security issues from review"
+agent engineer "implement password hashing and fix security issues from review"
 
 # Verify fixes
-.ai-pack/bd spawn tester "create security-focused tests for authentication vulnerabilities"
+agent tester "create security-focused tests for authentication vulnerabilities"
 ```
 
 **Result**: Hardened security with tests.
@@ -260,12 +260,12 @@ cat .beads/tasks/task-engineer-*/30-results.md
 
 **Good:**
 ```bash
-.ai-pack/bd spawn engineer "implement UserRegistration class with validate_email, validate_password, and register_user methods. Include type hints and docstrings."
+agent engineer "implement UserRegistration class with validate_email, validate_password, and register_user methods. Include type hints and docstrings."
 ```
 
 **Bad:**
 ```bash
-.ai-pack/bd spawn engineer "do registration"
+agent engineer "do registration"
 ```
 
 ### 2. Appropriate Role Selection
@@ -293,14 +293,14 @@ cat .beads/tasks/task-engineer-*/30-results.md
 
 ```bash
 # Parallel execution (Phase 2): Independent tasks run concurrently
-.ai-pack/bd spawn engineer "implement backend API" &
-.ai-pack/bd spawn engineer "implement frontend UI" &
+agent engineer "implement backend API" &
+agent engineer "implement frontend UI" &
 wait  # Both run in parallel
 
 # Sequential execution: Dependent tasks run one after another
-.ai-pack/bd spawn engineer "task A"
+agent engineer "task A"
 # Wait for completion, then:
-.ai-pack/bd spawn engineer "task B that depends on task A"
+agent engineer "task B that depends on task A"
 ```
 
 ### 4. Scope Control
@@ -309,12 +309,12 @@ Keep tasks focused and well-scoped:
 
 **Good:**
 ```bash
-.ai-pack/bd spawn engineer "add email validation to UserRegistration.register_user method"
+agent engineer "add email validation to UserRegistration.register_user method"
 ```
 
 **Too Broad:**
 ```bash
-.ai-pack/bd spawn engineer "build entire user management system"
+agent engineer "build entire user management system"
 ```
 
 ### 5. Quality Gates
@@ -432,10 +432,10 @@ For complex features, chain multiple agents:
 
 ```bash
 # Complete feature development
-.ai-pack/bd spawn engineer "implement backend API"
-.ai-pack/bd spawn engineer "implement frontend form"
-.ai-pack/bd spawn tester "create test suite"
-.ai-pack/bd spawn reviewer "review all implementations"
+agent engineer "implement backend API"
+agent engineer "implement frontend form"
+agent tester "create test suite"
+agent reviewer "review all implementations"
 ```
 
 See `tests/workflow_test_user_registration.py` for a complete example.
@@ -445,7 +445,7 @@ See `tests/workflow_test_user_registration.py` for a complete example.
 Include specific requirements:
 
 ```bash
-.ai-pack/bd spawn engineer "implement UserAuth class:
+agent engineer "implement UserAuth class:
 - validate_credentials(username, password) -> bool
 - hash_password(password) -> str (use bcrypt)
 - create_session(user_id) -> str (return JWT token)
@@ -466,7 +466,7 @@ Agents have access to 7 MCP servers:
 
 **Example:**
 ```bash
-.ai-pack/bd spawn engineer "create JIRA ticket for bug found in auth.py using MCP"
+agent engineer "create JIRA ticket for bug found in auth.py using MCP"
 ```
 
 ---
@@ -585,9 +585,9 @@ Complete working examples in `tests/`:
 
 ```bash
 # Spawn agents
-.ai-pack/bd spawn engineer "task description"
-.ai-pack/bd spawn tester "task description"
-.ai-pack/bd spawn reviewer "task description"
+agent engineer "task description"
+agent tester "task description"
+agent reviewer "task description"
 
 # View tasks
 ls .beads/tasks/

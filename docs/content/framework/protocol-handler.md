@@ -65,7 +65,7 @@ agent://reviewer/security%20audit
    TASK_DESC=$(python3 -c "import urllib.parse; print(urllib.parse.unquote('$TASK_DESC'))")
 
    cd /path/to/ai-pack
-   ./.ai-pack/bd spawn "$AGENT_TYPE" "$TASK_DESC"
+   ./agent "$AGENT_TYPE" "$TASK_DESC"
    ```
 
    f. Save as "AI-Pack Handler.app" in Applications folder
@@ -452,7 +452,7 @@ regedit /s agent-protocol.reg
 
 1. **Check bd spawn works**:
    ```bash
-   .ai-pack/bd spawn engineer "test task"
+   agent engineer "test task"
    ```
 
 2. **Check task packet creation**:
@@ -489,7 +489,7 @@ PROJECT=$(echo "$AGENT_URL" | cut -d'/' -f2)
 TASK=$(echo "$AGENT_URL" | cut -d'/' -f3-)
 
 cd "/path/to/$PROJECT"
-./.ai-pack/bd spawn engineer "$TASK"
+./agent engineer "$TASK"
 ```
 
 ### Remote Agent Spawning
