@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"net/http"
@@ -20,6 +21,78 @@ import (
 const (
 	ServerPort = "8080"
 )
+
+// checkServerRunning checks if the agent-server is already running
+func checkServerRunning(serverURL string) bool {
+	resp, err := http.Get(serverURL + "/health")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == 200
+}
+
+// delegateToRunningServer sends the task to an already-running server
+func delegateToRunningServer(serverURL, role, task string, async bool) error {
+	// Create A2A execute request
+	requestBody := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"method":  "execute",
+		"params": map[string]interface{}{
+			"role": role,
+			"task": task,
+		},
+		"id": 1,
+	}
+
+	bodyJSON, err := json.Marshal(requestBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Send POST request to /a2a/execute
+	resp, err := http.Post(serverURL+"/a2a/execute", "application/json", strings.NewReader(string(bodyJSON)))
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Extract task ID and status
+	resultData, ok := result["result"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("unexpected response format")
+	}
+
+	taskID, _ := resultData["task_id"].(string)
+	status, _ := resultData["status"].(string)
+
+	if async {
+		fmt.Println("✅ Task spawned in background!")
+		fmt.Printf("   Task ID: %s\n", taskID)
+		fmt.Printf("   Status: %s\n", status)
+		fmt.Println()
+		fmt.Printf("   Track progress: %s/stream/%s\n", serverURL, taskID)
+	} else {
+		fmt.Println("✅ Task delegated to server!")
+		fmt.Printf("   Task ID: %s\n", taskID)
+		fmt.Printf("   Status: %s\n", status)
+		fmt.Println()
+		fmt.Printf("   Track progress: %s/stream/%s\n", serverURL, taskID)
+	}
+
+	return nil
+}
 
 // handleProtocolURL handles agent:// protocol URLs directly
 func handleProtocolURL(agentURL, configPath string) {
@@ -71,6 +144,22 @@ func handleProtocolURL(agentURL, configPath string) {
 	} else {
 		fmt.Printf("   Mode: Sync (wait for completion)\n")
 	}
+	fmt.Println()
+
+	// Check if a server is already running
+	serverURL := "http://localhost:" + ServerPort
+	if checkServerRunning(serverURL) {
+		fmt.Println("✓ Found running agent-server, delegating to it...")
+		fmt.Println()
+		if err := delegateToRunningServer(serverURL, role, task, async); err != nil {
+			fmt.Printf("❌ Failed to delegate to running server: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	// No server running, execute in single-shot mode
+	fmt.Println("No running server found, executing in single-shot mode...")
 	fmt.Println()
 
 	// Load configuration
