@@ -389,7 +389,8 @@ func main() {
 	}
 	log.Printf("      - Config File: %s", *configPath)
 	log.Printf("")
-	log.Printf("   📂 Root directory: %s", rootDir)
+	log.Printf("   📂 Working Directory: %s", rootDir)
+	log.Printf("      ⚠️  All spawned agents will execute in this directory")
 	log.Printf("")
 
 	// Register agent:// protocol handler (first run)
