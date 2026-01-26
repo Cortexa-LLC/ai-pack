@@ -28,14 +28,15 @@ const (
 )
 
 type AgentServer struct {
-	rootDir        string
-	anthropicKey   string
-	client         *anthropic.Client
-	beadsClient    *beads.Client
-	claudeSettings *claude.Settings // Claude Code settings (deny patterns, etc.)
-	maxConcurrent  int              // Maximum concurrent agents (configurable)
-	maxTokens      int              // Maximum tokens per API call
-	model          string           // Anthropic model to use
+	rootDir          string
+	anthropicKey     string
+	client           *anthropic.Client
+	beadsClient      *beads.Client
+	claudeSettings   *claude.Settings // Claude Code settings (deny patterns, etc.)
+	maxConcurrent    int              // Maximum concurrent agents (configurable)
+	maxTokens        int              // Maximum tokens per API call
+	model            string           // Anthropic model to use
+	maxInactiveTurns int              // Stop agent after N turns without progress
 
 	// Concurrent execution tracking
 	mu          sync.RWMutex
@@ -84,7 +85,7 @@ type AgentConfig struct {
 	MaxTurns         int                    `yaml:"max_turns"`         // Max agentic turns (default 25)
 }
 
-func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model string, cfg *config.APIConfig) (*AgentServer, error) {
+func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model string, cfg *config.Config) (*AgentServer, error) {
 	// Get authentication credentials
 	// ANTHROPIC_API_TOKEN = Bearer token (for corporate proxies)
 	// ANTHROPIC_API_KEY = API key (standard x-api-key header)
@@ -98,21 +99,21 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 
 	if isBearerToken {
 		// For Bearer tokens, we need to use a custom HTTP client that sets Authorization header
-		clientOpts = append(clientOpts, option.WithHTTPClient(proxy.NewBearerTokenClient(apiKey, cfg)))
+		clientOpts = append(clientOpts, option.WithHTTPClient(proxy.NewBearerTokenClient(apiKey, &cfg.API)))
 		monitoring.Logger.Info("api_configuration", "auth_type", "bearer_token")
 	} else {
 		// Standard API key - let SDK set x-api-key header
 		clientOpts = append(clientOpts, option.WithAPIKey(apiKey))
 
 		// Add custom HTTP client for proxy support (URL rewriting only)
-		if httpClient := proxy.NewHTTPClient(cfg); httpClient != nil {
+		if httpClient := proxy.NewHTTPClient(&cfg.API); httpClient != nil {
 			clientOpts = append(clientOpts, option.WithHTTPClient(httpClient))
 		}
 		monitoring.Logger.Info("api_configuration", "auth_type", "api_key")
 	}
 
 	// Log proxy mode
-	monitoring.Logger.Info("api_configuration", "proxy_mode", proxy.LogProxyMode(cfg))
+	monitoring.Logger.Info("api_configuration", "proxy_mode", proxy.LogProxyMode(&cfg.API))
 
 	client := anthropic.NewClient(clientOpts...)
 
@@ -127,18 +128,25 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 			"ask_patterns", len(claudeSettings.Permissions.Ask))
 	}
 
+	// Get max inactive turns from config
+	maxInactiveTurns := cfg.Agent.MaxInactiveTurns
+	if maxInactiveTurns == 0 {
+		maxInactiveTurns = 10 // Default fallback
+	}
+
 	server := &AgentServer{
-		rootDir:        rootDir,
-		anthropicKey:   apiKey,
-		client:         client,
-		beadsClient:    beads.NewClient(),
-		claudeSettings: claudeSettings,
-		maxConcurrent:  maxConcurrent,
-		maxTokens:      maxTokens,
-		model:          model,
-		activeTasks:    make(map[string]*TaskExecution),
-		taskQueue:      make(chan *TaskExecution, 100),
-		workerPool:     make(chan struct{}, maxConcurrent),
+		rootDir:          rootDir,
+		anthropicKey:     apiKey,
+		client:           client,
+		beadsClient:      beads.NewClient(),
+		claudeSettings:   claudeSettings,
+		maxConcurrent:    maxConcurrent,
+		maxTokens:        maxTokens,
+		model:            model,
+		maxInactiveTurns: maxInactiveTurns,
+		activeTasks:      make(map[string]*TaskExecution),
+		taskQueue:        make(chan *TaskExecution, 100),
+		workerPool:       make(chan struct{}, maxConcurrent),
 	}
 
 	// Start worker pool
@@ -584,7 +592,8 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 		maxTurns = 100 // High safety limit, agent should complete naturally
 	}
 
-	logMsg(fmt.Sprintf("🔄 Starting agentic loop (max_turns: %d, extended_thinking: %v)", maxTurns, config.ExtendedThinking))
+	logMsg(fmt.Sprintf("🔄 Starting agentic loop (max_turns: %d, max_inactive: %d, extended_thinking: %v)",
+		maxTurns, s.maxInactiveTurns, config.ExtendedThinking))
 
 	var finalResult strings.Builder
 	totalInputTokens := int64(0)
@@ -592,8 +601,14 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 
 	completedNormally := false
 
-	for turn := 1; turn <= maxTurns; turn++ {
-		logMsg(fmt.Sprintf("   Turn %d...", turn))
+	// Progress tracking for turn counter reset
+	turn := 1
+	inactiveTurns := 0
+	lastTextLength := 0
+	lastToolPattern := ""
+
+	for turn <= maxTurns {
+		logMsg(fmt.Sprintf("   Turn %d (inactive: %d)...", turn, inactiveTurns))
 
 		// Prepare API params
 		params := anthropic.MessageNewParams{
@@ -679,6 +694,40 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 			toolResultBlocks = append(toolResultBlocks, anthropic.NewToolResultBlock(toolUse.ID, result, false))
 		}
 
+		// Progress detection: check if agent is making progress
+		currentTextLength := finalResult.Len()
+		textGrew := currentTextLength > lastTextLength
+
+		// Build tool pattern for this turn
+		var toolNames []string
+		for _, toolUse := range toolUses {
+			toolNames = append(toolNames, toolUse.Name)
+		}
+		currentToolPattern := strings.Join(toolNames, ",")
+
+		// Check if agent is making progress
+		madeProgress := textGrew || (currentToolPattern != lastToolPattern)
+
+		if madeProgress {
+			// Agent is making progress - reset inactive counter
+			if inactiveTurns > 0 {
+				logMsg(fmt.Sprintf("      ✓ Progress detected - resetting inactive counter (was %d)", inactiveTurns))
+			}
+			inactiveTurns = 0
+			lastTextLength = currentTextLength
+			lastToolPattern = currentToolPattern
+		} else {
+			// No progress - increment inactive counter
+			inactiveTurns++
+			logMsg(fmt.Sprintf("      ⚠️  No progress (%d/%d inactive turns)", inactiveTurns, s.maxInactiveTurns))
+
+			if inactiveTurns >= s.maxInactiveTurns {
+				logMsg(fmt.Sprintf("❌ Agent stuck after %d turns without progress", s.maxInactiveTurns))
+				logMsg(fmt.Sprintf("   Last tool pattern: %s", currentToolPattern))
+				return "", fmt.Errorf("agent stuck after %d turns without progress - repeating: %s", s.maxInactiveTurns, currentToolPattern)
+			}
+		}
+
 		// Add assistant message with tool uses
 		var assistantContent []anthropic.ContentBlockParamUnion
 		for _, block := range message.Content {
@@ -697,6 +746,9 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 
 		// Add tool results as user message
 		messages = append(messages, anthropic.NewUserMessage(toolResultBlocks...))
+
+		// Increment turn counter
+		turn++
 	}
 
 	// If we reach here, we hit the turn limit (safety net)

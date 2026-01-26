@@ -11,6 +11,7 @@ import (
 type Config struct {
 	Server  ServerConfig  `json:"server"`
 	API     APIConfig     `json:"api"`
+	Agent   AgentConfig   `json:"agent"`
 	Logging LoggingConfig `json:"logging"`
 	Metrics MetricsConfig `json:"metrics"`
 }
@@ -30,6 +31,11 @@ type APIConfig struct {
 	TimeoutSeconds int          `json:"timeout_seconds"`
 	Mode           string       `json:"mode"`            // "direct" or "proxy"
 	Proxy          *ProxyConfig `json:"proxy,omitempty"` // Only used when mode = "proxy"
+}
+
+// AgentConfig holds agent behavior settings
+type AgentConfig struct {
+	MaxInactiveTurns int `json:"max_inactive_turns"` // Stop agent after N turns without progress
 }
 
 // ProxyConfig holds proxy-specific settings
@@ -64,6 +70,9 @@ func DefaultConfig() *Config {
 			TimeoutSeconds: 600,
 			Mode:           "direct", // "direct" or "proxy"
 			Proxy:          nil,      // No proxy by default
+		},
+		Agent: AgentConfig{
+			MaxInactiveTurns: 10, // Stop after 10 turns without progress
 		},
 		Logging: LoggingConfig{
 			Level:  "info",
