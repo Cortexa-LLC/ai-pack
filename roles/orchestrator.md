@@ -2563,7 +2563,8 @@ Task is "DONE DONE" when ALL criteria met:
   ✓ Documentation artifacts created (as appropriate for task)
   ✓ Code committed to repository
   ✓ Beads task closed
-  ✓ Execution artifacts cleaned up
+  ✓ Task packet archived (.ai/tasks/ → .ai/tasks/.archived/)
+  ✓ Execution artifacts cleaned up (.beads/tasks/)
 ```
 
 **Completion and Cleanup Procedure:**
@@ -2628,22 +2629,34 @@ Co-Authored-By: Agent <agent@ai-pack>"
 # STEP 5: Close Beads task (keeps audit trail)
 bd close $task_id --reason "Feature complete, validated, and committed"
 
-# STEP 6: Clean up execution artifacts (SUCCESS ONLY!)
+# STEP 6: Clean up and archive (SUCCESS ONLY!)
 # Only clean up on successful, validated completion
 # DO NOT clean up on failure - artifacts needed for debugging
 
 # Verify task is closed first
 status=$(bd show $task_id --json | jq -r '.status')
 if [ "$status" = "closed" ]; then
-  echo "🧹 Cleaning up execution artifacts..."
+  echo "🧹 Cleaning up and archiving artifacts..."
 
-  # Find internal task ID
-  internal_id=$(find .beads/tasks -name "00-metadata.json" -exec grep -l "$task_id" {} \; | head -1 | xargs dirname | xargs basename)
+  # 6a. Archive task packet (if exists)
+  task_packet_dir=$(find .ai/tasks -type d -name "*" -exec grep -l "$task_id" {}/00-contract.md \; 2>/dev/null | head -1 | xargs dirname)
 
-  # Remove execution artifacts (logs, metadata, prompts)
+  if [ -n "$task_packet_dir" ] && [ -d "$task_packet_dir" ]; then
+    # Create archive directory if needed
+    mkdir -p .ai/tasks/.archived/$(date +%Y-%m)
+
+    # Move to archive
+    archive_dest=".ai/tasks/.archived/$(date +%Y-%m)/$(basename $task_packet_dir)"
+    mv "$task_packet_dir" "$archive_dest"
+    echo "✓ Archived task packet: $archive_dest"
+  fi
+
+  # 6b. Remove execution artifacts (logs, metadata, prompts)
+  internal_id=$(find .beads/tasks -name "00-metadata.json" -exec grep -l "$task_id" {} \; 2>/dev/null | head -1 | xargs dirname | xargs basename)
+
   if [ -n "$internal_id" ]; then
     rm -rf ".beads/tasks/$internal_id"
-    echo "✓ Removed .beads/tasks/$internal_id"
+    echo "✓ Removed execution artifacts: .beads/tasks/$internal_id"
   fi
 
   echo "✅ Cleanup complete"
@@ -2664,10 +2677,11 @@ echo "🎉 Task $task_id is DONE DONE"
 
 ```bash
 # DO NOT clean up on failure
-agent wait $task_id
+agent wait $task_id --stream
 if [ $? -ne 0 ]; then
   echo "❌ Agent failed - keeping artifacts for debugging"
   agent logs $task_id --tail 50
+  # DO NOT mv .ai/tasks/...
   # DO NOT rm -rf .beads/tasks/...
   # DO NOT bd close (task still needs work)
   exit 1
@@ -2677,10 +2691,39 @@ fi
 tester_result = validate_tests()
 if tester_result != "APPROVED"; then
   echo "❌ Tests inadequate - keeping artifacts"
+  # DO NOT mv .ai/tasks/...
   # DO NOT rm -rf .beads/tasks/...
   # DO NOT bd close (work incomplete)
   exit 1
 fi
+```
+
+**Task Packet Archiving:**
+
+Task packets in `.ai/tasks/` should be archived (not deleted) for audit trail:
+
+```
+Archive Structure:
+.ai/
+├── tasks/                          # Active tasks only
+│   ├── 2026-01-26_feature-x/      # Current work
+│   └── 2026-01-26_bug-fix/        # Current work
+└── tasks/.archived/                # Completed tasks (organized by month)
+    ├── 2026-01/
+    │   ├── 2026-01-15_login-impl/
+    │   └── 2026-01-18_api-refactor/
+    └── 2026-02/
+        └── 2026-02-03_caching/
+
+Why archive instead of delete:
+✓ Maintains history of what was worked on
+✓ Can reference past decisions and approaches
+✓ Useful for retrospectives and learning
+✓ Helps with future similar tasks
+
+.gitignore recommendation:
+# Keep archive structure in git for audit trail
+.ai/tasks/.archived/**
 ```
 
 **Documentation Artifact Guidelines:**
