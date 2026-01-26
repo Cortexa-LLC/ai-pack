@@ -95,10 +95,11 @@ func (c *Client) StartTask(taskID string) error {
 		return fmt.Errorf("invalid Beads task ID: %s", taskID)
 	}
 
-	// Run: bd start <task-id>
-	cmd := exec.Command("bd", "start", taskID)
+	// Run: bd update --claim <task-id>
+	// This atomically claims the task (sets assignee and status to in_progress)
+	cmd := exec.Command("bd", "update", "--claim", taskID)
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to start task %s: %w", taskID, err)
+		return fmt.Errorf("failed to claim task %s: %w", taskID, err)
 	}
 
 	return nil
