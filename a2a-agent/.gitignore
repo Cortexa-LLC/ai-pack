@@ -41,5 +41,3 @@ logs/
 
 # Beads test database
 .beads/
-agent
-agent-server
