@@ -39,7 +39,7 @@ bd show bd-a1b2
 **Starting Work:**
 ```bash
 # Mark review task as in-progress
-bd start bd-a1b2
+bd update --claim bd-a1b2
 
 # This signals to Orchestrator and other agents that you're reviewing this task
 ```
@@ -69,7 +69,7 @@ bd ready
 ```
 1. bd ready           → Find next review task
 2. bd show <id>       → Review what needs reviewing
-3. bd start <id>      → Begin review
+3. bd update --claim <id>      → Begin review
 4. [Check standards]  → Verify code quality
 5. [Check tests]      → Verify test coverage
 6. [Check security]   → Verify no vulnerabilities
@@ -845,7 +845,7 @@ These are blocking issues. Please address and request re-review."
 - Beads (`bd` command) for task tracking and coordination
   - `bd ready` - Find next review task
   - `bd show <id>` - View task details
-  - `bd start <id>` - Begin review
+  - `bd update --claim <id>` - Begin review
   - `bd block <id> "reason"` - Report blocking issues
   - `bd unblock <id>` - Clear blocking status
   - `bd close <id>` - Mark review complete

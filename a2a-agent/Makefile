@@ -33,12 +33,31 @@ agent:
 	@go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/agent ./$(CMD_DIR)/agent
 	@echo "✅ Built $(BIN_DIR)/agent"
 
-## install: Install binaries to /usr/local/bin
+## install: Install binaries to /usr/local/bin (run with: sudo make install)
 install: build
-	@echo "Installing binaries..."
+	@echo "Installing binaries to /usr/local/bin..."
+	@if [ ! -w /usr/local/bin ]; then \
+		echo "❌ Error: /usr/local/bin is not writable"; \
+		echo "   Run: sudo make install"; \
+		exit 1; \
+	fi
 	@install -m 755 $(BIN_DIR)/agent-server /usr/local/bin/agent-server
 	@install -m 755 $(BIN_DIR)/agent /usr/local/bin/agent
 	@echo "✅ Installed to /usr/local/bin"
+	@echo "   agent-server -> /usr/local/bin/agent-server"
+	@echo "   agent        -> /usr/local/bin/agent"
+
+## uninstall: Remove binaries from /usr/local/bin (run with: sudo make uninstall)
+uninstall:
+	@echo "Uninstalling binaries from /usr/local/bin..."
+	@if [ ! -w /usr/local/bin ]; then \
+		echo "❌ Error: /usr/local/bin is not writable"; \
+		echo "   Run: sudo make uninstall"; \
+		exit 1; \
+	fi
+	@rm -f /usr/local/bin/agent-server
+	@rm -f /usr/local/bin/agent
+	@echo "✅ Uninstalled from /usr/local/bin"
 
 ## clean: Remove build artifacts
 clean:
