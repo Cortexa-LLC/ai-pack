@@ -223,9 +223,9 @@ bd show bd-a1b2
 **Starting Work:**
 ```bash
 # MANDATORY - Mark task as in-progress
-bd start bd-a1b2
+bd update --claim bd-a1b2
 
-# GATE ENFORCEMENT: Work cannot begin without bd start command
+# GATE ENFORCEMENT: Work cannot begin without bd update --claim command
 # This signals to Orchestrator and other engineers that you're working on it
 ```
 
@@ -265,7 +265,7 @@ bd ready
 ```
 1. bd ready           → Find next task
 2. bd show <id>       → Review requirements
-3. bd start <id>      → Begin work
+3. bd update --claim <id>      → Begin work
 4. [Implement code]   → Do the work
 5. [Run tests]        → Verify quality
 6. bd close <id>      → Mark complete
@@ -371,7 +371,7 @@ Test-Driven Development is NOT optional. It is a BLOCKING requirement enforced b
 1. Understand requirements
 2. Read existing code (establish context)
 3. MANDATORY - Start Beads task
-   bd start <task-id>
+   bd update --claim <task-id>
    # Task must be in "in_progress" before implementing
 4. MANDATORY TDD Cycle (BLOCKING):
 
@@ -1184,7 +1184,7 @@ Work Log Entry:
 - Beads (`bd` command) for persistent task tracking
   - `bd ready` - Find next available task
   - `bd show` - View task details
-  - `bd start/close` - Update task status
+  - `bd update --claim/close` - Update task status
   - `bd block` - Mark task as blocked
   - `bd create` - Create new subtasks
 - AskUserQuestion (when needing clarification)

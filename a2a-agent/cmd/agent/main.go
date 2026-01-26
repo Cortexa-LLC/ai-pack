@@ -172,24 +172,53 @@ func handleSpawn(args []string) {
 }
 
 func handleStatus(args []string) {
-	if len(args) < 1 {
-		fmt.Println("Usage: agent status <task-id>")
+	// Parse flags
+	fs := flag.NewFlagSet("status", flag.ExitOnError)
+	jsonOutput := fs.Bool("json", false, "Output as JSON")
+	quiet := fs.Bool("quiet", false, "Output only status value")
+
+	fs.Usage = func() {
+		fmt.Println("Usage: agent status <task-id> [options]")
+		fmt.Println()
+		fmt.Println("Options:")
+		fs.PrintDefaults()
+		fmt.Println()
+		fmt.Println("Exit codes:")
+		fmt.Println("  0 - completed")
+		fmt.Println("  1 - failed")
+		fmt.Println("  2 - in_progress")
+		fmt.Println("  3 - not found")
+	}
+
+	fs.Parse(args)
+	positionalArgs := fs.Args()
+
+	if len(positionalArgs) < 1 {
+		fmt.Println("Usage: agent status <task-id> [options]")
 		os.Exit(1)
 	}
 
-	taskID := args[0]
+	taskID := positionalArgs[0]
 
 	// Try to get internal task ID from Beads task ID
 	internalTaskID := findInternalTaskID(taskID)
 	if internalTaskID == "" {
-		fmt.Printf("❌ No agent found for Beads task: %s\n", taskID)
-		os.Exit(1)
+		if *jsonOutput {
+			fmt.Println(`{"error":"not_found"}`)
+		} else if !*quiet {
+			fmt.Printf("❌ No agent found for Beads task: %s\n", taskID)
+		}
+		os.Exit(3) // not found
 	}
 
 	resp, err := http.Get(fmt.Sprintf("%s/a2a/status/%s", ServerURL, internalTaskID))
 	if err != nil {
-		fmt.Printf("❌ Failed to get status: %v\n", err)
-		os.Exit(1)
+		if *jsonOutput {
+			fmt.Printf(`{"error":"connection_failed","message":"%v"}\n`, err)
+		} else if !*quiet {
+			fmt.Printf("❌ Failed to get status: %v\n", err)
+		}
+		os.Exit(3)
 	}
 	defer resp.Body.Close()
 
@@ -197,11 +226,37 @@ func handleStatus(args []string) {
 	var status map[string]interface{}
 	json.Unmarshal(body, &status)
 
-	fmt.Printf("Task: %s\n", taskID)
-	fmt.Printf("Status: %v\n", status["status"])
-	fmt.Printf("Progress: %v\n", status["progress"])
-	if status["error"] != nil {
-		fmt.Printf("Error: %v\n", status["error"])
+	statusStr, _ := status["status"].(string)
+
+	// Output
+	if *quiet {
+		fmt.Println(statusStr)
+	} else if *jsonOutput {
+		// Add task_id to JSON output
+		status["task_id"] = taskID
+		jsonData, _ := json.MarshalIndent(status, "", "  ")
+		fmt.Println(string(jsonData))
+	} else {
+		fmt.Printf("Task: %s\n", taskID)
+		fmt.Printf("Status: %v\n", status["status"])
+		if status["progress"] != nil {
+			fmt.Printf("Progress: %v\n", status["progress"])
+		}
+		if status["error"] != nil {
+			fmt.Printf("Error: %v\n", status["error"])
+		}
+	}
+
+	// Exit with semantic code
+	switch statusStr {
+	case "completed":
+		os.Exit(0)
+	case "failed":
+		os.Exit(1)
+	case "in_progress":
+		os.Exit(2)
+	default:
+		os.Exit(3)
 	}
 }
 
@@ -229,12 +284,54 @@ func handleResults(args []string) {
 }
 
 func handleLogs(args []string) {
-	if len(args) < 1 {
-		fmt.Println("Usage: agent logs <task-id>")
+	// Parse flags
+	fs := flag.NewFlagSet("logs", flag.ExitOnError)
+	tailLines := fs.Int("tail", 0, "Show last N lines")
+	follow := fs.Bool("follow", false, "Stream new log lines")
+	serverLogs := fs.Bool("server", false, "Show server logs instead of task logs")
+	allLogs := fs.Bool("all", false, "Show all logs (server + all tasks)")
+	jsonOutput := fs.Bool("json", false, "Output as JSON")
+
+	fs.Usage = func() {
+		fmt.Println("Usage: agent logs <task-id> [options]")
+		fmt.Println("       agent logs --server [options]")
+		fmt.Println("       agent logs --all [options]")
+		fmt.Println()
+		fmt.Println("Options:")
+		fs.PrintDefaults()
+	}
+
+	fs.Parse(args)
+	positionalArgs := fs.Args()
+
+	// Server logs
+	if *serverLogs {
+		if *follow {
+			streamServerLogs(*jsonOutput)
+		} else {
+			fetchRecentServerLogs(*tailLines, *jsonOutput)
+		}
+		return
+	}
+
+	// All logs
+	if *allLogs {
+		if *follow {
+			fmt.Println("❌ --all with --follow not yet supported")
+			os.Exit(1)
+		}
+		fetchAllLogs(*tailLines, *jsonOutput)
+		return
+	}
+
+	// Task logs (default)
+	if len(positionalArgs) < 1 {
+		fmt.Println("Usage: agent logs <task-id> [options]")
+		fmt.Println("       agent logs --server [options]")
 		os.Exit(1)
 	}
 
-	taskID := args[0]
+	taskID := positionalArgs[0]
 	internalTaskID := findInternalTaskID(taskID)
 	if internalTaskID == "" {
 		fmt.Printf("❌ No agent found for Beads task: %s\n", taskID)
@@ -242,25 +339,219 @@ func handleLogs(args []string) {
 	}
 
 	logFile := filepath.Join(".beads", "tasks", internalTaskID, "execution.log")
+
+	if *follow {
+		followLogFile(logFile, *jsonOutput)
+	} else {
+		displayLogFile(logFile, *tailLines, *jsonOutput)
+	}
+}
+
+func displayLogFile(logFile string, tailLines int, jsonOutput bool) {
 	data, err := os.ReadFile(logFile)
 	if err != nil {
 		fmt.Printf("❌ No logs found: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println(string(data))
+	lines := strings.Split(string(data), "\n")
+
+	// Apply tail
+	if tailLines > 0 && len(lines) > tailLines {
+		lines = lines[len(lines)-tailLines:]
+	}
+
+	if jsonOutput {
+		// Output as JSON array of lines
+		jsonData, _ := json.Marshal(lines)
+		fmt.Println(string(jsonData))
+	} else {
+		fmt.Println(strings.Join(lines, "\n"))
+	}
+}
+
+func followLogFile(logFile string, jsonOutput bool) {
+	// Read initial content
+	initialData, err := os.ReadFile(logFile)
+	if err != nil {
+		fmt.Printf("❌ No logs found: %v\n", err)
+		os.Exit(1)
+	}
+
+	if !jsonOutput {
+		fmt.Println(string(initialData))
+	}
+
+	// Follow new lines
+	lastSize := int64(len(initialData))
+
+	for {
+		time.Sleep(1 * time.Second)
+
+		stat, err := os.Stat(logFile)
+		if err != nil {
+			continue
+		}
+
+		if stat.Size() > lastSize {
+			file, err := os.Open(logFile)
+			if err != nil {
+				continue
+			}
+
+			file.Seek(lastSize, 0)
+			newData, _ := io.ReadAll(file)
+			file.Close()
+
+			if jsonOutput {
+				lines := strings.Split(string(newData), "\n")
+				for _, line := range lines {
+					if line != "" {
+						jsonLine, _ := json.Marshal(map[string]string{"line": line})
+						fmt.Println(string(jsonLine))
+					}
+				}
+			} else {
+				fmt.Print(string(newData))
+			}
+
+			lastSize = stat.Size()
+		}
+	}
+}
+
+func streamServerLogs(jsonOutput bool) {
+	resp, err := http.Get(fmt.Sprintf("%s/logs/stream", ServerURL))
+	if err != nil {
+		fmt.Printf("❌ Failed to connect to log stream: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		fmt.Printf("❌ Server returned status %d\n", resp.StatusCode)
+		os.Exit(1)
+	}
+
+	fmt.Println("📡 Streaming server logs (Ctrl+C to stop)...")
+	if !jsonOutput {
+		fmt.Println()
+	}
+
+	buffer := make([]byte, 8192)
+	dataBuffer := ""
+
+	for {
+		n, err := resp.Body.Read(buffer)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			fmt.Printf("⚠️  Stream read error: %v\n", err)
+			break
+		}
+
+		dataBuffer += string(buffer[:n])
+
+		for {
+			idx := strings.Index(dataBuffer, "\n\n")
+			if idx == -1 {
+				break
+			}
+
+			message := dataBuffer[:idx]
+			dataBuffer = dataBuffer[idx+2:]
+
+			if strings.HasPrefix(message, "data: ") {
+				jsonData := strings.TrimPrefix(message, "data: ")
+
+				if jsonOutput {
+					fmt.Println(jsonData)
+				} else {
+					var logEntry map[string]interface{}
+					if err := json.Unmarshal([]byte(jsonData), &logEntry); err == nil {
+						timestamp, _ := logEntry["timestamp"].(string)
+						level, _ := logEntry["level"].(string)
+						msg, _ := logEntry["message"].(string)
+						fmt.Printf("[%s] %s: %s\n", timestamp, level, msg)
+					}
+				}
+			}
+		}
+	}
+}
+
+func fetchRecentServerLogs(tailLines int, jsonOutput bool) {
+	url := fmt.Sprintf("%s/logs/recent", ServerURL)
+	if tailLines > 0 {
+		url += fmt.Sprintf("?limit=%d", tailLines)
+	}
+
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Printf("❌ Failed to fetch server logs: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	if jsonOutput {
+		fmt.Println(string(body))
+	} else {
+		var logs []map[string]interface{}
+		if err := json.Unmarshal(body, &logs); err != nil {
+			fmt.Printf("❌ Failed to parse logs: %v\n", err)
+			os.Exit(1)
+		}
+
+		for _, entry := range logs {
+			timestamp, _ := entry["timestamp"].(string)
+			level, _ := entry["level"].(string)
+			msg, _ := entry["message"].(string)
+			fmt.Printf("[%s] %s: %s\n", timestamp, level, msg)
+		}
+	}
+}
+
+func fetchAllLogs(tailLines int, jsonOutput bool) {
+	// Fetch server logs
+	fetchRecentServerLogs(tailLines, jsonOutput)
+
+	// Fetch all task logs
+	matches, _ := filepath.Glob(".beads/tasks/task-*/execution.log")
+	for _, logFile := range matches {
+		taskID := filepath.Base(filepath.Dir(logFile))
+
+		if !jsonOutput {
+			fmt.Printf("\n=== Task: %s ===\n", taskID)
+		}
+
+		displayLogFile(logFile, tailLines, jsonOutput)
+	}
 }
 
 func handleList(args []string) {
 	fs := flag.NewFlagSet("list", flag.ExitOnError)
 	running := fs.Bool("running", false, "Show only running agents")
+	completed := fs.Bool("completed", false, "Show only completed agents")
+	failed := fs.Bool("failed", false, "Show only failed agents")
+	jsonOutput := fs.Bool("json", false, "Output as JSON")
 	fs.Parse(args)
 
 	// List .beads/tasks/task-* directories
 	matches, _ := filepath.Glob(".beads/tasks/task-*")
 
-	fmt.Println("Active Agents:")
-	fmt.Println()
+	type AgentInfo struct {
+		TaskID      string `json:"task_id"`
+		BeadsTaskID string `json:"beads_task_id,omitempty"`
+		Status      string `json:"status"`
+		Role        string `json:"role"`
+		Description string `json:"description"`
+	}
+
+	var agents []AgentInfo
+
 	for _, taskDir := range matches {
 		metaFile := filepath.Join(taskDir, "00-metadata.json")
 		data, err := os.ReadFile(metaFile)
@@ -271,14 +562,22 @@ func handleList(args []string) {
 		var meta map[string]interface{}
 		json.Unmarshal(data, &meta)
 
-		status := meta["status"].(string)
+		status, _ := meta["status"].(string)
+
+		// Filter by status
 		if *running && status != "in_progress" {
+			continue
+		}
+		if *completed && status != "completed" {
+			continue
+		}
+		if *failed && status != "failed" {
 			continue
 		}
 
 		taskID := filepath.Base(taskDir)
-		role := meta["role"]
-		description := meta["description"]
+		role, _ := meta["role"].(string)
+		description := fmt.Sprintf("%v", meta["description"])
 		beadsTaskID := ""
 		if config, ok := meta["config"].(map[string]interface{}); ok {
 			if md, ok := config["metadata"].(map[string]interface{}); ok {
@@ -288,11 +587,30 @@ func handleList(args []string) {
 			}
 		}
 
-		fmt.Printf("  %s [%s]\n", taskID, status)
-		fmt.Printf("    Role: %s\n", role)
-		fmt.Printf("    Beads: %s\n", beadsTaskID)
-		fmt.Printf("    Task: %v\n", description)
+		agents = append(agents, AgentInfo{
+			TaskID:      taskID,
+			BeadsTaskID: beadsTaskID,
+			Status:      status,
+			Role:        role,
+			Description: description,
+		})
+	}
+
+	if *jsonOutput {
+		jsonData, _ := json.MarshalIndent(agents, "", "  ")
+		fmt.Println(string(jsonData))
+	} else {
+		fmt.Println("Active Agents:")
 		fmt.Println()
+		for _, agent := range agents {
+			fmt.Printf("  %s [%s]\n", agent.TaskID, agent.Status)
+			fmt.Printf("    Role: %s\n", agent.Role)
+			if agent.BeadsTaskID != "" {
+				fmt.Printf("    Beads: %s\n", agent.BeadsTaskID)
+			}
+			fmt.Printf("    Task: %s\n", agent.Description)
+			fmt.Println()
+		}
 	}
 }
 
@@ -589,16 +907,17 @@ func usage() {
 	fmt.Println("AI-Pack Agent CLI v" + Version)
 	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  agent <role> <beads-task-id> [--stream|--wait]    Spawn an agent")
-	fmt.Println("  agent status <task-id>                            Check agent status")
-	fmt.Println("  agent results <task-id>                           Show agent results")
-	fmt.Println("  agent logs <task-id>                              Show agent logs")
-	fmt.Println("  agent list [--running]                            List agents")
-	fmt.Println("  agent wait <task-id>                              Wait for completion")
-	fmt.Println("  agent diff <task-id>                              Show git diff")
-	fmt.Println("  agent files <task-id>                             List modified files")
-	fmt.Println("  agent metrics                                     Show server metrics")
-	fmt.Println("  agent version                                     Show version")
+	fmt.Println("  agent <role> <beads-task-id> [--stream|--wait]      Spawn an agent")
+	fmt.Println("  agent status <task-id> [--json] [--quiet]           Check agent status")
+	fmt.Println("  agent results <task-id>                             Show agent results")
+	fmt.Println("  agent logs <task-id> [--tail N] [--follow] [--json] Show agent logs")
+	fmt.Println("  agent logs --server [--tail N] [--follow] [--json]  Show server logs")
+	fmt.Println("  agent list [--running|--completed|--failed] [--json] List agents")
+	fmt.Println("  agent wait <task-id>                                Wait for completion")
+	fmt.Println("  agent diff <task-id>                                Show git diff")
+	fmt.Println("  agent files <task-id>                               List modified files")
+	fmt.Println("  agent metrics                                       Show server metrics")
+	fmt.Println("  agent version                                       Show version")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  # Create Beads task with proper format")
@@ -609,19 +928,19 @@ func usage() {
 	fmt.Println()
 	fmt.Println("  Description...\" --priority high")
 	fmt.Println()
-	fmt.Println("  # Spawn agent (fire and forget)")
-	fmt.Println("  agent engineer xasm++-vp5")
-	fmt.Println()
 	fmt.Println("  # Spawn and stream real-time progress (RECOMMENDED)")
 	fmt.Println("  agent engineer xasm++-vp5 --stream")
 	fmt.Println()
-	fmt.Println("  # Spawn and wait for completion (polling)")
-	fmt.Println("  agent engineer xasm++-vp5 --wait")
+	fmt.Println("  # Check status with JSON output")
+	fmt.Println("  agent status xasm++-vp5 --json")
 	fmt.Println()
-	fmt.Println("  # Show server metrics")
-	fmt.Println("  agent metrics")
+	fmt.Println("  # Tail task logs")
+	fmt.Println("  agent logs xasm++-vp5 --tail 50")
 	fmt.Println()
-	fmt.Println("  # List all agents")
-	fmt.Println("  agent list")
+	fmt.Println("  # Follow server logs in real-time")
+	fmt.Println("  agent logs --server --follow")
+	fmt.Println()
+	fmt.Println("  # List running agents as JSON")
+	fmt.Println("  agent list --running --json")
 	fmt.Println()
 }

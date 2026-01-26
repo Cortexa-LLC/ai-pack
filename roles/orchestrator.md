@@ -1409,7 +1409,7 @@ WHEN spawning agent:
     # Returns task ID (e.g., bd-a1b2)
 
   STEP 3: Mark as in-progress
-    bd start bd-a1b2
+    bd update --claim bd-a1b2
 
   STEP 4: Document in work log
     echo "Spawned Engineer-1 (Beads ID: bd-a1b2)" >> .ai/tasks/*/20-work-log.md
@@ -1779,9 +1779,9 @@ fi
    test -f output.txt && echo "Done!"
    ```
 
-4. **Don't poll when you can block:**
+4. **Don't reimplement polling - use `agent wait`:**
    ```bash
-   # ❌ INEFFICIENT
+   # ❌ WRONG - reimplementing what agent wait does
    agent engineer $task_id
    while true; do
        status=$(agent status $task_id | grep Status: | awk '{print $2}')
@@ -1789,176 +1789,96 @@ fi
        sleep 5
    done
 
-   # ✅ BETTER - use built-in blocking
-   agent engineer $task_id --stream  # Blocks until done
+   # ✅ CORRECT - let agent wait handle polling
+   agent engineer $task_id
+   agent wait $task_id  # Blocks, polls internally, returns when done
+
+   # ✅ ALSO CORRECT - blocking from the start
+   agent engineer $task_id --stream  # Blocks with progress
    # OR
-   agent engineer $task_id --wait  # Blocks until done
+   agent engineer $task_id --wait    # Blocks with polling
    ```
 
 **BACKGROUND TASKS WITH INCREMENTAL FEEDBACK:**
 
-When spawning agents in the background, provide periodic status updates to maintain visibility:
+The key: `agent wait` handles all polling internally. You just spawn, do other work, then block cleanly.
 
 ```bash
-# PATTERN 1: Fire and forget with periodic checks
-spawn_and_monitor() {
-    local task_id=$1
-    local role=$2
-
-    echo "🚀 Spawning $role for task $task_id"
-    agent $role $task_id
-
-    echo "⏳ Agent running in background. Monitoring progress..."
-
-    # Check status every 30 seconds, show updates
-    local last_status=""
-    while true; do
-        sleep 30
-
-        # Get current status
-        local current_status=$(agent status $task_id 2>/dev/null | grep "Status:" | awk '{print $2}')
-
-        if [ "$current_status" = "completed" ]; then
-            echo "✅ Agent $task_id completed successfully"
-            break
-        elif [ "$current_status" = "failed" ]; then
-            echo "❌ Agent $task_id failed"
-            break
-        elif [ "$current_status" != "$last_status" ]; then
-            echo "📊 Agent $task_id: $current_status"
-            last_status=$current_status
-        else
-            # Show progress indicator even if status unchanged
-            echo "⏳ Agent $task_id still running ($current_status)..."
-        fi
-    done
-}
-
-# Usage:
-spawn_and_monitor $task1 engineer
-# Orchestrator sees periodic updates while agent runs
-
-# PATTERN 2: Spawn multiple, check periodically, wait when needed
-spawn_background_agents() {
-    echo "🚀 Spawning 3 independent agents..."
-
-    agent engineer $task1  # Background
-    agent engineer $task2  # Background
-    agent tester $task3    # Background
-
-    echo "✓ All agents spawned, tasks: $task1, $task2, $task3"
-    echo ""
-
-    # Do other work while they run
-    echo "📝 Performing orchestration work while agents execute..."
-    # ... orchestrator work here ...
-
-    # Periodically check and report progress
-    echo ""
-    echo "📊 Checking agent progress (30 seconds elapsed)..."
-    agent list --running
-
-    # More orchestrator work
-    # ...
-
-    # Check again
-    echo ""
-    echo "📊 Checking agent progress (60 seconds elapsed)..."
-    for tid in $task1 $task2 $task3; do
-        local status=$(agent status $tid 2>/dev/null | grep "Status:" | awk '{print $2}')
-        echo "  - $tid: $status"
-    done
-
-    # When ready to wait for completion
-    echo ""
-    echo "⏳ Waiting for all agents to complete..."
-    agent wait $task1
-    echo "  ✓ $task1 completed"
-
-    agent wait $task2
-    echo "  ✓ $task2 completed"
-
-    agent wait $task3
-    echo "  ✓ $task3 completed"
-
-    echo ""
-    echo "✅ All agents completed successfully"
-}
-
-# PATTERN 3: Progress callback while waiting
-wait_with_feedback() {
-    local task_id=$1
-    local interval=${2:-30}  # Default 30 second checks
-
-    echo "⏳ Waiting for $task_id with progress updates every ${interval}s..."
-
-    while true; do
-        local status=$(agent status $task_id 2>/dev/null | grep "Status:" | awk '{print $2}')
-
-        case "$status" in
-            "completed")
-                echo "✅ Agent completed"
-                return 0
-                ;;
-            "failed")
-                echo "❌ Agent failed"
-                return 1
-                ;;
-            *)
-                echo "⏳ Still running: $status"
-                sleep $interval
-                ;;
-        esac
-    done
-}
-
-# Usage:
-agent engineer $task_id
-wait_with_feedback $task_id 20  # Check every 20 seconds
-```
-
-**RECOMMENDED PATTERN FOR ORCHESTRATORS:**
-
-```bash
-# Best practice: Spawn, show initial status, do other work, wait with feedback
-
+# PATTERN 1: Spawn, work, wait (SIMPLEST)
 echo "🚀 Spawning engineer agent for task $task_id"
 agent engineer $task_id
+echo "✓ Agent spawned"
 
-echo "✓ Agent spawned, proceeding with orchestration..."
-echo ""
-
-# Do 1-2 minutes of other orchestration work
+# Do other orchestration work
 echo "📝 Creating dependent tasks..."
 dep_task=$(bd create "Integration after $task_id" --json | jq -r '.id')
 bd dep add $dep_task $task_id
 
-echo "📝 Documenting progress in work log..."
-# ... update work log ...
+echo "📝 Updating work log..."
+# ... other work ...
 
-# Check status before waiting
-echo ""
-echo "📊 Agent status check:"
+# Block until agent completes (agent wait polls internally)
+echo "⏳ Waiting for agent to complete..."
+agent wait $task_id
+echo "✅ Agent completed"
+
+# Verify results
+agent results $task_id
+
+# PATTERN 2: Optional status check for visibility
+echo "🚀 Spawning engineer for $task_id"
+agent engineer $task_id
+
+# Do 30-60 seconds of other work
+echo "📝 Performing orchestration work..."
+# ... work here ...
+
+# Optional: Show one status check for user feedback
+echo "📊 Agent status:"
 agent status $task_id
 
-# If still running, wait with feedback
-status=$(agent status $task_id | grep "Status:" | awk '{print $2}')
-if [ "$status" != "completed" ] && [ "$status" != "failed" ]; then
-    echo ""
-    echo "⏳ Waiting for agent to complete..."
+# Then block cleanly
+agent wait $task_id
+echo "✅ Agent completed"
 
-    # Option A: Use agent wait (blocks cleanly)
-    agent wait $task_id
+# PATTERN 3: Multiple parallel agents
+echo "🚀 Spawning 3 parallel agents..."
+agent engineer $task1
+agent engineer $task2
+agent tester $task3
+echo "✓ All spawned: $task1, $task2, $task3"
 
-    # Option B: Wait with periodic feedback
-    # wait_with_feedback $task_id 30
-fi
+# Do other work
+echo "📝 Setting up integration task..."
+int_task=$(bd create "Integration" --json | jq -r '.id')
+bd dep add $int_task $task1
+bd dep add $int_task $task2
+bd dep add $int_task $task3
 
-# Verify completion
-echo ""
-echo "✅ Agent finished. Verifying results..."
-agent results $task_id
+# Optional: Quick status snapshot
+echo "📊 Current status:"
+agent list --running
+
+# Wait for all (order doesn't matter)
+echo "⏳ Waiting for agents to complete..."
+agent wait $task1
+echo "  ✓ $task1 done"
+
+agent wait $task2
+echo "  ✓ $task2 done"
+
+agent wait $task3
+echo "  ✓ $task3 done"
+
+echo "✅ All agents completed"
 ```
+
+**KEY PRINCIPLES:**
+
+1. **`agent wait` is the blocking primitive** - Use it, don't reimplement polling
+2. **Status checks are optional** - Only for user visibility, not control flow
+3. **Keep it simple** - Spawn, work, wait, proceed
+4. **No timers needed** - `agent wait` polls internally at appropriate intervals
 
 **COORDINATING MULTIPLE AGENTS:**
 
@@ -1982,20 +1902,19 @@ WHEN coordinating multiple agents:
     agent tester $task3
     echo "✓ Agents spawned: $task1, $task2, $task3"
 
-  STEP 4: Do other work + periodic status checks
+  STEP 4: Do other work
     echo ""
     echo "📝 Continuing orchestration while agents work..."
 
     # Create follow-up tasks, update work log, etc.
     # ...
 
-    # Check progress after 30 seconds
-    sleep 30
+    # Optional: Quick status check for visibility
     echo ""
-    echo "📊 Agent progress update:"
+    echo "📊 Agent progress:"
     agent list --running
 
-  STEP 5: Wait for completion with feedback
+  STEP 5: Wait for completion (agent wait handles polling)
     echo ""
     echo "⏳ Waiting for parallel agents to complete..."
 
@@ -2159,15 +2078,12 @@ agent wait $task_id                # Blocks until done
 echo "✅ Agent completed"
 bd close $task_id
 
-# ✅ BACKGROUND WITH PERIODIC UPDATES
+# ✅ BACKGROUND WITH OPTIONAL STATUS CHECK
 agent engineer $task_id
-while true; do
-    sleep 30
-    status=$(agent status $task_id | grep "Status:" | awk '{print $2}')
-    echo "⏳ Agent: $status"
-    [ "$status" = "completed" ] && break
-    [ "$status" = "failed" ] && break
-done
+# ... do other work ...
+echo "📊 Quick check:"
+agent status $task_id      # Optional visibility
+agent wait $task_id        # Blocks until done
 echo "✅ Done"
 
 # ✅ ERROR HANDLING PATTERN
@@ -2301,7 +2217,7 @@ IF blocker detected THEN
     provide guidance
   ELSE IF dependency missing THEN
     prioritize dependency
-    bd start <dependency-task-id>
+    bd update --claim <dependency-task-id>
   ELSE IF requirements unclear THEN
     consult user
     bd block <task-id> "Waiting for requirements clarification"
@@ -2942,7 +2858,7 @@ Orchestrator:
 - Beads (`bd` command) for persistent task tracking
   - `bd create` - Create tasks
   - `bd ready` - Find next work
-  - `bd start/close` - Update task status
+  - `bd update --claim/close` - Update task status
   - `bd dep add` - Manage dependencies
   - `bd list` - View task status
   - `bd show` - Task details

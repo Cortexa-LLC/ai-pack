@@ -63,7 +63,7 @@ cp templates/* .ai/tasks/2026-01-18_auth/
 
 | Workflow Event | Required Beads Command | Required Packet Update |
 |----------------|------------------------|------------------------|
-| Starting work | `bd start <id>` | Update 20-work-log.md |
+| Starting work | `bd update --claim <id>` | Update 20-work-log.md |
 | Completing task | `bd close <id>` | Update 40-acceptance.md |
 | Getting blocked | `bd block <id> "reason"` | Update 20-work-log.md |
 | Unblocking | `bd unblock <id>` | Update 20-work-log.md |
@@ -73,7 +73,7 @@ cp templates/* .ai/tasks/2026-01-18_auth/
 ```bash
 # Starting work
 BEFORE implementing code:
-  bd start ${task_id}  # MANDATORY
+  bd update --claim ${task_id}  # MANDATORY
   echo "## Session $(date)" >> .ai/tasks/*/20-work-log.md  # THEN this
 
 # Completing work
@@ -102,7 +102,7 @@ grep "Beads Task:" .ai/tasks/*/00-contract.md
 ```bash
 # ❌ WRONG - Only updating task packet
 echo "Starting implementation" >> .ai/tasks/*/20-work-log.md
-# Missing: bd start command!
+# Missing: bd update --claim command!
 
 # ❌ WRONG - Only updating task packet
 echo "Task complete" >> .ai/tasks/*/40-acceptance.md
@@ -135,7 +135,7 @@ echo "Found next task: ${task_id} - ${task_title}"
 bd show ${task_id}
 
 # Start work
-bd start ${task_id}
+bd update --claim ${task_id}
 ```
 
 **Why This Matters:**
@@ -246,7 +246,7 @@ echo "Depends on: Design API task" >> .ai/tasks/*/00-contract.md
 ```
 WHEN spawning agent with Task tool:
   REQUIRE: bd create "Agent: {Role} - {Task}"
-  REQUIRE: bd start command for agent task
+  REQUIRE: bd update --claim command for agent task
   BLOCK: Agent tracking without Beads
 ```
 
@@ -267,7 +267,7 @@ agent_task_id=$(bd create "Agent: Engineer - Implement login feature" \
   --json | jq -r '.id')
 
 # 3. MANDATORY - Mark as in-progress
-bd start ${agent_task_id}
+bd update --claim ${agent_task_id}
 
 # 4. Document in work log
 echo "Spawned Engineer-1 (Beads: ${agent_task_id})" >> .ai/tasks/*/20-work-log.md
@@ -315,7 +315,7 @@ mkdir -p .ai/tasks/2026-01-18_auth
 echo "**Beads Task:** ${task_id}" > .ai/tasks/2026-01-18_auth/00-contract.md
 
 # Start work
-bd start ${task_id}
+bd update --claim ${task_id}
 
 # Work happens...
 
@@ -349,7 +349,7 @@ EOF
 next=$(bd ready --json | jq -r '.[0].id')
 
 # Start work
-bd start ${next}
+bd update --claim ${next}
 
 # During work - update both
 echo "Implementing login endpoint" >> .ai/tasks/*/20-work-log.md
@@ -371,7 +371,7 @@ echo "✅ Implementation complete" >> .ai/tasks/*/20-work-log.md
 # Tester creates validation task
 test_task=$(bd create "Validate auth implementation" --priority high --json | jq -r '.id')
 
-bd start ${test_task}
+bd update --claim ${test_task}
 # Run tests...
 
 IF tests_pass THEN
@@ -411,7 +411,7 @@ END IF
 ```
 □ Used bd ready to find next task
 □ Verified Beads task exists
-□ Executed bd start command
+□ Executed bd update --claim command
 □ Documented Beads ID in work log
 ```
 
@@ -436,7 +436,7 @@ END IF
 **During validation:**
 ```
 □ Created validation task with bd create
-□ Marked in-progress with bd start
+□ Marked in-progress with bd update --claim
 □ Blocked work with bd block if issues found
 □ Closed with bd close when approved
 ```
@@ -520,7 +520,7 @@ $ bd list
 **Fix:**
 ```bash
 # Sync Beads status
-bd start ${task_id}
+bd update --claim ${task_id}
 ```
 
 ### Violation 3: Dependencies Only in Text
@@ -578,7 +578,7 @@ bd dep add ${task_id} ${design_id}
 ```
 Session 1 (Monday):
   bd create "Implement feature X"
-  bd start bd-a1b2
+  bd update --claim bd-a1b2
   # Work begins...
 
 Session 2 (Tuesday):
