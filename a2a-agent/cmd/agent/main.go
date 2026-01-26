@@ -689,7 +689,24 @@ func streamTaskProgress(taskID string) {
 	// Try to resolve task ID (accepts both internal task IDs and Beads task IDs)
 	internalTaskID := resolveTaskID(taskID)
 	if internalTaskID == "" {
+		// Check if this is a Beads task that's already completed
+		if isValidBeadsTask(taskID) {
+			cmd := exec.Command("bd", "show", taskID, "--json")
+			output, err := cmd.Output()
+			if err == nil {
+				var beadsTask map[string]interface{}
+				if json.Unmarshal(output, &beadsTask) == nil {
+					if status, ok := beadsTask["status"].(string); ok {
+						if status == "closed" || status == "completed" {
+							fmt.Printf("✅ Task already completed: %s\n", taskID)
+							os.Exit(0)
+						}
+					}
+				}
+			}
+		}
 		fmt.Printf("❌ No agent found for task: %s\n", taskID)
+		fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", taskID)
 		os.Exit(1)
 	}
 
@@ -791,7 +808,24 @@ func waitForTaskCompletion(taskID string) {
 	// Try to resolve task ID (accepts both internal task IDs and Beads task IDs)
 	internalTaskID := resolveTaskID(taskID)
 	if internalTaskID == "" {
+		// Check if this is a Beads task that's already completed
+		if isValidBeadsTask(taskID) {
+			cmd := exec.Command("bd", "show", taskID, "--json")
+			output, err := cmd.Output()
+			if err == nil {
+				var beadsTask map[string]interface{}
+				if json.Unmarshal(output, &beadsTask) == nil {
+					if status, ok := beadsTask["status"].(string); ok {
+						if status == "closed" || status == "completed" {
+							fmt.Printf("✅ Task already completed: %s\n", taskID)
+							os.Exit(0)
+						}
+					}
+				}
+			}
+		}
 		fmt.Printf("❌ No agent found for task: %s\n", taskID)
+		fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", taskID)
 		os.Exit(1)
 	}
 
