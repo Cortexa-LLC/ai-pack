@@ -1569,6 +1569,397 @@ agent engineer xasm++-e3w --wait
 # - Good for simple scripts
 ```
 
+**AGENT COMPLETION DETECTION (CRITICAL):**
+
+The agent CLI provides CLEAR, BLOCKING signals for completion. Understanding these is essential for proper orchestration.
+
+**How --stream Works:**
+```bash
+agent engineer <task-id> --stream
+
+# The command:
+# 1. Spawns the agent on the server
+# 2. Opens SSE connection for real-time updates
+# 3. Shows progress events as they happen
+# 4. BLOCKS until agent completes or fails
+# 5. EXITS with appropriate status code
+# 6. Command returns to shell prompt ONLY when done
+
+# Exit codes:
+# - 0: Agent completed successfully
+# - 1: Agent failed or encountered error
+
+# The stream shows:
+# [timestamp] Status: in_progress (30%)
+# [timestamp] 🔄 API call starting...
+# [timestamp] ✅ API call complete
+# [timestamp] Status: in_progress (60%)
+# [timestamp] 🎉 Task completed!   <-- This is your completion signal
+#
+# Server Metrics:
+#   Active agents: 0
+#   Completed: 5
+#
+# <-- Command exits and returns control
+```
+
+**How --wait Works:**
+```bash
+agent engineer <task-id> --wait
+
+# The command:
+# 1. Spawns the agent on the server
+# 2. Polls status every 5 seconds
+# 3. BLOCKS until status is "completed" or "failed"
+# 4. EXITS with appropriate status code
+# 5. Command returns to shell prompt ONLY when done
+
+# Exit codes:
+# - 0: Agent completed successfully
+# - 1: Agent failed
+
+# Output:
+# ⏳ Waiting for completion...
+# ✅ Agent completed!   <-- This is your completion signal
+# <-- Command exits and returns control
+```
+
+**DETECTION STRATEGY FOR ORCHESTRATORS:**
+
+```bash
+# OPTION 1: Using --stream (RECOMMENDED)
+# The command blocks until complete - no polling needed!
+
+agent engineer $task_id --stream
+# When this line completes and next line runs, agent is DONE
+echo "✓ Agent finished, proceeding with next step"
+
+# Check exit code if needed
+if agent engineer $task_id --stream; then
+    echo "✓ Agent succeeded"
+    # Proceed with next steps
+else
+    echo "✗ Agent failed"
+    # Handle failure
+fi
+
+# OPTION 2: Using --wait
+# Same blocking behavior, different output format
+
+agent engineer $task_id --wait
+# When this line completes, agent is DONE
+echo "✓ Agent finished"
+
+# OPTION 3: Fire and forget, check later
+agent engineer $task_id  # Spawns in background
+
+# Later, check status programmatically:
+status=$(agent status $task_id | grep "Status:" | awk '{print $2}')
+if [ "$status" = "completed" ]; then
+    echo "✓ Agent done"
+elif [ "$status" = "failed" ]; then
+    echo "✗ Agent failed"
+else
+    echo "⏳ Still running: $status"
+fi
+
+# Or use --wait to block until complete:
+agent wait $task_id
+echo "✓ Agent finished"
+```
+
+**CRITICAL TIMING RULES:**
+
+```bash
+# ✅ CORRECT: Command blocks until agent finishes
+agent engineer $task_id --stream
+bd close $task_id  # This runs AFTER agent completes
+
+# ✅ CORRECT: Check exit code
+if agent engineer $task_id --stream; then
+    echo "Agent succeeded, safe to proceed"
+    bd close $task_id
+fi
+
+# ❌ WRONG: Don't poll manually when using --stream/--wait
+agent engineer $task_id --stream &  # Background with &
+sleep 30  # Arbitrary wait
+agent status $task_id  # May still be running!
+
+# ✅ CORRECT: If spawning in background, use explicit wait
+agent engineer $task_id  # Fire and forget
+# ... do other work ...
+agent wait $task_id  # Block until complete
+echo "Now agent is done"
+```
+
+**VERIFICATION AFTER COMPLETION:**
+
+```bash
+# After agent CLI returns, verify with multiple sources:
+
+# 1. Check agent status (should be "completed")
+agent status $task_id
+
+# 2. Check Beads task status
+bd show $task_id
+
+# 3. View agent results
+agent results $task_id
+
+# 4. Check for expected artifacts
+test -f path/to/expected/file || echo "⚠️ Missing expected output"
+
+# 5. Verify tests passed (if applicable)
+grep -q "All tests passed" .beads/tasks/*/execution.log
+
+# Example complete verification:
+verify_agent_success() {
+    local task_id=$1
+
+    # Check agent status
+    local status=$(agent status $task_id | grep "Status:" | awk '{print $2}')
+    if [ "$status" != "completed" ]; then
+        echo "✗ Agent did not complete: $status"
+        return 1
+    fi
+
+    # Check for errors in results
+    if agent results $task_id | grep -qi "error\|failed\|❌"; then
+        echo "✗ Agent completed with errors"
+        return 1
+    fi
+
+    echo "✓ Agent completed successfully"
+    return 0
+}
+
+# Usage:
+agent engineer $task_id --stream
+if verify_agent_success $task_id; then
+    bd close $task_id
+    # Proceed with next steps
+fi
+```
+
+**COMMON PITFALLS TO AVOID:**
+
+1. **Don't assume completion without waiting:**
+   ```bash
+   # ❌ WRONG
+   agent engineer $task_id  # Fire and forget
+   bd close $task_id  # Runs immediately - agent still working!
+
+   # ✅ CORRECT
+   agent engineer $task_id --stream  # Blocks until done
+   bd close $task_id  # Now safe to close
+   ```
+
+2. **Don't background --stream unless you track the process:**
+   ```bash
+   # ❌ WRONG - loses completion signal
+   agent engineer $task_id --stream &
+
+   # ✅ CORRECT - explicit wait
+   agent engineer $task_id --stream  # Foreground, blocks
+   # OR
+   agent engineer $task_id  # Background spawn
+   agent wait $task_id  # Explicit wait
+   ```
+
+3. **Don't rely solely on file presence:**
+   ```bash
+   # ❌ WRONG - file may be partial
+   agent engineer $task_id &
+   while [ ! -f output.txt ]; do sleep 1; done
+   echo "Done!"  # Agent may still be working!
+
+   # ✅ CORRECT - wait for agent
+   agent engineer $task_id --stream
+   test -f output.txt && echo "Done!"
+   ```
+
+4. **Don't poll when you can block:**
+   ```bash
+   # ❌ INEFFICIENT
+   agent engineer $task_id
+   while true; do
+       status=$(agent status $task_id | grep Status: | awk '{print $2}')
+       [ "$status" = "completed" ] && break
+       sleep 5
+   done
+
+   # ✅ BETTER - use built-in blocking
+   agent engineer $task_id --stream  # Blocks until done
+   # OR
+   agent engineer $task_id --wait  # Blocks until done
+   ```
+
+**BACKGROUND TASKS WITH INCREMENTAL FEEDBACK:**
+
+When spawning agents in the background, provide periodic status updates to maintain visibility:
+
+```bash
+# PATTERN 1: Fire and forget with periodic checks
+spawn_and_monitor() {
+    local task_id=$1
+    local role=$2
+
+    echo "🚀 Spawning $role for task $task_id"
+    agent $role $task_id
+
+    echo "⏳ Agent running in background. Monitoring progress..."
+
+    # Check status every 30 seconds, show updates
+    local last_status=""
+    while true; do
+        sleep 30
+
+        # Get current status
+        local current_status=$(agent status $task_id 2>/dev/null | grep "Status:" | awk '{print $2}')
+
+        if [ "$current_status" = "completed" ]; then
+            echo "✅ Agent $task_id completed successfully"
+            break
+        elif [ "$current_status" = "failed" ]; then
+            echo "❌ Agent $task_id failed"
+            break
+        elif [ "$current_status" != "$last_status" ]; then
+            echo "📊 Agent $task_id: $current_status"
+            last_status=$current_status
+        else
+            # Show progress indicator even if status unchanged
+            echo "⏳ Agent $task_id still running ($current_status)..."
+        fi
+    done
+}
+
+# Usage:
+spawn_and_monitor $task1 engineer
+# Orchestrator sees periodic updates while agent runs
+
+# PATTERN 2: Spawn multiple, check periodically, wait when needed
+spawn_background_agents() {
+    echo "🚀 Spawning 3 independent agents..."
+
+    agent engineer $task1  # Background
+    agent engineer $task2  # Background
+    agent tester $task3    # Background
+
+    echo "✓ All agents spawned, tasks: $task1, $task2, $task3"
+    echo ""
+
+    # Do other work while they run
+    echo "📝 Performing orchestration work while agents execute..."
+    # ... orchestrator work here ...
+
+    # Periodically check and report progress
+    echo ""
+    echo "📊 Checking agent progress (30 seconds elapsed)..."
+    agent list --running
+
+    # More orchestrator work
+    # ...
+
+    # Check again
+    echo ""
+    echo "📊 Checking agent progress (60 seconds elapsed)..."
+    for tid in $task1 $task2 $task3; do
+        local status=$(agent status $tid 2>/dev/null | grep "Status:" | awk '{print $2}')
+        echo "  - $tid: $status"
+    done
+
+    # When ready to wait for completion
+    echo ""
+    echo "⏳ Waiting for all agents to complete..."
+    agent wait $task1
+    echo "  ✓ $task1 completed"
+
+    agent wait $task2
+    echo "  ✓ $task2 completed"
+
+    agent wait $task3
+    echo "  ✓ $task3 completed"
+
+    echo ""
+    echo "✅ All agents completed successfully"
+}
+
+# PATTERN 3: Progress callback while waiting
+wait_with_feedback() {
+    local task_id=$1
+    local interval=${2:-30}  # Default 30 second checks
+
+    echo "⏳ Waiting for $task_id with progress updates every ${interval}s..."
+
+    while true; do
+        local status=$(agent status $task_id 2>/dev/null | grep "Status:" | awk '{print $2}')
+
+        case "$status" in
+            "completed")
+                echo "✅ Agent completed"
+                return 0
+                ;;
+            "failed")
+                echo "❌ Agent failed"
+                return 1
+                ;;
+            *)
+                echo "⏳ Still running: $status"
+                sleep $interval
+                ;;
+        esac
+    done
+}
+
+# Usage:
+agent engineer $task_id
+wait_with_feedback $task_id 20  # Check every 20 seconds
+```
+
+**RECOMMENDED PATTERN FOR ORCHESTRATORS:**
+
+```bash
+# Best practice: Spawn, show initial status, do other work, wait with feedback
+
+echo "🚀 Spawning engineer agent for task $task_id"
+agent engineer $task_id
+
+echo "✓ Agent spawned, proceeding with orchestration..."
+echo ""
+
+# Do 1-2 minutes of other orchestration work
+echo "📝 Creating dependent tasks..."
+dep_task=$(bd create "Integration after $task_id" --json | jq -r '.id')
+bd dep add $dep_task $task_id
+
+echo "📝 Documenting progress in work log..."
+# ... update work log ...
+
+# Check status before waiting
+echo ""
+echo "📊 Agent status check:"
+agent status $task_id
+
+# If still running, wait with feedback
+status=$(agent status $task_id | grep "Status:" | awk '{print $2}')
+if [ "$status" != "completed" ] && [ "$status" != "failed" ]; then
+    echo ""
+    echo "⏳ Waiting for agent to complete..."
+
+    # Option A: Use agent wait (blocks cleanly)
+    agent wait $task_id
+
+    # Option B: Wait with periodic feedback
+    # wait_with_feedback $task_id 30
+fi
+
+# Verify completion
+echo ""
+echo "✅ Agent finished. Verifying results..."
+agent results $task_id
+```
+
 **COORDINATING MULTIPLE AGENTS:**
 
 ```bash
@@ -1580,41 +1971,65 @@ WHEN coordinating multiple agents:
     task4=$(bd create "Integration" --priority normal --json | jq -r '.id')
 
   STEP 2: Set up dependencies
-    # Task 4 depends on task 1, 2, and 3 completing
     bd dep add $task4 $task1
     bd dep add $task4 $task2
     bd dep add $task4 $task3
 
-  STEP 3: Spawn independent agents with streaming
-    # These can run in parallel - spawn in separate terminal sessions or background
-    agent engineer $task1 --stream &
-    agent engineer $task2 --stream &
-    agent tester $task3 --stream &
+  STEP 3: Spawn agents in background
+    echo "🚀 Spawning 3 parallel agents..."
+    agent engineer $task1
+    agent engineer $task2
+    agent tester $task3
+    echo "✓ Agents spawned: $task1, $task2, $task3"
 
-  STEP 4: Monitor progress
-    # Check overall progress
+  STEP 4: Do other work + periodic status checks
+    echo ""
+    echo "📝 Continuing orchestration while agents work..."
+
+    # Create follow-up tasks, update work log, etc.
+    # ...
+
+    # Check progress after 30 seconds
+    sleep 30
+    echo ""
+    echo "📊 Agent progress update:"
     agent list --running
 
-    # Check specific agent
-    agent status $task1
+  STEP 5: Wait for completion with feedback
+    echo ""
+    echo "⏳ Waiting for parallel agents to complete..."
 
-    # Find tasks ready to start (dependencies met)
-    bd ready
+    agent wait $task1
+    echo "  ✓ API implementation ($task1) complete"
 
-  STEP 5: Spawn dependent work when ready
-    # When tasks 1, 2, 3 complete, task4 becomes ready
-    IF bd ready | grep -q "$task4" THEN
-      agent engineer $task4 --stream
-    END IF
+    agent wait $task2
+    echo "  ✓ UI components ($task2) complete"
 
-  STEP 6: Handle blockers
-    # Check for blocked agents
-    agent list | grep -q "blocked" && {
-      # Address blocker (may require manual intervention)
-      bd unblock $task1
-      # Retry if needed
-      agent engineer $task1 --stream
+    agent wait $task3
+    echo "  ✓ Tests ($task3) complete"
+
+  STEP 6: Verify and spawn dependent work
+    echo ""
+    echo "✅ All dependencies met for integration task"
+
+    # Check if ready
+    bd ready | grep -q "$task4" || {
+        echo "⚠️ Task $task4 not ready yet"
+        exit 1
     }
+
+    echo "🚀 Spawning integration agent..."
+    agent engineer $task4 --stream  # Stream this one for real-time feedback
+
+  STEP 7: Handle any failures
+    # Check for failed tasks
+    for tid in $task1 $task2 $task3; do
+        status=$(agent status $tid | grep "Status:" | awk '{print $2}')
+        if [ "$status" = "failed" ]; then
+            echo "❌ Agent $tid failed - reviewing logs:"
+            agent logs $tid | tail -20
+        fi
+    done
 END WHEN
 ```
 
@@ -1703,6 +2118,83 @@ ls .ai-pack/agents/
 - **Results Access**: View outputs with `agent results <task-id>`
 - **Log Access**: Debug with `agent logs <task-id>`
 - **Metrics**: Monitor server with `agent metrics`
+
+**QUICK REFERENCE: COMPLETION DETECTION**
+
+```bash
+# ✅ BLOCKING COMMANDS (return when agent finishes)
+agent engineer $task_id --stream   # Streams progress, blocks until done
+agent engineer $task_id --wait     # Polls status, blocks until done
+agent wait $task_id                # Blocks until existing agent completes
+
+# Exit codes: 0 = success, 1 = failure
+# When command completes and returns to prompt, agent is DONE
+
+# ✅ NON-BLOCKING COMMANDS (return immediately)
+agent engineer $task_id            # Spawns agent, returns immediately
+
+# Then later, check status:
+agent status $task_id              # Shows: completed, failed, in_progress
+agent wait $task_id                # Block until done
+
+# ✅ FOREGROUND WITH STREAMING (SIMPLEST)
+agent engineer $task_id --stream
+# Blocks, shows progress, returns when done
+bd close $task_id
+
+# ✅ BACKGROUND WITH FEEDBACK (ORCHESTRATORS)
+agent engineer $task_id            # Spawn in background
+echo "✓ Agent spawned, continuing work..."
+
+# Do other work for 30-60 seconds
+# ...
+
+# Check status periodically
+echo "📊 Status check:"
+agent status $task_id
+
+# When ready to wait
+echo "⏳ Waiting for completion..."
+agent wait $task_id                # Blocks until done
+echo "✅ Agent completed"
+bd close $task_id
+
+# ✅ BACKGROUND WITH PERIODIC UPDATES
+agent engineer $task_id
+while true; do
+    sleep 30
+    status=$(agent status $task_id | grep "Status:" | awk '{print $2}')
+    echo "⏳ Agent: $status"
+    [ "$status" = "completed" ] && break
+    [ "$status" = "failed" ] && break
+done
+echo "✅ Done"
+
+# ✅ ERROR HANDLING PATTERN
+if agent engineer $task_id --stream; then
+    echo "✓ Success"
+    bd close $task_id
+else
+    echo "✗ Failed"
+    agent logs $task_id            # Debug
+fi
+
+# ❌ COMMON MISTAKES
+agent engineer $task_id &          # Background - loses completion signal
+bd close $task_id                  # Runs immediately - TOO EARLY!
+
+# ✅ CORRECT BACKGROUND PATTERN
+agent engineer $task_id            # Fire and forget
+# ... do other work ...
+agent wait $task_id                # Explicit wait
+bd close $task_id                  # Now safe
+```
+
+**STATUS VALUES:**
+
+- `in_progress`: Agent is currently executing
+- `completed`: Agent finished successfully (exit code 0)
+- `failed`: Agent encountered an error (exit code 1)
 
 **TROUBLESHOOTING:**
 
