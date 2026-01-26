@@ -2542,6 +2542,215 @@ END IF
 
 ---
 
+#### 5.2 Task Completion and Cleanup
+
+**CRITICAL:** Task completion is a multi-step process. "Done" means agent finished work. "Done done" means work is validated and artifacts are cleaned up.
+
+**Definition of "Done Done":**
+```
+Task is "DONE DONE" when ALL criteria met:
+  ✓ Agent completed work
+  ✓ All acceptance criteria met
+  ✓ Tests passing (validated by Tester)
+  ✓ Code quality approved (validated by Reviewer)
+  ✓ Documentation artifacts created (as appropriate for task)
+  ✓ Code committed to repository
+  ✓ Beads task closed
+  ✓ Execution artifacts cleaned up
+```
+
+**Completion and Cleanup Procedure:**
+
+```bash
+# STEP 1: Wait for agent to complete
+agent wait $task_id
+echo "✅ Agent reported completion"
+
+# STEP 2: Validate work (MANDATORY for code changes)
+# Run Tester validation
+tester_task=$(bd create "Validate tests for $task_id" --priority high --json | jq -r '.id')
+Task(
+  subagent_type="general-purpose",
+  prompt="You are the Tester role. Validate TDD compliance and test coverage for $task_id.",
+  description="Test validation for $task_id"
+)
+
+# Run Reviewer validation
+reviewer_task=$(bd create "Review code for $task_id" --priority high --json | jq -r '.id')
+Task(
+  subagent_type="general-purpose",
+  prompt="You are the Reviewer role. Review code quality and standards for $task_id.",
+  description="Code review for $task_id"
+)
+
+# Verify both approved
+tester_status=$(check validation status)
+reviewer_status=$(check validation status)
+
+IF tester_status != "APPROVED" OR reviewer_status != "APPROVED" THEN
+  echo "❌ Validation failed - task NOT done"
+  # Address findings, re-validate
+  EXIT
+END IF
+
+echo "✅ Validation passed - proceeding to completion"
+
+# STEP 3: Verify documentation artifacts
+# Agent should have created these as part of work (task-dependent):
+# - ADRs (for architectural decisions)
+# - User docs (for user-facing features)
+# - API docs, diagrams, etc. (as applicable)
+
+# Verify expected artifacts exist (examples - adjust per task)
+# test -f docs/architecture/decisions/ADR-XXX.md || echo "⚠️ Missing expected ADR"
+# test -f docs/feature-X.md || echo "⚠️ Missing expected documentation"
+
+# What matters: Agent created documentation appropriate for THIS task
+
+# STEP 4: Commit all work (code + documentation)
+git add -A
+git commit -m "Implement feature X
+
+- Implementation details
+- Tests passing (validated by tester)
+- Code reviewed (approved by reviewer)
+
+Closes: $beads_task_id
+Co-Authored-By: Agent <agent@ai-pack>"
+
+# STEP 5: Close Beads task (keeps audit trail)
+bd close $task_id --reason "Feature complete, validated, and committed"
+
+# STEP 6: Clean up execution artifacts (SUCCESS ONLY!)
+# Only clean up on successful, validated completion
+# DO NOT clean up on failure - artifacts needed for debugging
+
+# Verify task is closed first
+status=$(bd show $task_id --json | jq -r '.status')
+if [ "$status" = "closed" ]; then
+  echo "🧹 Cleaning up execution artifacts..."
+
+  # Find internal task ID
+  internal_id=$(find .beads/tasks -name "00-metadata.json" -exec grep -l "$task_id" {} \; | head -1 | xargs dirname | xargs basename)
+
+  # Remove execution artifacts (logs, metadata, prompts)
+  if [ -n "$internal_id" ]; then
+    rm -rf ".beads/tasks/$internal_id"
+    echo "✓ Removed .beads/tasks/$internal_id"
+  fi
+
+  echo "✅ Cleanup complete"
+else
+  echo "⚠️ Task not closed - skipping cleanup"
+fi
+
+# STEP 7: (Optional) Delete from Beads if truly no longer needed
+# Keeps: Closed tasks for audit trail (default, recommended)
+# Delete: Only for abandoned/duplicate/mistake tasks
+
+# bd delete $task_id --force  # Rare - only if task should not exist
+
+echo "🎉 Task $task_id is DONE DONE"
+```
+
+**When NOT to Clean Up:**
+
+```bash
+# DO NOT clean up on failure
+agent wait $task_id
+if [ $? -ne 0 ]; then
+  echo "❌ Agent failed - keeping artifacts for debugging"
+  agent logs $task_id --tail 50
+  # DO NOT rm -rf .beads/tasks/...
+  # DO NOT bd close (task still needs work)
+  exit 1
+fi
+
+# DO NOT clean up on validation failure
+tester_result = validate_tests()
+if tester_result != "APPROVED"; then
+  echo "❌ Tests inadequate - keeping artifacts"
+  # DO NOT rm -rf .beads/tasks/...
+  # DO NOT bd close (work incomplete)
+  exit 1
+fi
+```
+
+**Documentation Artifact Guidelines:**
+
+Documentation is **part of the work**, not part of cleanup:
+
+```
+✅ CORRECT: Agent creates docs during work
+  - Engineer implements feature
+  - Engineer creates appropriate documentation (examples):
+    * ADR if making architectural decision
+    * User docs if user-facing feature
+    * API docs if creating new endpoints
+    * Diagrams if complex interactions
+  - Engineer commits: code + docs together
+  - Orchestrator validates and cleans up execution logs
+
+❌ WRONG: Orchestrator copies docs during cleanup
+  - Engineer implements feature
+  - Orchestrator extracts documentation from logs
+  - Orchestrator creates docs from agent output
+  - This means agent didn't complete the work!
+```
+
+**Artifacts That Should Exist (created by agent):**
+- ADRs in `docs/architecture/decisions/`
+- User documentation in `docs/`
+- API documentation
+- Diagrams, architecture docs
+- README updates
+
+**Artifacts to Clean Up (transient execution data):**
+- `.beads/tasks/<internal-id>/execution.log`
+- `.beads/tasks/<internal-id>/00-metadata.json`
+- `.beads/tasks/<internal-id>/agent-prompt.txt`
+- `.beads/tasks/<internal-id>/30-results.md` (transient summary)
+
+**Beads Task States:**
+
+```
+closed (default) - Task complete, kept for audit/history
+  - Use: Standard completion path
+  - Result: Can query with bd list --status closed
+  - Disk: Task data in .beads database, execution artifacts cleaned
+
+deleted - Task removed from database (tombstone created)
+  - Use: Abandoned/duplicate/mistake tasks only
+  - Result: bd list won't show it
+  - Command: bd delete $task_id --force
+```
+
+**Cleanup Verification:**
+
+```bash
+# Verify task is closed
+bd show $task_id | grep "Status: closed"
+
+# Verify artifacts cleaned
+ls .beads/tasks/task-* | grep -q $internal_id && echo "⚠️ Not cleaned" || echo "✓ Cleaned"
+
+# Verify docs committed
+git log --oneline -1 | grep -q $task_id && echo "✓ Committed" || echo "⚠️ Not committed"
+
+# Verify work is complete
+test -f docs/architecture/decisions/ADR-*.md && echo "✓ ADR exists"
+git diff --exit-code || echo "⚠️ Uncommitted changes"
+```
+
+**Summary:**
+1. Agent work completes → "Done"
+2. Orchestrator validates (tester + reviewer) → "Validated"
+3. Orchestrator commits (code + docs) → "Persisted"
+4. Orchestrator closes Beads task → "Tracked"
+5. Orchestrator cleans execution artifacts → "Done Done"
+
+---
+
 ### 6. Communication and Escalation
 
 **Responsibility:** Keep user informed and escalate when necessary.
