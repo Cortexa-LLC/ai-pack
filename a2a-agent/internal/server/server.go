@@ -30,7 +30,7 @@ const (
 type AgentServer struct {
 	rootDir          string
 	anthropicKey     string
-	client           *anthropic.Client
+	client           anthropic.Client // SDK v1.19+ returns Client by value
 	beadsClient      *beads.Client
 	claudeSettings   *claude.Settings // Claude Code settings (deny patterns, etc.)
 	maxConcurrent    int              // Maximum concurrent agents (configurable)
@@ -493,10 +493,9 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 }
 
 func (s *AgentServer) buildPrompt(role, task, roleContext string, config *AgentConfig, taskPacketPath, workingDir string) string {
+	// Note: roleContext is now passed separately as a system message for prompt caching
+	// This prompt only contains the task-specific information
 	prompt := fmt.Sprintf(`You are a %s agent.
-
-**Your Role Context:**
-%s
 
 **Your Task:**
 %s
@@ -506,7 +505,6 @@ func (s *AgentServer) buildPrompt(role, task, roleContext string, config *AgentC
 
 All file operations (Read, Write, Edit, Glob, Grep, Bash) must be performed relative to the working directory above.`,
 		role,
-		roleContext,
 		task,
 		workingDir)
 
@@ -576,12 +574,40 @@ func (s *AgentServer) updateTaskStatus(taskID, status, errorMsg string) {
 	}
 }
 
+// buildSystemPrompt creates system messages with prompt caching for role context
+func (s *AgentServer) buildSystemPrompt(roleContext string) []anthropic.TextBlockParam {
+	// Cache the role context with 5-minute TTL (auto-refreshed on each turn)
+	// This provides massive speedup across agentic loop turns while automatically
+	// expiring between tasks
+	return []anthropic.TextBlockParam{
+		{
+			Text:         roleContext,
+			Type:         "text",
+			CacheControl: anthropic.NewCacheControlEphemeralParam(),
+		},
+	}
+}
+
+// convertToToolUnionParams converts []ToolParam to []ToolUnionParam for SDK v1.19+
+func convertToToolUnionParams(tools []anthropic.ToolParam) []anthropic.ToolUnionParam {
+	result := make([]anthropic.ToolUnionParam, len(tools))
+	for i, tool := range tools {
+		result[i] = anthropic.ToolUnionParam{
+			OfTool: &tool,
+		}
+	}
+	return result
+}
+
 // executeAgenticLoop runs the agentic loop with tool support
-func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, initialPrompt string, workingDir string, config *AgentConfig, logMsg func(string)) (string, error) {
+func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, initialPrompt string, roleContext string, workingDir string, config *AgentConfig, logMsg func(string)) (string, error) {
 	// Define tools (matches Claude Code's exact tool names)
 	toolDefs := tools.DefineTools()
 
-	// Build messages starting with user prompt
+	// Build system prompt with caching for role context
+	systemPrompt := s.buildSystemPrompt(roleContext)
+
+	// Build messages starting with user prompt (task-specific)
 	messages := []anthropic.MessageParam{
 		anthropic.NewUserMessage(anthropic.NewTextBlock(initialPrompt)),
 	}
@@ -592,7 +618,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 		maxTurns = 100 // High safety limit, agent should complete naturally
 	}
 
-	logMsg(fmt.Sprintf("🔄 Starting agentic loop (max_turns: %d, max_inactive: %d, extended_thinking: %v)",
+	logMsg(fmt.Sprintf("🔄 Starting agentic loop (max_turns: %d, max_inactive: %d, caching: enabled, extended_thinking: %v)",
 		maxTurns, s.maxInactiveTurns, config.ExtendedThinking))
 
 	var finalResult strings.Builder
@@ -610,12 +636,13 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 	for turn <= maxTurns {
 		logMsg(fmt.Sprintf("   Turn %d (inactive: %d)...", turn, inactiveTurns))
 
-		// Prepare API params
+		// Prepare API params with system prompt (SDK v1.19+ uses direct values, not F() wrappers)
 		params := anthropic.MessageNewParams{
-			Model:     anthropic.F(s.model),
-			MaxTokens: anthropic.F(int64(s.maxTokens)),
-			Messages:  anthropic.F(messages),
-			Tools:     anthropic.F(toolDefs),
+			Model:     anthropic.Model(s.model),
+			MaxTokens: int64(s.maxTokens),
+			Messages:  messages,
+			Tools:     convertToToolUnionParams(toolDefs),
+			System:    systemPrompt,
 		}
 
 		// Note: Extended thinking support requires newer SDK version
@@ -637,21 +664,23 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 
 		logMsg(fmt.Sprintf("      API: %dms | in:%d out:%d", apiDuration, message.Usage.InputTokens, message.Usage.OutputTokens))
 
-		// Process response blocks
+		// Process response blocks (SDK v1.19+ uses Type field to discriminate)
 		var toolUses []anthropic.ToolUseBlock
 		hasText := false
 
 		for _, block := range message.Content {
-			switch b := block.AsUnion().(type) {
-			case anthropic.TextBlock:
-				finalResult.WriteString(b.Text)
+			switch block.Type {
+			case "text":
+				textBlock := block.AsText()
+				finalResult.WriteString(textBlock.Text)
 				finalResult.WriteString("\n")
 				hasText = true
-				logMsg(fmt.Sprintf("      💬 Text: %d chars", len(b.Text)))
+				logMsg(fmt.Sprintf("      💬 Text: %d chars", len(textBlock.Text)))
 
-			case anthropic.ToolUseBlock:
-				toolUses = append(toolUses, b)
-				logMsg(fmt.Sprintf("      🔧 Tool: %s", b.Name))
+			case "tool_use":
+				toolUse := block.AsToolUse()
+				toolUses = append(toolUses, toolUse)
+				logMsg(fmt.Sprintf("      🔧 Tool: %s", toolUse.Name))
 			}
 		}
 
@@ -728,18 +757,16 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 			}
 		}
 
-		// Add assistant message with tool uses
+		// Add assistant message with tool uses (SDK v1.19+ uses Type field)
 		var assistantContent []anthropic.ContentBlockParamUnion
 		for _, block := range message.Content {
-			if textBlock, ok := block.AsUnion().(anthropic.TextBlock); ok {
+			switch block.Type {
+			case "text":
+				textBlock := block.AsText()
 				assistantContent = append(assistantContent, anthropic.NewTextBlock(textBlock.Text))
-			} else if toolBlock, ok := block.AsUnion().(anthropic.ToolUseBlock); ok {
-				assistantContent = append(assistantContent, anthropic.ToolUseBlockParam{
-					ID:    anthropic.F(toolBlock.ID),
-					Name:  anthropic.F(toolBlock.Name),
-					Input: anthropic.F[interface{}](toolBlock.Input),
-					Type:  anthropic.F(anthropic.ToolUseBlockParamTypeToolUse),
-				})
+			case "tool_use":
+				toolBlock := block.AsToolUse()
+				assistantContent = append(assistantContent, anthropic.NewToolUseBlock(toolBlock.ID, toolBlock.Input, toolBlock.Name))
 			}
 		}
 		messages = append(messages, anthropic.NewAssistantMessage(assistantContent...))
@@ -854,7 +881,7 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	})
 
 	// Execute via agentic loop with tool support
-	result, err := s.executeAgenticLoop(ctx, taskID, prompt, workingDir, execution.Config, logMsg)
+	result, err := s.executeAgenticLoop(ctx, taskID, prompt, roleContext, workingDir, execution.Config, logMsg)
 	if err != nil {
 		logMsg(fmt.Sprintf("❌ Agentic loop failed: %v", err))
 		s.failTask(execution, fmt.Sprintf("Execution error: %v", err))
