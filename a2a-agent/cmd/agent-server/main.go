@@ -185,7 +185,7 @@ func handleProtocolURL(agentURL, configPath string) {
 		1, // Single task mode
 		cfg.API.MaxTokens,
 		cfg.API.AnthropicModel,
-		&cfg.API,
+		cfg,
 	)
 	if err != nil {
 		log.Fatalf("Failed to create agent server: %v", err)
@@ -341,7 +341,7 @@ func main() {
 		cfg.Server.MaxConcurrentAgents,
 		cfg.API.MaxTokens,
 		cfg.API.AnthropicModel,
-		&cfg.API,
+		cfg,
 	)
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
