@@ -86,21 +86,30 @@ func DefaultConfig() *Config {
 }
 
 // LoadConfig loads configuration from file with environment variable overrides
+// Config search order:
+// 1. Explicit configPath parameter (--config flag)
+// 2. AGENT_SERVER_CONFIG environment variable
+// 3. ~/.claude/agent-server.json (user config - DEFAULT)
+// 4. ./agent-server.json (current directory - backward compat)
+// 5. Built-in defaults
 func LoadConfig(configPath string) (*Config, error) {
 	// Start with defaults
 	cfg := DefaultConfig()
 
+	// Determine which config file to load
+	resolvedPath := resolveConfigPath(configPath)
+
 	// Load from file if it exists
-	if configPath != "" {
-		data, err := os.ReadFile(configPath)
+	if resolvedPath != "" {
+		data, err := os.ReadFile(resolvedPath)
 		if err != nil {
 			if !os.IsNotExist(err) {
-				return nil, fmt.Errorf("failed to read config file: %w", err)
+				return nil, fmt.Errorf("failed to read config file %s: %w", resolvedPath, err)
 			}
 			// File doesn't exist, use defaults
 		} else {
 			if err := json.Unmarshal(data, cfg); err != nil {
-				return nil, fmt.Errorf("failed to parse config file: %w", err)
+				return nil, fmt.Errorf("failed to parse config file %s: %w", resolvedPath, err)
 			}
 		}
 	}
@@ -109,6 +118,43 @@ func LoadConfig(configPath string) (*Config, error) {
 	applyEnvOverrides(cfg)
 
 	return cfg, nil
+}
+
+// resolveConfigPath resolves the config file path using the search order
+func resolveConfigPath(explicitPath string) string {
+	// 1. Explicit path provided (--config flag)
+	if explicitPath != "" && explicitPath != "agent-server.json" {
+		return explicitPath
+	}
+
+	// 2. AGENT_SERVER_CONFIG environment variable
+	if envPath := os.Getenv("AGENT_SERVER_CONFIG"); envPath != "" {
+		if fileExists(envPath) {
+			return envPath
+		}
+	}
+
+	// 3. ~/.claude/agent-server.json (user config - DEFAULT)
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		claudePath := homeDir + "/.claude/agent-server.json"
+		if fileExists(claudePath) {
+			return claudePath
+		}
+	}
+
+	// 4. ./agent-server.json (current directory - backward compat)
+	if fileExists("agent-server.json") {
+		return "agent-server.json"
+	}
+
+	// 5. Return empty to use built-in defaults
+	return ""
+}
+
+// fileExists checks if a file exists
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // applyEnvOverrides applies environment variable overrides to config
