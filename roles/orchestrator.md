@@ -1571,7 +1571,14 @@ agent engineer xasm++-e3w --wait
 
 **AGENT COMPLETION DETECTION (CRITICAL):**
 
-The agent CLI provides CLEAR, BLOCKING signals for completion. Understanding these is essential for proper orchestration.
+**MANDATORY REQUIREMENT:** Orchestrators MUST use `--stream` (preferred) or `--wait` for agent completion detection. Never poll manually with status checks in loops.
+
+**Why this matters:**
+- `--stream`: Immediate notification → immediate orchestrator action
+- `--wait`: Polling with delay → slower orchestration response
+- Manual polling: WRONG - defeats the purpose of the agent CLI
+
+The agent CLI provides CLEAR, BLOCKING signals for completion. Use them.
 
 **How --stream Works:**
 ```bash
@@ -1686,10 +1693,10 @@ agent engineer $task_id --stream &  # Background with &
 sleep 30  # Arbitrary wait
 agent status $task_id  # May still be running!
 
-# ✅ CORRECT: If spawning in background, use explicit wait
+# ✅ CORRECT: If spawning in background, use explicit wait with --stream
 agent engineer $task_id  # Fire and forget
 # ... do other work ...
-agent wait $task_id  # Block until complete
+agent wait $task_id --stream  # Block until complete with immediate notification
 echo "Now agent is done"
 ```
 
@@ -1793,18 +1800,31 @@ fi
    agent engineer $task_id
    agent wait $task_id  # Blocks, polls internally, returns when done
 
-   # ✅ ALSO CORRECT - blocking from the start
-   agent engineer $task_id --stream  # Blocks with progress
-   # OR
-   agent engineer $task_id --wait    # Blocks with polling
+   # ✅ BEST - blocking from the start with streaming (PREFERRED)
+   agent engineer $task_id --stream  # Blocks with immediate progress updates
+
+   # ✅ ALSO CORRECT - blocking with polling
+   agent engineer $task_id --wait    # Blocks but polls (slight delay)
    ```
 
-**BACKGROUND TASKS WITH INCREMENTAL FEEDBACK:**
+**Why --stream is preferred:** Immediate notification when agent completes or needs attention. No polling delay = faster orchestration response.
 
-The key: `agent wait` handles all polling internally. You just spawn, do other work, then block cleanly.
+**BACKGROUND TASKS WITH COMPLETION DETECTION:**
+
+**MANDATORY PATTERN:** Orchestrators MUST use `--stream` (preferred) or `--wait` to detect agent completion. Never poll manually.
+
+**Why --stream is preferred:** Immediate notification when agent completes = immediate orchestrator action. No polling delay.
 
 ```bash
-# PATTERN 1: Spawn, work, wait (SIMPLEST)
+# PATTERN 1: Stream from start (PREFERRED - immediate feedback)
+echo "🚀 Starting engineer agent for task $task_id"
+agent engineer $task_id --stream  # Blocks with real-time progress, immediate completion
+echo "✅ Agent completed"
+
+# Verify results and proceed immediately
+agent results $task_id
+
+# PATTERN 2: Spawn, work, then stream (when you have other work first)
 echo "🚀 Spawning engineer agent for task $task_id"
 agent engineer $task_id
 echo "✓ Agent spawned"
@@ -1817,38 +1837,24 @@ bd dep add $dep_task $task_id
 echo "📝 Updating work log..."
 # ... other work ...
 
-# Block until agent completes (agent wait polls internally)
-echo "⏳ Waiting for agent to complete..."
-agent wait $task_id
+# Block with streaming for immediate completion notification
+echo "⏳ Streaming agent progress..."
+agent wait $task_id --stream  # If wait supports --stream
+# OR
+agent wait $task_id  # Falls back to polling
 echo "✅ Agent completed"
 
 # Verify results
 agent results $task_id
 
-# PATTERN 2: Optional status check for visibility
-echo "🚀 Spawning engineer for $task_id"
-agent engineer $task_id
-
-# Do 30-60 seconds of other work
-echo "📝 Performing orchestration work..."
-# ... work here ...
-
-# Optional: Show one status check for user feedback
-echo "📊 Agent status:"
-agent status $task_id
-
-# Then block cleanly
-agent wait $task_id
-echo "✅ Agent completed"
-
-# PATTERN 3: Multiple parallel agents
+# PATTERN 3: Multiple parallel agents (PREFERRED for parallelism)
 echo "🚀 Spawning 3 parallel agents..."
 agent engineer $task1
 agent engineer $task2
 agent tester $task3
 echo "✓ All spawned: $task1, $task2, $task3"
 
-# Do other work
+# Do other work while they run
 echo "📝 Setting up integration task..."
 int_task=$(bd create "Integration" --json | jq -r '.id')
 bd dep add $int_task $task1
@@ -1859,15 +1865,15 @@ bd dep add $int_task $task3
 echo "📊 Current status:"
 agent list --running
 
-# Wait for all (order doesn't matter)
+# Wait for all with --stream for immediate completion detection
 echo "⏳ Waiting for agents to complete..."
-agent wait $task1
+agent wait $task1 --stream  # Immediate notification when done
 echo "  ✓ $task1 done"
 
-agent wait $task2
+agent wait $task2 --stream
 echo "  ✓ $task2 done"
 
-agent wait $task3
+agent wait $task3 --stream
 echo "  ✓ $task3 done"
 
 echo "✅ All agents completed"
@@ -1875,10 +1881,11 @@ echo "✅ All agents completed"
 
 **KEY PRINCIPLES:**
 
-1. **`agent wait` is the blocking primitive** - Use it, don't reimplement polling
-2. **Status checks are optional** - Only for user visibility, not control flow
-3. **Keep it simple** - Spawn, work, wait, proceed
-4. **No timers needed** - `agent wait` polls internally at appropriate intervals
+1. **MUST use --stream or --wait** - Never poll manually. Orchestrators MUST use blocking completion detection.
+2. **Prefer --stream over --wait** - Immediate notification = immediate action. No polling delay.
+3. **Status checks are optional** - Only for user visibility, not control flow.
+4. **Keep it simple** - Spawn, work, stream/wait, proceed immediately.
+5. **No manual timers** - The agent CLI handles all timing internally.
 
 **COORDINATING MULTIPLE AGENTS:**
 
@@ -1914,17 +1921,17 @@ WHEN coordinating multiple agents:
     echo "📊 Agent progress:"
     agent list --running
 
-  STEP 5: Wait for completion (agent wait handles polling)
+  STEP 5: Wait for completion (use --stream for immediate notification)
     echo ""
     echo "⏳ Waiting for parallel agents to complete..."
 
-    agent wait $task1
+    agent wait $task1 --stream
     echo "  ✓ API implementation ($task1) complete"
 
-    agent wait $task2
+    agent wait $task2 --stream
     echo "  ✓ UI components ($task2) complete"
 
-    agent wait $task3
+    agent wait $task3 --stream
     echo "  ✓ Tests ($task3) complete"
 
   STEP 6: Verify and spawn dependent work
