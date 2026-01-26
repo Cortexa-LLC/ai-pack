@@ -685,10 +685,11 @@ func showMetrics() {
 	fmt.Println()
 }
 
-func streamTaskProgress(beadsTaskID string) {
-	internalTaskID := findInternalTaskID(beadsTaskID)
+func streamTaskProgress(taskID string) {
+	// Try to resolve task ID (accepts both internal task IDs and Beads task IDs)
+	internalTaskID := resolveTaskID(taskID)
 	if internalTaskID == "" {
-		fmt.Printf("❌ No agent found for Beads task: %s\n", beadsTaskID)
+		fmt.Printf("❌ No agent found for task: %s\n", taskID)
 		os.Exit(1)
 	}
 
@@ -786,10 +787,11 @@ func streamTaskProgress(beadsTaskID string) {
 	showMetrics()
 }
 
-func waitForTaskCompletion(beadsTaskID string) {
-	internalTaskID := findInternalTaskID(beadsTaskID)
+func waitForTaskCompletion(taskID string) {
+	// Try to resolve task ID (accepts both internal task IDs and Beads task IDs)
+	internalTaskID := resolveTaskID(taskID)
 	if internalTaskID == "" {
-		fmt.Printf("❌ No agent found for Beads task: %s\n", beadsTaskID)
+		fmt.Printf("❌ No agent found for task: %s\n", taskID)
 		os.Exit(1)
 	}
 
@@ -839,6 +841,19 @@ func waitForTaskCompletion(beadsTaskID string) {
 
 		time.Sleep(5 * time.Second)
 	}
+}
+
+func resolveTaskID(taskID string) string {
+	// Strategy 1: Check if it's an internal task ID that exists directly
+	if strings.HasPrefix(taskID, "task-") {
+		taskDir := filepath.Join(".beads/tasks", taskID)
+		if _, err := os.Stat(taskDir); err == nil {
+			return taskID
+		}
+	}
+
+	// Strategy 2: Look it up as a Beads task ID
+	return findInternalTaskID(taskID)
 }
 
 func findInternalTaskID(beadsTaskID string) string {
