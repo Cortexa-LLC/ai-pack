@@ -10,6 +10,9 @@
     "max_tokens": 8000,
     "timeout_seconds": 600
   },
+  "agent": {
+    "max_inactive_turns": 10
+  },
   "logging": {
     "level": "info",
     "format": "json"

@@ -11,6 +11,9 @@
     "timeout_seconds": 600,
     "mode": "direct"
   },
+  "agent": {
+    "max_inactive_turns": 10
+  },
   "logging": {
     "level": "info",
     "format": "json"
