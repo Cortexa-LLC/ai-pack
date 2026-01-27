@@ -12,6 +12,8 @@ import (
 const (
 	desktopHandlerFilename = "ai-pack-agent-handler.desktop"
 	windowsRegistryKey     = "HKCU\\Software\\Classes\\agent"
+	aiPackDirName          = "ai-pack"
+	appSupportDirName      = "Application Support"
 )
 
 // Register registers the agent:// protocol handler for the current platform
@@ -127,7 +129,7 @@ func registerMacOS() error {
 	}
 
 	// Determine the permanent binary location
-	binDir := filepath.Join(homeDir, "Library", "Application Support", "ai-pack", "bin")
+	binDir := filepath.Join(homeDir, "Library", appSupportDirName, aiPackDirName, "bin")
 	binaryPath := filepath.Join(binDir, "agent-server")
 
 	// Build or locate the agent-server binary
@@ -136,7 +138,7 @@ func registerMacOS() error {
 	}
 
 	// Create a minimal .app bundle to register as protocol handler
-	appPath := filepath.Join(homeDir, "Library", "Application Support", "ai-pack", "AI-Pack Agent Handler.app")
+	appPath := filepath.Join(homeDir, "Library", appSupportDirName, aiPackDirName, "AI-Pack Agent Handler.app")
 	contentsDir := filepath.Join(appPath, "Contents")
 	macOSDir := filepath.Join(contentsDir, "MacOS")
 
@@ -207,7 +209,7 @@ func isRegisteredMacOS() bool {
 		return false
 	}
 
-	appPath := filepath.Join(homeDir, "Library", "Application Support", "ai-pack", "AI-Pack Agent Handler.app")
+	appPath := filepath.Join(homeDir, "Library", appSupportDirName, aiPackDirName, "AI-Pack Agent Handler.app")
 	if _, err := os.Stat(appPath); err != nil {
 		return false
 	}

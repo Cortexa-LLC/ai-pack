@@ -44,6 +44,9 @@ const (
 
 	// File names
 	MetadataFileName = "00-metadata.json"
+
+	// Directory names
+	BeadsDir = ".beads"
 )
 
 type AgentServer struct {
@@ -439,7 +442,7 @@ func (s *AgentServer) loadRoleContext(roleFile string) (string, error) {
 }
 
 func (s *AgentServer) createTaskPacket(taskID, role, task string, config *AgentConfig) error {
-	taskDir := filepath.Join(s.rootDir, ".beads", "tasks", taskID)
+	taskDir := filepath.Join(s.rootDir, BeadsDir, "tasks", taskID)
 
 	if err := os.MkdirAll(taskDir, 0755); err != nil {
 		return fmt.Errorf("failed to create task directory: %w", err)
@@ -480,7 +483,7 @@ func (s *AgentServer) createTaskPacket(taskID, role, task string, config *AgentC
 }
 
 func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatusResponse, error) {
-	metadataPath := filepath.Join(s.rootDir, ".beads", "tasks", taskID, MetadataFileName)
+	metadataPath := filepath.Join(s.rootDir, BeadsDir, "tasks", taskID, MetadataFileName)
 
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {
@@ -494,7 +497,7 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 
 	// Read results if available
 	var result string
-	resultsPath := filepath.Join(s.rootDir, ".beads", "tasks", taskID, "30-results.md")
+	resultsPath := filepath.Join(s.rootDir, BeadsDir, "tasks", taskID, "30-results.md")
 	if resultData, err := os.ReadFile(resultsPath); err == nil {
 		result = string(resultData)
 	}
@@ -571,7 +574,7 @@ Execute the task according to your role definition.`,
 }
 
 func (s *AgentServer) updateTaskStatus(taskID, status, errorMsg string) {
-	metadataPath := filepath.Join(s.rootDir, ".beads", "tasks", taskID, MetadataFileName)
+	metadataPath := filepath.Join(s.rootDir, BeadsDir, "tasks", taskID, MetadataFileName)
 
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {
@@ -897,7 +900,7 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 
 // setupExecutionLogger creates the execution log file and returns a logging function
 func (s *AgentServer) setupExecutionLogger(taskID string) func(string) {
-	logPath := filepath.Join(s.rootDir, ".beads", "tasks", taskID, "execution.log")
+	logPath := filepath.Join(s.rootDir, BeadsDir, "tasks", taskID, "execution.log")
 	logFile, err := os.Create(logPath)
 	if err != nil {
 		monitoring.Logger.Error("log_create_error", "task_id", taskID, "error", err)
@@ -978,7 +981,7 @@ func (s *AgentServer) buildAndSavePrompt(execution *TaskExecution, roleContext, 
 	prompt := s.buildPrompt(execution.Role, execution.Task, roleContext, execution.Config, taskPacketPath, workingDir)
 	logMsg(fmt.Sprintf("✅ Prompt built (%d chars)", len(prompt)))
 
-	promptPath := filepath.Join(s.rootDir, ".beads", "tasks", execution.TaskID, "agent-prompt.txt")
+	promptPath := filepath.Join(s.rootDir, BeadsDir, "tasks", execution.TaskID, "agent-prompt.txt")
 	if err := os.WriteFile(promptPath, []byte(prompt), 0644); err != nil {
 		monitoring.Logger.Warn("prompt_save_error", "task_id", execution.TaskID, "error", err)
 	} else {

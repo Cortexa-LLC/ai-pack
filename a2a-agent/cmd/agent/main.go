@@ -16,6 +16,9 @@ import (
 
 const Version = "2.2.0"
 const ServerURL = "http://localhost:8080"
+const descOutputAsJSON = "Output as JSON"
+const sseDataPrefix = "data: "
+const errNoAgentForBeadsTask = "❌ No agent found for Beads task: %s\n"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -176,7 +179,7 @@ func handleSpawn(args []string) {
 func handleStatus(args []string) {
 	// Parse flags
 	fs := flag.NewFlagSet("status", flag.ExitOnError)
-	jsonOutput := fs.Bool("json", false, "Output as JSON")
+	jsonOutput := fs.Bool("json", false, descOutputAsJSON)
 	quiet := fs.Bool("quiet", false, "Output only status value")
 
 	fs.Usage = func() {
@@ -208,7 +211,7 @@ func handleStatus(args []string) {
 		if *jsonOutput {
 			fmt.Println(`{"error":"not_found"}`)
 		} else if !*quiet {
-			fmt.Printf("❌ No agent found for Beads task: %s\n", beadsTaskID)
+			fmt.Printf(errNoAgentForBeadsTask, beadsTaskID)
 		}
 		os.Exit(3) // not found
 	}
@@ -271,7 +274,7 @@ func handleResults(args []string) {
 	beadsTaskID := args[0]
 	internalTaskID := findInternalTaskID(beadsTaskID)
 	if internalTaskID == "" {
-		fmt.Printf("❌ No agent found for Beads task: %s\n", beadsTaskID)
+		fmt.Printf(errNoAgentForBeadsTask, beadsTaskID)
 		fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", beadsTaskID)
 		os.Exit(1)
 	}
@@ -293,7 +296,7 @@ func handleLogs(args []string) {
 	follow := fs.Bool("follow", false, "Stream new log lines")
 	serverLogs := fs.Bool("server", false, "Show server logs instead of task logs")
 	allLogs := fs.Bool("all", false, "Show all logs (server + all tasks)")
-	jsonOutput := fs.Bool("json", false, "Output as JSON")
+	jsonOutput := fs.Bool("json", false, descOutputAsJSON)
 
 	fs.Usage = func() {
 		fmt.Println("Usage: agent logs <task-id> [options]")
@@ -337,7 +340,7 @@ func handleLogs(args []string) {
 	beadsTaskID := positionalArgs[0]
 	internalTaskID := findInternalTaskID(beadsTaskID)
 	if internalTaskID == "" {
-		fmt.Printf("❌ No agent found for Beads task: %s\n", beadsTaskID)
+		fmt.Printf(errNoAgentForBeadsTask, beadsTaskID)
 		fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", beadsTaskID)
 		os.Exit(1)
 	}
@@ -466,8 +469,8 @@ func streamServerLogs(jsonOutput bool) {
 			message := dataBuffer[:idx]
 			dataBuffer = dataBuffer[idx+2:]
 
-			if strings.HasPrefix(message, "data: ") {
-				jsonData := strings.TrimPrefix(message, "data: ")
+			if strings.HasPrefix(message, sseDataPrefix) {
+				jsonData := strings.TrimPrefix(message, sseDataPrefix)
 
 				if jsonOutput {
 					fmt.Println(jsonData)
@@ -540,7 +543,7 @@ func handleList(args []string) {
 	running := fs.Bool("running", false, "Show only running agents")
 	completed := fs.Bool("completed", false, "Show only completed agents")
 	failed := fs.Bool("failed", false, "Show only failed agents")
-	jsonOutput := fs.Bool("json", false, "Output as JSON")
+	jsonOutput := fs.Bool("json", false, descOutputAsJSON)
 	fs.Parse(args)
 
 	// List .beads/tasks/task-* directories
@@ -891,8 +894,8 @@ func streamTaskProgress(beadsTaskID string) {
 			dataBuffer = dataBuffer[idx+2:]
 
 			// Parse SSE event
-			if strings.HasPrefix(message, "data: ") {
-				jsonData := strings.TrimPrefix(message, "data: ")
+			if strings.HasPrefix(message, sseDataPrefix) {
+				jsonData := strings.TrimPrefix(message, sseDataPrefix)
 
 				var event map[string]interface{}
 				if err := json.Unmarshal([]byte(jsonData), &event); err != nil {
