@@ -259,16 +259,39 @@ func handleMetrics(s *server.AgentServer) http.HandlerFunc {
 	}
 }
 
-func main() {
-	// Parse command-line flags
-	configPath := flag.String("config", "agent-server.json", "Path to configuration file")
-	maxConcurrent := flag.Int("max-concurrent", 0, "Override max concurrent agents (0 = use config)")
-	port := flag.Int("port", 0, "Override server port (0 = use config)")
-	serverMode := flag.Bool("server", false, "Run in server mode (HTTP/A2A protocol). Default: protocol handler mode")
+func printUsage() {
+	fmt.Println("AI-Pack Agent Server - Usage:")
+	fmt.Println("")
+	fmt.Println("  Server Mode:")
+	fmt.Println("    agent-server --server [--config agent-server.json]")
+	fmt.Println("")
+	fmt.Println("  Then use the agent CLI to spawn tasks:")
+	fmt.Println("    agent engineer <beads-task-id>")
+	fmt.Println("    agent engineer <beads-task-id> --wait")
+	fmt.Println("")
+	fmt.Println("  Example:")
+	fmt.Println("    # Start server")
+	fmt.Println("    agent-server --server")
+	fmt.Println("")
+	fmt.Println("    # Spawn agent (in another terminal)")
+	fmt.Println("    agent engineer bd-abc123")
+	fmt.Println("")
+}
+
+func parseCommandLine() (configPath *string, maxConcurrent *int, port *int, serverMode *bool, args []string) {
+	configPath = flag.String("config", "agent-server.json", "Path to configuration file")
+	maxConcurrent = flag.Int("max-concurrent", 0, "Override max concurrent agents (0 = use config)")
+	port = flag.Int("port", 0, "Override server port (0 = use config)")
+	serverMode = flag.Bool("server", false, "Run in server mode (HTTP/A2A protocol). Default: protocol handler mode")
 	flag.Parse()
+	args = flag.Args()
+	return
+}
+
+func main() {
+	configPath, maxConcurrent, port, serverMode, args := parseCommandLine()
 
 	// Check if we have a non-flag argument (agent:// URL)
-	args := flag.Args()
 	if len(args) > 0 && !*serverMode {
 		// Protocol handler mode: handle agent:// URL directly
 		handleProtocolURL(args[0], *configPath)
@@ -277,22 +300,7 @@ func main() {
 
 	// If -server flag not set and no URL provided, show usage
 	if !*serverMode && len(args) == 0 {
-		fmt.Println("AI-Pack Agent Server - Usage:")
-		fmt.Println("")
-		fmt.Println("  Server Mode:")
-		fmt.Println("    agent-server --server [--config agent-server.json]")
-		fmt.Println("")
-		fmt.Println("  Then use the agent CLI to spawn tasks:")
-		fmt.Println("    agent engineer <beads-task-id>")
-		fmt.Println("    agent engineer <beads-task-id> --wait")
-		fmt.Println("")
-		fmt.Println("  Example:")
-		fmt.Println("    # Start server")
-		fmt.Println("    agent-server --server")
-		fmt.Println("")
-		fmt.Println("    # Spawn agent (in another terminal)")
-		fmt.Println("    agent engineer bd-abc123")
-		fmt.Println("")
+		printUsage()
 		os.Exit(1)
 	}
 
