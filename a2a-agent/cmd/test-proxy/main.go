@@ -13,6 +13,8 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/proxy"
 )
 
+const errFormatWithCross = "❌ %v\n"
+
 func loadAndPrintConfig() (*config.Config, error) {
 	cfg, err := config.LoadConfig("")
 	if err != nil {
@@ -171,13 +173,13 @@ func main() {
 
 	cfg, err := loadAndPrintConfig()
 	if err != nil {
-		fmt.Printf("❌ %v\n", err)
+		fmt.Printf(errFormatWithCross, err)
 		os.Exit(1)
 	}
 
 	apiKey, isBearerToken, err := getAuthentication()
 	if err != nil {
-		fmt.Printf("❌ %v\n", err)
+		fmt.Printf(errFormatWithCross, err)
 		fmt.Println("   Please set ANTHROPIC_API_KEY or ANTHROPIC_API_TOKEN")
 		os.Exit(1)
 	}
@@ -186,7 +188,7 @@ func main() {
 
 	req, err := createTestRequest(cfg, apiKey, isBearerToken)
 	if err != nil {
-		fmt.Printf("❌ %v\n", err)
+		fmt.Printf(errFormatWithCross, err)
 		os.Exit(1)
 	}
 
@@ -197,7 +199,7 @@ func main() {
 	}
 
 	if err := printResponse(responseBody); err != nil {
-		fmt.Printf("❌ %v\n", err)
+		fmt.Printf(errFormatWithCross, err)
 		os.Exit(1)
 	}
 }

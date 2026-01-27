@@ -12,6 +12,11 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/claude"
 )
 
+const (
+	errReadingFile = "Error reading file: %v"
+	errWritingFile = "Error writing file: %v"
+)
+
 // Define tools matching Claude Code's exact naming
 func DefineTools() []anthropic.ToolParam {
 	return []anthropic.ToolParam{
@@ -342,7 +347,7 @@ func executeRead(input map[string]interface{}, workingDir string, settings *clau
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Sprintf("Error reading file: %v", err), nil
+		return fmt.Sprintf(errReadingFile, err), nil
 	}
 
 	return string(data), nil
@@ -367,7 +372,7 @@ func executeWrite(input map[string]interface{}, workingDir string, settings *cla
 	}
 
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
-		return fmt.Sprintf("Error writing file: %v", err), nil
+		return fmt.Sprintf(errWritingFile, err), nil
 	}
 
 	return fmt.Sprintf("File written: %s (%d bytes)", filePath, len(content)), nil
@@ -390,7 +395,7 @@ func executeEdit(input map[string]interface{}, workingDir string, settings *clau
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Sprintf("Error reading file: %v", err), nil
+		return fmt.Sprintf(errReadingFile, err), nil
 	}
 
 	content := string(data)
@@ -402,7 +407,7 @@ func executeEdit(input map[string]interface{}, workingDir string, settings *clau
 	newContent := strings.Replace(content, oldString, newString, 1)
 
 	if err := os.WriteFile(filePath, []byte(newContent), 0644); err != nil {
-		return fmt.Sprintf("Error writing file: %v", err), nil
+		return fmt.Sprintf(errWritingFile, err), nil
 	}
 
 	return fmt.Sprintf("File edited: %s", filePath), nil
@@ -428,7 +433,7 @@ func executeMultiEdit(input map[string]interface{}, workingDir string, settings 
 	// Read file once
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Sprintf("Error reading file: %v", err), nil
+		return fmt.Sprintf(errReadingFile, err), nil
 	}
 
 	content := string(data)
@@ -465,7 +470,7 @@ func executeMultiEdit(input map[string]interface{}, workingDir string, settings 
 	}
 
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
-		return fmt.Sprintf("Error writing file: %v", err), nil
+		return fmt.Sprintf(errWritingFile, err), nil
 	}
 
 	return fmt.Sprintf("File edited: %s (%d edits applied)", filePath, editsApplied), nil

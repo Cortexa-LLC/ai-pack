@@ -88,3 +88,8 @@ tests/agent_integration_workspace/
 tests/workflow_test_workspace/
 .ai/test-artifacts/
 .sonarqube-suppressions.properties
+
+# SonarQube local configuration and analysis artifacts
+.sonarqube-config
+.scannerwork/
+
