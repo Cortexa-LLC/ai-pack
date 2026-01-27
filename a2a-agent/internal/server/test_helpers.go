@@ -9,6 +9,10 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
 
+const (
+	aiPackDir = ".ai-pack"
+)
+
 // Initialize monitoring for all tests
 func init() {
 	monitoring.InitLogger(slog.LevelError) // Use error level to reduce noise in tests
@@ -19,13 +23,13 @@ func setupTestDir(t *testing.T) string {
 	tmpDir := t.TempDir()
 
 	// Create .ai-pack/agents directory
-	agentDir := filepath.Join(tmpDir, ".ai-pack", "agents")
+	agentDir := filepath.Join(tmpDir, aiPackDir, "agents")
 	if err := os.MkdirAll(agentDir, 0755); err != nil {
 		t.Fatalf("Failed to create agent dir: %v", err)
 	}
 
 	// Create .ai-pack/roles directory
-	rolesDir := filepath.Join(tmpDir, ".ai-pack", "roles")
+	rolesDir := filepath.Join(tmpDir, aiPackDir, "roles")
 	if err := os.MkdirAll(rolesDir, 0755); err != nil {
 		t.Fatalf("Failed to create roles dir: %v", err)
 	}
@@ -65,7 +69,7 @@ success_criteria:
 
 	// Create test role file
 	roleContent := "# Test Agent\n\nYou are a test agent for unit testing."
-	rolePath := filepath.Join(tmpDir, ".ai-pack", "roles", "test-agent.md")
+	rolePath := filepath.Join(tmpDir, aiPackDir, "roles", "test-agent.md")
 	if err := os.WriteFile(rolePath, []byte(roleContent), 0644); err != nil {
 		t.Fatalf("Failed to write role file: %v", err)
 	}

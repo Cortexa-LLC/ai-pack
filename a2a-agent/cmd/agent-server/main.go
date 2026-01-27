@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	ServerPort = "8080"
+	ServerPort           = "8080"
+	agentURLFormatMsg    = "agentURLFormatMsg"
 )
 
 // checkServerRunning checks if the agent-server is already running
@@ -100,7 +101,7 @@ func handleProtocolURL(agentURL, configPath string) {
 	// Format: agent://role/task-description?async=true
 	if !strings.HasPrefix(agentURL, "agent://") {
 		fmt.Printf("❌ Invalid URL: %s\n", agentURL)
-		fmt.Println("   Expected format: agent://role/task-description")
+		fmt.Println(agentURLFormatMsg)
 		os.Exit(1)
 	}
 
@@ -115,7 +116,7 @@ func handleProtocolURL(agentURL, configPath string) {
 	role := parsedURL.Host
 	if role == "" {
 		fmt.Printf("❌ Invalid URL format: %s\n", agentURL)
-		fmt.Println("   Expected format: agent://role/task-description")
+		fmt.Println(agentURLFormatMsg)
 		os.Exit(1)
 	}
 
@@ -123,7 +124,7 @@ func handleProtocolURL(agentURL, configPath string) {
 	taskEncoded := strings.TrimPrefix(parsedURL.Path, "/")
 	if taskEncoded == "" {
 		fmt.Printf("❌ Invalid URL format: %s\n", agentURL)
-		fmt.Println("   Expected format: agent://role/task-description")
+		fmt.Println(agentURLFormatMsg)
 		os.Exit(1)
 	}
 
