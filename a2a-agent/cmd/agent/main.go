@@ -46,6 +46,8 @@ func main() {
 		handleRetry(os.Args[2:])
 	case "metrics":
 		handleMetrics(os.Args[2:])
+	case "performance", "perf":
+		handlePerformance(os.Args[2:])
 	case "version", "--version", "-v":
 		fmt.Printf("AI-Pack Agent CLI v%s\n", Version)
 	case "help", "--help", "-h":
@@ -690,6 +692,135 @@ func showMetrics() {
 	fmt.Println()
 }
 
+func handlePerformance(args []string) {
+	resp, err := http.Get(fmt.Sprintf("%s/metrics", ServerURL))
+	if err != nil {
+		fmt.Printf("❌ Could not fetch metrics: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	var metrics map[string]interface{}
+	if err := json.Unmarshal(body, &metrics); err != nil {
+		fmt.Printf("❌ Failed to parse metrics: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Display performance report
+	fmt.Println("======================================================================")
+	fmt.Println("A2A AGENT SERVER PERFORMANCE REPORT")
+	fmt.Println("======================================================================")
+	fmt.Printf("Generated: %v\n", time.Now().Format(time.RFC3339))
+	fmt.Printf("Server: %s\n", ServerURL)
+	fmt.Println()
+
+	// Server Metrics
+	fmt.Println("📊 SERVER METRICS")
+	fmt.Println("----------------------------------------------------------------------")
+	fmt.Printf("  Tasks Spawned:     %.0f\n", metrics["tasks_spawned"])
+	fmt.Printf("  Tasks Completed:   %.0f ✅\n", metrics["tasks_completed"])
+	fmt.Printf("  Tasks Failed:      %.0f\n", metrics["tasks_failed"])
+	fmt.Printf("  Tasks In Progress: %.0f\n", metrics["tasks_in_progress"])
+
+	if avgDur, ok := metrics["avg_duration_ms"].(float64); ok && avgDur > 0 {
+		fmt.Printf("  Average Duration:  %.1fs\n", avgDur/1000)
+	}
+
+	fmt.Printf("  API Calls Total:   %.0f\n", metrics["api_calls_total"])
+	fmt.Printf("  API Calls Success: %.0f\n", metrics["api_calls_success"])
+	fmt.Printf("  API Calls Failed:  %.0f\n", metrics["api_calls_failed"])
+
+	if apiTotal, ok := metrics["api_calls_total"].(float64); ok && apiTotal > 0 {
+		apiSuccess, _ := metrics["api_calls_success"].(float64)
+		successRate := (apiSuccess / apiTotal) * 100
+		fmt.Printf("  Success Rate:      %.1f%%\n", successRate)
+	}
+
+	fmt.Printf("  Rate Limit Hits:   %.0f\n", metrics["rate_limit_violations"])
+	fmt.Println()
+
+	// Token Usage
+	totalInput, hasInput := metrics["total_input_tokens"].(float64)
+	totalOutput, hasOutput := metrics["total_output_tokens"].(float64)
+	tasksCompleted, _ := metrics["tasks_completed"].(float64)
+
+	if hasInput && hasOutput && tasksCompleted > 0 {
+		fmt.Println("💾 TOKEN USAGE")
+		fmt.Println("----------------------------------------------------------------------")
+		fmt.Printf("  Total Input:       %s tokens\n", formatNumber(int64(totalInput)))
+		fmt.Printf("  Total Output:      %s tokens\n", formatNumber(int64(totalOutput)))
+		fmt.Printf("  Avg Input/Task:    %s tokens\n", formatNumber(int64(totalInput/tasksCompleted)))
+		fmt.Printf("  Avg Output/Task:   %s tokens\n", formatNumber(int64(totalOutput/tasksCompleted)))
+
+		if totalOutput > 0 {
+			ratio := totalInput / totalOutput
+			fmt.Printf("  Input/Output Ratio: %.1f:1\n", ratio)
+
+			// Cache efficiency heuristic
+			if ratio > 50 {
+				fmt.Println("  Cache Efficiency:  Excellent (likely caching)")
+			} else if ratio > 20 {
+				fmt.Println("  Cache Efficiency:  Good")
+			} else {
+				fmt.Println("  Cache Efficiency:  Low (check caching)")
+			}
+		}
+		fmt.Println()
+	}
+
+	// Recent Sessions (if available)
+	if taskUsageRaw, ok := metrics["task_token_usage"].([]interface{}); ok && len(taskUsageRaw) > 0 {
+		fmt.Printf("📋 RECENT SESSIONS (last %d)\n", len(taskUsageRaw))
+		fmt.Println("----------------------------------------------------------------------")
+
+		for i, taskRaw := range taskUsageRaw {
+			if i >= 10 { // Show max 10
+				break
+			}
+
+			task, ok := taskRaw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			taskID, _ := task["TaskID"].(string)
+			inputTokens, _ := task["InputTokens"].(float64)
+			outputTokens, _ := task["OutputTokens"].(float64)
+			turnCount, _ := task["TurnCount"].(float64)
+
+			fmt.Printf("  %s\n", taskID)
+			fmt.Printf("    Turns: %.0f | Input: %s | Output: %s\n",
+				turnCount,
+				formatNumber(int64(inputTokens)),
+				formatNumber(int64(outputTokens)))
+		}
+		fmt.Println()
+	}
+
+	fmt.Println("======================================================================")
+}
+
+func formatNumber(n int64) string {
+	if n < 1000 {
+		return fmt.Sprintf("%d", n)
+	}
+	return fmt.Sprintf("%s", humanizeNumber(n))
+}
+
+func humanizeNumber(n int64) string {
+	// Simple comma formatting
+	str := fmt.Sprintf("%d", n)
+	var result string
+	for i, c := range str {
+		if i > 0 && (len(str)-i)%3 == 0 {
+			result += ","
+		}
+		result += string(c)
+	}
+	return result
+}
+
 func streamTaskProgress(beadsTaskID string) {
 	// Look up internal task ID from Beads task ID
 	internalTaskID := findInternalTaskID(beadsTaskID)
@@ -958,6 +1089,7 @@ func usage() {
 	fmt.Println("  agent diff <task-id>                                Show git diff")
 	fmt.Println("  agent files <task-id>                               List modified files")
 	fmt.Println("  agent metrics                                       Show server metrics")
+	fmt.Println("  agent performance                                   Performance report with token usage")
 	fmt.Println("  agent version                                       Show version")
 	fmt.Println()
 	fmt.Println("Examples:")
