@@ -26,7 +26,7 @@ const (
 )
 
 // TestHandleLogsStream_SSEHeaders tests that the log stream endpoint sets correct SSE headers
-func TestHandleLogsStream_SSEHeaders(t *testing.T) {
+func TestHandleLogsStreamSSEHeaders(t *testing.T) {
 	// Setup
 	cleanup := clearAuthEnvVars(t)
 	defer cleanup()
@@ -81,7 +81,7 @@ func TestHandleLogsStream_SSEHeaders(t *testing.T) {
 }
 
 // TestHandleLogsStream_ConnectedEvent tests that stream sends initial connected event
-func TestHandleLogsStream_ConnectedEvent(t *testing.T) {
+func TestHandleLogsStreamConnectedEvent(t *testing.T) {
 	// Setup
 	cleanup := clearAuthEnvVars(t)
 	defer cleanup()
@@ -164,7 +164,7 @@ func TestHandleLogsStream_ConnectedEvent(t *testing.T) {
 }
 
 // TestHandleLogsStream_LogEvents tests that stream sends log events
-func TestHandleLogsStream_LogEvents(t *testing.T) {
+func TestHandleLogsStreamLogEvents(t *testing.T) {
 	// Setup
 	cleanup := clearAuthEnvVars(t)
 	defer cleanup()
@@ -252,7 +252,7 @@ done:
 }
 
 // TestHandleLogsRecent_DefaultLimit tests recent logs with default limit
-func TestHandleLogsRecent_DefaultLimit(t *testing.T) {
+func TestHandleLogsRecentDefaultLimit(t *testing.T) {
 	// Setup
 	cleanup := clearAuthEnvVars(t)
 	defer cleanup()
@@ -325,7 +325,7 @@ func TestHandleLogsRecent_DefaultLimit(t *testing.T) {
 }
 
 // TestHandleLogsRecent_CustomLimit tests recent logs with custom limit
-func TestHandleLogsRecent_CustomLimit(t *testing.T) {
+func TestHandleLogsRecentCustomLimit(t *testing.T) {
 	// Setup
 	cleanup := clearAuthEnvVars(t)
 	defer cleanup()
@@ -386,7 +386,7 @@ func TestHandleLogsRecent_CustomLimit(t *testing.T) {
 }
 
 // TestHandleLogsRecent_MaxLimit tests that limit is capped at 1000
-func TestHandleLogsRecent_MaxLimit(t *testing.T) {
+func TestHandleLogsRecentMaxLimit(t *testing.T) {
 	// Setup
 	cleanup := clearAuthEnvVars(t)
 	defer cleanup()
@@ -425,7 +425,7 @@ func TestHandleLogsRecent_MaxLimit(t *testing.T) {
 }
 
 // TestHandleLogsRecent_InvalidLimit tests handling of invalid limit parameter
-func TestHandleLogsRecent_InvalidLimit(t *testing.T) {
+func TestHandleLogsRecentInvalidLimit(t *testing.T) {
 	// Setup
 	cleanup := clearAuthEnvVars(t)
 	defer cleanup()
@@ -475,7 +475,7 @@ func TestHandleLogsRecent_InvalidLimit(t *testing.T) {
 }
 
 // TestHandleLogsRecent_LogEntryFormat tests the format of returned log entries
-func TestHandleLogsRecent_LogEntryFormat(t *testing.T) {
+func TestHandleLogsRecentLogEntryFormat(t *testing.T) {
 	// Setup
 	cleanup := clearAuthEnvVars(t)
 	defer cleanup()

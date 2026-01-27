@@ -5,14 +5,14 @@ import (
 	"testing"
 )
 
-func TestGetAPIKey_FromAPIToken(t *testing.T) {
+func TestGetAPIKeyFromAPIToken(t *testing.T) {
 	// Setup
 	os.Setenv("ANTHROPIC_API_TOKEN", "test-token-123")
 	defer os.Unsetenv("ANTHROPIC_API_TOKEN")
 	os.Unsetenv("ANTHROPIC_API_KEY")
 
 	// Test
-	apiKey, err := GetAPIKey()
+	apiKey, _, err := GetAPIKey()
 
 	// Assert
 	if err != nil {
@@ -23,14 +23,14 @@ func TestGetAPIKey_FromAPIToken(t *testing.T) {
 	}
 }
 
-func TestGetAPIKey_FromAPIKey(t *testing.T) {
+func TestGetAPIKeyFromAPIKey(t *testing.T) {
 	// Setup
 	os.Unsetenv("ANTHROPIC_API_TOKEN")
 	os.Setenv("ANTHROPIC_API_KEY", "sk-ant-test-456")
 	defer os.Unsetenv("ANTHROPIC_API_KEY")
 
 	// Test
-	apiKey, err := GetAPIKey()
+	apiKey, _, err := GetAPIKey()
 
 	// Assert
 	if err != nil {
@@ -41,7 +41,7 @@ func TestGetAPIKey_FromAPIKey(t *testing.T) {
 	}
 }
 
-func TestGetAPIKey_PriorityOrder(t *testing.T) {
+func TestGetAPIKeyPriorityOrder(t *testing.T) {
 	// Setup - both set, token should take priority
 	os.Setenv("ANTHROPIC_API_TOKEN", "bearer-token")
 	os.Setenv("ANTHROPIC_API_KEY", "api-key")
@@ -49,7 +49,7 @@ func TestGetAPIKey_PriorityOrder(t *testing.T) {
 	defer os.Unsetenv("ANTHROPIC_API_KEY")
 
 	// Test
-	apiKey, err := GetAPIKey()
+	apiKey, _, err := GetAPIKey()
 
 	// Assert
 	if err != nil {
@@ -60,13 +60,13 @@ func TestGetAPIKey_PriorityOrder(t *testing.T) {
 	}
 }
 
-func TestGetAPIKey_NoEnvVars(t *testing.T) {
+func TestGetAPIKeyNoEnvVars(t *testing.T) {
 	// Setup
 	os.Unsetenv("ANTHROPIC_API_TOKEN")
 	os.Unsetenv("ANTHROPIC_API_KEY")
 
 	// Test
-	apiKey, err := GetAPIKey()
+	apiKey, _, err := GetAPIKey()
 
 	// Assert - should fail or fallback to Claude Code helper
 	// If Claude Code is not configured, should return error

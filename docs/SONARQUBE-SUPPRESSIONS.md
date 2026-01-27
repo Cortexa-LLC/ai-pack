@@ -21,40 +21,38 @@
 
 ## Current Suppressions
 
-### Go: Test Function Naming (S100)
+**(None currently active)**
+
+### Previously Considered Suppressions
+
+#### Go: Test Function Naming (S100) - REJECTED
 
 **Rule:** go:S100 - Function names should comply with naming convention
-**SonarQube Expects:** camelCase function names
-**Go Convention:** Test functions use underscores for readability
+**Initial Assumption:** Underscore test names are Go convention
+**Reality:** Underscores are preference, not standard
 
 **Example:**
 ```go
-// ✅ Go Convention (Idiomatic)
-func TestHandleLogsStream_SSEHeaders(t *testing.T) { }
-func TestHandleLogsStream_ConnectedEvent(t *testing.T) { }
-
-// ❌ SonarQube Wants (Not idiomatic in Go)
+// ✅ Proper Go Convention (SonarQube correct)
 func TestHandleLogsStreamSSEHeaders(t *testing.T) { }
-func TestHandleLogsStreamConnectedEvent(t *testing.T) { }
+func TestLoadConfigValidFile(t *testing.T) { }
+
+// ❌ NOT Required (personal preference)
+func TestHandleLogsStream_SSEHeaders(t *testing.T) { }
+func TestLoadConfig_ValidFile(t *testing.T) { }
 ```
 
-**Justification:**
-- Go community convention uses underscores in test names for better readability
-- Separates test name from scenario: `TestFunction_Scenario`
-- Widely adopted pattern in Go ecosystem (Kubernetes, Docker, etc.)
-- Complies with `go test` requirements
+**Decision:** REJECTED - Renamed all test functions to remove underscores
+- Underscores are NOT mandated by gofmt or Go testing framework
+- Both formats work, but SonarQube standard is no underscores
+- No official Go documentation requires underscores
+- Fixed 37 test function names to comply
 
 **References:**
-- [Effective Go - Names](https://go.dev/doc/effective_go#names)
-- [Go Wiki - Test Names](https://github.com/golang/go/wiki/TestComments)
+- [Effective Go - Names](https://go.dev/doc/effective_go#names) - No mention of underscores in test names
+- [Go Testing Package](https://pkg.go.dev/testing) - Only requires `Test` prefix
 
-**Configuration:**
-```properties
-sonar.issue.ignore.multicriteria.go1.ruleKey=go:S100
-sonar.issue.ignore.multicriteria.go1.resourceKey=**/*_test.go
-```
-
-**Applied to:** `**/*_test.go` (test files only)
+**Action Taken:** Renamed all test functions instead of suppressing
 
 ---
 
