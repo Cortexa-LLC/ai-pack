@@ -660,88 +660,17 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 			logMsg("      ⚠️  Extended thinking requested but not yet supported in SDK")
 		}
 
-		// Make API call (TODO: re-enable streaming to avoid 10-minute timeout)
+		// Make API call with streaming
 		apiStart := time.Now()
-		message, err := s.client.Messages.New(ctx, params)
-		if err != nil {
-			return "", fmt.Errorf("API call failed on turn %d: %w", turn, err)
-		}
 
-		/* STREAMING VERSION - DISABLED FOR TESTING
 		stream := s.client.Messages.NewStreaming(ctx, params)
 
-		// Accumulate the message from stream events manually
+		// Use SDK's Accumulate method to build the message
 		var message anthropic.Message
-		var contentBlocks []anthropic.ContentBlockUnion
-		var currentText strings.Builder
-		var currentToolUse *anthropic.ToolUseBlock
-
 		for stream.Next() {
 			event := stream.Current()
-
-			switch event.Type {
-			case "message_start":
-				// Initialize message metadata
-				msgStart := event.AsMessageStart()
-				message.ID = msgStart.Message.ID
-				message.Type = msgStart.Message.Type
-				message.Role = msgStart.Message.Role
-				message.Model = msgStart.Message.Model
-				message.Usage = msgStart.Message.Usage
-
-			case "content_block_start":
-				// Start of a new content block
-				blockStart := event.AsContentBlockStart()
-				if blockStart.ContentBlock.Type == "tool_use" {
-					toolBlock := blockStart.ContentBlock.AsToolUse()
-					currentToolUse = &anthropic.ToolUseBlock{
-						ID:    toolBlock.ID,
-						Type:  "tool_use",
-						Name:  toolBlock.Name,
-						Input: json.RawMessage("{}"),
-					}
-				}
-
-			case "content_block_delta":
-				// Accumulate delta content
-				blockDelta := event.AsContentBlockDelta()
-				if blockDelta.Delta.Type == "text_delta" {
-					textDelta := blockDelta.Delta.AsTextDelta()
-					currentText.WriteString(textDelta.Text)
-				} else if blockDelta.Delta.Type == "input_json_delta" {
-					inputDelta := blockDelta.Delta.AsInputJSONDelta()
-					if currentToolUse != nil {
-						currentToolUse.Input = json.RawMessage(inputDelta.PartialJSON)
-					}
-				}
-
-			case "content_block_stop":
-				// Content block complete - add to list
-				if currentText.Len() > 0 {
-					contentBlocks = append(contentBlocks, anthropic.ContentBlockUnion{
-						Type: "text",
-						Text: currentText.String(),
-					})
-					currentText.Reset()
-				} else if currentToolUse != nil {
-					contentBlocks = append(contentBlocks, anthropic.ContentBlockUnion{
-						Type:  "tool_use",
-						ID:    currentToolUse.ID,
-						Name:  currentToolUse.Name,
-						Input: currentToolUse.Input,
-					})
-					currentToolUse = nil
-				}
-
-			case "message_delta":
-				// Update message metadata with deltas
-				msgDelta := event.AsMessageDelta()
-				if msgDelta.Delta.StopReason != "" {
-					message.StopReason = msgDelta.Delta.StopReason
-				}
-				if msgDelta.Usage.OutputTokens > 0 {
-					message.Usage.OutputTokens = msgDelta.Usage.OutputTokens
-				}
+			if err := message.Accumulate(event); err != nil {
+				return "", fmt.Errorf("failed to accumulate stream event: %w", err)
 			}
 		}
 
@@ -749,31 +678,32 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 			return "", fmt.Errorf("API call failed on turn %d: %w", turn, err)
 		}
 
-		// Set the accumulated content
-		message.Content = contentBlocks
-		*/
-
 		apiDuration := time.Since(apiStart).Milliseconds()
 		totalInputTokens += message.Usage.InputTokens
 		totalOutputTokens += message.Usage.OutputTokens
 
-		logMsg(fmt.Sprintf("      API: %dms | in:%d out:%d", apiDuration, message.Usage.InputTokens, message.Usage.OutputTokens))
+		logMsg(fmt.Sprintf("      API: %dms | in:%d out:%d (streaming)", apiDuration, message.Usage.InputTokens, message.Usage.OutputTokens))
 
-		// Process response blocks (SDK v1.19+ uses Type field to discriminate)
+		// Process response blocks
 		var toolUses []anthropic.ToolUseBlock
 		hasText := false
 
 		for _, block := range message.Content {
 			switch block.Type {
 			case "text":
-				textBlock := block.AsText()
-				finalResult.WriteString(textBlock.Text)
+				finalResult.WriteString(block.Text)
 				finalResult.WriteString("\n")
 				hasText = true
-				logMsg(fmt.Sprintf("      💬 Text: %d chars", len(textBlock.Text)))
+				logMsg(fmt.Sprintf("      💬 Text: %d chars", len(block.Text)))
 
 			case "tool_use":
-				toolUse := block.AsToolUse()
+				// Access fields directly from union instead of using AsToolUse()
+				// since we manually constructed these blocks without JSON.raw
+				toolUse := anthropic.ToolUseBlock{
+					ID:    block.ID,
+					Name:  block.Name,
+					Input: block.Input,
+				}
 				toolUses = append(toolUses, toolUse)
 				logMsg(fmt.Sprintf("      🔧 Tool: %s", toolUse.Name))
 			}
