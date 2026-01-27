@@ -126,13 +126,7 @@ func executeRequest(httpClient *http.Client, req *http.Request) ([]byte, error) 
 	return responseBody, nil
 }
 
-func printResponse(responseBody []byte) error {
-	var message map[string]interface{}
-	if err := json.Unmarshal(responseBody, &message); err != nil {
-		return fmt.Errorf("failed to parse response: %v", err)
-	}
-
-	fmt.Println("\n✅ Success! Response received:")
+func printMessageMetadata(message map[string]interface{}) {
 	if model, ok := message["model"].(string); ok {
 		fmt.Printf("   Model: %s\n", model)
 	}
@@ -142,8 +136,9 @@ func printResponse(responseBody []byte) error {
 	if stopReason, ok := message["stop_reason"].(string); ok {
 		fmt.Printf("   Stop Reason: %s\n", stopReason)
 	}
+}
 
-	// Extract text content
+func printTextContent(message map[string]interface{}) {
 	if content, ok := message["content"].([]interface{}); ok && len(content) > 0 {
 		if contentBlock, ok := content[0].(map[string]interface{}); ok {
 			if text, ok := contentBlock["text"].(string); ok {
@@ -151,8 +146,9 @@ func printResponse(responseBody []byte) error {
 			}
 		}
 	}
+}
 
-	// Print usage stats
+func printUsageStats(message map[string]interface{}) {
 	if usage, ok := message["usage"].(map[string]interface{}); ok {
 		fmt.Printf("\n📊 Token Usage:\n")
 		if inputTokens, ok := usage["input_tokens"].(float64); ok {
@@ -162,6 +158,18 @@ func printResponse(responseBody []byte) error {
 			fmt.Printf("   Output: %.0f\n", outputTokens)
 		}
 	}
+}
+
+func printResponse(responseBody []byte) error {
+	var message map[string]interface{}
+	if err := json.Unmarshal(responseBody, &message); err != nil {
+		return fmt.Errorf("failed to parse response: %v", err)
+	}
+
+	fmt.Println("\n✅ Success! Response received:")
+	printMessageMetadata(message)
+	printTextContent(message)
+	printUsageStats(message)
 
 	fmt.Println("\n✅ Proxy configuration is working correctly!")
 	return nil

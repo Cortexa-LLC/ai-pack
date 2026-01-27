@@ -161,9 +161,7 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-// applyEnvOverrides applies environment variable overrides to config
-func applyEnvOverrides(cfg *Config) {
-	// Server overrides
+func applyServerOverrides(cfg *Config) {
 	if val := os.Getenv("SERVER_HOST"); val != "" {
 		cfg.Server.Host = val
 	}
@@ -178,8 +176,9 @@ func applyEnvOverrides(cfg *Config) {
 			cfg.Server.WorkerPoolSize = max
 		}
 	}
+}
 
-	// API overrides
+func applyAPIOverrides(cfg *Config) {
 	if val := os.Getenv("ANTHROPIC_MODEL"); val != "" {
 		cfg.API.AnthropicModel = val
 	}
@@ -192,21 +191,28 @@ func applyEnvOverrides(cfg *Config) {
 		cfg.API.Mode = val
 	}
 	if val := os.Getenv("ANTHROPIC_BASE_URL"); val != "" {
-		// If ANTHROPIC_BASE_URL is set, automatically switch to proxy mode
 		cfg.API.Mode = "proxy"
 		if cfg.API.Proxy == nil {
 			cfg.API.Proxy = &ProxyConfig{}
 		}
 		cfg.API.Proxy.BaseURL = val
 	}
+}
 
-	// Logging overrides
+func applyLoggingOverrides(cfg *Config) {
 	if val := os.Getenv("LOG_LEVEL"); val != "" {
 		cfg.Logging.Level = val
 	}
 	if val := os.Getenv("LOG_FORMAT"); val != "" {
 		cfg.Logging.Format = val
 	}
+}
+
+// applyEnvOverrides applies environment variable overrides to config
+func applyEnvOverrides(cfg *Config) {
+	applyServerOverrides(cfg)
+	applyAPIOverrides(cfg)
+	applyLoggingOverrides(cfg)
 }
 
 // SaveConfig saves configuration to file

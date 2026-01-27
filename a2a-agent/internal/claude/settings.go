@@ -132,47 +132,47 @@ func matchesPermissionPattern(pattern, tool, path string) bool {
 	return matchesGlobPattern(filePattern, path)
 }
 
-// matchesGlobPattern matches a file path against a glob pattern
-// Supports: *, **, .env, ./.env, **/.env, etc.
-func matchesGlobPattern(pattern, path string) bool {
-	// Expand home directory in pattern
+func normalizePattern(pattern string) string {
 	if strings.HasPrefix(pattern, "~/") {
 		homeDir, _ := os.UserHomeDir()
 		pattern = filepath.Join(homeDir, pattern[2:])
 	}
+	return filepath.Clean(pattern)
+}
 
-	// Normalize both
-	pattern = filepath.Clean(pattern)
+func matchesRecursivePattern(pattern, path string) bool {
+	suffix := strings.TrimPrefix(pattern, "**/")
+	if strings.HasSuffix(path, suffix) {
+		return true
+	}
+	for i := 0; i < len(path); i++ {
+		if path[i] == '/' {
+			if matchesGlobPattern(suffix, path[i+1:]) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// matchesGlobPattern matches a file path against a glob pattern
+// Supports: *, **, .env, ./.env, **/.env, etc.
+func matchesGlobPattern(pattern, path string) bool {
+	pattern = normalizePattern(pattern)
 	path = filepath.Clean(path)
 
-	// Exact match
 	if pattern == path {
 		return true
 	}
 
-	// Pattern with **/ means match anywhere in path
 	if strings.HasPrefix(pattern, "**/") {
-		suffix := strings.TrimPrefix(pattern, "**/")
-		// Check if path ends with suffix
-		if strings.HasSuffix(path, suffix) {
-			return true
-		}
-		// Check if any parent directory + suffix matches
-		for i := 0; i < len(path); i++ {
-			if path[i] == '/' {
-				if matchesGlobPattern(suffix, path[i+1:]) {
-					return true
-				}
-			}
-		}
+		return matchesRecursivePattern(pattern, path)
 	}
 
-	// Pattern with * wildcard
 	if strings.Contains(pattern, "*") {
 		return wildcardMatch(pattern, path)
 	}
 
-	// Basename match (e.g., ".env" matches "./.env" or "config/.env")
 	if filepath.Base(path) == pattern {
 		return true
 	}
