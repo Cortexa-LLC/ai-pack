@@ -187,53 +187,54 @@ func (c *Client) ValidateTaskID(taskID string) error {
 	return nil
 }
 
+func buildTaskDescription(task *Task) string {
+	description := task.Title
+	if task.Description != "" && task.Description != task.Title {
+		description = fmt.Sprintf("%s\n\n%s", task.Title, task.Description)
+	}
+	return description
+}
+
+func getTaskPacketPath(task *Task) string {
+	// Check metadata first
+	if task.Metadata != nil {
+		if path, ok := task.Metadata["task_packet"].(string); ok {
+			return path
+		}
+	}
+
+	// Try parsing from description
+	if task.Description != "" {
+		return extractTaskPacketPath(task.Description)
+	}
+
+	return ""
+}
+
 // GetTaskDescription extracts the task description from either a Beads task ID or free-form text
 // Returns: (description, taskPacketPath, workingDirectory, isBeadsTask, error)
 func (c *Client) GetTaskDescription(input string) (string, string, string, bool, error) {
-	if IsBeadsTaskID(input) {
-		// Validate the task exists first
-		if err := c.ValidateTaskID(input); err != nil {
-			return "", "", "", true, err
-		}
-
-		// Get the task (we know it exists now)
-		task, err := c.GetTask(input)
-		if err != nil {
-			return "", "", "", true, fmt.Errorf("failed to get Beads task: %w", err)
-		}
-
-		// Use title and description
-		description := task.Title
-		if task.Description != "" && task.Description != task.Title {
-			description = fmt.Sprintf("%s\n\n%s", task.Title, task.Description)
-		}
-
-		// Check metadata for task packet location (if Beads supports metadata)
-		taskPacketPath := ""
-		if task.Metadata != nil {
-			if path, ok := task.Metadata["task_packet"].(string); ok {
-				taskPacketPath = path
-			}
-		}
-
-		// If no metadata, try parsing from description
-		// Look for pattern: "Task packet: <path>"
-		if taskPacketPath == "" && task.Description != "" {
-			taskPacketPath = extractTaskPacketPath(task.Description)
-		}
-
-		// Extract working directory from description
-		// Look for pattern: "Working directory: <path>"
-		workingDirectory := ""
-		if task.Description != "" {
-			workingDirectory = extractWorkingDirectory(task.Description)
-		}
-
-		return description, taskPacketPath, workingDirectory, true, nil
+	if !IsBeadsTaskID(input) {
+		return input, "", "", false, nil
 	}
 
-	// It's free-form text
-	return input, "", "", false, nil
+	if err := c.ValidateTaskID(input); err != nil {
+		return "", "", "", true, err
+	}
+
+	task, err := c.GetTask(input)
+	if err != nil {
+		return "", "", "", true, fmt.Errorf("failed to get Beads task: %w", err)
+	}
+
+	description := buildTaskDescription(task)
+	taskPacketPath := getTaskPacketPath(task)
+	workingDirectory := ""
+	if task.Description != "" {
+		workingDirectory = extractWorkingDirectory(task.Description)
+	}
+
+	return description, taskPacketPath, workingDirectory, true, nil
 }
 
 // extractTaskPacketPath extracts task packet path from description
