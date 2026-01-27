@@ -88,7 +88,7 @@ def check_api_key():
                     settings = json.load(f)
                     if 'apiKeyHelper' in settings:
                         print(f"{Colors.GREEN}✅ Using Claude Code authentication{Colors.RESET}")
-                        return True
+                        return
             except (json.JSONDecodeError, IOError):
                 pass
 
@@ -105,7 +105,6 @@ def check_api_key():
         print(f"{Colors.GREEN}✅ ANTHROPIC_API_KEY configured{Colors.RESET}")
 
     print()
-    return True
 
 
 def install_dependencies(a2a_agent_dir):
