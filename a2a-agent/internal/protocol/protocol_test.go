@@ -62,7 +62,7 @@ func TestNewJSONRPCError(t *testing.T) {
 	}
 }
 
-func TestValidateRequest_Valid(t *testing.T) {
+func TestValidateRequestValid(t *testing.T) {
 	req := &JSONRPCRequest{
 		JSONRPC: testJSONRPCVer,
 		Method:  testA2AExecute,
@@ -75,7 +75,7 @@ func TestValidateRequest_Valid(t *testing.T) {
 	}
 }
 
-func TestValidateRequest_InvalidVersion(t *testing.T) {
+func TestValidateRequestInvalidVersion(t *testing.T) {
 	req := &JSONRPCRequest{
 		JSONRPC: "1.0",
 		Method:  testA2AExecute,
@@ -88,7 +88,7 @@ func TestValidateRequest_InvalidVersion(t *testing.T) {
 	}
 }
 
-func TestValidateRequest_MissingMethod(t *testing.T) {
+func TestValidateRequestMissingMethod(t *testing.T) {
 	req := &JSONRPCRequest{
 		JSONRPC: testJSONRPCVer,
 		Method:  "",
@@ -101,7 +101,7 @@ func TestValidateRequest_MissingMethod(t *testing.T) {
 	}
 }
 
-func TestValidateRequest_MissingID(t *testing.T) {
+func TestValidateRequestMissingID(t *testing.T) {
 	req := &JSONRPCRequest{
 		JSONRPC: testJSONRPCVer,
 		Method:  testA2AExecute,
@@ -146,7 +146,7 @@ func TestErrorCodes(t *testing.T) {
 
 // A2A Protocol Tests
 
-func TestParseExecuteTaskRequest_Valid(t *testing.T) {
+func TestParseExecuteTaskRequestValid(t *testing.T) {
 	params := json.RawMessage(`{"role": "engineer", "task": "Create a function"}`)
 
 	req, err := ParseExecuteTaskRequest(params)
@@ -162,7 +162,7 @@ func TestParseExecuteTaskRequest_Valid(t *testing.T) {
 	}
 }
 
-func TestParseExecuteTaskRequest_WithOptions(t *testing.T) {
+func TestParseExecuteTaskRequestWithOptions(t *testing.T) {
 	params := json.RawMessage(`{
 		"role": "tester",
 		"task": "Test the code",
@@ -185,7 +185,7 @@ func TestParseExecuteTaskRequest_WithOptions(t *testing.T) {
 	}
 }
 
-func TestParseExecuteTaskRequest_InvalidJSON(t *testing.T) {
+func TestParseExecuteTaskRequestInvalidJSON(t *testing.T) {
 	params := json.RawMessage(`{invalid json}`)
 
 	_, err := ParseExecuteTaskRequest(params)
@@ -195,7 +195,7 @@ func TestParseExecuteTaskRequest_InvalidJSON(t *testing.T) {
 	}
 }
 
-func TestParseTaskStatusRequest_Valid(t *testing.T) {
+func TestParseTaskStatusRequestValid(t *testing.T) {
 	params := json.RawMessage(fmt.Sprintf(`{"task_id": "%s"}`, testTaskID))
 
 	req, err := ParseTaskStatusRequest(params)
@@ -208,7 +208,7 @@ func TestParseTaskStatusRequest_Valid(t *testing.T) {
 	}
 }
 
-func TestParseTaskStatusRequest_InvalidJSON(t *testing.T) {
+func TestParseTaskStatusRequestInvalidJSON(t *testing.T) {
 	params := json.RawMessage(`{invalid}`)
 
 	_, err := ParseTaskStatusRequest(params)
@@ -218,7 +218,7 @@ func TestParseTaskStatusRequest_InvalidJSON(t *testing.T) {
 	}
 }
 
-func TestExecuteTaskResponse_Structure(t *testing.T) {
+func TestExecuteTaskResponseStructure(t *testing.T) {
 	resp := ExecuteTaskResponse{
 		TaskID:    testTaskID,
 		Status:    "queued",
@@ -238,7 +238,7 @@ func TestExecuteTaskResponse_Structure(t *testing.T) {
 	}
 }
 
-func TestTaskStatusResponse_Structure(t *testing.T) {
+func TestTaskStatusResponseStructure(t *testing.T) {
 	now := time.Now()
 	resp := TaskStatusResponse{
 		TaskID:    testTaskID,
@@ -262,7 +262,7 @@ func TestTaskStatusResponse_Structure(t *testing.T) {
 	}
 }
 
-func TestStreamEvent_Structure(t *testing.T) {
+func TestStreamEventStructure(t *testing.T) {
 	event := StreamEvent{
 		Type:      "status_update",
 		TaskID:    testTaskID,
@@ -284,7 +284,7 @@ func TestStreamEvent_Structure(t *testing.T) {
 	}
 }
 
-func TestDiscoveryResponse_Structure(t *testing.T) {
+func TestDiscoveryResponseStructure(t *testing.T) {
 	resp := DiscoveryResponse{
 		Name:        "AI-Pack Agent Server",
 		Version:     "2.0.0",
@@ -328,7 +328,7 @@ func TestDiscoveryResponse_Structure(t *testing.T) {
 	}
 }
 
-func TestJSONRPCRequest_Marshaling(t *testing.T) {
+func TestJSONRPCRequestMarshaling(t *testing.T) {
 	req := JSONRPCRequest{
 		JSONRPC: testJSONRPCVer,
 		Method:  testA2AExecute,
@@ -351,7 +351,7 @@ func TestJSONRPCRequest_Marshaling(t *testing.T) {
 	}
 }
 
-func TestJSONRPCResponse_Marshaling(t *testing.T) {
+func TestJSONRPCResponseMarshaling(t *testing.T) {
 	resp := NewJSONRPCResponse(1, map[string]string{"status": "ok"})
 
 	data, err := json.Marshal(resp)

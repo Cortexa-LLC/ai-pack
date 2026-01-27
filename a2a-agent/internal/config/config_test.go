@@ -34,7 +34,7 @@ func clearEnvVars(t *testing.T) func() {
 	}
 }
 
-func TestLoadConfig_ValidFile(t *testing.T) {
+func TestLoadConfigValidFile(t *testing.T) {
 	cleanup := clearEnvVars(t)
 	defer cleanup()
 
@@ -81,7 +81,7 @@ func TestLoadConfig_ValidFile(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_ProxyMode(t *testing.T) {
+func TestLoadConfigProxyMode(t *testing.T) {
 	cleanup := clearEnvVars(t)
 	defer cleanup()
 
@@ -120,7 +120,7 @@ func TestLoadConfig_ProxyMode(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_NonExistentFile(t *testing.T) {
+func TestLoadConfigNonExistentFile(t *testing.T) {
 	cleanup := clearEnvVars(t)
 	defer cleanup()
 
@@ -143,7 +143,7 @@ func TestLoadConfig_NonExistentFile(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_InvalidJSON(t *testing.T) {
+func TestLoadConfigInvalidJSON(t *testing.T) {
 	cleanup := clearEnvVars(t)
 	defer cleanup()
 
@@ -165,7 +165,7 @@ func TestLoadConfig_InvalidJSON(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_Defaults(t *testing.T) {
+func TestLoadConfigDefaults(t *testing.T) {
 	cleanup := clearEnvVars(t)
 	defer cleanup()
 
@@ -202,7 +202,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_EnvVarOverrides(t *testing.T) {
+func TestLoadConfigEnvVarOverrides(t *testing.T) {
 	cleanup := clearEnvVars(t)
 	defer cleanup()
 

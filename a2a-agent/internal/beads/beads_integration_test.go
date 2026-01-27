@@ -11,7 +11,7 @@ import (
 // Integration tests that require Beads to be installed
 // Run with: go test -tags=integration ./internal/beads/...
 
-func TestIntegration_ValidateTaskID(t *testing.T) {
+func TestIntegrationValidateTaskID(t *testing.T) {
 	if !IsInstalled() {
 		t.Skip("Beads not installed, skipping integration test")
 	}
@@ -25,7 +25,7 @@ func TestIntegration_ValidateTaskID(t *testing.T) {
 	}
 }
 
-func TestIntegration_GetTask(t *testing.T) {
+func TestIntegrationGetTask(t *testing.T) {
 	if !IsInstalled() {
 		t.Skip("Beads not installed, skipping integration test")
 	}
@@ -62,7 +62,7 @@ func TestIntegration_GetTask(t *testing.T) {
 	exec.Command("bd", "delete", taskID).Run()
 }
 
-func TestIntegration_TaskLifecycle(t *testing.T) {
+func TestIntegrationTaskLifecycle(t *testing.T) {
 	if !IsInstalled() {
 		t.Skip("Beads not installed, skipping integration test")
 	}
