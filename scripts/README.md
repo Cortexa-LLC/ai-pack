@@ -129,6 +129,119 @@ awk -F',' '$3=="BUG"' quality/sonarqube-rules/python/rules.csv
 
 ---
 
+### `setup-sonarqube.py`
+
+One-command setup for SonarQube Community Edition via Docker Compose.
+
+**Features:**
+- Starts SonarQube CE + PostgreSQL in Docker
+- Waits for startup and validates health
+- Changes default admin password
+- Generates API token for agents
+- Saves configuration automatically
+- Cross-platform (Windows, macOS, Linux)
+
+**Usage:**
+```bash
+# One-command setup
+python3 scripts/setup-sonarqube.py
+
+# Access web UI
+open http://localhost:9000  # admin / admin123
+```
+
+**What it does:**
+1. Starts Docker containers
+2. Waits for SonarQube to be ready (~1 minute)
+3. Creates API token
+4. Saves to `.sonarqube-config`
+
+**Documentation:** See [docs/SONARQUBE-INTEGRATION.md](../docs/SONARQUBE-INTEGRATION.md)
+
+---
+
+### `validate-with-sonarqube.py`
+
+Validate code using SonarQube Community Edition. Agent-friendly with JSON output.
+
+**Features:**
+- Runs sonar-scanner on files/directories
+- Fetches violations via SonarQube API
+- Enriches with rule metadata (impacts, remediation cost, tags)
+- Returns clean JSON for agent consumption
+- Filters by severity (BLOCKER, CRITICAL, etc.)
+- Auto-detects language from file extension
+
+**Usage:**
+```bash
+# Validate single file
+python3 scripts/validate-with-sonarqube.py src/server.go
+
+# JSON output for agents
+python3 scripts/validate-with-sonarqube.py src/server.go --format json
+
+# Filter by severity
+python3 scripts/validate-with-sonarqube.py src/ --severity BLOCKER,CRITICAL
+
+# Validate directory
+python3 scripts/validate-with-sonarqube.py ./src --project myproject
+```
+
+**JSON Output:**
+```json
+{
+  "success": true,
+  "violations": [
+    {
+      "rule_id": "S1192",
+      "line": 42,
+      "severity": "CRITICAL",
+      "message": "Define a constant instead of duplicating...",
+      "remediation_cost": "10min",
+      "impacts": "MAINTAINABILITY:HIGH"
+    }
+  ],
+  "summary": {"total": 1, "by_severity": {"CRITICAL": 1}}
+}
+```
+
+**Documentation:** See [docs/SONARQUBE-INTEGRATION.md](../docs/SONARQUBE-INTEGRATION.md)
+
+---
+
+### `query-rules.py`
+
+Search and filter SonarQube rules from extracted metadata.
+
+**Features:**
+- Search by language, type, severity, impact, tags
+- Explain specific rules with full metadata
+- Multiple output formats (table, JSON, markdown, summary)
+- Filter by keyword in title/description
+- Export rule sets for custom use
+
+**Usage:**
+```bash
+# List all Go rules
+python3 scripts/query-rules.py --language go
+
+# Find critical bugs
+python3 scripts/query-rules.py --language python --type BUG --severity CRITICAL
+
+# Explain a specific rule
+python3 scripts/query-rules.py --rule S1192
+
+# Find security rules
+python3 scripts/query-rules.py --language go --impact SECURITY:HIGH
+
+# Export as JSON
+python3 scripts/query-rules.py --language java --format json > java_rules.json
+```
+
+**Documentation:** See [scripts/RSPEC-RULES.md](./RSPEC-RULES.md)
+
+---
+
 ## Adding New Scripts
 
 When adding new scripts to this directory:
