@@ -89,9 +89,9 @@ func ensureAgentServerBinary(targetPath string) error {
 	}
 
 	if sourceDir == "" {
-		return fmt.Errorf("cannot find a2a-agent source directory with cmd/agent-server/main.go\n" +
-			"Please build manually:\n" +
-			"  cd <ai-pack>/a2a-agent\n" +
+		return fmt.Errorf("cannot find a2a-agent source directory with cmd/agent-server/main.go\n"+
+			"Please build manually:\n"+
+			"  cd <ai-pack>/a2a-agent\n"+
 			"  go build -o \"%s\" ./cmd/agent-server", targetPath)
 	}
 

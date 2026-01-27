@@ -18,10 +18,10 @@ type Config struct {
 
 // ServerConfig holds server-specific settings
 type ServerConfig struct {
-	Host               string `json:"host"`
-	Port               int    `json:"port"`
-	MaxConcurrentAgents int   `json:"max_concurrent_agents"`
-	WorkerPoolSize     int    `json:"worker_pool_size"`
+	Host                string `json:"host"`
+	Port                int    `json:"port"`
+	MaxConcurrentAgents int    `json:"max_concurrent_agents"`
+	WorkerPoolSize      int    `json:"worker_pool_size"`
 }
 
 // APIConfig holds API-related settings
@@ -59,10 +59,10 @@ type MetricsConfig struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Host:               "localhost",
-			Port:               8080,
+			Host:                "localhost",
+			Port:                8080,
 			MaxConcurrentAgents: 10,
-			WorkerPoolSize:     10,
+			WorkerPoolSize:      10,
 		},
 		API: APIConfig{
 			AnthropicModel: "claude-sonnet-4-5-20250929",

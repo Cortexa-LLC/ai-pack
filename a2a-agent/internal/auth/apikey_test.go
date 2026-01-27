@@ -74,4 +74,3 @@ func TestGetAPIKey_NoEnvVars(t *testing.T) {
 		t.Error("Expected either an error or a valid API key from Claude Code helper")
 	}
 }
-
