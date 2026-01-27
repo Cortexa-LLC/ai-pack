@@ -14,6 +14,17 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
 
+// Test constants
+const (
+	testToken         = "test-token"
+	testModel         = "claude-3-5-sonnet-20241022"
+	testLogsStreamURL = "/logs/stream"
+
+	// Error message constants
+	errFailedToCreateServer = "Failed to create server: %v"
+	errFailedToDecode       = "Failed to decode response: %v"
+)
+
 // TestHandleLogsStream_SSEHeaders tests that the log stream endpoint sets correct SSE headers
 func TestHandleLogsStream_SSEHeaders(t *testing.T) {
 	// Setup
@@ -21,18 +32,18 @@ func TestHandleLogsStream_SSEHeaders(t *testing.T) {
 	defer cleanup()
 
 	tmpDir := setupTestDir(t)
-	os.Setenv("ANTHROPIC_API_TOKEN", "test-token")
+	os.Setenv("ANTHROPIC_API_TOKEN", testToken)
 	defer os.Unsetenv("ANTHROPIC_API_TOKEN")
 
 	cfg := config.DefaultConfig()
 	cfg.API.Mode = "direct"
-	server, err := NewAgentServer(tmpDir, 3, 4000, "claude-3-5-sonnet-20241022", cfg)
+	server, err := NewAgentServer(tmpDir, 3, 4000, testModel, cfg)
 	if err != nil {
-		t.Fatalf("Failed to create server: %v", err)
+		t.Fatalf(errFailedToCreateServer, err)
 	}
 
 	// Create test HTTP request with cancellable context
-	req := httptest.NewRequest(http.MethodGet, "/logs/stream", nil)
+	req := httptest.NewRequest(http.MethodGet, testLogsStreamURL, nil)
 	w := httptest.NewRecorder()
 
 	// Execute in goroutine since it's a long-running stream
@@ -76,18 +87,18 @@ func TestHandleLogsStream_ConnectedEvent(t *testing.T) {
 	defer cleanup()
 
 	tmpDir := setupTestDir(t)
-	os.Setenv("ANTHROPIC_API_TOKEN", "test-token")
+	os.Setenv("ANTHROPIC_API_TOKEN", "testToken")
 	defer os.Unsetenv("ANTHROPIC_API_TOKEN")
 
 	cfg := config.DefaultConfig()
 	cfg.API.Mode = "direct"
-	server, err := NewAgentServer(tmpDir, 3, 4000, "claude-3-5-sonnet-20241022", cfg)
+	server, err := NewAgentServer(tmpDir, 3, 4000, "testModel", cfg)
 	if err != nil {
-		t.Fatalf("Failed to create server: %v", err)
+		t.Fatalf(errFailedToCreateServer, err)
 	}
 
 	// Create test HTTP request
-	req := httptest.NewRequest(http.MethodGet, "/logs/stream", nil)
+	req := httptest.NewRequest(http.MethodGet, "testLogsStreamURL", nil)
 	w := httptest.NewRecorder()
 
 	// Execute in goroutine
@@ -159,18 +170,18 @@ func TestHandleLogsStream_LogEvents(t *testing.T) {
 	defer cleanup()
 
 	tmpDir := setupTestDir(t)
-	os.Setenv("ANTHROPIC_API_TOKEN", "test-token")
+	os.Setenv("ANTHROPIC_API_TOKEN", "testToken")
 	defer os.Unsetenv("ANTHROPIC_API_TOKEN")
 
 	cfg := config.DefaultConfig()
 	cfg.API.Mode = "direct"
-	server, err := NewAgentServer(tmpDir, 3, 4000, "claude-3-5-sonnet-20241022", cfg)
+	server, err := NewAgentServer(tmpDir, 3, 4000, "testModel", cfg)
 	if err != nil {
-		t.Fatalf("Failed to create server: %v", err)
+		t.Fatalf(errFailedToCreateServer, err)
 	}
 
 	// Create test HTTP request
-	req := httptest.NewRequest(http.MethodGet, "/logs/stream", nil)
+	req := httptest.NewRequest(http.MethodGet, "testLogsStreamURL", nil)
 	w := httptest.NewRecorder()
 
 	// Execute in goroutine
@@ -247,14 +258,14 @@ func TestHandleLogsRecent_DefaultLimit(t *testing.T) {
 	defer cleanup()
 
 	tmpDir := setupTestDir(t)
-	os.Setenv("ANTHROPIC_API_TOKEN", "test-token")
+	os.Setenv("ANTHROPIC_API_TOKEN", "testToken")
 	defer os.Unsetenv("ANTHROPIC_API_TOKEN")
 
 	cfg := config.DefaultConfig()
 	cfg.API.Mode = "direct"
-	server, err := NewAgentServer(tmpDir, 3, 4000, "claude-3-5-sonnet-20241022", cfg)
+	server, err := NewAgentServer(tmpDir, 3, 4000, "testModel", cfg)
 	if err != nil {
-		t.Fatalf("Failed to create server: %v", err)
+		t.Fatalf(errFailedToCreateServer, err)
 	}
 
 	// Clear any existing logs from previous tests
@@ -296,7 +307,7 @@ func TestHandleLogsRecent_DefaultLimit(t *testing.T) {
 	// Parse response
 	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
+		t.Fatalf(errFailedToDecode, err)
 	}
 
 	// Verify structure
@@ -320,14 +331,14 @@ func TestHandleLogsRecent_CustomLimit(t *testing.T) {
 	defer cleanup()
 
 	tmpDir := setupTestDir(t)
-	os.Setenv("ANTHROPIC_API_TOKEN", "test-token")
+	os.Setenv("ANTHROPIC_API_TOKEN", "testToken")
 	defer os.Unsetenv("ANTHROPIC_API_TOKEN")
 
 	cfg := config.DefaultConfig()
 	cfg.API.Mode = "direct"
-	server, err := NewAgentServer(tmpDir, 3, 4000, "claude-3-5-sonnet-20241022", cfg)
+	server, err := NewAgentServer(tmpDir, 3, 4000, "testModel", cfg)
 	if err != nil {
-		t.Fatalf("Failed to create server: %v", err)
+		t.Fatalf(errFailedToCreateServer, err)
 	}
 
 	// Add test log entries
@@ -356,7 +367,7 @@ func TestHandleLogsRecent_CustomLimit(t *testing.T) {
 	// Parse response
 	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
+		t.Fatalf(errFailedToDecode, err)
 	}
 
 	// Verify limit is respected
@@ -381,14 +392,14 @@ func TestHandleLogsRecent_MaxLimit(t *testing.T) {
 	defer cleanup()
 
 	tmpDir := setupTestDir(t)
-	os.Setenv("ANTHROPIC_API_TOKEN", "test-token")
+	os.Setenv("ANTHROPIC_API_TOKEN", "testToken")
 	defer os.Unsetenv("ANTHROPIC_API_TOKEN")
 
 	cfg := config.DefaultConfig()
 	cfg.API.Mode = "direct"
-	server, err := NewAgentServer(tmpDir, 3, 4000, "claude-3-5-sonnet-20241022", cfg)
+	server, err := NewAgentServer(tmpDir, 3, 4000, "testModel", cfg)
 	if err != nil {
-		t.Fatalf("Failed to create server: %v", err)
+		t.Fatalf(errFailedToCreateServer, err)
 	}
 
 	// Create test HTTP request with limit > 1000
@@ -404,7 +415,7 @@ func TestHandleLogsRecent_MaxLimit(t *testing.T) {
 	// Parse response
 	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
+		t.Fatalf(errFailedToDecode, err)
 	}
 
 	// Verify limit is capped at 1000
@@ -420,14 +431,14 @@ func TestHandleLogsRecent_InvalidLimit(t *testing.T) {
 	defer cleanup()
 
 	tmpDir := setupTestDir(t)
-	os.Setenv("ANTHROPIC_API_TOKEN", "test-token")
+	os.Setenv("ANTHROPIC_API_TOKEN", "testToken")
 	defer os.Unsetenv("ANTHROPIC_API_TOKEN")
 
 	cfg := config.DefaultConfig()
 	cfg.API.Mode = "direct"
-	server, err := NewAgentServer(tmpDir, 3, 4000, "claude-3-5-sonnet-20241022", cfg)
+	server, err := NewAgentServer(tmpDir, 3, 4000, "testModel", cfg)
 	if err != nil {
-		t.Fatalf("Failed to create server: %v", err)
+		t.Fatalf(errFailedToCreateServer, err)
 	}
 
 	tests := []struct {
@@ -452,7 +463,7 @@ func TestHandleLogsRecent_InvalidLimit(t *testing.T) {
 
 			var result map[string]interface{}
 			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-				t.Fatalf("Failed to decode response: %v", err)
+				t.Fatalf(errFailedToDecode, err)
 			}
 
 			// Should fall back to default limit of 100
@@ -470,14 +481,14 @@ func TestHandleLogsRecent_LogEntryFormat(t *testing.T) {
 	defer cleanup()
 
 	tmpDir := setupTestDir(t)
-	os.Setenv("ANTHROPIC_API_TOKEN", "test-token")
+	os.Setenv("ANTHROPIC_API_TOKEN", "testToken")
 	defer os.Unsetenv("ANTHROPIC_API_TOKEN")
 
 	cfg := config.DefaultConfig()
 	cfg.API.Mode = "direct"
-	server, err := NewAgentServer(tmpDir, 3, 4000, "claude-3-5-sonnet-20241022", cfg)
+	server, err := NewAgentServer(tmpDir, 3, 4000, "testModel", cfg)
 	if err != nil {
-		t.Fatalf("Failed to create server: %v", err)
+		t.Fatalf(errFailedToCreateServer, err)
 	}
 
 	// Add a test log entry with known structure
@@ -506,7 +517,7 @@ func TestHandleLogsRecent_LogEntryFormat(t *testing.T) {
 	// Parse response
 	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
+		t.Fatalf(errFailedToDecode, err)
 	}
 
 	logs, ok := result["logs"].([]interface{})
