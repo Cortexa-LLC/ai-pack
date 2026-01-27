@@ -398,6 +398,234 @@ END IF
 
 ---
 
+### SonarQube Deep Code Inspection (WHEN AVAILABLE)
+
+**REQUIREMENT:** When SonarQube is available locally, use it for comprehensive static analysis.
+
+**Check SonarQube Availability:**
+```bash
+# Check if SonarQube is configured
+if [ -f .sonarqube-config ]; then
+  echo "SonarQube available - use for deep inspection"
+  # Verify SonarQube is running
+  curl -s http://localhost:9000/api/system/status | grep '"status":"UP"'
+else
+  echo "SonarQube not configured - skip deep inspection"
+fi
+```
+
+**When to Use SonarQube:**
+```
+✓ Reviewing complex code changes
+✓ Security-critical components
+✓ Performance-sensitive code
+✓ Code with high cyclomatic complexity
+✓ Initial review of unfamiliar code
+✓ Pre-merge validation for critical branches
+✓ When manual review finds potential issues
+```
+
+**SonarQube Validation Process:**
+
+```bash
+# Step 1: Validate the changed files/directories
+python3 scripts/validate-with-sonarqube.py <file-or-directory> --format json
+
+# Step 2: Filter by severity for critical issues
+python3 scripts/validate-with-sonarqube.py <file-or-directory> \
+  --severity BLOCKER,CRITICAL --format json
+
+# Step 3: Review specific language rules if needed
+python3 scripts/query-rules.py --language <lang> --type BUG --severity CRITICAL
+```
+
+**SonarQube Analysis Dimensions:**
+```
+1. Bugs (Correctness)
+   - Logic errors
+   - Null pointer risks
+   - Resource leaks
+   - Type mismatches
+   - Exception handling issues
+
+2. Vulnerabilities (Security)
+   - SQL injection risks
+   - XSS vulnerabilities
+   - Cryptographic weaknesses
+   - Authentication issues
+   - Authorization bypasses
+
+3. Code Smells (Maintainability)
+   - Duplicate code
+   - Complex methods
+   - Large classes
+   - Deep nesting
+   - Dead code
+
+4. Security Hotspots (Review Points)
+   - Hard-coded credentials
+   - Weak cryptography
+   - Dangerous permissions
+   - Cookie security
+   - HTTP security
+```
+
+**Interpreting SonarQube Results:**
+
+```json
+{
+  "success": true,
+  "source": "src/api/auth.go",
+  "language": "go",
+  "violations": [
+    {
+      "severity": "CRITICAL",
+      "type": "BUG",
+      "rule": "go:S1192",
+      "message": "Define a constant instead of duplicating this literal",
+      "line": 42,
+      "impacts": [
+        {
+          "softwareQuality": "MAINTAINABILITY",
+          "severity": "HIGH"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "BLOCKER": 0,
+    "CRITICAL": 1,
+    "MAJOR": 0
+  }
+}
+```
+
+**SonarQube Violation Severity Mapping:**
+```
+SonarQube BLOCKER    → Review Severity: CRITICAL (MUST FIX)
+SonarQube CRITICAL   → Review Severity: CRITICAL (MUST FIX)
+SonarQube MAJOR      → Review Severity: MAJOR (MUST FIX)
+SonarQube MINOR      → Review Severity: MINOR (CONSIDER)
+SonarQube INFO       → Review Severity: MINOR (CONSIDER)
+```
+
+**Integration with Review Process:**
+
+```
+1. Manual Review First
+   - Understand code changes
+   - Review against requirements
+   - Check architecture/design
+
+2. Run SonarQube Analysis
+   - Validate files with SonarQube
+   - Review all BLOCKER/CRITICAL violations
+   - Assess MAJOR violations
+   - Note MINOR violations
+
+3. Combine Findings
+   - Merge SonarQube findings with manual review
+   - Cross-reference security issues
+   - Verify SonarQube findings (avoid false positives)
+   - Document all findings in review template
+
+4. Report Results
+   - Include SonarQube metrics in review
+   - Reference specific rule violations
+   - Provide rule explanations from SonarQube
+```
+
+**Example SonarQube-Enhanced Review:**
+
+```markdown
+## Review Findings
+
+### Manual Review
+- [M1] Missing error handling for database timeout
+- [m1] Consider extracting constants
+
+### SonarQube Analysis
+✓ Analysis completed for src/api/
+✓ Total violations: 5 (1 Critical, 2 Major, 2 Minor)
+
+Critical Findings (SonarQube):
+- [SQ-C1] go:S3649 - SQL injection vulnerability detected
+  Location: src/api/users.go:78
+  Rule: https://rules.sonarsource.com/go/RSPEC-3649
+  Fix: Use parameterized queries
+
+Major Findings (SonarQube):
+- [SQ-M1] go:S1192 - Duplicated string literals
+  Location: src/api/auth.go:42,56,89
+  Fix: Extract to constant
+
+- [SQ-M2] go:S1871 - Identical code blocks
+  Location: src/api/handlers.go:120-130, 145-155
+  Fix: Extract common logic to function
+
+### Combined Assessment
+CHANGES REQUESTED
+
+Critical: 2 (1 manual + 1 SonarQube)
+Major: 3 (1 manual + 2 SonarQube)
+Minor: 3 (1 manual + 2 SonarQube)
+
+All critical and major findings must be addressed before approval.
+```
+
+**SonarQube Rule Reference:**
+
+```bash
+# Explain a specific rule
+python3 scripts/query-rules.py --rule S3649
+
+# Find all security rules for a language
+python3 scripts/query-rules.py --language go --type VULNERABILITY
+
+# Search for specific patterns
+python3 scripts/query-rules.py --language python --severity BLOCKER,CRITICAL
+```
+
+**Benefits of SonarQube Integration:**
+```
+✅ Automated detection of 4,131+ rule violations
+✅ Language-specific analysis (Go, Python, JavaScript, C#, Java, etc.)
+✅ Security vulnerability scanning (OWASP Top 10)
+✅ Code smell identification
+✅ Complexity metrics
+✅ Duplicate code detection
+✅ Consistent standards enforcement
+✅ Detailed remediation guidance
+```
+
+**Limitations to Understand:**
+```
+⚠ May produce false positives - always verify
+⚠ Cannot understand business logic context
+⚠ Cannot replace manual security review
+⚠ Rules may not cover all project standards
+⚠ Some violations may need justified suppressions
+```
+
+**When NOT to Use SonarQube:**
+```
+✗ SonarQube service not running (skip gracefully)
+✗ Configuration file (.sonarqube-config) missing
+✗ Simple documentation changes
+✗ Configuration file updates (YAML, JSON, etc.)
+✗ Time-critical reviews (manual first, SonarQube async)
+```
+
+**Reference Documentation:**
+- SonarQube Integration Guide: `docs/SONARQUBE-INTEGRATION.md`
+- Setup Instructions: `SONARQUBE-SETUP-COMPLETE.md`
+- Rule Extraction: `scripts/RSPEC-RULES.md`
+- Validation Script: `scripts/validate-with-sonarqube.py`
+- Query Script: `scripts/query-rules.py`
+
+---
+
 ### Testing Checklist
 
 ```
