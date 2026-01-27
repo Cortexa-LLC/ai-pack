@@ -724,6 +724,9 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 
 		logMsg(fmt.Sprintf("      API: %dms | in:%d out:%d (streaming)", apiDuration, message.Usage.InputTokens, message.Usage.OutputTokens))
 
+		// Record per-turn token metrics
+		monitoring.GlobalMetrics.RecordTurnTokens(taskID, turn, int64(message.Usage.InputTokens), int64(message.Usage.OutputTokens), apiDuration)
+
 		// Process response blocks
 		var toolUses []anthropic.ToolUseBlock
 		hasText := false
