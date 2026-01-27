@@ -779,6 +779,65 @@ func handlePerformance(args []string) {
 		fmt.Println()
 	}
 
+	// Per-Turn Statistics (if available)
+	totalTurns, hasTurns := metrics["total_turns"].(float64)
+	avgInputPerTurn, hasAvgInput := metrics["avg_input_per_turn"].(float64)
+	avgOutputPerTurn, hasAvgOutput := metrics["avg_output_per_turn"].(float64)
+
+	if hasTurns && hasAvgInput && hasAvgOutput && totalTurns > 0 {
+		fmt.Println("🔄 PER-TURN AVERAGES")
+		fmt.Println("----------------------------------------------------------------------")
+		fmt.Printf("  Total Turns:       %s\n", formatNumber(int64(totalTurns)))
+		fmt.Printf("  Avg Input/Turn:    %s tokens\n", formatNumber(int64(avgInputPerTurn)))
+		fmt.Printf("  Avg Output/Turn:   %s tokens\n", formatNumber(int64(avgOutputPerTurn)))
+
+		if avgOutputPerTurn > 0 {
+			turnRatio := avgInputPerTurn / avgOutputPerTurn
+			fmt.Printf("  Avg Turn Ratio:    %.1f:1\n", turnRatio)
+		}
+		fmt.Println()
+
+		// Recent Turn Details (last 10 turns)
+		if turnDataRaw, ok := metrics["turn_token_data"].([]interface{}); ok && len(turnDataRaw) > 0 {
+			fmt.Printf("📊 RECENT TURNS (last %d)\n", min(10, len(turnDataRaw)))
+			fmt.Println("----------------------------------------------------------------------")
+			fmt.Println("  Turn  Duration  Input      Output     Task")
+			fmt.Println("  ----  --------  ---------  ---------  ----")
+
+			startIdx := 0
+			if len(turnDataRaw) > 10 {
+				startIdx = len(turnDataRaw) - 10
+			}
+
+			for _, turnRaw := range turnDataRaw[startIdx:] {
+				turn, ok := turnRaw.(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				turnNum, _ := turn["Turn"].(float64)
+				durationMs, _ := turn["DurationMs"].(float64)
+				inputTokens, _ := turn["InputTokens"].(float64)
+				outputTokens, _ := turn["OutputTokens"].(float64)
+				taskID, _ := turn["TaskID"].(string)
+
+				// Truncate task ID for display
+				displayTaskID := taskID
+				if len(displayTaskID) > 20 {
+					displayTaskID = displayTaskID[:17] + "..."
+				}
+
+				fmt.Printf("  %-4.0f  %6.1fs  %9s  %9s  %s\n",
+					turnNum,
+					durationMs/1000,
+					formatNumber(int64(inputTokens)),
+					formatNumber(int64(outputTokens)),
+					displayTaskID)
+			}
+			fmt.Println()
+		}
+	}
+
 	// Recent Sessions (if available)
 	if taskUsageRaw, ok := metrics["task_token_usage"].([]interface{}); ok && len(taskUsageRaw) > 0 {
 		fmt.Printf("📋 RECENT SESSIONS (last %d)\n", len(taskUsageRaw))
@@ -829,6 +888,13 @@ func humanizeNumber(n int64) string {
 		result += string(c)
 	}
 	return result
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func streamTaskProgress(beadsTaskID string) {

@@ -41,6 +41,13 @@ type Metrics struct {
 	TotalInputTokens  int64
 	TotalOutputTokens int64
 
+	// Per-turn token tracking
+	TotalTurns            int64
+	TotalTurnInputTokens  int64
+	TotalTurnOutputTokens int64
+	turnTokenData         []TurnTokenData
+	maxTurnData           int
+
 	// Detailed task duration tracking
 	taskDurations []int64
 	maxDurations  int
@@ -48,6 +55,15 @@ type Metrics struct {
 	// Per-task token tracking (session metrics)
 	taskTokenUsage []TaskTokenUsage
 	maxTokenUsage  int
+}
+
+// TurnTokenData tracks token usage for a single turn
+type TurnTokenData struct {
+	TaskID       string
+	Turn         int64
+	InputTokens  int64
+	OutputTokens int64
+	DurationMs   int64
 }
 
 // TaskTokenUsage tracks token usage for a single task/session
@@ -68,6 +84,8 @@ func InitMetrics() {
 		taskDurations:  make([]int64, 0, 1000),
 		maxTokenUsage:  100, // Keep last 100 task token usage records
 		taskTokenUsage: make([]TaskTokenUsage, 0, 100),
+		maxTurnData:    1000, // Keep last 1000 turns for per-turn analysis
+		turnTokenData:  make([]TurnTokenData, 0, 1000),
 	}
 }
 
@@ -146,6 +164,33 @@ func (m *Metrics) IncrementRateLimitViolations() {
 	atomic.AddInt64(&m.RateLimitViolations, 1)
 }
 
+// RecordTurnTokens records token usage for a single turn
+func (m *Metrics) RecordTurnTokens(taskID string, turn int, inputTokens, outputTokens, durationMs int64) {
+	// Update global turn totals
+	atomic.AddInt64(&m.TotalTurns, 1)
+	atomic.AddInt64(&m.TotalTurnInputTokens, inputTokens)
+	atomic.AddInt64(&m.TotalTurnOutputTokens, outputTokens)
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Add to per-turn tracking
+	turnData := TurnTokenData{
+		TaskID:       taskID,
+		Turn:         int64(turn),
+		InputTokens:  inputTokens,
+		OutputTokens: outputTokens,
+		DurationMs:   durationMs,
+	}
+
+	if len(m.turnTokenData) < m.maxTurnData {
+		m.turnTokenData = append(m.turnTokenData, turnData)
+	} else {
+		// Shift and add (FIFO)
+		m.turnTokenData = append(m.turnTokenData[1:], turnData)
+	}
+}
+
 // RecordTokenUsage records token usage for a completed task/session
 func (m *Metrics) RecordTokenUsage(taskID string, inputTokens, outputTokens int64, turnCount int64) {
 	// Update global totals
@@ -180,6 +225,26 @@ func (m *Metrics) GetSnapshot() MetricsSnapshot {
 	tokenUsageCopy := make([]TaskTokenUsage, len(m.taskTokenUsage))
 	copy(tokenUsageCopy, m.taskTokenUsage)
 
+	// Copy turn token data for snapshot (last 100 turns for reasonable response size)
+	maxRecentTurns := 100
+	turnDataStart := 0
+	if len(m.turnTokenData) > maxRecentTurns {
+		turnDataStart = len(m.turnTokenData) - maxRecentTurns
+	}
+	turnDataCopy := make([]TurnTokenData, len(m.turnTokenData)-turnDataStart)
+	copy(turnDataCopy, m.turnTokenData[turnDataStart:])
+
+	totalTurns := atomic.LoadInt64(&m.TotalTurns)
+	totalTurnInput := atomic.LoadInt64(&m.TotalTurnInputTokens)
+	totalTurnOutput := atomic.LoadInt64(&m.TotalTurnOutputTokens)
+
+	// Calculate averages
+	var avgInputPerTurn, avgOutputPerTurn int64
+	if totalTurns > 0 {
+		avgInputPerTurn = totalTurnInput / totalTurns
+		avgOutputPerTurn = totalTurnOutput / totalTurns
+	}
+
 	return MetricsSnapshot{
 		TasksSpawned:        atomic.LoadInt64(&m.TasksSpawned),
 		TasksCompleted:      atomic.LoadInt64(&m.TasksCompleted),
@@ -199,6 +264,10 @@ func (m *Metrics) GetSnapshot() MetricsSnapshot {
 		TotalInputTokens:    atomic.LoadInt64(&m.TotalInputTokens),
 		TotalOutputTokens:   atomic.LoadInt64(&m.TotalOutputTokens),
 		TaskTokenUsage:      tokenUsageCopy,
+		TotalTurns:          totalTurns,
+		AvgInputPerTurn:     avgInputPerTurn,
+		AvgOutputPerTurn:    avgOutputPerTurn,
+		TurnTokenData:       turnDataCopy,
 		Timestamp:           time.Now(),
 	}
 }
@@ -223,6 +292,10 @@ type MetricsSnapshot struct {
 	TotalInputTokens    int64            `json:"total_input_tokens"`
 	TotalOutputTokens   int64            `json:"total_output_tokens"`
 	TaskTokenUsage      []TaskTokenUsage `json:"task_token_usage,omitempty"`
+	TotalTurns          int64            `json:"total_turns"`
+	AvgInputPerTurn     int64            `json:"avg_input_per_turn"`
+	AvgOutputPerTurn    int64            `json:"avg_output_per_turn"`
+	TurnTokenData       []TurnTokenData  `json:"turn_token_data,omitempty"`
 	Timestamp           time.Time        `json:"timestamp"`
 }
 

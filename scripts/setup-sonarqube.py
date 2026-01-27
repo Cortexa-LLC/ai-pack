@@ -19,15 +19,53 @@ import json
 import subprocess
 import urllib.request
 import urllib.error
+import secrets
+import string
 from pathlib import Path
 from base64 import b64encode
+
+
+def generate_strong_password():
+    """
+    Generate a strong password in Apple-style format: xxxxx-xxxxx-xxxxx
+
+    Uses cryptographic random function (secrets) to generate a 15-character
+    password in 3 groups of 5, including uppercase, lowercase, numbers, and symbols.
+
+    Returns:
+        str: Strong password in format xxxxx-xxxxx-xxxxx
+    """
+    # Define character sets
+    uppercase = string.ascii_uppercase
+    lowercase = string.ascii_lowercase
+    digits = string.digits
+    symbols = "$*!@#()&"
+    all_chars = uppercase + lowercase + digits + symbols
+
+    def generate_group():
+        """Generate a 5-character group with guaranteed complexity."""
+        # Ensure at least one character from each type
+        group = [
+            secrets.choice(uppercase),
+            secrets.choice(lowercase),
+            secrets.choice(digits),
+            secrets.choice(symbols),
+            secrets.choice(all_chars)  # Fifth character can be any type
+        ]
+        # Shuffle to avoid predictable patterns
+        secrets.SystemRandom().shuffle(group)
+        return ''.join(group)
+
+    # Generate 3 groups
+    groups = [generate_group() for _ in range(3)]
+    return '-'.join(groups)
 
 
 # Configuration
 SONARQUBE_URL = "http://localhost:9000"
 ADMIN_USER = "admin"
 ADMIN_PASS = "admin"
-NEW_ADMIN_PASS = "admin123"  # Change this in production!
+NEW_ADMIN_PASS = generate_strong_password()  # Strong cryptographic password
 CONFIG_FILE = ".sonarqube-config"
 COMPOSE_FILE = "docker-compose.sonarqube.yml"
 
