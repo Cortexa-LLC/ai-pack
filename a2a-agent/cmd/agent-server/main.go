@@ -349,14 +349,14 @@ func main() {
 
 	// Setup routes with logging middleware
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", handleHealth)                  // Health check
-	mux.HandleFunc("/metrics", handleMetrics(s))            // Metrics endpoint
-	mux.HandleFunc("/a2a/discovery", s.HandleA2ADiscovery)  // A2A discovery
-	mux.HandleFunc("/a2a/execute", s.HandleA2AExecute)      // A2A execute
-	mux.HandleFunc("/a2a/status", s.HandleA2AStatus)        // A2A status
-	mux.HandleFunc("/stream/", s.HandleStream)              // SSE streaming (tasks)
-	mux.HandleFunc("/logs/stream", s.HandleLogsStream)      // SSE streaming (logs)
-	mux.HandleFunc("/logs/recent", s.HandleLogsRecent)      // Recent logs (JSON)
+	mux.HandleFunc("/health", handleHealth)                // Health check
+	mux.HandleFunc("/metrics", handleMetrics(s))           // Metrics endpoint
+	mux.HandleFunc("/a2a/discovery", s.HandleA2ADiscovery) // A2A discovery
+	mux.HandleFunc("/a2a/execute", s.HandleA2AExecute)     // A2A execute
+	mux.HandleFunc("/a2a/status", s.HandleA2AStatus)       // A2A status
+	mux.HandleFunc("/stream/", s.HandleStream)             // SSE streaming (tasks)
+	mux.HandleFunc("/logs/stream", s.HandleLogsStream)     // SSE streaming (logs)
+	mux.HandleFunc("/logs/recent", s.HandleLogsRecent)     // Recent logs (JSON)
 
 	// Wrap with logging middleware
 	handler := server.LoggingMiddleware(mux)

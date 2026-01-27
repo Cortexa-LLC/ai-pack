@@ -10,11 +10,11 @@ import (
 func clearEnvVars(t *testing.T) func() {
 	// Save current values
 	savedVars := map[string]string{
-		"ANTHROPIC_BASE_URL":  os.Getenv("ANTHROPIC_BASE_URL"),
-		"ANTHROPIC_MODEL":     os.Getenv("ANTHROPIC_MODEL"),
-		"SERVER_HOST":         os.Getenv("SERVER_HOST"),
-		"SERVER_PORT":         os.Getenv("SERVER_PORT"),
-		"API_MODE":            os.Getenv("API_MODE"),
+		"ANTHROPIC_BASE_URL": os.Getenv("ANTHROPIC_BASE_URL"),
+		"ANTHROPIC_MODEL":    os.Getenv("ANTHROPIC_MODEL"),
+		"SERVER_HOST":        os.Getenv("SERVER_HOST"),
+		"SERVER_PORT":        os.Getenv("SERVER_PORT"),
+		"API_MODE":           os.Getenv("API_MODE"),
 	}
 
 	// Clear all config-related env vars

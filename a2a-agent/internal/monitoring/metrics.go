@@ -48,7 +48,7 @@ var GlobalMetrics *Metrics
 // InitMetrics initializes the global metrics collector
 func InitMetrics() {
 	GlobalMetrics = &Metrics{
-		maxDurations: 1000, // Keep last 1000 task durations for stats
+		maxDurations:  1000, // Keep last 1000 task durations for stats
 		taskDurations: make([]int64, 0, 1000),
 	}
 }

@@ -80,7 +80,7 @@ type AgentConfig struct {
 	} `yaml:"delegation"`
 	Tools            []string               `yaml:"tools"`
 	SuccessCriteria  []string               `yaml:"success_criteria"`
-	Metadata         map[string]interface{} `yaml:"metadata"` // Changed from map[string]string to support arrays
+	Metadata         map[string]interface{} `yaml:"metadata"`          // Changed from map[string]string to support arrays
 	ExtendedThinking bool                   `yaml:"extended_thinking"` // Enable extended thinking mode
 	MaxTurns         int                    `yaml:"max_turns"`         // Max agentic turns (default 25)
 }
