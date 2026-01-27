@@ -60,6 +60,13 @@ func (lb *LogBuffer) Add(entry LogEntry) {
 	}
 }
 
+// Clear removes all log entries from the buffer
+func (lb *LogBuffer) Clear() {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+	lb.entries = nil
+}
+
 // GetRecent returns the N most recent log entries
 func (lb *LogBuffer) GetRecent(n int) []LogEntry {
 	lb.mu.RLock()

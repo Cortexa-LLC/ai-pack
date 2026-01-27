@@ -98,7 +98,7 @@ func TestHandleLogsStreamConnectedEvent(t *testing.T) {
 	}
 
 	// Create test HTTP request
-	req := httptest.NewRequest(http.MethodGet, "testLogsStreamURL", nil)
+	req := httptest.NewRequest(http.MethodGet, testLogsStreamURL, nil)
 	w := httptest.NewRecorder()
 
 	// Execute in goroutine
@@ -181,7 +181,7 @@ func TestHandleLogsStreamLogEvents(t *testing.T) {
 	}
 
 	// Create test HTTP request
-	req := httptest.NewRequest(http.MethodGet, "testLogsStreamURL", nil)
+	req := httptest.NewRequest(http.MethodGet, testLogsStreamURL, nil)
 	w := httptest.NewRecorder()
 
 	// Execute in goroutine
@@ -270,7 +270,7 @@ func TestHandleLogsRecentDefaultLimit(t *testing.T) {
 
 	// Clear any existing logs from previous tests
 	logBuffer := monitoring.GetLogBuffer()
-	// Note: GetRecent doesn't modify buffer, so we just add fresh entries
+	logBuffer.Clear()
 
 	// Add exactly 10 test log entries
 	for i := 0; i < 10; i++ {
