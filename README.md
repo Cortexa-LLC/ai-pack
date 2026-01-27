@@ -635,6 +635,7 @@ Each language follows its community's established indentation standards:
 |----------|-------------|------|
 | C++ | 2 spaces | [lang-cpp.md](quality/clean-code/lang-cpp-basics.md) |
 | C# | 4 spaces | [lang-csharp.md](quality/clean-code/lang-csharp.md) |
+| Go | Tabs (gofmt) | [lang-go.md](quality/clean-code/lang-go.md) |
 | Python | 4 spaces | [lang-python.md](quality/clean-code/lang-python.md) |
 | JavaScript/TypeScript | 2 spaces | [lang-javascript.md](quality/clean-code/lang-javascript.md) |
 | Java | 4 spaces | [lang-java.md](quality/clean-code/lang-java.md) |
@@ -654,6 +655,13 @@ Each language follows its community's established indentation standards:
 - Modern C# 12 features
 - Async/await patterns
 - 4-space indentation (Microsoft standard)
+
+**[Go Guidelines](quality/clean-code/lang-go.md)** - Go best practices:
+- Effective Go, Go Code Review Comments
+- Uber Go Style Guide
+- Tab indentation (gofmt enforced)
+- Error wrapping, context usage, concurrency patterns
+- Interface design, table-driven tests
 
 **[Python Guidelines](quality/clean-code/lang-python.md)** - Python best practices:
 - PEP 8, PEP 20 (Zen of Python)
