@@ -62,7 +62,7 @@ class AIPackInstaller:
         # Check for git
         git = shutil.which("git")
         if git:
-            print(f"  ✅ Git found")
+            print("  ✅ Git found")
         else:
             self.warnings.append("Git not found - recommended for version control")
 
@@ -112,8 +112,8 @@ class AIPackInstaller:
         self.make_executable(bd_script)
         self.make_executable(bd_spawn)
 
-        print(f"  ✅ bd script configured")
-        print(f"  ✅ bd_spawn.py configured")
+        print("  ✅ bd script configured")
+        print("  ✅ bd_spawn.py configured")
         print()
         return True
 
@@ -167,7 +167,7 @@ class AIPackInstaller:
         existing_entries = set()
         if gitignore_path.exists():
             with open(gitignore_path) as f:
-                existing_entries = set(line.strip() for line in f if line.strip() and not line.startswith('#'))
+                existing_entries = {line.strip() for line in f if line.strip() and not line.startswith('#')}
 
         # Entries to add
         required_entries = {
@@ -190,7 +190,7 @@ class AIPackInstaller:
                     f.write(f"{entry}\n")
             print(f"  ✅ Added {len(new_entries)} entries to .gitignore")
         else:
-            print(f"  ✅ .gitignore already configured")
+            print("  ✅ .gitignore already configured")
 
         print()
 
@@ -341,10 +341,10 @@ python .ai-pack\\bd_spawn.py %AGENT_TYPE% "%TASK_DESC%"
 
         print("✅ AI-Pack Phase 1 installation COMPLETE!\n")
         print("Next steps:")
-        print(f"  1. Test installation: .ai-pack/bd spawn engineer \"test task\"")
-        print(f"  2. Read usage guide: docs/USAGE-GUIDE.md")
-        print(f"  3. Review examples: tests/")
-        print(f"  4. For protocol handler: docs/PROTOCOL-HANDLER-SETUP.md")
+        print("  1. Test installation: .ai-pack/bd spawn engineer \"test task\"")
+        print("  2. Read usage guide: docs/USAGE-GUIDE.md")
+        print("  3. Review examples: tests/")
+        print("  4. For protocol handler: docs/PROTOCOL-HANDLER-SETUP.md")
         print()
         print("="*70)
         return True

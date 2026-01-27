@@ -7,6 +7,10 @@ import (
 	"strconv"
 )
 
+const (
+	defaultConfigFilename = "agent-server.json"
+)
+
 // Config holds all server configuration
 type Config struct {
 	Server  ServerConfig  `json:"server"`
@@ -123,7 +127,7 @@ func LoadConfig(configPath string) (*Config, error) {
 // resolveConfigPath resolves the config file path using the search order
 func resolveConfigPath(explicitPath string) string {
 	// 1. Explicit path provided (--config flag)
-	if explicitPath != "" && explicitPath != "agent-server.json" {
+	if explicitPath != "" && explicitPath != defaultConfigFilename {
 		return explicitPath
 	}
 
@@ -136,15 +140,15 @@ func resolveConfigPath(explicitPath string) string {
 
 	// 3. ~/.claude/agent-server.json (user config - DEFAULT)
 	if homeDir, err := os.UserHomeDir(); err == nil {
-		claudePath := homeDir + "/.claude/agent-server.json"
+		claudePath := homeDir + "/.claude/" + defaultConfigFilename
 		if fileExists(claudePath) {
 			return claudePath
 		}
 	}
 
 	// 4. ./agent-server.json (current directory - backward compat)
-	if fileExists("agent-server.json") {
-		return "agent-server.json"
+	if fileExists(defaultConfigFilename) {
+		return defaultConfigFilename
 	}
 
 	// 5. Return empty to use built-in defaults
