@@ -40,7 +40,7 @@ func TestIsInstalled(t *testing.T) {
 	t.Logf("Beads installed: %v", installed)
 }
 
-func TestClient_GetTaskDescription(t *testing.T) {
+func TestClientGetTaskDescription(t *testing.T) {
 	client := NewClient()
 
 	// Test free-form description
