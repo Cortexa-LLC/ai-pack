@@ -75,6 +75,55 @@ def command_exists(cmd):
         return False
 
 
+def install_sonar_scanner():
+    """Install sonar-scanner if not present."""
+    if command_exists("sonar-scanner"):
+        log_success("sonar-scanner already installed")
+        return True
+
+    log_info("sonar-scanner not found - attempting to install...")
+
+    # Detect platform
+    import platform
+    system = platform.system()
+
+    if system == "Darwin":  # macOS
+        if command_exists("brew"):
+            log_info("Installing sonar-scanner via Homebrew...")
+            try:
+                subprocess.run(
+                    ["brew", "install", "sonar-scanner"],
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+                log_success("sonar-scanner installed via Homebrew")
+                return True
+            except subprocess.CalledProcessError:
+                log_error("Failed to install sonar-scanner via Homebrew")
+                return False
+        else:
+            log_warn("Homebrew not found - cannot auto-install sonar-scanner")
+            log_info("Install Homebrew: https://brew.sh")
+            log_info("Then run: brew install sonar-scanner")
+            return False
+
+    elif system == "Linux":
+        log_warn("Auto-install not supported on Linux")
+        log_info("Install sonar-scanner:")
+        log_info("  https://docs.sonarqube.org/latest/analysis/scan/sonarscanner/")
+        return False
+
+    elif system == "Windows":
+        log_warn("Auto-install not supported on Windows")
+        log_info("Download sonar-scanner:")
+        log_info("  https://docs.sonarqube.org/latest/analysis/scan/sonarscanner/")
+        log_info("  Extract and add to PATH")
+        return False
+
+    return False
+
+
 def check_prerequisites():
     """Check that required tools are installed."""
     log_info("Checking prerequisites...")
@@ -102,6 +151,11 @@ def check_prerequisites():
         sys.exit(1)
 
     log_success("Prerequisites OK")
+
+    # Check/install sonar-scanner
+    if not install_sonar_scanner():
+        log_warn("sonar-scanner not installed - manual installation required")
+        log_info("You can still use SonarQube web UI, but validation script needs sonar-scanner")
 
 
 def start_sonarqube():
