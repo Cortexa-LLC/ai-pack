@@ -1,5 +1,0 @@
-# SonarQube Configuration for AI-Pack
-# Generated: $(date)
-
-SONARQUBE_URL=http://localhost:9000
-SONARQUBE_TOKEN=squ_82d89a0f47358d837ffc8848c14ca3df92ba3eaf
