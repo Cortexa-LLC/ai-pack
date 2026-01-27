@@ -2,8 +2,21 @@ package protocol
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
+)
+
+// Test constants
+const (
+	testTaskID        = "task-123"
+	testA2AExecute    = "a2a.execute"
+	testJSONRPCVer    = "2.0"
+
+	// Error message templates
+	errExpectedTaskID    = "Expected task_id 'task-123', got '%s'"
+	errExpectedNoError   = "Expected no error, got: %v"
+	errExpectedJSONRPC   = "Expected jsonrpc '2.0', got '%s'"
 )
 
 // JSON-RPC Tests
@@ -12,8 +25,8 @@ func TestNewJSONRPCResponse(t *testing.T) {
 	result := map[string]string{"status": "ok"}
 	resp := NewJSONRPCResponse(1, result)
 
-	if resp.JSONRPC != "2.0" {
-		t.Errorf("Expected jsonrpc '2.0', got '%s'", resp.JSONRPC)
+	if resp.JSONRPC != testJSONRPCVer {
+		t.Errorf(errExpectedJSONRPC, resp.JSONRPC)
 	}
 	if resp.ID != 1 {
 		t.Errorf("Expected id 1, got %v", resp.ID)
@@ -29,8 +42,8 @@ func TestNewJSONRPCResponse(t *testing.T) {
 func TestNewJSONRPCError(t *testing.T) {
 	resp := NewJSONRPCError(1, InvalidRequest, "Invalid request", nil)
 
-	if resp.JSONRPC != "2.0" {
-		t.Errorf("Expected jsonrpc '2.0', got '%s'", resp.JSONRPC)
+	if resp.JSONRPC != testJSONRPCVer {
+		t.Errorf(errExpectedJSONRPC, resp.JSONRPC)
 	}
 	if resp.ID != 1 {
 		t.Errorf("Expected id 1, got %v", resp.ID)
@@ -51,8 +64,8 @@ func TestNewJSONRPCError(t *testing.T) {
 
 func TestValidateRequest_Valid(t *testing.T) {
 	req := &JSONRPCRequest{
-		JSONRPC: "2.0",
-		Method:  "a2a.execute",
+		JSONRPC: testJSONRPCVer,
+		Method:  testA2AExecute,
 		ID:      1,
 	}
 
@@ -65,7 +78,7 @@ func TestValidateRequest_Valid(t *testing.T) {
 func TestValidateRequest_InvalidVersion(t *testing.T) {
 	req := &JSONRPCRequest{
 		JSONRPC: "1.0",
-		Method:  "a2a.execute",
+		Method:  testA2AExecute,
 		ID:      1,
 	}
 
@@ -77,7 +90,7 @@ func TestValidateRequest_InvalidVersion(t *testing.T) {
 
 func TestValidateRequest_MissingMethod(t *testing.T) {
 	req := &JSONRPCRequest{
-		JSONRPC: "2.0",
+		JSONRPC: testJSONRPCVer,
 		Method:  "",
 		ID:      1,
 	}
@@ -90,8 +103,8 @@ func TestValidateRequest_MissingMethod(t *testing.T) {
 
 func TestValidateRequest_MissingID(t *testing.T) {
 	req := &JSONRPCRequest{
-		JSONRPC: "2.0",
-		Method:  "a2a.execute",
+		JSONRPC: testJSONRPCVer,
+		Method:  testA2AExecute,
 		ID:      nil,
 	}
 
@@ -139,7 +152,7 @@ func TestParseExecuteTaskRequest_Valid(t *testing.T) {
 	req, err := ParseExecuteTaskRequest(params)
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf(errExpectedNoError, err)
 	}
 	if req.Role != "engineer" {
 		t.Errorf("Expected role 'engineer', got '%s'", req.Role)
@@ -159,7 +172,7 @@ func TestParseExecuteTaskRequest_WithOptions(t *testing.T) {
 	req, err := ParseExecuteTaskRequest(params)
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf(errExpectedNoError, err)
 	}
 	if req.Role != "tester" {
 		t.Errorf("Expected role 'tester', got '%s'", req.Role)
@@ -183,15 +196,15 @@ func TestParseExecuteTaskRequest_InvalidJSON(t *testing.T) {
 }
 
 func TestParseTaskStatusRequest_Valid(t *testing.T) {
-	params := json.RawMessage(`{"task_id": "task-123"}`)
+	params := json.RawMessage(fmt.Sprintf(`{"task_id": "%s"}`, testTaskID))
 
 	req, err := ParseTaskStatusRequest(params)
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf(errExpectedNoError, err)
 	}
-	if req.TaskID != "task-123" {
-		t.Errorf("Expected task_id 'task-123', got '%s'", req.TaskID)
+	if req.TaskID != testTaskID {
+		t.Errorf(errExpectedTaskID, req.TaskID)
 	}
 }
 
@@ -207,14 +220,14 @@ func TestParseTaskStatusRequest_InvalidJSON(t *testing.T) {
 
 func TestExecuteTaskResponse_Structure(t *testing.T) {
 	resp := ExecuteTaskResponse{
-		TaskID:    "task-123",
+		TaskID:    testTaskID,
 		Status:    "queued",
 		Message:   "Task queued",
 		StreamURL: "/stream/task-123",
 		CreatedAt: time.Now(),
 	}
 
-	if resp.TaskID != "task-123" {
+	if resp.TaskID != testTaskID {
 		t.Errorf("Expected task_id 'task-123', got '%s'", resp.TaskID)
 	}
 	if resp.Status != "queued" {
@@ -228,7 +241,7 @@ func TestExecuteTaskResponse_Structure(t *testing.T) {
 func TestTaskStatusResponse_Structure(t *testing.T) {
 	now := time.Now()
 	resp := TaskStatusResponse{
-		TaskID:    "task-123",
+		TaskID:    testTaskID,
 		Role:      "engineer",
 		Task:      "Test task",
 		Status:    "completed",
@@ -238,7 +251,7 @@ func TestTaskStatusResponse_Structure(t *testing.T) {
 		Result:    "Task completed successfully",
 	}
 
-	if resp.TaskID != "task-123" {
+	if resp.TaskID != testTaskID {
 		t.Errorf("Expected task_id 'task-123', got '%s'", resp.TaskID)
 	}
 	if resp.Status != "completed" {
@@ -252,7 +265,7 @@ func TestTaskStatusResponse_Structure(t *testing.T) {
 func TestStreamEvent_Structure(t *testing.T) {
 	event := StreamEvent{
 		Type:      "status_update",
-		TaskID:    "task-123",
+		TaskID:    testTaskID,
 		Timestamp: time.Now(),
 		Data: map[string]interface{}{
 			"status":   "in_progress",
@@ -263,7 +276,7 @@ func TestStreamEvent_Structure(t *testing.T) {
 	if event.Type != "status_update" {
 		t.Errorf("Expected type 'status_update', got '%s'", event.Type)
 	}
-	if event.TaskID != "task-123" {
+	if event.TaskID != testTaskID {
 		t.Errorf("Expected task_id 'task-123', got '%s'", event.TaskID)
 	}
 	if event.Data == nil {
@@ -317,8 +330,8 @@ func TestDiscoveryResponse_Structure(t *testing.T) {
 
 func TestJSONRPCRequest_Marshaling(t *testing.T) {
 	req := JSONRPCRequest{
-		JSONRPC: "2.0",
-		Method:  "a2a.execute",
+		JSONRPC: testJSONRPCVer,
+		Method:  testA2AExecute,
 		Params:  json.RawMessage(`{"role":"engineer"}`),
 		ID:      1,
 	}
@@ -351,7 +364,7 @@ func TestJSONRPCResponse_Marshaling(t *testing.T) {
 		t.Fatalf("Failed to unmarshal response: %v", err)
 	}
 
-	if decoded.JSONRPC != "2.0" {
+	if decoded.JSONRPC != testJSONRPCVer {
 		t.Errorf("Expected jsonrpc '2.0', got '%s'", decoded.JSONRPC)
 	}
 }

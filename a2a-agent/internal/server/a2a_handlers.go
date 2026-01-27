@@ -11,6 +11,14 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol"
 )
 
+// Error message constants
+const (
+	errMethodNotAllowed = "Method not allowed"
+	errParseError       = "Parse error"
+	errInvalidRequest   = "Invalid request"
+	errMethodNotFound   = "Method not found"
+)
+
 // A2A Protocol Handlers
 // Implements A2A protocol endpoints using JSON-RPC 2.0
 
@@ -23,7 +31,7 @@ func (s *AgentServer) handleA2ADiscovery(w http.ResponseWriter, r *http.Request)
 	}
 
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -42,19 +50,19 @@ func (s *AgentServer) handleDiscoveryGET(w http.ResponseWriter, r *http.Request)
 func (s *AgentServer) handleDiscoveryRPC(w http.ResponseWriter, r *http.Request) {
 	var req protocol.JSONRPCRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response := protocol.NewJSONRPCError(nil, protocol.ParseError, "Parse error", err.Error())
+		response := protocol.NewJSONRPCError(nil, protocol.ParseError, errParseError, err.Error())
 		s.sendJSONRPCResponse(w, response)
 		return
 	}
 
 	if err := protocol.ValidateRequest(&req); err != nil {
-		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidRequest, "Invalid request", err.Error())
+		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidRequest, errInvalidRequest, err.Error())
 		s.sendJSONRPCResponse(w, response)
 		return
 	}
 
 	if req.Method != "discovery" && req.Method != "a2a.discovery" {
-		response := protocol.NewJSONRPCError(req.ID, protocol.MethodNotFound, "Method not found", req.Method)
+		response := protocol.NewJSONRPCError(req.ID, protocol.MethodNotFound, errMethodNotFound, req.Method)
 		s.sendJSONRPCResponse(w, response)
 		return
 	}
@@ -67,25 +75,25 @@ func (s *AgentServer) handleDiscoveryRPC(w http.ResponseWriter, r *http.Request)
 // handleA2AExecute handles the /a2a/execute endpoint (JSON-RPC)
 func (s *AgentServer) handleA2AExecute(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
 	var req protocol.JSONRPCRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response := protocol.NewJSONRPCError(nil, protocol.ParseError, "Parse error", err.Error())
+		response := protocol.NewJSONRPCError(nil, protocol.ParseError, "errParseError", err.Error())
 		s.sendJSONRPCResponse(w, response)
 		return
 	}
 
 	if err := protocol.ValidateRequest(&req); err != nil {
-		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidRequest, "Invalid request", err.Error())
+		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidRequest, "errInvalidRequest", err.Error())
 		s.sendJSONRPCResponse(w, response)
 		return
 	}
 
 	if req.Method != "execute" && req.Method != "a2a.execute" {
-		response := protocol.NewJSONRPCError(req.ID, protocol.MethodNotFound, "Method not found", req.Method)
+		response := protocol.NewJSONRPCError(req.ID, protocol.MethodNotFound, "errMethodNotFound", req.Method)
 		s.sendJSONRPCResponse(w, response)
 		return
 	}
@@ -119,25 +127,25 @@ func (s *AgentServer) handleA2AExecute(w http.ResponseWriter, r *http.Request) {
 // handleA2AStatus handles the /a2a/status endpoint (JSON-RPC)
 func (s *AgentServer) handleA2AStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, "errMethodNotAllowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	var req protocol.JSONRPCRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response := protocol.NewJSONRPCError(nil, protocol.ParseError, "Parse error", err.Error())
+		response := protocol.NewJSONRPCError(nil, protocol.ParseError, "errParseError", err.Error())
 		s.sendJSONRPCResponse(w, response)
 		return
 	}
 
 	if err := protocol.ValidateRequest(&req); err != nil {
-		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidRequest, "Invalid request", err.Error())
+		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidRequest, "errInvalidRequest", err.Error())
 		s.sendJSONRPCResponse(w, response)
 		return
 	}
 
 	if req.Method != "status" && req.Method != "a2a.status" {
-		response := protocol.NewJSONRPCError(req.ID, protocol.MethodNotFound, "Method not found", req.Method)
+		response := protocol.NewJSONRPCError(req.ID, protocol.MethodNotFound, "errMethodNotFound", req.Method)
 		s.sendJSONRPCResponse(w, response)
 		return
 	}
