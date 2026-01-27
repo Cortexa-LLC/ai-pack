@@ -21,6 +21,9 @@ import (
 const (
 	ServerPort           = "8080"
 	agentURLFormatMsg    = "agentURLFormatMsg"
+	contentTypeJSON      = "application/json"
+	formatTaskID         = "   Task ID: %s\n"
+	formatStatus         = "   Status: %s\n"
 )
 
 // checkServerRunning checks if the agent-server is already running
@@ -52,7 +55,7 @@ func delegateToRunningServer(serverURL, role, task string, async bool) error {
 	}
 
 	// Send POST request to /a2a/execute
-	resp, err := http.Post(serverURL+"/a2a/execute", "application/json", strings.NewReader(string(bodyJSON)))
+	resp, err := http.Post(serverURL+"/a2a/execute", contentTypeJSON, strings.NewReader(string(bodyJSON)))
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
@@ -80,14 +83,14 @@ func delegateToRunningServer(serverURL, role, task string, async bool) error {
 
 	if async {
 		fmt.Println("✅ Task spawned in background!")
-		fmt.Printf("   Task ID: %s\n", taskID)
-		fmt.Printf("   Status: %s\n", status)
+		fmt.Printf(formatTaskID, taskID)
+		fmt.Printf(formatStatus, status)
 		fmt.Println()
 		fmt.Printf("   Track progress: %s/stream/%s\n", serverURL, taskID)
 	} else {
 		fmt.Println("✅ Task delegated to server!")
-		fmt.Printf("   Task ID: %s\n", taskID)
-		fmt.Printf("   Status: %s\n", status)
+		fmt.Printf(formatTaskID, taskID)
+		fmt.Printf(formatStatus, status)
 		fmt.Println()
 		fmt.Printf("   Track progress: %s/stream/%s\n", serverURL, taskID)
 	}
@@ -204,8 +207,8 @@ func handleProtocolURL(agentURL, configPath string) {
 		}
 
 		fmt.Println("✅ Task spawned in background!")
-		fmt.Printf("   Task ID: %s\n", result.TaskID)
-		fmt.Printf("   Status: %s\n", result.Status)
+		fmt.Printf(formatTaskID, result.TaskID)
+		fmt.Printf(formatStatus, result.Status)
 		fmt.Println()
 		fmt.Printf("   Results will be saved to: .beads/tasks/%s/\n", result.TaskID)
 		fmt.Println()
@@ -220,8 +223,8 @@ func handleProtocolURL(agentURL, configPath string) {
 		}
 
 		fmt.Println("✅ Task completed successfully!")
-		fmt.Printf("   Task ID: %s\n", result.TaskID)
-		fmt.Printf("   Status: %s\n", result.Status)
+		fmt.Printf(formatTaskID, result.TaskID)
+		fmt.Printf(formatStatus, result.Status)
 		fmt.Println()
 		fmt.Printf("   Results saved to: .beads/tasks/%s/\n", result.TaskID)
 		fmt.Println()
@@ -242,7 +245,7 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", contentTypeJSON)
 	json.NewEncoder(w).Encode(health)
 }
 
@@ -251,7 +254,7 @@ func handleMetrics(s *server.AgentServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		snapshot := s.GetMetricsSnapshot()
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", contentTypeJSON)
 		json.NewEncoder(w).Encode(snapshot)
 	}
 }
