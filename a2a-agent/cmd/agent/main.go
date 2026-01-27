@@ -198,15 +198,15 @@ func handleStatus(args []string) {
 		os.Exit(1)
 	}
 
-	taskID := positionalArgs[0]
+	beadsTaskID := positionalArgs[0]
 
-	// Try to get internal task ID from Beads task ID
-	internalTaskID := findInternalTaskID(taskID)
+	// Look up internal task ID from Beads task ID
+	internalTaskID := findInternalTaskID(beadsTaskID)
 	if internalTaskID == "" {
 		if *jsonOutput {
 			fmt.Println(`{"error":"not_found"}`)
 		} else if !*quiet {
-			fmt.Printf("❌ No agent found for Beads task: %s\n", taskID)
+			fmt.Printf("❌ No agent found for Beads task: %s\n", beadsTaskID)
 		}
 		os.Exit(3) // not found
 	}
@@ -233,11 +233,11 @@ func handleStatus(args []string) {
 		fmt.Println(statusStr)
 	} else if *jsonOutput {
 		// Add task_id to JSON output
-		status["task_id"] = taskID
+		status["task_id"] = beadsTaskID
 		jsonData, _ := json.MarshalIndent(status, "", "  ")
 		fmt.Println(string(jsonData))
 	} else {
-		fmt.Printf("Task: %s\n", taskID)
+		fmt.Printf("Task: %s\n", beadsTaskID)
 		fmt.Printf("Status: %v\n", status["status"])
 		if status["progress"] != nil {
 			fmt.Printf("Progress: %v\n", status["progress"])
@@ -266,10 +266,11 @@ func handleResults(args []string) {
 		os.Exit(1)
 	}
 
-	taskID := args[0]
-	internalTaskID := findInternalTaskID(taskID)
+	beadsTaskID := args[0]
+	internalTaskID := findInternalTaskID(beadsTaskID)
 	if internalTaskID == "" {
-		fmt.Printf("❌ No agent found for Beads task: %s\n", taskID)
+		fmt.Printf("❌ No agent found for Beads task: %s\n", beadsTaskID)
+		fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", beadsTaskID)
 		os.Exit(1)
 	}
 
@@ -331,10 +332,11 @@ func handleLogs(args []string) {
 		os.Exit(1)
 	}
 
-	taskID := positionalArgs[0]
-	internalTaskID := findInternalTaskID(taskID)
+	beadsTaskID := positionalArgs[0]
+	internalTaskID := findInternalTaskID(beadsTaskID)
 	if internalTaskID == "" {
-		fmt.Printf("❌ No agent found for Beads task: %s\n", taskID)
+		fmt.Printf("❌ No agent found for Beads task: %s\n", beadsTaskID)
+		fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", beadsTaskID)
 		os.Exit(1)
 	}
 
@@ -603,11 +605,14 @@ func handleList(args []string) {
 		fmt.Println("Active Agents:")
 		fmt.Println()
 		for _, agent := range agents {
-			fmt.Printf("  %s [%s]\n", agent.TaskID, agent.Status)
-			fmt.Printf("    Role: %s\n", agent.Role)
-			if agent.BeadsTaskID != "" {
-				fmt.Printf("    Beads: %s\n", agent.BeadsTaskID)
+			// Show Beads task ID as primary identifier
+			displayID := agent.BeadsTaskID
+			if displayID == "" {
+				displayID = agent.TaskID // Fallback to internal ID if no Beads task
 			}
+
+			fmt.Printf("  %s [%s]\n", displayID, agent.Status)
+			fmt.Printf("    Role: %s\n", agent.Role)
 			fmt.Printf("    Task: %s\n", agent.Description)
 			fmt.Println()
 		}
@@ -685,28 +690,28 @@ func showMetrics() {
 	fmt.Println()
 }
 
-func streamTaskProgress(taskID string) {
-	// Try to resolve task ID (accepts both internal task IDs and Beads task IDs)
-	internalTaskID := resolveTaskID(taskID)
+func streamTaskProgress(beadsTaskID string) {
+	// Look up internal task ID from Beads task ID
+	internalTaskID := findInternalTaskID(beadsTaskID)
 	if internalTaskID == "" {
 		// Check if this is a Beads task that's already completed
-		if isValidBeadsTask(taskID) {
-			cmd := exec.Command("bd", "show", taskID, "--json")
+		if isValidBeadsTask(beadsTaskID) {
+			cmd := exec.Command("bd", "show", beadsTaskID, "--json")
 			output, err := cmd.Output()
 			if err == nil {
 				var beadsTask map[string]interface{}
 				if json.Unmarshal(output, &beadsTask) == nil {
 					if status, ok := beadsTask["status"].(string); ok {
 						if status == "closed" || status == "completed" {
-							fmt.Printf("✅ Task already completed: %s\n", taskID)
+							fmt.Printf("✅ Task already completed: %s\n", beadsTaskID)
 							os.Exit(0)
 						}
 					}
 				}
 			}
 		}
-		fmt.Printf("❌ No agent found for task: %s\n", taskID)
-		fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", taskID)
+		fmt.Printf("❌ No agent found for Beads task: %s\n", beadsTaskID)
+		fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", beadsTaskID)
 		os.Exit(1)
 	}
 
@@ -804,28 +809,28 @@ func streamTaskProgress(taskID string) {
 	showMetrics()
 }
 
-func waitForTaskCompletion(taskID string) {
-	// Try to resolve task ID (accepts both internal task IDs and Beads task IDs)
-	internalTaskID := resolveTaskID(taskID)
+func waitForTaskCompletion(beadsTaskID string) {
+	// Look up internal task ID from Beads task ID
+	internalTaskID := findInternalTaskID(beadsTaskID)
 	if internalTaskID == "" {
 		// Check if this is a Beads task that's already completed
-		if isValidBeadsTask(taskID) {
-			cmd := exec.Command("bd", "show", taskID, "--json")
+		if isValidBeadsTask(beadsTaskID) {
+			cmd := exec.Command("bd", "show", beadsTaskID, "--json")
 			output, err := cmd.Output()
 			if err == nil {
 				var beadsTask map[string]interface{}
 				if json.Unmarshal(output, &beadsTask) == nil {
 					if status, ok := beadsTask["status"].(string); ok {
 						if status == "closed" || status == "completed" {
-							fmt.Printf("✅ Task already completed: %s\n", taskID)
+							fmt.Printf("✅ Task already completed: %s\n", beadsTaskID)
 							os.Exit(0)
 						}
 					}
 				}
 			}
 		}
-		fmt.Printf("❌ No agent found for task: %s\n", taskID)
-		fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", taskID)
+		fmt.Printf("❌ No agent found for Beads task: %s\n", beadsTaskID)
+		fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", beadsTaskID)
 		os.Exit(1)
 	}
 
@@ -875,19 +880,6 @@ func waitForTaskCompletion(taskID string) {
 
 		time.Sleep(5 * time.Second)
 	}
-}
-
-func resolveTaskID(taskID string) string {
-	// Strategy 1: Check if it's an internal task ID that exists directly
-	if strings.HasPrefix(taskID, "task-") {
-		taskDir := filepath.Join(".beads/tasks", taskID)
-		if _, err := os.Stat(taskDir); err == nil {
-			return taskID
-		}
-	}
-
-	// Strategy 2: Look it up as a Beads task ID
-	return findInternalTaskID(taskID)
 }
 
 func findInternalTaskID(beadsTaskID string) string {
