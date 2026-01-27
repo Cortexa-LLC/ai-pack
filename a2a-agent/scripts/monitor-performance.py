@@ -42,7 +42,7 @@ class PerformanceMonitor:
         try:
             with urlopen(f"{self.server_url}/metrics", timeout=5) as response:
                 return json.loads(response.read().decode())
-        except (URLError, Exception) as e:
+        except Exception as e:
             print(f"⚠️  Could not fetch metrics: {e}", file=sys.stderr)
             return None
 
@@ -130,7 +130,7 @@ class PerformanceMonitor:
             'avg_tokens_out': int(sum(tokens_out) / len(tokens_out)),
         }
 
-    def generate_report(self, tail_count: int = 30, json_output: bool = False) -> Dict:
+    def generate_report(self, tail_count: int = 30) -> Dict:
         """Generate a comprehensive performance report."""
         metrics = self.fetch_metrics()
         api_calls, task_completions = self.parse_log_file(tail_count)
@@ -161,6 +161,76 @@ class PerformanceMonitor:
 
         return report
 
+    def _print_server_metrics(self, metrics: Optional[Dict]):
+        """Print server metrics section."""
+        if not metrics:
+            print("⚠️  Server metrics unavailable (is server running?)")
+            print()
+            return
+
+        print("📊 SERVER METRICS")
+        print("-" * 70)
+        print(f"  Tasks Spawned:     {metrics['tasks_spawned']}")
+        print(f"  Tasks Completed:   {metrics['tasks_completed']} ✅")
+        print(f"  Tasks Failed:      {metrics['tasks_failed']}")
+        print(f"  Tasks In Progress: {metrics['tasks_in_progress']}")
+
+        if metrics['tasks_completed'] > 0:
+            print(f"  Average Duration:  {metrics['avg_duration_ms'] / 1000:.1f}s")
+
+        print(f"  API Calls Total:   {metrics['api_calls_total']}")
+        print(f"  API Calls Success: {metrics['api_calls_success']}")
+        print(f"  API Calls Failed:  {metrics['api_calls_failed']}")
+
+        if metrics['api_calls_total'] > 0:
+            success_rate = (metrics['api_calls_success'] / metrics['api_calls_total']) * 100
+            print(f"  Success Rate:      {success_rate:.1f}%")
+
+        print(f"  Rate Limit Hits:   {metrics['rate_limit_violations']}")
+        print()
+
+    def _print_api_statistics(self, api_stats: Dict):
+        """Print API call statistics section."""
+        if api_stats['count'] == 0:
+            print("⚠️  No recent API calls found in logs")
+            print()
+            return
+
+        print(f"🔥 API CALL PERFORMANCE (last {api_stats['sample_size']} calls)")
+        print("-" * 70)
+        print(f"  Calls Analyzed:    {api_stats['count']}")
+        print(f"  Average Latency:   {api_stats['avg_duration_ms'] / 1000:.1f}s")
+        print(f"  Min Latency:       {api_stats['min_duration_ms'] / 1000:.1f}s")
+        print(f"  Max Latency:       {api_stats['max_duration_ms'] / 1000:.1f}s")
+        print()
+
+        print("💾 TOKEN USAGE")
+        print("-" * 70)
+        print(f"  Total Input:       {api_stats['total_tokens_in']:,} tokens")
+        print(f"  Total Output:      {api_stats['total_tokens_out']:,} tokens")
+        print(f"  Avg Input/Call:    {api_stats['avg_tokens_in']:,} tokens")
+        print(f"  Avg Output/Call:   {api_stats['avg_tokens_out']:,} tokens")
+
+        if api_stats['avg_tokens_out'] > 0:
+            ratio = api_stats['avg_tokens_in'] / api_stats['avg_tokens_out']
+            print(f"  Input/Output Ratio: {ratio:.1f}:1")
+
+        print(f"  Cache Efficiency:  {api_stats['cache_efficiency']}")
+        print()
+
+    def _print_recent_tasks(self, recent_tasks: List[Dict]):
+        """Print recent tasks section."""
+        if not recent_tasks:
+            return
+
+        print(f"📋 RECENT TASKS (last {len(recent_tasks)})")
+        print("-" * 70)
+        for task in recent_tasks:
+            duration_s = task['duration_ms'] / 1000
+            status_icon = "✅" if task['status'] == 'completed' else "❌"
+            print(f"  {status_icon} {task['role']:10} {task['task_id']:30} {duration_s:6.1f}s")
+        print()
+
     def print_report(self, report: Dict):
         """Print a human-readable performance report."""
         print("=" * 70)
@@ -170,73 +240,39 @@ class PerformanceMonitor:
         print(f"Server: {report['server_url']}")
         print()
 
-        # Server Metrics
-        metrics = report['metrics']
-        if metrics:
-            print("📊 SERVER METRICS")
-            print("-" * 70)
-            print(f"  Tasks Spawned:     {metrics['tasks_spawned']}")
-            print(f"  Tasks Completed:   {metrics['tasks_completed']} ✅")
-            print(f"  Tasks Failed:      {metrics['tasks_failed']}")
-            print(f"  Tasks In Progress: {metrics['tasks_in_progress']}")
-
-            if metrics['tasks_completed'] > 0:
-                print(f"  Average Duration:  {metrics['avg_duration_ms'] / 1000:.1f}s")
-
-            print(f"  API Calls Total:   {metrics['api_calls_total']}")
-            print(f"  API Calls Success: {metrics['api_calls_success']}")
-            print(f"  API Calls Failed:  {metrics['api_calls_failed']}")
-
-            if metrics['api_calls_total'] > 0:
-                success_rate = (metrics['api_calls_success'] / metrics['api_calls_total']) * 100
-                print(f"  Success Rate:      {success_rate:.1f}%")
-
-            print(f"  Rate Limit Hits:   {metrics['rate_limit_violations']}")
-            print()
-        else:
-            print("⚠️  Server metrics unavailable (is server running?)")
-            print()
-
-        # API Call Statistics
-        api_stats = report['api_statistics']
-        if api_stats['count'] > 0:
-            print(f"🔥 API CALL PERFORMANCE (last {api_stats['sample_size']} calls)")
-            print("-" * 70)
-            print(f"  Calls Analyzed:    {api_stats['count']}")
-            print(f"  Average Latency:   {api_stats['avg_duration_ms'] / 1000:.1f}s")
-            print(f"  Min Latency:       {api_stats['min_duration_ms'] / 1000:.1f}s")
-            print(f"  Max Latency:       {api_stats['max_duration_ms'] / 1000:.1f}s")
-            print()
-
-            print("💾 TOKEN USAGE")
-            print("-" * 70)
-            print(f"  Total Input:       {api_stats['total_tokens_in']:,} tokens")
-            print(f"  Total Output:      {api_stats['total_tokens_out']:,} tokens")
-            print(f"  Avg Input/Call:    {api_stats['avg_tokens_in']:,} tokens")
-            print(f"  Avg Output/Call:   {api_stats['avg_tokens_out']:,} tokens")
-
-            if api_stats['avg_tokens_out'] > 0:
-                ratio = api_stats['avg_tokens_in'] / api_stats['avg_tokens_out']
-                print(f"  Input/Output Ratio: {ratio:.1f}:1")
-
-            print(f"  Cache Efficiency:  {api_stats['cache_efficiency']}")
-            print()
-        else:
-            print("⚠️  No recent API calls found in logs")
-            print()
-
-        # Recent Tasks
-        recent_tasks = report['recent_tasks']
-        if recent_tasks:
-            print(f"📋 RECENT TASKS (last {len(recent_tasks)})")
-            print("-" * 70)
-            for task in recent_tasks:
-                duration_s = task['duration_ms'] / 1000
-                status_icon = "✅" if task['status'] == 'completed' else "❌"
-                print(f"  {status_icon} {task['role']:10} {task['task_id']:30} {duration_s:6.1f}s")
-            print()
+        self._print_server_metrics(report['metrics'])
+        self._print_api_statistics(report['api_statistics'])
+        self._print_recent_tasks(report['recent_tasks'])
 
         print("=" * 70)
+
+
+def _output_report(report: Dict, as_json: bool, monitor: PerformanceMonitor):
+    """Output report in JSON or human-readable format."""
+    if as_json:
+        print(json.dumps(report, indent=2))
+    else:
+        monitor.print_report(report)
+
+
+def _run_continuous_monitoring(monitor: PerformanceMonitor, args):
+    """Run continuous monitoring mode."""
+    print("🔄 Continuous monitoring mode (Ctrl+C to exit)")
+    print()
+    while True:
+        if not args.json:
+            # Clear screen (ANSI escape code)
+            print("\033[2J\033[H", end='')
+
+        report = monitor.generate_report(args.tail)
+        _output_report(report, args.json, monitor)
+        time.sleep(10)
+
+
+def _run_single_report(monitor: PerformanceMonitor, args):
+    """Generate and output a single report."""
+    report = monitor.generate_report(args.tail)
+    _output_report(report, args.json, monitor)
 
 
 def main():
@@ -273,34 +309,13 @@ def main():
     )
 
     args = parser.parse_args()
-
     monitor = PerformanceMonitor(args.server_url, args.log_file)
 
     try:
         if args.watch:
-            print("🔄 Continuous monitoring mode (Ctrl+C to exit)")
-            print()
-            while True:
-                if not args.json:
-                    # Clear screen (ANSI escape code)
-                    print("\033[2J\033[H", end='')
-
-                report = monitor.generate_report(args.tail, args.json)
-
-                if args.json:
-                    print(json.dumps(report, indent=2))
-                else:
-                    monitor.print_report(report)
-
-                time.sleep(10)
+            _run_continuous_monitoring(monitor, args)
         else:
-            report = monitor.generate_report(args.tail, args.json)
-
-            if args.json:
-                print(json.dumps(report, indent=2))
-            else:
-                monitor.print_report(report)
-
+            _run_single_report(monitor, args)
     except KeyboardInterrupt:
         print("\n👋 Monitoring stopped")
         sys.exit(0)

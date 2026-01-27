@@ -63,12 +63,12 @@ class TestHelloModule(unittest.TestCase):
     def test_module_has_docstring(self):
         """Test module has docstring."""
         self.assertIsNotNone(hello.__doc__)
-        self.assertTrue(len(hello.__doc__) > 0)
+        self.assertGreater(len(hello.__doc__), 0)
 
     def test_greet_has_docstring(self):
         """Test greet function has docstring."""
         self.assertIsNotNone(hello.greet.__doc__)
-        self.assertTrue(len(hello.greet.__doc__) > 0)
+        self.assertGreater(len(hello.greet.__doc__), 0)
 
 
 class TestHelloEdgeCases(unittest.TestCase):
