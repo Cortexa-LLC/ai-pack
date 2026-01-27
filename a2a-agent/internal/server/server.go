@@ -1050,7 +1050,7 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 // saveTaskResults saves the task results to disk
 func (s *AgentServer) saveTaskResults(execution *TaskExecution, result string, logMsg func(string)) {
 	logMsg("💾 Saving results...")
-	resultsPath := filepath.Join(s.rootDir, ".beads", "tasks", execution.TaskID, "30-results.md")
+	resultsPath := filepath.Join(s.rootDir, BeadsDir, "tasks", execution.TaskID, "30-results.md")
 	resultsContent := fmt.Sprintf("# Task Results: %s\n\n**Role**: %s\n**Task**: %s\n**Completed**: %s\n\n## Agent Output\n\n%s\n",
 		execution.TaskID, execution.Role, execution.Task, time.Now().Format(time.RFC3339), result)
 
@@ -1099,7 +1099,7 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	durationMs := time.Since(execution.StartTime).Milliseconds()
 
 	// Log failure to execution log
-	logPath := filepath.Join(s.rootDir, ".beads", "tasks", execution.TaskID, "execution.log")
+	logPath := filepath.Join(s.rootDir, BeadsDir, "tasks", execution.TaskID, "execution.log")
 	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {
 		timestamp := time.Now().Format("15:04:05")
