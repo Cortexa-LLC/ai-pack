@@ -29,9 +29,9 @@ func (t *ProxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	newReq.URL.Scheme = "https"
 	newReq.URL.Host = extractHost(t.BaseURL)
 
-	// If there's a path in the base URL, prepend it
+	// If there's a path in the base URL, prepend it (but avoid doubling)
 	basePath := extractPath(t.BaseURL)
-	if basePath != "" {
+	if basePath != "" && !strings.HasPrefix(newReq.URL.Path, basePath) {
 		newReq.URL.Path = basePath + newReq.URL.Path
 	}
 
@@ -99,7 +99,7 @@ func (t *BearerTokenTransport) RoundTrip(req *http.Request) (*http.Response, err
 		newReq.URL.Host = extractHost(t.BaseURL)
 
 		basePath := extractPath(t.BaseURL)
-		if basePath != "" {
+		if basePath != "" && !strings.HasPrefix(newReq.URL.Path, basePath) {
 			newReq.URL.Path = basePath + newReq.URL.Path
 		}
 		fmt.Printf("🔄 Rewrote URL to: %s\n", newReq.URL.String())
