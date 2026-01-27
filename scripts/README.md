@@ -64,6 +64,71 @@ help              Show help message
 
 ---
 
+### `rspec_rule_extractor.py`
+
+Extract SonarQube code quality rules from the [rspec repository](https://github.com/SonarSource/rspec) for specific programming languages.
+
+**Features:**
+- Parse metadata.json files from rspec repository
+- Multiple output formats: CSV (CI/CD), JSON (programmatic), Markdown (docs)
+- Language name normalization (e.g., `cpp` → `cfamily`, `js` → `javascript`)
+- Full rule metadata: impacts, tags, remediation costs, severity levels
+
+**Usage:**
+```bash
+# Extract Go rules as CSV (for CI/CD)
+python3 scripts/rspec_rule_extractor.py ~/Projects/Vibe/rspec go --format csv > go_rules.csv
+
+# Extract Python rules as JSON (for tooling)
+python3 scripts/rspec_rule_extractor.py ~/Projects/Vibe/rspec python --format json > python_rules.json
+
+# Extract Java rules as Markdown (for docs)
+python3 scripts/rspec_rule_extractor.py ~/Projects/Vibe/rspec java --format markdown > java_rules.md
+```
+
+**Supported Languages:**
+C/C++, C#, Go, Python, JavaScript/TypeScript, Java, Kotlin, Swift, Ruby, PHP, Scala, Shell/Bash
+
+**Documentation:** See [scripts/RSPEC-RULES.md](./RSPEC-RULES.md) for complete guide
+
+---
+
+### `generate_all_language_rules.sh`
+
+Generate SonarQube rule sets for all languages in our clean code standards.
+
+**Features:**
+- Batch generation for all supported languages (8 languages)
+- Creates CSV + JSON + Markdown for each language
+- Organized directory structure with index README
+- Progress indicators and error reporting
+- Total: 4,131 rules across all languages
+
+**Usage:**
+```bash
+# Generate all language rule sets
+./scripts/generate_all_language_rules.sh ~/Projects/Vibe/rspec ./quality/sonarqube-rules
+
+# Output:
+# - quality/sonarqube-rules/cpp/rules.csv (916 rules)
+# - quality/sonarqube-rules/go/rules.csv (108 rules)
+# - quality/sonarqube-rules/python/rules.csv (493 rules)
+# - ... and 5 more languages
+```
+
+**Integration:**
+```bash
+# Example: Find all critical Go rules for CI/CD
+grep "CRITICAL" quality/sonarqube-rules/go/rules.csv
+
+# Example: Get bug-type rules in Python
+awk -F',' '$3=="BUG"' quality/sonarqube-rules/python/rules.csv
+```
+
+**Documentation:** See [scripts/RSPEC-RULES.md](./RSPEC-RULES.md) for integration examples
+
+---
+
 ## Adding New Scripts
 
 When adding new scripts to this directory:
