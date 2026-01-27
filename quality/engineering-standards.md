@@ -20,6 +20,7 @@ Start here for fundamental design and development principles:
 
 ### Code Quality
 - **[03-refactoring.md](clean-code/03-refactoring.md)** - Code smells catalog and refactoring techniques
+- **[13-code-smells.md](clean-code/13-code-smells.md)** - Comprehensive guide to identifying, preventing, and fixing code smells
 - **[04-testing.md](clean-code/04-testing.md)** - Test Pyramid, test doubles, TDD practices
 - **[06-code-review-checklist.md](clean-code/06-code-review-checklist.md)** - Comprehensive review guidelines
 
@@ -64,6 +65,9 @@ Choose the guide for your programming language:
 
 **Refactor existing code**
 → See [03-refactoring.md](clean-code/03-refactoring.md) for code smells and refactoring patterns
+
+**Identify code quality issues**
+→ Use [13-code-smells.md](clean-code/13-code-smells.md) to detect and fix 23 common code smells
 
 **Improve my testing**
 → Read [04-testing.md](clean-code/04-testing.md) for comprehensive testing guidance
