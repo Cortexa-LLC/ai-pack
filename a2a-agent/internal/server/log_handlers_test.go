@@ -101,7 +101,7 @@ func TestHandleLogsStream_ConnectedEvent(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	resp := w.Result()
-	
+
 	// Read initial events
 	scanner := bufio.NewScanner(resp.Body)
 	var events []string
@@ -110,7 +110,7 @@ func TestHandleLogsStream_ConnectedEvent(t *testing.T) {
 	// Read first event
 	timeout := time.After(500 * time.Millisecond)
 	eventChan := make(chan string, 1)
-	
+
 	go func() {
 		for scanner.Scan() {
 			line := scanner.Text()
@@ -260,7 +260,7 @@ func TestHandleLogsRecent_DefaultLimit(t *testing.T) {
 	// Clear any existing logs from previous tests
 	logBuffer := monitoring.GetLogBuffer()
 	// Note: GetRecent doesn't modify buffer, so we just add fresh entries
-	
+
 	// Add exactly 10 test log entries
 	for i := 0; i < 10; i++ {
 		logBuffer.Add(monitoring.LogEntry{

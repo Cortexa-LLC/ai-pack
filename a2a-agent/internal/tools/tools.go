@@ -290,17 +290,17 @@ func executeBash(input map[string]interface{}, workingDir string, settings *clau
 		"rm -rf ~",
 		"rm -rf /*",
 		"rm -rf ~/*",
-		":(){ :|:& };:",  // fork bomb
+		":(){ :|:& };:", // fork bomb
 		"mkfs",
 		"dd if=/dev/zero",
 		"dd if=/dev/random",
 		"> /dev/sda",
 		"> /dev/sd",
-		"curl | sh",      // arbitrary code execution
+		"curl | sh", // arbitrary code execution
 		"wget | sh",
 		"curl | bash",
 		"wget | bash",
-		"chmod -r",       // recursive permission changes can be dangerous
+		"chmod -r", // recursive permission changes can be dangerous
 		"chown -r",
 	}
 
