@@ -25,6 +25,21 @@ import (
 
 const (
 	Version = "2.1.0"
+
+	// Content block types
+	ContentTypeText    = "text"
+	ContentTypeToolUse = "tool_use"
+
+	// Message event types
+	MessageEventStart       = "message_start"
+	MessageEventDelta       = "message_delta"
+	MessageEventStop        = "message_stop"
+	ContentBlockStart       = "content_block_start"
+	ContentBlockDelta       = "content_block_delta"
+	ContentBlockStop        = "content_block_stop"
+	MessageDeltaUsage       = "message_delta"
+	PingEvent               = "ping"
+	ErrorEvent              = "error"
 )
 
 type AgentServer struct {
@@ -591,7 +606,7 @@ func (s *AgentServer) buildSystemPrompt(roleContext string) []anthropic.TextBloc
 	return []anthropic.TextBlockParam{
 		{
 			Text:         roleContext,
-			Type:         "text",
+			Type:         ContentTypeText,
 			CacheControl: anthropic.NewCacheControlEphemeralParam(),
 		},
 	}
@@ -690,13 +705,13 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 
 		for _, block := range message.Content {
 			switch block.Type {
-			case "text":
+			case ContentTypeText:
 				finalResult.WriteString(block.Text)
 				finalResult.WriteString("\n")
 				hasText = true
 				logMsg(fmt.Sprintf("      💬 Text: %d chars", len(block.Text)))
 
-			case "tool_use":
+			case ContentTypeToolUse:
 				// Access fields directly from union instead of using AsToolUse()
 				// since we manually constructed these blocks without JSON.raw
 				toolUse := anthropic.ToolUseBlock{
@@ -786,10 +801,10 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 		var assistantContent []anthropic.ContentBlockParamUnion
 		for _, block := range message.Content {
 			switch block.Type {
-			case "text":
+			case ContentTypeText:
 				textBlock := block.AsText()
 				assistantContent = append(assistantContent, anthropic.NewTextBlock(textBlock.Text))
-			case "tool_use":
+			case ContentTypeToolUse:
 				toolBlock := block.AsToolUse()
 				assistantContent = append(assistantContent, anthropic.NewToolUseBlock(toolBlock.ID, toolBlock.Input, toolBlock.Name))
 			}
@@ -832,8 +847,12 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 		timestamp := time.Now().Format("15:04:05")
 		line := fmt.Sprintf("[%s] %s\n", timestamp, msg)
 		if logFile != nil {
-			logFile.WriteString(line)
-			logFile.Sync()
+			if _, err := logFile.WriteString(line); err != nil {
+				monitoring.Logger.Error("log_write_error", "task_id", taskID, "error", err)
+			}
+			if err := logFile.Sync(); err != nil {
+				monitoring.Logger.Error("log_sync_error", "task_id", taskID, "error", err)
+			}
 		}
 		monitoring.Logger.Info("agent_log", "task_id", taskID, "message", msg)
 	}
@@ -984,10 +1003,10 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {
 		timestamp := time.Now().Format("15:04:05")
-		logFile.WriteString(fmt.Sprintf("[%s] ❌ Task failed: %s\n", timestamp, errorMsg))
-		logFile.WriteString(fmt.Sprintf("[%s]    Duration: %dms\n", timestamp, durationMs))
-		logFile.WriteString(fmt.Sprintf("[%s] %s\n", timestamp, strings.Repeat("=", 70)))
-		logFile.Close()
+		_, _ = logFile.WriteString(fmt.Sprintf("[%s] ❌ Task failed: %s\n", timestamp, errorMsg))
+		_, _ = logFile.WriteString(fmt.Sprintf("[%s]    Duration: %dms\n", timestamp, durationMs))
+		_, _ = logFile.WriteString(fmt.Sprintf("[%s] %s\n", timestamp, strings.Repeat("=", 70)))
+		_ = logFile.Close()
 	}
 
 	s.mu.Lock()
