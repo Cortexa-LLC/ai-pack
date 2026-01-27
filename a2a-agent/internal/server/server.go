@@ -845,6 +845,9 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 	monitoring.GlobalMetrics.IncrementAPICallsSuccess()
 	monitoring.LogAPICall(ctx, taskID, s.model, int(totalInputTokens+totalOutputTokens))
 
+	// Record token usage for this session
+	monitoring.GlobalMetrics.RecordTokenUsage(taskID, totalInputTokens, totalOutputTokens, int64(turn-1))
+
 	return finalResult.String(), nil
 }
 
