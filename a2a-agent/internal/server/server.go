@@ -112,6 +112,15 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		monitoring.Logger.Info("api_configuration", "auth_type", "api_key")
 	}
 
+	// Set request timeout to avoid streaming enforcement
+	// SDK requires streaming if calculated timeout > 10 minutes
+	// By setting explicit timeout, we bypass that check
+	if cfg.API.TimeoutSeconds > 0 {
+		timeout := time.Duration(cfg.API.TimeoutSeconds) * time.Second
+		clientOpts = append(clientOpts, option.WithRequestTimeout(timeout))
+		monitoring.Logger.Info("api_configuration", "request_timeout", fmt.Sprintf("%v", timeout))
+	}
+
 	// Log proxy mode
 	monitoring.Logger.Info("api_configuration", "proxy_mode", proxy.LogProxyMode(&cfg.API))
 
