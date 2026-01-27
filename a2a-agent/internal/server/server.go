@@ -660,11 +660,29 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 	for turn <= maxTurns {
 		logMsg(fmt.Sprintf("   Turn %d (inactive: %d)...", turn, inactiveTurns))
 
+		// Truncate conversation history to prevent quadratic token growth
+		// Keep first message (initial prompt) + last N turns
+		const maxHistoryTurns = 20
+		const messagesPerTurn = 2 // Each turn: assistant message + user tool results
+
+		truncatedMessages := messages
+		if len(messages) > 1+maxHistoryTurns*messagesPerTurn {
+			firstMsg := messages[0] // Keep initial prompt with task context
+			recentMsgs := messages[len(messages)-(maxHistoryTurns*messagesPerTurn):]
+			truncatedMessages = append([]anthropic.MessageParam{firstMsg}, recentMsgs...)
+
+			// Log truncation for visibility
+			if turn%10 == 0 { // Log every 10 turns to avoid spam
+				logMsg(fmt.Sprintf("      📉 Truncated history: %d → %d messages (keeping last %d turns)",
+					len(messages), len(truncatedMessages), maxHistoryTurns))
+			}
+		}
+
 		// Prepare API params with system prompt (SDK v1.19+ uses direct values, not F() wrappers)
 		params := anthropic.MessageNewParams{
 			Model:     anthropic.Model(s.model),
 			MaxTokens: int64(s.maxTokens),
-			Messages:  messages,
+			Messages:  truncatedMessages, // Use truncated history to reduce input tokens
 			Tools:     convertToToolUnionParams(toolDefs),
 			System:    systemPrompt,
 		}
