@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -40,6 +41,9 @@ const (
 	MessageDeltaUsage       = "message_delta"
 	PingEvent               = "ping"
 	ErrorEvent              = "error"
+
+	// File names
+	MetadataFileName = "00-metadata.json"
 )
 
 type AgentServer struct {
@@ -459,7 +463,7 @@ func (s *AgentServer) createTaskPacket(taskID, role, task string, config *AgentC
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(taskDir, "00-metadata.json"), metadataJSON, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(taskDir, MetadataFileName), metadataJSON, 0644); err != nil {
 		return fmt.Errorf("failed to write metadata: %w", err)
 	}
 
@@ -476,7 +480,7 @@ func (s *AgentServer) createTaskPacket(taskID, role, task string, config *AgentC
 }
 
 func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatusResponse, error) {
-	metadataPath := filepath.Join(s.rootDir, ".beads", "tasks", taskID, "00-metadata.json")
+	metadataPath := filepath.Join(s.rootDir, ".beads", "tasks", taskID, MetadataFileName)
 
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {
@@ -567,7 +571,7 @@ Execute the task according to your role definition.`,
 }
 
 func (s *AgentServer) updateTaskStatus(taskID, status, errorMsg string) {
-	metadataPath := filepath.Join(s.rootDir, ".beads", "tasks", taskID, "00-metadata.json")
+	metadataPath := filepath.Join(s.rootDir, ".beads", "tasks", taskID, MetadataFileName)
 
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {
@@ -856,15 +860,55 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	taskID := execution.TaskID
 	startTime := time.Now()
 
-	// Create execution log
+	// Create execution log and logger
+	logMsg := s.setupExecutionLogger(taskID)
+
+	logMsg("🚀 Agent execution started")
+	logMsg(fmt.Sprintf("   Role: %s", execution.Role))
+	logMsg(fmt.Sprintf("   Task: %s", execution.Task))
+
+	monitoring.LogTaskStarted(ctx, taskID, execution.Role)
+	monitoring.GlobalMetrics.IncrementTasksSpawned()
+
+	// Initialize task execution
+	s.initializeTaskExecution(execution, logMsg)
+
+	// Load role context
+	roleContext, err := s.loadAndLogRoleContext(execution, logMsg)
+	if err != nil {
+		return
+	}
+
+	// Get task metadata (paths, working directory)
+	taskPacketPath, workingDir := s.extractTaskMetadata(execution, logMsg)
+
+	// Build and save prompt
+	prompt := s.buildAndSavePrompt(execution, roleContext, taskPacketPath, workingDir, logMsg)
+
+	// Execute the agent's work
+	result, err := s.executeAgentWorkflow(ctx, execution, prompt, roleContext, workingDir, logMsg)
+	if err != nil {
+		return
+	}
+
+	// Save and complete task
+	s.saveAndCompleteTask(ctx, execution, result, startTime, logMsg)
+}
+
+// setupExecutionLogger creates the execution log file and returns a logging function
+func (s *AgentServer) setupExecutionLogger(taskID string) func(string) {
 	logPath := filepath.Join(s.rootDir, ".beads", "tasks", taskID, "execution.log")
 	logFile, err := os.Create(logPath)
 	if err != nil {
 		monitoring.Logger.Error("log_create_error", "task_id", taskID, "error", err)
 	}
-	defer logFile.Close()
 
-	logMsg := func(msg string) {
+	if logFile != nil {
+		// Use runtime.SetFinalizer to ensure closure, but also provide explicit close
+		runtime.SetFinalizer(logFile, func(f *os.File) { f.Close() })
+	}
+
+	return func(msg string) {
 		timestamp := time.Now().Format("15:04:05")
 		line := fmt.Sprintf("[%s] %s\n", timestamp, msg)
 		if logFile != nil {
@@ -877,42 +921,43 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 		}
 		monitoring.Logger.Info("agent_log", "task_id", taskID, "message", msg)
 	}
+}
 
-	logMsg("🚀 Agent execution started")
-	logMsg(fmt.Sprintf("   Role: %s", execution.Role))
-	logMsg(fmt.Sprintf("   Task: %s", execution.Task))
-
-	monitoring.LogTaskStarted(ctx, taskID, execution.Role)
-	monitoring.GlobalMetrics.IncrementTasksSpawned()
-
-	// Update status
+// initializeTaskExecution sets initial status and progress
+func (s *AgentServer) initializeTaskExecution(execution *TaskExecution, logMsg func(string)) {
 	s.mu.Lock()
 	execution.Status = "in_progress"
 	execution.Progress = 0.1
 	s.mu.Unlock()
-	s.updateTaskStatus(taskID, "in_progress", "")
+
+	s.updateTaskStatus(execution.TaskID, "in_progress", "")
 	logMsg("📝 Status updated: in_progress")
 
-	// Send stream event
 	s.sendStreamEvent(execution, "status_update", map[string]interface{}{
 		"status":   "in_progress",
 		"progress": 0.1,
 	})
+}
 
-	// Load role context
+// loadAndLogRoleContext loads role context with logging and error handling
+func (s *AgentServer) loadAndLogRoleContext(execution *TaskExecution, logMsg func(string)) (string, error) {
 	logMsg(fmt.Sprintf("📖 Loading role context: %s", execution.Config.Context.RoleFile))
 	roleContext, err := s.loadRoleContext(execution.Config.Context.RoleFile)
 	if err != nil {
-		monitoring.Logger.Error("role_context_load_error", "task_id", taskID, "error", err)
+		monitoring.Logger.Error("role_context_load_error", "task_id", execution.TaskID, "error", err)
 		logMsg(fmt.Sprintf("❌ Failed to load role context: %v", err))
 		s.failTask(execution, fmt.Sprintf("Failed to load role context: %v", err))
-		return
+		return "", err
 	}
 	logMsg("✅ Role context loaded")
+	return roleContext, nil
+}
 
-	// Get task packet path and working directory from metadata
+// extractTaskMetadata extracts task packet path and working directory from metadata
+func (s *AgentServer) extractTaskMetadata(execution *TaskExecution, logMsg func(string)) (string, string) {
 	taskPacketPath := ""
-	workingDir := s.rootDir // Default to server's root directory
+	workingDir := s.rootDir
+
 	if execution.metadata != nil {
 		if path := execution.metadata["task_packet_path"]; path != "" {
 			taskPacketPath = path
@@ -924,20 +969,27 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 		}
 	}
 
-	// Build prompt
+	return taskPacketPath, workingDir
+}
+
+// buildAndSavePrompt builds the agent prompt and saves it to disk
+func (s *AgentServer) buildAndSavePrompt(execution *TaskExecution, roleContext, taskPacketPath, workingDir string, logMsg func(string)) string {
 	logMsg("🔨 Building agent prompt...")
 	prompt := s.buildPrompt(execution.Role, execution.Task, roleContext, execution.Config, taskPacketPath, workingDir)
 	logMsg(fmt.Sprintf("✅ Prompt built (%d chars)", len(prompt)))
 
-	// Save agent prompt
-	promptPath := filepath.Join(s.rootDir, ".beads", "tasks", taskID, "agent-prompt.txt")
+	promptPath := filepath.Join(s.rootDir, ".beads", "tasks", execution.TaskID, "agent-prompt.txt")
 	if err := os.WriteFile(promptPath, []byte(prompt), 0644); err != nil {
-		monitoring.Logger.Warn("prompt_save_error", "task_id", taskID, "error", err)
+		monitoring.Logger.Warn("prompt_save_error", "task_id", execution.TaskID, "error", err)
 	} else {
 		logMsg(fmt.Sprintf("💾 Prompt saved: %s", promptPath))
 	}
 
-	// Update progress
+	return prompt
+}
+
+// executeAgentWorkflow runs the agentic loop with progress tracking
+func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskExecution, prompt, roleContext, workingDir string, logMsg func(string)) (string, error) {
 	s.mu.Lock()
 	execution.Progress = 0.3
 	s.mu.Unlock()
@@ -945,15 +997,13 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 		"progress": 0.3,
 	})
 
-	// Execute via agentic loop with tool support
-	result, err := s.executeAgenticLoop(ctx, taskID, prompt, roleContext, workingDir, execution.Config, logMsg)
+	result, err := s.executeAgenticLoop(ctx, execution.TaskID, prompt, roleContext, workingDir, execution.Config, logMsg)
 	if err != nil {
 		logMsg(fmt.Sprintf("❌ Agentic loop failed: %v", err))
 		s.failTask(execution, fmt.Sprintf("Execution error: %v", err))
-		return
+		return "", err
 	}
 
-	// Update progress
 	s.mu.Lock()
 	execution.Progress = 0.9
 	s.mu.Unlock()
@@ -961,21 +1011,57 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 		"progress": 0.9,
 	})
 
+	return result, nil
+}
+
+// saveAndCompleteTask saves results, updates status, and marks task complete
+func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskExecution, result string, startTime time.Time, logMsg func(string)) {
 	// Save results
+	s.saveTaskResults(execution, result, logMsg)
+
+	// Update task status
+	beadsTaskID := s.updateTaskCompletion(execution, result)
+
+	// Complete Beads task if applicable
+	if beadsTaskID != "" {
+		s.completeBeadsTask(beadsTaskID, logMsg)
+	}
+
+	// Finalize task
+	durationMs := time.Since(startTime).Milliseconds()
+	s.updateTaskStatus(execution.TaskID, "completed", "")
+	s.sendStreamEvent(execution, "completed", map[string]interface{}{
+		"progress": 1.0,
+		"result":   result,
+	})
+
+	s.closeStream(execution)
+
+	logMsg(fmt.Sprintf("🎉 Task completed successfully (duration: %dms)", durationMs))
+	logMsg("=" + strings.Repeat("=", 70))
+
+	monitoring.LogTaskCompleted(ctx, execution.TaskID, execution.Role, durationMs)
+	monitoring.GlobalMetrics.IncrementTasksCompleted(durationMs)
+}
+
+// saveTaskResults saves the task results to disk
+func (s *AgentServer) saveTaskResults(execution *TaskExecution, result string, logMsg func(string)) {
 	logMsg("💾 Saving results...")
-	resultsPath := filepath.Join(s.rootDir, ".beads", "tasks", taskID, "30-results.md")
+	resultsPath := filepath.Join(s.rootDir, ".beads", "tasks", execution.TaskID, "30-results.md")
 	resultsContent := fmt.Sprintf("# Task Results: %s\n\n**Role**: %s\n**Task**: %s\n**Completed**: %s\n\n## Agent Output\n\n%s\n",
-		taskID, execution.Role, execution.Task, time.Now().Format(time.RFC3339), result)
+		execution.TaskID, execution.Role, execution.Task, time.Now().Format(time.RFC3339), result)
 
 	if err := os.WriteFile(resultsPath, []byte(resultsContent), 0644); err != nil {
-		monitoring.Logger.Warn("results_save_error", "task_id", taskID, "error", err)
+		monitoring.Logger.Warn("results_save_error", "task_id", execution.TaskID, "error", err)
 		logMsg(fmt.Sprintf("⚠️  Failed to save results: %v", err))
 	} else {
 		logMsg(fmt.Sprintf("✅ Results saved: %s", resultsPath))
 		logMsg(fmt.Sprintf("   Output length: %d chars", len(result)))
 	}
+}
 
-	// Complete task
+// updateTaskCompletion updates execution status and extracts Beads task ID
+func (s *AgentServer) updateTaskCompletion(execution *TaskExecution, result string) string {
 	s.mu.Lock()
 	execution.Status = "completed"
 	execution.Progress = 1.0
@@ -986,33 +1072,23 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	}
 	s.mu.Unlock()
 
-	// If this was a Beads task, mark it complete in Beads
-	if beadsTaskID != "" && beads.IsInstalled() {
-		logMsg(fmt.Sprintf("🔗 Marking Beads task complete: %s", beadsTaskID))
-		if err := s.beadsClient.CompleteTask(beadsTaskID); err != nil {
-			monitoring.Logger.Warn("failed_to_complete_beads_task", "task_id", beadsTaskID, "error", err.Error())
-			logMsg(fmt.Sprintf("⚠️  Failed to complete Beads task: %v", err))
-		} else {
-			monitoring.Logger.Info("beads_task_completed", "task_id", beadsTaskID)
-			logMsg("✅ Beads task marked complete")
-		}
+	return beadsTaskID
+}
+
+// completeBeadsTask marks the corresponding Beads task as complete
+func (s *AgentServer) completeBeadsTask(beadsTaskID string, logMsg func(string)) {
+	if !beads.IsInstalled() {
+		return
 	}
 
-	durationMs := time.Since(startTime).Milliseconds()
-	s.updateTaskStatus(taskID, "completed", "")
-	s.sendStreamEvent(execution, "completed", map[string]interface{}{
-		"progress": 1.0,
-		"result":   result,
-	})
-
-	// Close stream
-	s.closeStream(execution)
-
-	logMsg(fmt.Sprintf("🎉 Task completed successfully (duration: %dms)", durationMs))
-	logMsg("=" + strings.Repeat("=", 70))
-
-	monitoring.LogTaskCompleted(ctx, taskID, execution.Role, durationMs)
-	monitoring.GlobalMetrics.IncrementTasksCompleted(durationMs)
+	logMsg(fmt.Sprintf("🔗 Marking Beads task complete: %s", beadsTaskID))
+	if err := s.beadsClient.CompleteTask(beadsTaskID); err != nil {
+		monitoring.Logger.Warn("failed_to_complete_beads_task", "task_id", beadsTaskID, "error", err.Error())
+		logMsg(fmt.Sprintf("⚠️  Failed to complete Beads task: %v", err))
+	} else {
+		monitoring.Logger.Info("beads_task_completed", "task_id", beadsTaskID)
+		logMsg("✅ Beads task marked complete")
+	}
 }
 
 func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {

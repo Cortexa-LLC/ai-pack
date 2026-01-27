@@ -4,6 +4,11 @@ import (
 	"testing"
 )
 
+// Test constants
+const (
+	testTaskDesc = "create hello world"
+)
+
 func TestIsBeadsTaskID(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -13,7 +18,7 @@ func TestIsBeadsTaskID(t *testing.T) {
 		{"bd-x7z9", true},
 		{"bd-", false}, // Too short
 		{"bd", false},
-		{"create hello world", false},
+		{testTaskDesc, false},
 		{"implement feature", false},
 		{"", false},
 	}
@@ -39,15 +44,15 @@ func TestClient_GetTaskDescription(t *testing.T) {
 	client := NewClient()
 
 	// Test free-form description
-	desc, isBeads, err := client.GetTaskDescription("create hello world")
+	desc, _, _, isBeads, err := client.GetTaskDescription(testTaskDesc)
 	if err != nil {
 		t.Errorf("Unexpected error for free-form: %v", err)
 	}
 	if isBeads {
 		t.Error("Expected isBeads=false for free-form description")
 	}
-	if desc != "create hello world" {
-		t.Errorf("Expected description='create hello world', got '%s'", desc)
+	if desc != testTaskDesc {
+		t.Errorf("Expected description='%s', got '%s'", testTaskDesc, desc)
 	}
 }
 
