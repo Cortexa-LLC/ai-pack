@@ -9,6 +9,11 @@ import (
 	"strings"
 )
 
+const (
+	desktopHandlerFilename = "ai-pack-agent-handler.desktop"
+	windowsRegistryKey     = "HKCU\\Software\\Classes\\agent"
+)
+
 // Register registers the agent:// protocol handler for the current platform
 func Register() error {
 	switch runtime.GOOS {
@@ -236,7 +241,7 @@ func registerLinux() error {
 		return fmt.Errorf("failed to create applications directory: %w", err)
 	}
 
-	desktopFile := filepath.Join(desktopDir, "ai-pack-agent-handler.desktop")
+	desktopFile := filepath.Join(desktopDir, desktopHandlerFilename)
 	desktopContent := fmt.Sprintf(`[Desktop Entry]
 Type=Application
 Name=AI-Pack Agent Handler
@@ -256,9 +261,9 @@ NoDisplay=true
 	}
 
 	// Set as default handler
-	if err := exec.Command("xdg-mime", "default", "ai-pack-agent-handler.desktop", "x-scheme-handler/agent").Run(); err != nil {
+	if err := exec.Command("xdg-mime", "default", desktopHandlerFilename, "x-scheme-handler/agent").Run(); err != nil {
 		fmt.Printf("⚠️  Could not set default handler: %v\n", err)
-		fmt.Println("   Run manually: xdg-mime default ai-pack-agent-handler.desktop x-scheme-handler/agent")
+		fmt.Printf("   Run manually: xdg-mime default %s x-scheme-handler/agent\n", desktopHandlerFilename)
 	}
 
 	fmt.Printf("✅ Protocol handler registered: %s\n", desktopFile)
@@ -272,7 +277,7 @@ func isRegisteredLinux() bool {
 	if err != nil {
 		return false
 	}
-	return strings.Contains(string(output), "ai-pack-agent-handler.desktop")
+	return strings.Contains(string(output), desktopHandlerFilename)
 }
 
 // registerWindows registers the protocol handler on Windows
@@ -284,9 +289,9 @@ func registerWindows() error {
 
 	// Use reg.exe to add registry keys
 	commands := [][]string{
-		{"reg", "add", "HKCU\\Software\\Classes\\agent", "/ve", "/d", "URL:AI-Pack Agent Protocol", "/f"},
-		{"reg", "add", "HKCU\\Software\\Classes\\agent", "/v", "URL Protocol", "/d", "", "/f"},
-		{"reg", "add", "HKCU\\Software\\Classes\\agent\\shell\\open\\command", "/ve", "/d", fmt.Sprintf("\"%s\" \"%%1\"", exePath), "/f"},
+		{"reg", "add", windowsRegistryKey, "/ve", "/d", "URL:AI-Pack Agent Protocol", "/f"},
+		{"reg", "add", windowsRegistryKey, "/v", "URL Protocol", "/d", "", "/f"},
+		{"reg", "add", windowsRegistryKey + "\\shell\\open\\command", "/ve", "/d", fmt.Sprintf("\"%s\" \"%%1\"", exePath), "/f"},
 	}
 
 	for _, cmdArgs := range commands {
@@ -302,6 +307,6 @@ func registerWindows() error {
 
 // isRegisteredWindows checks if the handler is registered on Windows
 func isRegisteredWindows() bool {
-	cmd := exec.Command("reg", "query", "HKCU\\Software\\Classes\\agent")
+	cmd := exec.Command("reg", "query", windowsRegistryKey)
 	return cmd.Run() == nil
 }
