@@ -61,13 +61,8 @@ func main() {
 	}
 }
 
-func handleSpawn(args []string) {
-	// Parse flags manually to allow them anywhere in arguments
-	// agent engineer xasm++-m94 --wait should work
-	wait := false
-	stream := false
+func parseSpawnFlags(args []string) (role, taskInput string, wait, stream bool) {
 	var positionalArgs []string
-
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "--wait" {
@@ -86,10 +81,12 @@ func handleSpawn(args []string) {
 		os.Exit(1)
 	}
 
-	role := positionalArgs[0]
-	taskInput := strings.Join(positionalArgs[1:], " ")
+	role = positionalArgs[0]
+	taskInput = strings.Join(positionalArgs[1:], " ")
+	return
+}
 
-	// Validate Beads task ID
+func validateBeadsTaskOrExit(taskInput, role string) {
 	if !isValidBeadsTask(taskInput) {
 		fmt.Printf("❌ Error: '%s' is not a valid Beads task ID\n", taskInput)
 		fmt.Println()
@@ -103,6 +100,11 @@ func handleSpawn(args []string) {
 		fmt.Printf("  agent %s <task-id>\n", role)
 		os.Exit(1)
 	}
+}
+
+func handleSpawn(args []string) {
+	role, taskInput, wait, stream := parseSpawnFlags(args)
+	validateBeadsTaskOrExit(taskInput, role)
 
 	fmt.Printf("🎯 Beads task: %s\n", taskInput)
 
@@ -176,24 +178,24 @@ func handleSpawn(args []string) {
 	}
 }
 
-func handleStatus(args []string) {
-	// Parse flags
-	fs := flag.NewFlagSet("status", flag.ExitOnError)
-	jsonOutput := fs.Bool("json", false, descOutputAsJSON)
-	quiet := fs.Bool("quiet", false, "Output only status value")
+func printStatusUsage(fs *flag.FlagSet) {
+	fmt.Println("Usage: agent status <task-id> [options]")
+	fmt.Println()
+	fmt.Println("Options:")
+	fs.PrintDefaults()
+	fmt.Println()
+	fmt.Println("Exit codes:")
+	fmt.Println("  0 - completed")
+	fmt.Println("  1 - failed")
+	fmt.Println("  2 - in_progress")
+	fmt.Println("  3 - not found")
+}
 
-	fs.Usage = func() {
-		fmt.Println("Usage: agent status <task-id> [options]")
-		fmt.Println()
-		fmt.Println("Options:")
-		fs.PrintDefaults()
-		fmt.Println()
-		fmt.Println("Exit codes:")
-		fmt.Println("  0 - completed")
-		fmt.Println("  1 - failed")
-		fmt.Println("  2 - in_progress")
-		fmt.Println("  3 - not found")
-	}
+func parseStatusFlags(args []string) (taskID string, jsonOutput, quiet *bool) {
+	fs := flag.NewFlagSet("status", flag.ExitOnError)
+	jsonOutput = fs.Bool("json", false, descOutputAsJSON)
+	quiet = fs.Bool("quiet", false, "Output only status value")
+	fs.Usage = func() { printStatusUsage(fs) }
 
 	fs.Parse(args)
 	positionalArgs := fs.Args()
@@ -203,7 +205,12 @@ func handleStatus(args []string) {
 		os.Exit(1)
 	}
 
-	beadsTaskID := positionalArgs[0]
+	taskID = positionalArgs[0]
+	return
+}
+
+func handleStatus(args []string) {
+	beadsTaskID, jsonOutput, quiet := parseStatusFlags(args)
 
 	// Look up internal task ID from Beads task ID
 	internalTaskID := findInternalTaskID(beadsTaskID)
