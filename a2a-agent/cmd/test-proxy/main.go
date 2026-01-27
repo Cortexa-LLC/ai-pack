@@ -13,15 +13,10 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/proxy"
 )
 
-func main() {
-	fmt.Println("🧪 Testing A2A Agent Server Proxy Configuration")
-	fmt.Println("================================================")
-
-	// Load configuration from ~/.claude/agent-server.json
+func loadAndPrintConfig() (*config.Config, error) {
 	cfg, err := config.LoadConfig("")
 	if err != nil {
-		fmt.Printf("❌ Failed to load config: %v\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to load config: %v", err)
 	}
 
 	fmt.Printf("\n📋 Configuration:\n")
@@ -30,15 +25,14 @@ func main() {
 		fmt.Printf("   Proxy Base URL: %s\n", cfg.API.Proxy.BaseURL)
 	}
 	fmt.Printf("   Model: %s\n", cfg.API.AnthropicModel)
+	return cfg, nil
+}
 
-	// Get API key or bearer token
+func getAuthentication() (string, bool, error) {
 	fmt.Println("\n🔑 Authentication:")
 	apiKey, isBearerToken, err := auth.GetAPIKey()
-
 	if err != nil {
-		fmt.Printf("❌ No authentication found: %v\n", err)
-		fmt.Println("   Please set ANTHROPIC_API_KEY or ANTHROPIC_API_TOKEN")
-		os.Exit(1)
+		return "", false, fmt.Errorf("no authentication found: %v", err)
 	}
 
 	if isBearerToken {
@@ -46,25 +40,26 @@ func main() {
 	} else {
 		fmt.Println("   ✓ Using API key authentication")
 	}
+	return apiKey, isBearerToken, nil
+}
 
-	// Create HTTP client with proxy transport
+func createHTTPClient(apiKey string, isBearerToken bool, cfg *config.Config) *http.Client {
 	fmt.Println("\n🌐 Creating HTTP client with proxy:")
-	var httpClient *http.Client
 
 	if isBearerToken {
-		// Bearer token mode
 		fmt.Println("   Mode: Bearer token with proxy transport")
-		httpClient = proxy.NewBearerTokenClient(apiKey, &cfg.API)
-	} else {
-		// API key mode
-		fmt.Println("   Mode: API key with proxy transport")
-		httpClient = proxy.NewHTTPClient(&cfg.API)
-		if httpClient == nil {
-			httpClient = &http.Client{}
-		}
+		return proxy.NewBearerTokenClient(apiKey, &cfg.API)
 	}
 
-	// Prepare API request
+	fmt.Println("   Mode: API key with proxy transport")
+	httpClient := proxy.NewHTTPClient(&cfg.API)
+	if httpClient == nil {
+		return &http.Client{}
+	}
+	return httpClient
+}
+
+func createTestRequest(cfg *config.Config, apiKey string, isBearerToken bool) (*http.Request, error) {
 	requestBody := map[string]interface{}{
 		"model":      cfg.API.AnthropicModel,
 		"max_tokens": 100,
@@ -83,65 +78,58 @@ func main() {
 
 	bodyBytes, err := json.Marshal(requestBody)
 	if err != nil {
-		fmt.Printf("❌ Failed to marshal request: %v\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	// Create HTTP request
 	apiURL := "https://api.anthropic.com/v1/messages"
 	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(bodyBytes))
 	if err != nil {
-		fmt.Printf("❌ Failed to create request: %v\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
 
-	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("anthropic-version", "2023-06-01")
 	if !isBearerToken {
 		req.Header.Set("x-api-key", apiKey)
 	}
 
-	// Test simple message
+	return req, nil
+}
+
+func executeRequest(httpClient *http.Client, req *http.Request) ([]byte, error) {
 	fmt.Println("\n📤 Sending test message to Claude...")
 	fmt.Println("   Prompt: 'Say hello and confirm proxy is working'")
 	fmt.Println()
 
-	// Execute request (proxy transport will rewrite the URL)
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		fmt.Printf("\n❌ API call failed: %v\n", err)
 		fmt.Println("\n🔍 Debugging tips:")
 		fmt.Println("   1. Check that the proxy URL is correct in ~/.claude/agent-server.json")
 		fmt.Println("   2. Verify your authentication token is valid")
 		fmt.Println("   3. Check network connectivity to proxy")
 		fmt.Println("   4. Review the debug output above for URL rewriting details")
-		os.Exit(1)
+		return nil, fmt.Errorf("API call failed: %v", err)
 	}
 	defer resp.Body.Close()
 
-	// Read response
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("❌ Failed to read response: %v\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to read response: %v", err)
 	}
 
-	// Check status code
 	if resp.StatusCode != 200 {
-		fmt.Printf("❌ API returned error status: %d\n", resp.StatusCode)
-		fmt.Printf("   Response: %s\n", string(responseBody))
-		os.Exit(1)
+		return nil, fmt.Errorf("API returned error status: %d\n   Response: %s", resp.StatusCode, string(responseBody))
 	}
 
-	// Parse response
+	return responseBody, nil
+}
+
+func printResponse(responseBody []byte) error {
 	var message map[string]interface{}
 	if err := json.Unmarshal(responseBody, &message); err != nil {
-		fmt.Printf("❌ Failed to parse response: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to parse response: %v", err)
 	}
 
-	// Print response
 	fmt.Println("\n✅ Success! Response received:")
 	if model, ok := message["model"].(string); ok {
 		fmt.Printf("   Model: %s\n", model)
@@ -173,11 +161,43 @@ func main() {
 		}
 	}
 
-	// Pretty print full response for debugging
-	fmt.Println("\n📄 Full Response (JSON):")
-	responseJSON, _ := json.MarshalIndent(message, "   ", "  ")
-	fmt.Printf("   %s\n", string(responseJSON))
+	fmt.Println("\n✅ Proxy configuration is working correctly!")
+	return nil
+}
 
-	fmt.Println("\n✅ Proxy test completed successfully!")
-	fmt.Println("\nThe A2A agent server proxy configuration is working correctly.")
+func main() {
+	fmt.Println("🧪 Testing A2A Agent Server Proxy Configuration")
+	fmt.Println("================================================")
+
+	cfg, err := loadAndPrintConfig()
+	if err != nil {
+		fmt.Printf("❌ %v\n", err)
+		os.Exit(1)
+	}
+
+	apiKey, isBearerToken, err := getAuthentication()
+	if err != nil {
+		fmt.Printf("❌ %v\n", err)
+		fmt.Println("   Please set ANTHROPIC_API_KEY or ANTHROPIC_API_TOKEN")
+		os.Exit(1)
+	}
+
+	httpClient := createHTTPClient(apiKey, isBearerToken, cfg)
+
+	req, err := createTestRequest(cfg, apiKey, isBearerToken)
+	if err != nil {
+		fmt.Printf("❌ %v\n", err)
+		os.Exit(1)
+	}
+
+	responseBody, err := executeRequest(httpClient, req)
+	if err != nil {
+		fmt.Printf("\n❌ %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := printResponse(responseBody); err != nil {
+		fmt.Printf("❌ %v\n", err)
+		os.Exit(1)
+	}
 }
