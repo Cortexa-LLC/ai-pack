@@ -13,14 +13,15 @@ import (
 
 // SpawnAgentTask spawns an agent task (public method for legacy endpoint)
 func (s *AgentServer) SpawnAgentTask(role, task string) (*protocol.ExecuteTaskResponse, error) {
-	return s.spawnAgentTask(role, task)
+	// Legacy method - use server's root directory as project root
+	return s.spawnAgentTask(role, task, "")
 }
 
 // ExecuteTaskSync executes a task synchronously and waits for completion
 // Used for protocol handler mode (agent:// URLs)
 func (s *AgentServer) ExecuteTaskSync(role, task string) (*protocol.ExecuteTaskResponse, error) {
-	// Spawn the task
-	response, err := s.spawnAgentTask(role, task)
+	// Spawn the task - use server's root directory as project root
+	response, err := s.spawnAgentTask(role, task, "")
 	if err != nil {
 		return nil, err
 	}
