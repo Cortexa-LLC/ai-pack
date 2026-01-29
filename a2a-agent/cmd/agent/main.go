@@ -650,13 +650,18 @@ func fetchRecentServerLogs(tailLines int, jsonOutput bool) {
 	if jsonOutput {
 		fmt.Println(string(body))
 	} else {
-		var logs []map[string]interface{}
-		if err := json.Unmarshal(body, &logs); err != nil {
+		// Server returns: {"logs": [...], "count": N, "limit": N}
+		var response struct {
+			Logs  []map[string]interface{} `json:"logs"`
+			Count int                      `json:"count"`
+			Limit int                      `json:"limit"`
+		}
+		if err := json.Unmarshal(body, &response); err != nil {
 			fmt.Printf("❌ Failed to parse logs: %v\n", err)
 			os.Exit(1)
 		}
 
-		for _, entry := range logs {
+		for _, entry := range response.Logs {
 			timestamp, _ := entry["timestamp"].(string)
 			level, _ := entry["level"].(string)
 			msg, _ := entry["message"].(string)
@@ -688,6 +693,7 @@ func handleList(args []string) {
 	completed := fs.Bool("completed", false, "Show only completed agents")
 	failed := fs.Bool("failed", false, "Show only failed agents")
 	jsonOutput := fs.Bool("json", false, descOutputAsJSON)
+	verboseOutput := fs.Bool("verbose", false, "Verbose output (show role and full details)")
 	fs.Parse(args)
 
 	// List .beads/tasks/task-* directories
@@ -750,7 +756,8 @@ func handleList(args []string) {
 	if *jsonOutput {
 		jsonData, _ := json.MarshalIndent(agents, "", "  ")
 		fmt.Println(string(jsonData))
-	} else {
+	} else if *verboseOutput {
+		// Verbose format: full details with role and status
 		fmt.Println("Active Agents:")
 		fmt.Println()
 		for _, agent := range agents {
@@ -764,6 +771,34 @@ func handleList(args []string) {
 			fmt.Printf("    Role: %s\n", agent.Role)
 			fmt.Printf("    Task: %s\n", agent.Description)
 			fmt.Println()
+		}
+	} else {
+		// Compact format (default): ID, status icon, and description
+		for _, agent := range agents {
+			// Show Beads task ID as primary identifier
+			displayID := agent.BeadsTaskID
+			if displayID == "" {
+				displayID = agent.TaskID // Fallback to internal ID if no Beads task
+			}
+
+			// Truncate long descriptions
+			description := agent.Description
+			if len(description) > 60 {
+				description = description[:57] + "..."
+			}
+
+			// Format status
+			statusIcon := "•"
+			switch agent.Status {
+			case "in_progress":
+				statusIcon = "▶"
+			case "completed":
+				statusIcon = "✓"
+			case "failed":
+				statusIcon = "✗"
+			}
+
+			fmt.Printf("%s %-12s  %s\n", statusIcon, displayID, description)
 		}
 	}
 }
@@ -1347,7 +1382,7 @@ func usage() {
 	fmt.Println("  agent results <task-id>                             Show agent results")
 	fmt.Println("  agent logs <task-id> [--tail N] [--follow] [--json] Show agent logs")
 	fmt.Println("  agent logs --server [--tail N] [--follow] [--json]  Show server logs")
-	fmt.Println("  agent list [--running|--completed|--failed] [--json] List agents")
+	fmt.Println("  agent list [--running|--completed|--failed] [--verbose|--json] List agents")
 	fmt.Println("  agent wait <task-id>                                Wait for completion")
 	fmt.Println("  agent diff <task-id>                                Show git diff")
 	fmt.Println("  agent files <task-id>                               List modified files")
@@ -1375,6 +1410,12 @@ func usage() {
 	fmt.Println()
 	fmt.Println("  # Follow server logs in real-time")
 	fmt.Println("  agent logs --server --follow")
+	fmt.Println()
+	fmt.Println("  # List agents (compact view with status icons)")
+	fmt.Println("  agent list")
+	fmt.Println()
+	fmt.Println("  # List with full details")
+	fmt.Println("  agent list --verbose")
 	fmt.Println()
 	fmt.Println("  # List running agents as JSON")
 	fmt.Println("  agent list --running --json")
