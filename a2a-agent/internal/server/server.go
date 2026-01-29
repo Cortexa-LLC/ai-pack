@@ -68,15 +68,16 @@ type AgentServer struct {
 }
 
 type TaskExecution struct {
-	TaskID    string
-	Role      string
-	Task      string
-	Config    *AgentConfig
-	StartTime time.Time
-	Status    string // "queued", "in_progress", "completed", "failed"
-	Progress  float64
-	Result    string
-	Error     string
+	TaskID      string
+	Role        string
+	Task        string
+	Config      *AgentConfig
+	StartTime   time.Time
+	Status      string // "queued", "in_progress", "completed", "failed"
+	Progress    float64
+	Result      string
+	Error       string
+	ProjectRoot string // Project root directory where task metadata is stored
 
 	// Beads integration
 	metadata map[string]string
@@ -212,25 +213,30 @@ func (s *AgentServer) worker() {
 	}
 }
 
-func (s *AgentServer) spawnAgentTask(role, taskInput string) (*protocol.ExecuteTaskResponse, error) {
+func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string) (*protocol.ExecuteTaskResponse, error) {
 	// Validate and get task description
 	var beadsTaskID string
 	var isBeadsTask bool
 
+	// If no project root specified, use server's root directory
+	if projectRoot == "" {
+		projectRoot = s.rootDir
+	}
+
 	// Check if it looks like a Beads task ID
 	if beads.IsBeadsTaskID(taskInput) {
-		// Validate the task exists in Beads
-		if err := s.beadsClient.ValidateTaskID(taskInput); err != nil {
+		// Validate the task exists in Beads (use project root for bd commands)
+		if err := s.beadsClient.ValidateTaskIDFromDir(taskInput, projectRoot); err != nil {
 			return nil, fmt.Errorf("invalid Beads task: %w", err)
 		}
 
 		beadsTaskID = taskInput
 		isBeadsTask = true
-		monitoring.Logger.Info("spawning_with_beads_task", "task_id", beadsTaskID)
+		monitoring.Logger.Info("spawning_with_beads_task", "task_id", beadsTaskID, "project_root", projectRoot)
 
 		// Check dependencies
 		if beads.IsInstalled() {
-			depsOK, unmetDeps, err := s.beadsClient.CheckDependencies(beadsTaskID)
+			depsOK, unmetDeps, err := s.beadsClient.CheckDependenciesFromDir(beadsTaskID, projectRoot)
 			if err != nil {
 				monitoring.Logger.Warn("dependency_check_failed", "error", err.Error())
 			} else if !depsOK {
@@ -242,14 +248,14 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string) (*protocol.ExecuteT
 	}
 
 	// Get task description, task packet path, and working directory (from Beads or use free-form input)
-	taskDescription, taskPacketPath, workingDir, _, err := s.beadsClient.GetTaskDescription(taskInput)
+	taskDescription, taskPacketPath, workingDir, _, err := s.beadsClient.GetTaskDescriptionFromDir(taskInput, projectRoot)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get task description: %w", err)
 	}
 
-	// If working directory not specified in task, use server's root directory
+	// If working directory not specified in task, use project root
 	if workingDir == "" {
-		workingDir = s.rootDir
+		workingDir = projectRoot
 	}
 
 	// Generate internal task ID
@@ -261,12 +267,12 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string) (*protocol.ExecuteT
 		return nil, fmt.Errorf("failed to load agent config: %w", err)
 	}
 
-	// Create task packet
-	if err := s.createTaskPacket(taskID, role, taskDescription, config); err != nil {
+	// Create task packet in project's .beads/tasks/ directory
+	if err := s.createTaskPacketInProject(taskID, role, taskDescription, config, projectRoot); err != nil {
 		return nil, fmt.Errorf("failed to create task packet: %w", err)
 	}
 
-	// Store task packet path and working directory in metadata if available
+	// Store task packet path, working directory, and project root in metadata if available
 	metadata := map[string]string{}
 	if beadsTaskID != "" {
 		metadata["beads_task_id"] = beadsTaskID
@@ -277,10 +283,13 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string) (*protocol.ExecuteT
 	if workingDir != "" {
 		metadata["working_directory"] = workingDir
 	}
+	if projectRoot != "" {
+		metadata["project_root"] = projectRoot
+	}
 
 	// If Beads task, mark as started
 	if isBeadsTask && beads.IsInstalled() {
-		if err := s.beadsClient.StartTask(beadsTaskID); err != nil {
+		if err := s.beadsClient.StartTaskFromDir(beadsTaskID, projectRoot); err != nil {
 			monitoring.Logger.Warn("failed_to_start_beads_task", "error", err.Error())
 		} else {
 			monitoring.Logger.Info("beads_task_started", "task_id", beadsTaskID)
@@ -289,16 +298,22 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string) (*protocol.ExecuteT
 
 	// Create task execution
 	execution := &TaskExecution{
-		TaskID:     taskID,
-		Role:       role,
-		Task:       taskDescription,
-		Config:     config,
-		StartTime:  time.Now(),
-		Status:     "queued",
-		Progress:   0.0,
-		streamChan: make(chan *protocol.StreamEvent, 100),
-		streamOpen: true,
-		metadata:   metadata,
+		TaskID:      taskID,
+		Role:        role,
+		Task:        taskDescription,
+		Config:      config,
+		StartTime:   time.Now(),
+		Status:      "queued",
+		Progress:    0.0,
+		ProjectRoot: projectRoot,
+		streamChan:  make(chan *protocol.StreamEvent, 100),
+		streamOpen:  true,
+		metadata:    metadata,
+	}
+
+	// Update task packet metadata with Beads task ID and project root
+	if err := s.updateTaskPacketMetadataInProject(taskID, metadata, projectRoot); err != nil {
+		monitoring.Logger.Warn("failed_to_update_task_metadata", "error", err.Error())
 	}
 
 	// Register task
@@ -442,7 +457,11 @@ func (s *AgentServer) loadRoleContext(roleFile string) (string, error) {
 }
 
 func (s *AgentServer) createTaskPacket(taskID, role, task string, config *AgentConfig) error {
-	taskDir := filepath.Join(s.rootDir, BeadsDir, "tasks", taskID)
+	return s.createTaskPacketInProject(taskID, role, task, config, s.rootDir)
+}
+
+func (s *AgentServer) createTaskPacketInProject(taskID, role, task string, config *AgentConfig, projectRoot string) error {
+	taskDir := filepath.Join(projectRoot, BeadsDir, "tasks", taskID)
 
 	if err := os.MkdirAll(taskDir, 0755); err != nil {
 		return fmt.Errorf("failed to create task directory: %w", err)
@@ -478,7 +497,43 @@ func (s *AgentServer) createTaskPacket(taskID, role, task string, config *AgentC
 		return fmt.Errorf("failed to write plan: %w", err)
 	}
 
-	monitoring.Logger.Info("task_packet_created", "task_id", taskID, "path", taskDir)
+	monitoring.Logger.Info("task_packet_created", "task_id", taskID, "path", taskDir, "project", projectRoot)
+	return nil
+}
+
+// updateTaskPacketMetadata updates the task metadata with Beads task ID and other runtime metadata
+func (s *AgentServer) updateTaskPacketMetadata(taskID string, runtimeMetadata map[string]string) error {
+	return s.updateTaskPacketMetadataInProject(taskID, runtimeMetadata, s.rootDir)
+}
+
+// updateTaskPacketMetadataInProject updates the task metadata in the project's directory
+func (s *AgentServer) updateTaskPacketMetadataInProject(taskID string, runtimeMetadata map[string]string, projectRoot string) error {
+	metadataPath := filepath.Join(projectRoot, BeadsDir, "tasks", taskID, MetadataFileName)
+
+	// Read existing metadata
+	data, err := os.ReadFile(metadataPath)
+	if err != nil {
+		return fmt.Errorf("failed to read metadata: %w", err)
+	}
+
+	var metadata map[string]interface{}
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		return fmt.Errorf("failed to parse metadata: %w", err)
+	}
+
+	// Add runtime metadata
+	metadata["metadata"] = runtimeMetadata
+
+	// Write updated metadata
+	metadataJSON, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	if err := os.WriteFile(metadataPath, metadataJSON, 0644); err != nil {
+		return fmt.Errorf("failed to write metadata: %w", err)
+	}
+
 	return nil
 }
 
@@ -867,7 +922,7 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	startTime := time.Now()
 
 	// Create execution log and logger
-	logMsg := s.setupExecutionLogger(taskID)
+	logMsg := s.setupExecutionLogger(execution)
 
 	logMsg("🚀 Agent execution started")
 	logMsg(fmt.Sprintf("   Role: %s", execution.Role))
@@ -902,11 +957,11 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 }
 
 // setupExecutionLogger creates the execution log file and returns a logging function
-func (s *AgentServer) setupExecutionLogger(taskID string) func(string) {
-	logPath := filepath.Join(s.rootDir, BeadsDir, "tasks", taskID, "execution.log")
+func (s *AgentServer) setupExecutionLogger(execution *TaskExecution) func(string) {
+	logPath := filepath.Join(execution.ProjectRoot, BeadsDir, "tasks", execution.TaskID, "execution.log")
 	logFile, err := os.Create(logPath)
 	if err != nil {
-		monitoring.Logger.Error("log_create_error", "task_id", taskID, "error", err)
+		monitoring.Logger.Error("log_create_error", "task_id", execution.TaskID, "error", err)
 	}
 
 	if logFile != nil {
@@ -919,13 +974,13 @@ func (s *AgentServer) setupExecutionLogger(taskID string) func(string) {
 		line := fmt.Sprintf("[%s] %s\n", timestamp, msg)
 		if logFile != nil {
 			if _, err := logFile.WriteString(line); err != nil {
-				monitoring.Logger.Error("log_write_error", "task_id", taskID, "error", err)
+				monitoring.Logger.Error("log_write_error", "task_id", execution.TaskID, "error", err)
 			}
 			if err := logFile.Sync(); err != nil {
-				monitoring.Logger.Error("log_sync_error", "task_id", taskID, "error", err)
+				monitoring.Logger.Error("log_sync_error", "task_id", execution.TaskID, "error", err)
 			}
 		}
-		monitoring.Logger.Info("agent_log", "task_id", taskID, "message", msg)
+		monitoring.Logger.Info("agent_log", "task_id", execution.TaskID, "message", msg)
 	}
 }
 
@@ -984,7 +1039,7 @@ func (s *AgentServer) buildAndSavePrompt(execution *TaskExecution, roleContext, 
 	prompt := s.buildPrompt(execution.Role, execution.Task, roleContext, execution.Config, taskPacketPath, workingDir)
 	logMsg(fmt.Sprintf("✅ Prompt built (%d chars)", len(prompt)))
 
-	promptPath := filepath.Join(s.rootDir, BeadsDir, "tasks", execution.TaskID, "agent-prompt.txt")
+	promptPath := filepath.Join(execution.ProjectRoot, BeadsDir, "tasks", execution.TaskID, "agent-prompt.txt")
 	if err := os.WriteFile(promptPath, []byte(prompt), 0644); err != nil {
 		monitoring.Logger.Warn("prompt_save_error", "task_id", execution.TaskID, "error", err)
 	} else {
@@ -1026,11 +1081,11 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 	s.saveTaskResults(execution, result, logMsg)
 
 	// Update task status
-	beadsTaskID := s.updateTaskCompletion(execution, result)
+	beadsTaskID, projectRoot := s.updateTaskCompletion(execution, result)
 
 	// Complete Beads task if applicable
 	if beadsTaskID != "" {
-		s.completeBeadsTask(beadsTaskID, logMsg)
+		s.completeBeadsTask(beadsTaskID, projectRoot, logMsg)
 	}
 
 	// Finalize task
@@ -1053,7 +1108,7 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 // saveTaskResults saves the task results to disk
 func (s *AgentServer) saveTaskResults(execution *TaskExecution, result string, logMsg func(string)) {
 	logMsg("💾 Saving results...")
-	resultsPath := filepath.Join(s.rootDir, BeadsDir, "tasks", execution.TaskID, "30-results.md")
+	resultsPath := filepath.Join(execution.ProjectRoot, BeadsDir, "tasks", execution.TaskID, "30-results.md")
 	resultsContent := fmt.Sprintf("# Task Results: %s\n\n**Role**: %s\n**Task**: %s\n**Completed**: %s\n\n## Agent Output\n\n%s\n",
 		execution.TaskID, execution.Role, execution.Task, time.Now().Format(time.RFC3339), result)
 
@@ -1066,29 +1121,31 @@ func (s *AgentServer) saveTaskResults(execution *TaskExecution, result string, l
 	}
 }
 
-// updateTaskCompletion updates execution status and extracts Beads task ID
-func (s *AgentServer) updateTaskCompletion(execution *TaskExecution, result string) string {
+// updateTaskCompletion updates execution status and extracts Beads task ID and project root
+func (s *AgentServer) updateTaskCompletion(execution *TaskExecution, result string) (string, string) {
 	s.mu.Lock()
 	execution.Status = "completed"
 	execution.Progress = 1.0
 	execution.Result = result
 	beadsTaskID := ""
+	projectRoot := ""
 	if execution.metadata != nil {
 		beadsTaskID = execution.metadata["beads_task_id"]
+		projectRoot = execution.metadata["project_root"]
 	}
 	s.mu.Unlock()
 
-	return beadsTaskID
+	return beadsTaskID, projectRoot
 }
 
 // completeBeadsTask marks the corresponding Beads task as complete
-func (s *AgentServer) completeBeadsTask(beadsTaskID string, logMsg func(string)) {
+func (s *AgentServer) completeBeadsTask(beadsTaskID string, projectRoot string, logMsg func(string)) {
 	if !beads.IsInstalled() {
 		return
 	}
 
 	logMsg(fmt.Sprintf("🔗 Marking Beads task complete: %s", beadsTaskID))
-	if err := s.beadsClient.CompleteTask(beadsTaskID); err != nil {
+	if err := s.beadsClient.CompleteTaskFromDir(beadsTaskID, projectRoot); err != nil {
 		monitoring.Logger.Warn("failed_to_complete_beads_task", "task_id", beadsTaskID, "error", err.Error())
 		logMsg(fmt.Sprintf("⚠️  Failed to complete Beads task: %v", err))
 	} else {
@@ -1102,7 +1159,7 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	durationMs := time.Since(execution.StartTime).Milliseconds()
 
 	// Log failure to execution log
-	logPath := filepath.Join(s.rootDir, BeadsDir, "tasks", execution.TaskID, "execution.log")
+	logPath := filepath.Join(execution.ProjectRoot, BeadsDir, "tasks", execution.TaskID, "execution.log")
 	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {
 		timestamp := time.Now().Format("15:04:05")

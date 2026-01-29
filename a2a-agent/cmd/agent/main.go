@@ -108,13 +108,20 @@ func handleSpawn(args []string) {
 
 	fmt.Printf("🎯 Beads task: %s\n", taskInput)
 
+	// Detect project root for Beads integration
+	projectRoot := detectProjectRoot()
+	if projectRoot == "" {
+		projectRoot = mustGetWorkingDir()
+	}
+
 	// Execute task via HTTP API
 	requestBody := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"method":  "execute",
-		"params": map[string]string{
-			"role": role,
-			"task": taskInput,
+		"params": map[string]interface{}{
+			"role":         role,
+			"task":         taskInput,
+			"project_root": projectRoot,
 		},
 		"id": 1,
 	}
@@ -156,6 +163,21 @@ func handleSpawn(args []string) {
 		os.Exit(1)
 	}
 
+	// Extract internal task ID from response
+	var internalTaskID string
+	if resultObj, ok := result["result"].(map[string]interface{}); ok {
+		if taskID, ok := resultObj["task_id"].(string); ok {
+			internalTaskID = taskID
+		}
+	}
+
+	if internalTaskID == "" {
+		fmt.Printf("❌ Failed to get task ID from server response\n")
+		os.Exit(1)
+	}
+
+	fmt.Printf("   Internal task ID: %s\n", internalTaskID)
+
 	// Wait a moment for the task to be registered
 	time.Sleep(2 * time.Second)
 
@@ -166,7 +188,81 @@ func handleSpawn(args []string) {
 	if stream {
 		fmt.Println()
 		fmt.Println("📡 Streaming real-time progress...")
-		streamTaskProgress(taskInput)
+		// Use internal task ID directly for streaming
+		streamURL := fmt.Sprintf("%s/stream/%s", ServerURL, internalTaskID)
+		resp, err := http.Get(streamURL)
+		if err != nil {
+			fmt.Printf("❌ Failed to connect to stream: %v\n", err)
+			os.Exit(1)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			fmt.Printf("❌ Stream connection failed with status %d\n", resp.StatusCode)
+			os.Exit(1)
+		}
+
+		fmt.Printf("✓ Connected to task stream: %s\n", internalTaskID)
+		fmt.Println()
+
+		// Read SSE events
+		buffer := make([]byte, 8192)
+		dataBuffer := ""
+
+		for {
+			n, err := resp.Body.Read(buffer)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				fmt.Printf("⚠️  Stream read error: %v\n", err)
+				break
+			}
+
+			dataBuffer += string(buffer[:n])
+
+			for {
+				idx := strings.Index(dataBuffer, "\n\n")
+				if idx == -1 {
+					break
+				}
+
+				message := dataBuffer[:idx]
+				dataBuffer = dataBuffer[idx+2:]
+
+				if strings.HasPrefix(message, sseDataPrefix) {
+					jsonData := strings.TrimPrefix(message, sseDataPrefix)
+
+					var event map[string]interface{}
+					if err := json.Unmarshal([]byte(jsonData), &event); err != nil {
+						continue
+					}
+
+					eventType, _ := event["type"].(string)
+					timestamp, _ := event["timestamp"].(string)
+					data, _ := event["data"].(map[string]interface{})
+
+					switch eventType {
+					case "status_update":
+						status, _ := data["status"].(string)
+						progress, _ := data["progress"].(float64)
+						fmt.Printf("[%s] Status: %s (%.0f%%)\n", timestamp, status, progress*100)
+					case "completed":
+						fmt.Printf("[%s] 🎉 Task completed!\n", timestamp)
+						fmt.Println()
+						showMetrics()
+						return
+					case "failed":
+						errorMsg, _ := data["error"].(string)
+						fmt.Printf("[%s] ❌ Task failed: %s\n", timestamp, errorMsg)
+						os.Exit(1)
+					}
+				}
+			}
+		}
+		fmt.Println()
+		fmt.Println("✓ Stream closed")
+		showMetrics()
 		return
 	}
 
@@ -174,7 +270,48 @@ func handleSpawn(args []string) {
 	if wait {
 		fmt.Println()
 		fmt.Println("⏳ Waiting for completion...")
-		waitForTaskCompletion(taskInput)
+		for {
+			resp, err := http.Get(fmt.Sprintf("%s/a2a/status/%s", ServerURL, internalTaskID))
+			if err != nil {
+				time.Sleep(2 * time.Second)
+				continue
+			}
+
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			var status map[string]interface{}
+			if err := json.Unmarshal(body, &status); err != nil {
+				time.Sleep(2 * time.Second)
+				continue
+			}
+
+			statusVal, ok := status["status"]
+			if !ok || statusVal == nil {
+				time.Sleep(2 * time.Second)
+				continue
+			}
+
+			statusStr, ok := statusVal.(string)
+			if !ok {
+				time.Sleep(2 * time.Second)
+				continue
+			}
+
+			if statusStr == "completed" {
+				fmt.Println("✅ Agent completed!")
+				showMetrics()
+				break
+			} else if statusStr == "failed" {
+				fmt.Println("❌ Agent failed!")
+				if status["error"] != nil {
+					fmt.Printf("   Error: %v\n", status["error"])
+				}
+				break
+			}
+
+			time.Sleep(5 * time.Second)
+		}
 	}
 }
 
@@ -1090,8 +1227,21 @@ func waitForTaskCompletion(beadsTaskID string) {
 }
 
 func findInternalTaskID(beadsTaskID string) string {
-	// Search .beads/tasks/ for metadata matching this Beads task ID
-	matches, _ := filepath.Glob(".beads/tasks/task-*")
+	// First try: Search server's .beads/tasks/ directory
+	// (Server creates tasks in its own working directory)
+	serverTasksDir := "/Users/bryanw/Projects/Vibe/ai-pack/a2a-agent/.beads/tasks"
+	taskID := searchTasksDir(serverTasksDir, beadsTaskID)
+	if taskID != "" {
+		return taskID
+	}
+
+	// Fallback: Search current directory's .beads/tasks/
+	taskID = searchTasksDir(".beads/tasks", beadsTaskID)
+	return taskID
+}
+
+func searchTasksDir(tasksDir string, beadsTaskID string) string {
+	matches, _ := filepath.Glob(filepath.Join(tasksDir, "task-*"))
 	for _, taskDir := range matches {
 		metaFile := filepath.Join(taskDir, "00-metadata.json")
 		data, err := os.ReadFile(metaFile)
@@ -1104,10 +1254,17 @@ func findInternalTaskID(beadsTaskID string) string {
 			continue
 		}
 
-		// Check config.metadata.beads_task_id
+		// Check metadata.beads_task_id (new location)
+		if metadata, ok := meta["metadata"].(map[string]interface{}); ok {
+			if btid, ok := metadata["beads_task_id"].(string); ok && btid == beadsTaskID {
+				return filepath.Base(taskDir)
+			}
+		}
+
+		// Fallback: Check config.metadata.beads_task_id (old location)
 		if config, ok := meta["config"].(map[string]interface{}); ok {
-			if metadata, ok := config["metadata"].(map[string]interface{}); ok {
-				if btid, ok := metadata["beads_task_id"].(string); ok && btid == beadsTaskID {
+			if configMeta, ok := config["metadata"].(map[string]interface{}); ok {
+				if btid, ok := configMeta["beads_task_id"].(string); ok && btid == beadsTaskID {
 					return filepath.Base(taskDir)
 				}
 			}
@@ -1132,6 +1289,36 @@ func mustGetWorkingDir() string {
 		return "/path/to/project"
 	}
 	return wd
+}
+
+// detectProjectRoot detects the project root using git
+// Tries in order:
+// 1. git rev-parse --show-superproject-working-tree (for submodules)
+// 2. git rev-parse --show-toplevel (for regular repos)
+// 3. Current working directory (fallback)
+func detectProjectRoot() string {
+	// Try superproject working tree first (for submodules)
+	cmd := exec.Command("git", "rev-parse", "--show-superproject-working-tree")
+	output, err := cmd.Output()
+	if err == nil {
+		root := strings.TrimSpace(string(output))
+		if root != "" {
+			return root
+		}
+	}
+
+	// Try regular git root
+	cmd = exec.Command("git", "rev-parse", "--show-toplevel")
+	output, err = cmd.Output()
+	if err == nil {
+		root := strings.TrimSpace(string(output))
+		if root != "" {
+			return root
+		}
+	}
+
+	// Fallback to current directory
+	return ""
 }
 
 func openURL(url string) error {

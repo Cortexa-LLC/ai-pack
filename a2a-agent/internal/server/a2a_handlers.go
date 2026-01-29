@@ -107,11 +107,11 @@ func (s *AgentServer) handleA2AExecute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	monitoring.Logger.Info("a2a_execute_request", "role", execReq.Role, "task", execReq.Task)
+	monitoring.Logger.Info("a2a_execute_request", "role", execReq.Role, "task", execReq.Task, "project_root", execReq.ProjectRoot)
 	monitoring.LogTaskSpawned(ctx, "", execReq.Role, execReq.Task)
 
 	// Execute task (reuse existing spawn logic)
-	result, err := s.spawnAgentTask(execReq.Role, execReq.Task)
+	result, err := s.spawnAgentTask(execReq.Role, execReq.Task, execReq.ProjectRoot)
 	if err != nil {
 		monitoring.Logger.Error("a2a_execute_failed", "role", execReq.Role, "error", err)
 		response := protocol.NewJSONRPCError(req.ID, protocol.InternalError, "Execution failed", err.Error())

@@ -61,12 +61,20 @@ func IsBeadsTaskID(input string) bool {
 
 // GetTask retrieves a task from Beads
 func (c *Client) GetTask(taskID string) (*Task, error) {
+	return c.GetTaskFromDir(taskID, "")
+}
+
+// GetTaskFromDir retrieves a task from Beads using a specific working directory
+func (c *Client) GetTaskFromDir(taskID string, workingDir string) (*Task, error) {
 	if !IsBeadsTaskID(taskID) {
 		return nil, fmt.Errorf("invalid Beads task ID: %s (expected format: <prefix>-<hash>)", taskID)
 	}
 
 	// Run: bd show <task-id> --json
 	cmd := exec.Command("bd", "show", taskID, "--json")
+	if workingDir != "" {
+		cmd.Dir = workingDir
+	}
 	output, err := cmd.Output()
 	if err != nil {
 		// Check if bd command exists
@@ -91,6 +99,11 @@ func (c *Client) GetTask(taskID string) (*Task, error) {
 
 // StartTask marks a task as started in Beads
 func (c *Client) StartTask(taskID string) error {
+	return c.StartTaskFromDir(taskID, "")
+}
+
+// StartTaskFromDir marks a task as started in Beads using a specific working directory
+func (c *Client) StartTaskFromDir(taskID string, workingDir string) error {
 	if !IsBeadsTaskID(taskID) {
 		return fmt.Errorf("invalid Beads task ID: %s", taskID)
 	}
@@ -98,6 +111,9 @@ func (c *Client) StartTask(taskID string) error {
 	// Run: bd update --claim <task-id>
 	// This atomically claims the task (sets assignee and status to in_progress)
 	cmd := exec.Command("bd", "update", "--claim", taskID)
+	if workingDir != "" {
+		cmd.Dir = workingDir
+	}
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to claim task %s: %w", taskID, err)
 	}
@@ -107,12 +123,20 @@ func (c *Client) StartTask(taskID string) error {
 
 // CompleteTask marks a task as complete in Beads
 func (c *Client) CompleteTask(taskID string) error {
+	return c.CompleteTaskFromDir(taskID, "")
+}
+
+// CompleteTaskFromDir marks a task as complete in Beads using a specific working directory
+func (c *Client) CompleteTaskFromDir(taskID string, workingDir string) error {
 	if !IsBeadsTaskID(taskID) {
 		return fmt.Errorf("invalid Beads task ID: %s", taskID)
 	}
 
 	// Run: bd close <task-id>
 	cmd := exec.Command("bd", "close", taskID)
+	if workingDir != "" {
+		cmd.Dir = workingDir
+	}
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to complete task %s: %w", taskID, err)
 	}
@@ -122,7 +146,12 @@ func (c *Client) CompleteTask(taskID string) error {
 
 // CheckDependencies verifies that all task dependencies are complete
 func (c *Client) CheckDependencies(taskID string) (bool, []string, error) {
-	task, err := c.GetTask(taskID)
+	return c.CheckDependenciesFromDir(taskID, "")
+}
+
+// CheckDependenciesFromDir verifies that all task dependencies are complete using a specific working directory
+func (c *Client) CheckDependenciesFromDir(taskID string, workingDir string) (bool, []string, error) {
+	task, err := c.GetTaskFromDir(taskID, workingDir)
 	if err != nil {
 		return false, nil, err
 	}
@@ -148,7 +177,7 @@ func (c *Client) CheckDependencies(taskID string) (bool, []string, error) {
 			continue // Skip unknown types
 		}
 
-		depTask, err := c.GetTask(depID)
+		depTask, err := c.GetTaskFromDir(depID, workingDir)
 		if err != nil {
 			return false, nil, fmt.Errorf("failed to check dependency %s: %w", depID, err)
 		}
@@ -169,6 +198,11 @@ func IsInstalled() bool {
 
 // ValidateTaskID validates that a Beads task ID exists and is accessible
 func (c *Client) ValidateTaskID(taskID string) error {
+	return c.ValidateTaskIDFromDir(taskID, "")
+}
+
+// ValidateTaskIDFromDir validates that a Beads task ID exists and is accessible using a specific working directory
+func (c *Client) ValidateTaskIDFromDir(taskID string, workingDir string) error {
 	if !IsBeadsTaskID(taskID) {
 		return fmt.Errorf("invalid Beads task ID format: %s (expected format: <prefix>-<hash>)", taskID)
 	}
@@ -179,7 +213,7 @@ func (c *Client) ValidateTaskID(taskID string) error {
 	}
 
 	// Verify task exists by trying to get it
-	_, err := c.GetTask(taskID)
+	_, err := c.GetTaskFromDir(taskID, workingDir)
 	if err != nil {
 		return fmt.Errorf("Beads task %s does not exist or is not accessible: %w", taskID, err)
 	}
@@ -214,15 +248,21 @@ func getTaskPacketPath(task *Task) string {
 // GetTaskDescription extracts the task description from either a Beads task ID or free-form text
 // Returns: (description, taskPacketPath, workingDirectory, isBeadsTask, error)
 func (c *Client) GetTaskDescription(input string) (string, string, string, bool, error) {
+	return c.GetTaskDescriptionFromDir(input, "")
+}
+
+// GetTaskDescriptionFromDir extracts the task description from either a Beads task ID or free-form text using a specific working directory
+// Returns: (description, taskPacketPath, workingDirectory, isBeadsTask, error)
+func (c *Client) GetTaskDescriptionFromDir(input string, projectRoot string) (string, string, string, bool, error) {
 	if !IsBeadsTaskID(input) {
 		return input, "", "", false, nil
 	}
 
-	if err := c.ValidateTaskID(input); err != nil {
+	if err := c.ValidateTaskIDFromDir(input, projectRoot); err != nil {
 		return "", "", "", true, err
 	}
 
-	task, err := c.GetTask(input)
+	task, err := c.GetTaskFromDir(input, projectRoot)
 	if err != nil {
 		return "", "", "", true, fmt.Errorf("failed to get Beads task: %w", err)
 	}
