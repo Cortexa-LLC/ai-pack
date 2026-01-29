@@ -43,9 +43,10 @@ type Endpoint struct {
 
 // ExecuteTaskRequest represents a task execution request
 type ExecuteTaskRequest struct {
-	Role    string                 `json:"role"`
-	Task    string                 `json:"task"`
-	Options map[string]interface{} `json:"options,omitempty"`
+	Role        string                 `json:"role"`
+	Task        string                 `json:"task"`
+	ProjectRoot string                 `json:"project_root,omitempty"` // Project root directory for Beads integration
+	Options     map[string]interface{} `json:"options,omitempty"`
 }
 
 // ExecuteTaskResponse represents a task execution response
