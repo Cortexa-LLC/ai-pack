@@ -349,8 +349,14 @@ func parseStatusFlags(args []string) (taskID string, jsonOutput, quiet *bool) {
 func handleStatus(args []string) {
 	beadsTaskID, jsonOutput, quiet := parseStatusFlags(args)
 
-	// Look up internal task ID from Beads task ID
-	internalTaskID := findInternalTaskID(beadsTaskID)
+	// Try to find task ID by querying server first (for cross-project tasks)
+	internalTaskID := findInternalTaskIDFromServer(beadsTaskID)
+
+	// Fallback: Look up internal task ID from local filesystem
+	if internalTaskID == "" {
+		internalTaskID = findInternalTaskID(beadsTaskID)
+	}
+
 	if internalTaskID == "" {
 		if *jsonOutput {
 			fmt.Println(`{"error":"not_found"}`)
@@ -809,10 +815,7 @@ func handleListServer(running, completed, failed, all, jsonOutput, verboseOutput
 			statusText = task.Status
 		}
 
-		description := task.Description
-		if len(description) > 50 {
-			description = description[:47] + "..."
-		}
+		description := truncateDescription(task.Description, 50)
 
 		beadsID := task.BeadsTaskID
 		if beadsID == "" {
@@ -971,10 +974,7 @@ func handleList(args []string) {
 			}
 
 			// Truncate long descriptions
-			description := agent.Description
-			if len(description) > 50 {
-				description = description[:47] + "..."
-			}
+			description := truncateDescription(agent.Description, 50)
 
 			// Show both IDs
 			beadsID := agent.BeadsTaskID
@@ -1261,6 +1261,20 @@ func min(a, b int) int {
 	return b
 }
 
+// truncateDescription takes a multi-line description and returns only the first line, truncated if needed
+func truncateDescription(desc string, maxLen int) string {
+	// Get only the first line (before any newline)
+	lines := strings.Split(desc, "\n")
+	firstLine := strings.TrimSpace(lines[0])
+
+	// Truncate if too long
+	if len(firstLine) > maxLen {
+		return firstLine[:maxLen-3] + "..."
+	}
+
+	return firstLine
+}
+
 func streamTaskProgress(beadsTaskID string) {
 	// Look up internal task ID from Beads task ID
 	internalTaskID := findInternalTaskID(beadsTaskID)
@@ -1451,6 +1465,40 @@ func waitForTaskCompletion(beadsTaskID string) {
 
 		time.Sleep(5 * time.Second)
 	}
+}
+
+func findInternalTaskIDFromServer(beadsTaskID string) string {
+	// Query server's /a2a/tasks endpoint for the beads task ID
+	resp, err := http.Get(fmt.Sprintf("%s/a2a/tasks", ServerURL))
+	if err != nil {
+		return "" // Server not available, will fallback to local search
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return ""
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	var result struct {
+		Tasks []struct {
+			TaskID      string `json:"task_id"`
+			BeadsTaskID string `json:"beads_task_id"`
+		} `json:"tasks"`
+	}
+
+	if err := json.Unmarshal(body, &result); err != nil {
+		return ""
+	}
+
+	// Find matching beads task ID
+	for _, task := range result.Tasks {
+		if task.BeadsTaskID == beadsTaskID {
+			return task.TaskID
+		}
+	}
+
+	return ""
 }
 
 func findInternalTaskID(beadsTaskID string) string {

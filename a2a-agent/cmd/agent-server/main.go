@@ -365,7 +365,8 @@ func main() {
 	mux.HandleFunc("/metrics", handleMetrics(s))           // Metrics endpoint
 	mux.HandleFunc("/a2a/discovery", s.HandleA2ADiscovery) // A2A discovery
 	mux.HandleFunc("/a2a/execute", s.HandleA2AExecute)     // A2A execute
-	mux.HandleFunc("/a2a/status", s.HandleA2AStatus)       // A2A status
+	mux.HandleFunc("/a2a/status/", s.HandleA2AStatus)      // A2A status (trailing slash for subpaths)
+	mux.HandleFunc("/a2a/status", s.HandleA2AStatus)       // A2A status (POST JSON-RPC)
 	mux.HandleFunc("/a2a/tasks", s.HandleTasksList)        // List all tasks (machine-wide)
 	mux.HandleFunc("/stream/", s.HandleStream)             // SSE streaming (tasks)
 	mux.HandleFunc("/logs/stream", s.HandleLogsStream)     // SSE streaming (logs)
