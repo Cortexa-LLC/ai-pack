@@ -19,10 +19,13 @@ When the Orchestrator spawns agents for parallel execution, it creates correspon
 ## Usage
 
 ```bash
-/ai-pack agents
+/ai-pack agents           # Compact view with status icons (default)
+/ai-pack agents --verbose # Full details with role and timestamps
+/ai-pack agents -v        # Verbose form alias
 ```
 
-No arguments needed - queries Beads for all agent tasks.
+**Options:**
+- `--verbose` / `-v` - Show full details including role, assignee, and timestamps
 
 ## What Gets Reported
 
@@ -51,9 +54,21 @@ Agents share:
 
 ## Example Output
 
+### Compact Format (Default)
+
 ```
-AI-Pack Agent Status (via Beads)
-==================================
+STATUS      BEADS-ID      INTERNAL-ID                             DESCRIPTION
+----------  ------------  --------------------------------------  -----------
+RUNNING     bd-a1b2       task-engineer-20260129-143045-000000    Agent: Engineer - Implement login API
+RUNNING     bd-b2c3       task-engineer-20260129-143048-000000    Agent: Engineer - User profile API
+COMPLETED   bd-c3d4       task-reviewer-20260129-143050-000000    Agent: Reviewer - Review authentication
+```
+
+### Verbose Format (--verbose / -v)
+
+```
+AI-Pack Agent Status (Verbose)
+==============================
 
 Active Agents: 2 / 5 maximum
 
@@ -100,6 +115,10 @@ Shared Context Reminder:
 - Check available slots before spawning more agents
 - Verify you haven't hit the 5-agent limit
 
+**Quick status checks:**
+- Default compact format shows what's running at a glance
+- Use `--verbose` when debugging or need full details (assignee, timestamps, etc.)
+
 ## Implementation
 
 This command queries Beads for tasks that match the agent naming pattern.
@@ -139,6 +158,12 @@ bd list --json | jq '.[] | select(.assignee | test("Engineer-|Tester-|Reviewer-"
 ```bash
 #!/bin/bash
 
+# Parse arguments
+VERBOSE_FORMAT=false
+if [ "$1" == "--verbose" ] || [ "$1" == "-v" ]; then
+  VERBOSE_FORMAT=true
+fi
+
 # Check Beads initialized
 if [ ! -f .beads/issues.jsonl ]; then
   echo "No Beads database found - Orchestrator hasn't spawned agents yet"
@@ -146,14 +171,50 @@ if [ ! -f .beads/issues.jsonl ]; then
   exit 0
 fi
 
-# Query agent tasks
+# Get agent tasks
+ACTIVE=$(bd list --status in_progress --json 2>/dev/null | jq '.[] | select(.title | startswith("Agent:"))' 2>/dev/null)
+ACTIVE_COUNT=$(echo "$ACTIVE" | jq -s 'length' 2>/dev/null || echo "0")
+
+COMPLETED=$(bd list --status closed --json 2>/dev/null | jq '.[] | select(.title | startswith("Agent:"))' 2>/dev/null)
+COMPLETED_COUNT=$(echo "$COMPLETED" | jq -s 'length' 2>/dev/null || echo "0")
+
+BLOCKED=$(bd list --status blocked --json 2>/dev/null | jq '.[] | select(.title | startswith("Agent:"))' 2>/dev/null)
+BLOCKED_COUNT=$(echo "$BLOCKED" | jq -s 'length' 2>/dev/null || echo "0")
+
+AVAILABLE=$((5 - ACTIVE_COUNT))
+
+# Compact format output (default)
+if [ "$VERBOSE_FORMAT" != true ]; then
+  echo "STATUS      BEADS-ID      INTERNAL-ID                             DESCRIPTION"
+  echo "----------  ------------  --------------------------------------  -----------"
+
+  # Show running agents
+  if [ "$ACTIVE_COUNT" -gt 0 ]; then
+    echo "$ACTIVE" | jq -r '"RUNNING     \(.id)            \(.assignee // "none")                                \(.title[:50])"'
+  fi
+
+  # Show completed agents
+  if [ "$COMPLETED_COUNT" -gt 0 ]; then
+    echo "$COMPLETED" | jq -r '"COMPLETED   \(.id)            \(.assignee // "none")                                \(.title[:50])"'
+  fi
+
+  # Show blocked agents
+  if [ "$BLOCKED_COUNT" -gt 0 ]; then
+    echo "$BLOCKED" | jq -r '"BLOCKED     \(.id)            \(.assignee // "none")                                \(.title[:50])"'
+  fi
+
+  # Show message if no agents
+  if [ "$((ACTIVE_COUNT + COMPLETED_COUNT + BLOCKED_COUNT))" -eq 0 ]; then
+    echo "No agents found"
+  fi
+
+  exit 0
+fi
+
+# Verbose format output
 echo "AI-Pack Agent Status (via Beads)"
 echo "=================================="
 echo ""
-
-# Get active agents
-ACTIVE=$(bd list --status in_progress --json 2>/dev/null | jq '.[] | select(.title | startswith("Agent:"))' 2>/dev/null)
-ACTIVE_COUNT=$(echo "$ACTIVE" | jq -s 'length' 2>/dev/null || echo "0")
 
 echo "Active Agents: $ACTIVE_COUNT / 5 maximum"
 echo ""
@@ -167,9 +228,6 @@ if [ "$ACTIVE_COUNT" -gt 0 ]; then
 fi
 
 # Show completed agents
-COMPLETED=$(bd list --status closed --json 2>/dev/null | jq '.[] | select(.title | startswith("Agent:"))' 2>/dev/null)
-COMPLETED_COUNT=$(echo "$COMPLETED" | jq -s 'length' 2>/dev/null || echo "0")
-
 if [ "$COMPLETED_COUNT" -gt 0 ]; then
   echo "Completed: $COMPLETED_COUNT"
   echo "$COMPLETED" | jq -r '  "  - \(.id): \(.title) (\(.assignee))"'
@@ -177,9 +235,6 @@ if [ "$COMPLETED_COUNT" -gt 0 ]; then
 fi
 
 # Show blocked agents
-BLOCKED=$(bd list --status blocked --json 2>/dev/null | jq '.[] | select(.title | startswith("Agent:"))' 2>/dev/null)
-BLOCKED_COUNT=$(echo "$BLOCKED" | jq -s 'length' 2>/dev/null || echo "0")
-
 echo "Blocked: $BLOCKED_COUNT"
 if [ "$BLOCKED_COUNT" -gt 0 ]; then
   echo "$BLOCKED" | jq -r '  "  - \(.id): \(.title) - Reason: \(.blocked_reason)"'
@@ -187,8 +242,13 @@ fi
 echo ""
 
 # Calculate available capacity
-AVAILABLE=$((5 - ACTIVE_COUNT))
 echo "Available capacity: $AVAILABLE slots"
+echo ""
+echo "Shared Context Reminder:"
+echo "- All agents share the same source repository"
+echo "- Coordinate builds and test runs"
+echo "- No per-agent git branches"
+echo "- See: .ai-pack/gates/25-execution-strategy.md"
 ```
 
 ## Detailed Query Examples
@@ -203,6 +263,12 @@ bd list --json | jq '.[] | select(.title | startswith("Agent:"))'
 
 ```bash
 bd list --status in_progress --assignee "Engineer-*"
+```
+
+**Quick compact format (status + IDs + title):**
+
+```bash
+bd list --json | jq -r '.[] | select(.title | startswith("Agent:")) | "\(.status | ascii_upcase)  \(.id)  \(.title)"'
 ```
 
 **Show with formatted output:**
@@ -224,6 +290,7 @@ bd show bd-a1b2
 
 ## Related Commands
 
+- `/ai-pack agents --verbose` - Full details with role and timestamps
 - `/ai-pack task-status` - Overall task progress
 - `/ai-pack orchestrate` - Spawn agents for complex tasks
 - `bd list --assignee "Engineer-*"` - Direct Beads query
