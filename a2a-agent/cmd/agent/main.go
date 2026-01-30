@@ -422,14 +422,23 @@ func handleResults(args []string) {
 	}
 
 	beadsTaskID := args[0]
-	internalTaskID := findInternalTaskID(beadsTaskID)
+
+	// Try to find task ID and project root by querying server first (for cross-project tasks)
+	internalTaskID, projectRoot := findTaskIDAndProjectFromServer(beadsTaskID)
+
+	// Fallback: Look up internal task ID from local filesystem
+	if internalTaskID == "" {
+		internalTaskID = findInternalTaskID(beadsTaskID)
+		projectRoot = "." // Current directory
+	}
+
 	if internalTaskID == "" {
 		fmt.Printf(errNoAgentForBeadsTask, beadsTaskID)
 		fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", beadsTaskID)
 		os.Exit(1)
 	}
 
-	resultsFile := filepath.Join(".beads", "tasks", internalTaskID, "30-results.md")
+	resultsFile := filepath.Join(projectRoot, ".beads", "tasks", internalTaskID, "30-results.md")
 	data, err := os.ReadFile(resultsFile)
 	if err != nil {
 		fmt.Printf("❌ No results found: %v\n", err)
@@ -488,14 +497,24 @@ func handleLogs(args []string) {
 	}
 
 	beadsTaskID := positionalArgs[0]
-	internalTaskID := findInternalTaskID(beadsTaskID)
+
+	// Try to find task ID and project root by querying server first (for cross-project tasks)
+	internalTaskID, projectRoot := findTaskIDAndProjectFromServer(beadsTaskID)
+
+	// Fallback: Look up internal task ID from local filesystem
+	if internalTaskID == "" {
+		internalTaskID = findInternalTaskID(beadsTaskID)
+		projectRoot = "." // Current directory
+	}
+
 	if internalTaskID == "" {
 		fmt.Printf(errNoAgentForBeadsTask, beadsTaskID)
 		fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", beadsTaskID)
 		os.Exit(1)
 	}
 
-	logFile := filepath.Join(".beads", "tasks", internalTaskID, "execution.log")
+	// Construct log file path using project root
+	logFile := filepath.Join(projectRoot, ".beads", "tasks", internalTaskID, "execution.log")
 
 	if *follow {
 		followLogFile(logFile, *jsonOutput)
@@ -537,10 +556,13 @@ func followLogFile(logFile string, jsonOutput bool) {
 
 	if !jsonOutput {
 		fmt.Println(string(initialData))
+		fmt.Println()
+		fmt.Println("📡 Following log file (Ctrl+C to stop)...")
 	}
 
 	// Follow new lines
 	lastSize := int64(len(initialData))
+	noChangeCount := 0
 
 	for {
 		time.Sleep(1 * time.Second)
@@ -573,6 +595,26 @@ func followLogFile(logFile string, jsonOutput bool) {
 			}
 
 			lastSize = stat.Size()
+			noChangeCount = 0
+
+			// Check if log contains completion marker
+			logContent := string(newData)
+			if strings.Contains(logContent, "✅ Agent completed") ||
+				strings.Contains(logContent, "🎉 Task completed successfully") ||
+				strings.Contains(logContent, "❌ Task failed") {
+				if !jsonOutput {
+					fmt.Println()
+					fmt.Println("✓ Task completed, exiting follow mode")
+				}
+				return
+			}
+		} else {
+			noChangeCount++
+			// If no changes for 60 seconds, check if task still exists
+			if noChangeCount > 60 {
+				// Could query server here to check task status
+				noChangeCount = 0
+			}
 		}
 	}
 }
@@ -1276,8 +1318,13 @@ func truncateDescription(desc string, maxLen int) string {
 }
 
 func streamTaskProgress(beadsTaskID string) {
-	// Look up internal task ID from Beads task ID
-	internalTaskID := findInternalTaskID(beadsTaskID)
+	// Try to find task ID by querying server first (for cross-project tasks)
+	internalTaskID := findInternalTaskIDFromServer(beadsTaskID)
+
+	// Fallback: Look up internal task ID from local filesystem
+	if internalTaskID == "" {
+		internalTaskID = findInternalTaskID(beadsTaskID)
+	}
 	if internalTaskID == "" {
 		// Check if this is a Beads task that's already completed
 		if isValidBeadsTask(beadsTaskID) {
@@ -1468,15 +1515,20 @@ func waitForTaskCompletion(beadsTaskID string) {
 }
 
 func findInternalTaskIDFromServer(beadsTaskID string) string {
+	taskID, _ := findTaskIDAndProjectFromServer(beadsTaskID)
+	return taskID
+}
+
+func findTaskIDAndProjectFromServer(beadsTaskID string) (string, string) {
 	// Query server's /a2a/tasks endpoint for the beads task ID
 	resp, err := http.Get(fmt.Sprintf("%s/a2a/tasks", ServerURL))
 	if err != nil {
-		return "" // Server not available, will fallback to local search
+		return "", "" // Server not available, will fallback to local search
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return ""
+		return "", ""
 	}
 
 	body, _ := io.ReadAll(resp.Body)
@@ -1484,21 +1536,22 @@ func findInternalTaskIDFromServer(beadsTaskID string) string {
 		Tasks []struct {
 			TaskID      string `json:"task_id"`
 			BeadsTaskID string `json:"beads_task_id"`
+			ProjectRoot string `json:"project_root"`
 		} `json:"tasks"`
 	}
 
 	if err := json.Unmarshal(body, &result); err != nil {
-		return ""
+		return "", ""
 	}
 
 	// Find matching beads task ID
 	for _, task := range result.Tasks {
 		if task.BeadsTaskID == beadsTaskID {
-			return task.TaskID
+			return task.TaskID, task.ProjectRoot
 		}
 	}
 
-	return ""
+	return "", ""
 }
 
 func findInternalTaskID(beadsTaskID string) string {
