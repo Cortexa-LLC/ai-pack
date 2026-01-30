@@ -687,16 +687,172 @@ func fetchAllLogs(tailLines int, jsonOutput bool) {
 	}
 }
 
+func handleListServer(running, completed, failed, all, jsonOutput, verboseOutput *bool) {
+	// Determine if we should show only active tasks
+	showOnlyActive := !*running && !*completed && !*failed && !*all
+	resp, err := http.Get(fmt.Sprintf("%s/a2a/tasks", ServerURL))
+	if err != nil {
+		fmt.Printf("❌ Failed to query server: %v\n", err)
+		fmt.Printf("   Is the agent server running? (agent-server --server)\n")
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	var response struct {
+		Tasks []struct {
+			TaskID      string  `json:"task_id"`
+			BeadsTaskID string  `json:"beads_task_id"`
+			Status      string  `json:"status"`
+			Role        string  `json:"role"`
+			Description string  `json:"description"`
+			ProjectRoot string  `json:"project_root"`
+			Progress    float64 `json:"progress"`
+			Error       string  `json:"error"`
+		} `json:"tasks"`
+		Count int `json:"count"`
+	}
+
+	if err := json.Unmarshal(body, &response); err != nil {
+		fmt.Printf("❌ Failed to parse server response: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Filter tasks
+	var filteredTasks []struct {
+		TaskID      string
+		BeadsTaskID string
+		Status      string
+		Role        string
+		Description string
+		ProjectRoot string
+	}
+
+	for _, task := range response.Tasks {
+		// Apply filters
+		if showOnlyActive {
+			// Default: show only active work (running, queued, in_progress)
+			if task.Status == "completed" || task.Status == "failed" {
+				continue
+			}
+		} else {
+			// Specific filters
+			if *running && task.Status != "in_progress" {
+				continue
+			}
+			if *completed && task.Status != "completed" {
+				continue
+			}
+			if *failed && task.Status != "failed" {
+				continue
+			}
+			// If --all, show everything (no filtering)
+		}
+
+		filteredTasks = append(filteredTasks, struct {
+			TaskID      string
+			BeadsTaskID string
+			Status      string
+			Role        string
+			Description string
+			ProjectRoot string
+		}{
+			TaskID:      task.TaskID,
+			BeadsTaskID: task.BeadsTaskID,
+			Status:      task.Status,
+			Role:        task.Role,
+			Description: task.Description,
+			ProjectRoot: task.ProjectRoot,
+		})
+	}
+
+	// Output
+	if *jsonOutput {
+		jsonData, _ := json.MarshalIndent(filteredTasks, "", "  ")
+		fmt.Println(string(jsonData))
+		return
+	}
+
+	if *verboseOutput {
+		fmt.Println("Machine-Wide Agent Status (from server):")
+		fmt.Println()
+		for _, task := range filteredTasks {
+			fmt.Printf("  %s [%s]\n", task.TaskID, task.Status)
+			if task.BeadsTaskID != "" {
+				fmt.Printf("    Beads ID: %s\n", task.BeadsTaskID)
+			}
+			fmt.Printf("    Role: %s\n", task.Role)
+			fmt.Printf("    Project: %s\n", task.ProjectRoot)
+			fmt.Printf("    Task: %s\n", task.Description)
+			fmt.Println()
+		}
+		return
+	}
+
+	// Compact format (default)
+	if len(filteredTasks) > 0 {
+		fmt.Println("STATUS      BEADS-ID      INTERNAL-ID                             DESCRIPTION")
+		fmt.Println("----------  ------------  --------------------------------------  -----------")
+	}
+
+	for _, task := range filteredTasks {
+		statusText := ""
+		switch task.Status {
+		case "in_progress":
+			statusText = "RUNNING"
+		case "completed":
+			statusText = "COMPLETED"
+		case "failed":
+			statusText = "FAILED"
+		default:
+			statusText = task.Status
+		}
+
+		description := task.Description
+		if len(description) > 50 {
+			description = description[:47] + "..."
+		}
+
+		beadsID := task.BeadsTaskID
+		if beadsID == "" {
+			beadsID = "(none)"
+		}
+
+		internalID := task.TaskID
+		if len(internalID) > 38 {
+			internalID = internalID[:35] + "..."
+		}
+
+		fmt.Printf("%-10s  %-12s  %-38s  %s\n", statusText, beadsID, internalID, description)
+	}
+
+	if len(filteredTasks) == 0 {
+		fmt.Println("No agents found")
+	}
+}
+
 func handleList(args []string) {
 	fs := flag.NewFlagSet("list", flag.ExitOnError)
 	running := fs.Bool("running", false, "Show only running agents")
 	completed := fs.Bool("completed", false, "Show only completed agents")
 	failed := fs.Bool("failed", false, "Show only failed agents")
+	all := fs.Bool("all", false, "Show all agents (including completed/failed)")
 	jsonOutput := fs.Bool("json", false, descOutputAsJSON)
 	verboseOutput := fs.Bool("verbose", false, "Verbose output (show role and full details)")
+	serverQuery := fs.Bool("server", false, "Query server for machine-wide tasks (default: local project only)")
 	fs.Parse(args)
 
-	// List .beads/tasks/task-* directories
+	// Determine if we should show only active tasks
+	showOnlyActive := !*running && !*completed && !*failed && !*all
+
+	// If --server flag, query the API for machine-wide view
+	if *serverQuery {
+		handleListServer(running, completed, failed, all, jsonOutput, verboseOutput)
+		return
+	}
+
+	// Otherwise, list local .beads/tasks/task-* directories (project-specific)
 	matches, _ := filepath.Glob(".beads/tasks/task-*")
 
 	type AgentInfo struct {
@@ -722,24 +878,45 @@ func handleList(args []string) {
 		status, _ := meta["status"].(string)
 
 		// Filter by status
-		if *running && status != "in_progress" {
-			continue
-		}
-		if *completed && status != "completed" {
-			continue
-		}
-		if *failed && status != "failed" {
-			continue
+		if showOnlyActive {
+			// Default: show only active work (running, queued, in_progress)
+			// Hide completed and failed
+			if status == "completed" || status == "failed" {
+				continue
+			}
+		} else {
+			// Specific filters
+			if *running && status != "in_progress" {
+				continue
+			}
+			if *completed && status != "completed" {
+				continue
+			}
+			if *failed && status != "failed" {
+				continue
+			}
+			// If --all, show everything (no filtering)
 		}
 
 		taskID := filepath.Base(taskDir)
 		role, _ := meta["role"].(string)
 		description := fmt.Sprintf("%v", meta["description"])
 		beadsTaskID := ""
-		if config, ok := meta["config"].(map[string]interface{}); ok {
-			if md, ok := config["metadata"].(map[string]interface{}); ok {
-				if btid, ok := md["beads_task_id"].(string); ok {
-					beadsTaskID = btid
+
+		// Check metadata at root level (new location)
+		if metadata, ok := meta["metadata"].(map[string]interface{}); ok {
+			if btid, ok := metadata["beads_task_id"].(string); ok {
+				beadsTaskID = btid
+			}
+		}
+
+		// Fallback: check old location for backward compatibility
+		if beadsTaskID == "" {
+			if config, ok := meta["config"].(map[string]interface{}); ok {
+				if md, ok := config["metadata"].(map[string]interface{}); ok {
+					if btid, ok := md["beads_task_id"].(string); ok {
+						beadsTaskID = btid
+					}
 				}
 			}
 		}
@@ -773,32 +950,47 @@ func handleList(args []string) {
 			fmt.Println()
 		}
 	} else {
-		// Compact format (default): ID, status icon, and description
+		// Compact format (default): Status, Beads ID, Internal ID, and description
+		if len(agents) > 0 {
+			fmt.Println("STATUS      BEADS-ID      INTERNAL-ID                             DESCRIPTION")
+			fmt.Println("----------  ------------  --------------------------------------  -----------")
+		}
+
 		for _, agent := range agents {
-			// Show Beads task ID as primary identifier
-			displayID := agent.BeadsTaskID
-			if displayID == "" {
-				displayID = agent.TaskID // Fallback to internal ID if no Beads task
+			// Format status with text
+			statusText := ""
+			switch agent.Status {
+			case "in_progress":
+				statusText = "RUNNING"
+			case "completed":
+				statusText = "COMPLETED"
+			case "failed":
+				statusText = "FAILED"
+			default:
+				statusText = agent.Status
 			}
 
 			// Truncate long descriptions
 			description := agent.Description
-			if len(description) > 60 {
-				description = description[:57] + "..."
+			if len(description) > 50 {
+				description = description[:47] + "..."
 			}
 
-			// Format status
-			statusIcon := "•"
-			switch agent.Status {
-			case "in_progress":
-				statusIcon = "▶"
-			case "completed":
-				statusIcon = "✓"
-			case "failed":
-				statusIcon = "✗"
+			// Show both IDs
+			beadsID := agent.BeadsTaskID
+			if beadsID == "" {
+				beadsID = "(none)"
+			}
+			internalID := agent.TaskID
+			if len(internalID) > 38 {
+				internalID = internalID[:35] + "..."
 			}
 
-			fmt.Printf("%s %-12s  %s\n", statusIcon, displayID, description)
+			fmt.Printf("%-10s  %-12s  %-38s  %s\n", statusText, beadsID, internalID, description)
+		}
+
+		if len(agents) == 0 {
+			fmt.Println("No agents found")
 		}
 	}
 }
@@ -1382,7 +1574,7 @@ func usage() {
 	fmt.Println("  agent results <task-id>                             Show agent results")
 	fmt.Println("  agent logs <task-id> [--tail N] [--follow] [--json] Show agent logs")
 	fmt.Println("  agent logs --server [--tail N] [--follow] [--json]  Show server logs")
-	fmt.Println("  agent list [--running|--completed|--failed] [--verbose|--json] List agents")
+	fmt.Println("  agent list [--all|--running|--completed|--failed] [--verbose|--json|--server] List agents")
 	fmt.Println("  agent wait <task-id>                                Wait for completion")
 	fmt.Println("  agent diff <task-id>                                Show git diff")
 	fmt.Println("  agent files <task-id>                               List modified files")
@@ -1411,8 +1603,14 @@ func usage() {
 	fmt.Println("  # Follow server logs in real-time")
 	fmt.Println("  agent logs --server --follow")
 	fmt.Println()
-	fmt.Println("  # List agents (compact view with status icons)")
+	fmt.Println("  # List active agents (default: running + queued only)")
 	fmt.Println("  agent list")
+	fmt.Println()
+	fmt.Println("  # List all agents including completed/failed")
+	fmt.Println("  agent list --all")
+	fmt.Println()
+	fmt.Println("  # List all agents machine-wide (query server)")
+	fmt.Println("  agent list --server")
 	fmt.Println()
 	fmt.Println("  # List with full details")
 	fmt.Println("  agent list --verbose")
