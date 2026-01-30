@@ -105,7 +105,7 @@ type AgentConfig struct {
 	SuccessCriteria  []string               `yaml:"success_criteria"`
 	Metadata         map[string]interface{} `yaml:"metadata"`          // Changed from map[string]string to support arrays
 	ExtendedThinking bool                   `yaml:"extended_thinking"` // Enable extended thinking mode
-	MaxTurns         int                    `yaml:"max_turns"`         // Max agentic turns (default 25)
+	MaxTurns         int                    `yaml:"max_turns"`         // Deprecated: No turn limit, only max_inactive stops execution
 }
 
 func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model string, cfg *config.Config) (*AgentServer, error) {
@@ -716,20 +716,12 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 		anthropic.NewUserMessage(anthropic.NewTextBlock(initialPrompt)),
 	}
 
-	// Determine max turns - set high, agent decides when it's done
-	maxTurns := config.MaxTurns
-	if maxTurns == 0 {
-		maxTurns = 100 // High safety limit, agent should complete naturally
-	}
-
-	logMsg(fmt.Sprintf("🔄 Starting agentic loop (max_turns: %d, max_inactive: %d, caching: enabled, extended_thinking: %v)",
-		maxTurns, s.maxInactiveTurns, config.ExtendedThinking))
+	logMsg(fmt.Sprintf("🔄 Starting agentic loop (max_inactive: %d, caching: enabled, extended_thinking: %v)",
+		s.maxInactiveTurns, config.ExtendedThinking))
 
 	var finalResult strings.Builder
 	totalInputTokens := int64(0)
 	totalOutputTokens := int64(0)
-
-	completedNormally := false
 
 	// Progress tracking for turn counter reset
 	turn := 1
@@ -737,7 +729,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 	lastTextLength := 0
 	lastToolPattern := ""
 
-	for turn <= maxTurns {
+	for {
 		logMsg(fmt.Sprintf("   Turn %d (inactive: %d)...", turn, inactiveTurns))
 
 		// Truncate conversation history to prevent quadratic token growth
@@ -830,7 +822,6 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 			if hasText {
 				logMsg(fmt.Sprintf("✅ Agent completed in %d turns", turn))
 				logMsg(fmt.Sprintf("   Total tokens: %d (in:%d out:%d)", totalInputTokens+totalOutputTokens, totalInputTokens, totalOutputTokens))
-				completedNormally = true
 				break
 			}
 			return "", fmt.Errorf("no output from agent on turn %d", turn)
@@ -917,12 +908,6 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 
 		// Increment turn counter
 		turn++
-	}
-
-	// If we reach here, we hit the turn limit (safety net)
-	if !completedNormally {
-		logMsg(fmt.Sprintf("⚠️  Agent hit turn limit (%d) - returning current state", maxTurns))
-		// Return what we have - don't fail the task, let the output speak for itself
 	}
 
 	monitoring.GlobalMetrics.IncrementAPICallsSuccess()
