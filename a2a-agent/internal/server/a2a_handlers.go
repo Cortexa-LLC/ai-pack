@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -124,8 +125,15 @@ func (s *AgentServer) handleA2AExecute(w http.ResponseWriter, r *http.Request) {
 	s.sendJSONRPCResponse(w, response)
 }
 
-// handleA2AStatus handles the /a2a/status endpoint (JSON-RPC)
+// handleA2AStatus handles the /a2a/status endpoint (supports both GET and POST)
 func (s *AgentServer) handleA2AStatus(w http.ResponseWriter, r *http.Request) {
+	// GET /a2a/status/:task_id - simple JSON response
+	if r.Method == http.MethodGet {
+		s.handleStatusGET(w, r)
+		return
+	}
+
+	// POST /a2a/status - JSON-RPC format
 	if r.Method != http.MethodPost {
 		http.Error(w, "errMethodNotAllowed", http.StatusMethodNotAllowed)
 		return
@@ -310,4 +318,76 @@ func (s *AgentServer) sendJSONRPCResponse(w http.ResponseWriter, response *proto
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		monitoring.Logger.Error("jsonrpc_response_encode_error", "error", err)
 	}
+}
+
+// handleStatusGET handles GET /a2a/status/:task_id (simple REST endpoint)
+func (s *AgentServer) handleStatusGET(w http.ResponseWriter, r *http.Request) {
+	// Extract task ID from path: /a2a/status/:task_id
+	path := strings.TrimPrefix(r.URL.Path, "/a2a/status/")
+	taskID := path
+
+	if taskID == "" || taskID == "/a2a/status" {
+		http.Error(w, "Task ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Get task status
+	status, err := s.getTaskStatus(taskID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Task not found: %s", taskID), http.StatusNotFound)
+		return
+	}
+
+	// Return simple JSON response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(status)
+}
+
+// HandleTasksList returns all active tasks machine-wide
+func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Build list of all tasks
+	type TaskInfo struct {
+		TaskID        string `json:"task_id"`
+		BeadsTaskID   string `json:"beads_task_id,omitempty"`
+		Status        string `json:"status"`
+		Role          string `json:"role"`
+		Description   string `json:"description"`
+		ProjectRoot   string `json:"project_root,omitempty"`
+		Progress      float64 `json:"progress"`
+		Error         string `json:"error,omitempty"`
+	}
+
+	var tasks []TaskInfo
+	for _, execution := range s.activeTasks {
+		task := TaskInfo{
+			TaskID:      execution.TaskID,
+			Status:      execution.Status,
+			Role:        execution.Role,
+			Description: execution.Task, // Task field contains the description
+			Progress:    execution.Progress,
+			Error:       execution.Error,
+			ProjectRoot: execution.ProjectRoot,
+		}
+
+		// Extract beads_task_id from execution.metadata (map[string]string)
+		if beadsID, ok := execution.metadata["beads_task_id"]; ok {
+			task.BeadsTaskID = beadsID
+		}
+
+		tasks = append(tasks, task)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"tasks": tasks,
+		"count": len(tasks),
+	})
 }
