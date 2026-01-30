@@ -560,19 +560,37 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 	createdAt, _ := time.Parse(time.RFC3339, metadata["spawned_at"].(string))
 	updatedAt, _ := time.Parse(time.RFC3339, metadata["updated_at"].(string))
 
+	// Extract status with fallback for older tasks
+	status := "unknown"
+	if s, ok := metadata["status"].(string); ok {
+		status = s
+	}
+
+	// Extract role with fallback
+	role := "unknown"
+	if r, ok := metadata["role"].(string); ok {
+		role = r
+	}
+
+	// Extract description with fallback
+	description := ""
+	if d, ok := metadata["description"].(string); ok {
+		description = d
+	}
+
 	response := &protocol.TaskStatusResponse{
 		TaskID:    taskID,
-		Role:      metadata["role"].(string),
-		Task:      metadata["description"].(string),
-		Status:    metadata["status"].(string),
+		Role:      role,
+		Task:      description,
+		Status:    status,
 		CreatedAt: createdAt,
 		UpdatedAt: updatedAt,
 		Result:    result,
 		Metadata:  metadata,
 	}
 
-	if metadata["error"] != nil {
-		response.Error = metadata["error"].(string)
+	if errorMsg, ok := metadata["error"].(string); ok {
+		response.Error = errorMsg
 	}
 
 	return response, nil
