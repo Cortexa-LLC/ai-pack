@@ -51,6 +51,8 @@ func main() {
 		handleMetrics(os.Args[2:])
 	case "performance", "perf":
 		handlePerformance(os.Args[2:])
+	case "discovery", "discover":
+		handleDiscovery(os.Args[2:])
 	case "version", "--version", "-v":
 		fmt.Printf("AI-Pack Agent CLI v%s\n", Version)
 	case "help", "--help", "-h":
@@ -1296,6 +1298,168 @@ func humanizeNumber(n int64) string {
 	return result
 }
 
+func handleDiscovery(args []string) {
+	// Parse flags
+	fs := flag.NewFlagSet("discovery", flag.ExitOnError)
+	jsonOutput := fs.Bool("json", false, "Output as JSON")
+	verboseOutput := fs.Bool("verbose", false, "Show detailed information")
+	fs.Usage = func() {
+		fmt.Println("Usage: agent discovery [options]")
+		fmt.Println()
+		fmt.Println("Options:")
+		fs.PrintDefaults()
+	}
+	fs.Parse(args)
+
+	resp, err := http.Get(fmt.Sprintf("%s/a2a/discovery", ServerURL))
+	if err != nil {
+		fmt.Printf("❌ Failed to connect to server: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	if *jsonOutput {
+		fmt.Println(string(body))
+		return
+	}
+
+	var discovery map[string]interface{}
+	if err := json.Unmarshal(body, &discovery); err != nil {
+		fmt.Printf("❌ Failed to parse discovery response: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Display discovery info
+	fmt.Println("======================================================================")
+	fmt.Println("AI-PACK AGENT SERVER DISCOVERY")
+	fmt.Println("======================================================================")
+	fmt.Println()
+
+	// Server info
+	fmt.Printf("Server: %s\n", discovery["name"])
+	fmt.Printf("Version: %s\n", discovery["version"])
+	if desc, ok := discovery["description"].(string); ok {
+		fmt.Printf("Description: %s\n", desc)
+	}
+	fmt.Println()
+
+	// Capabilities
+	if caps, ok := discovery["capabilities"].(map[string]interface{}); ok {
+		fmt.Println("🎯 CAPABILITIES")
+		fmt.Println("----------------------------------------------------------------------")
+		if streaming, ok := caps["streaming"].(bool); ok && streaming {
+			fmt.Println("  ✓ SSE Streaming")
+		}
+		if parallel, ok := caps["parallel"].(bool); ok && parallel {
+			fmt.Println("  ✓ Parallel Execution")
+		}
+		if maxConcurrent, ok := caps["max_concurrent"].(float64); ok {
+			fmt.Printf("  ✓ Max Concurrent: %.0f agents\n", maxConcurrent)
+		}
+		if models, ok := caps["supported_models"].([]interface{}); ok && len(models) > 0 {
+			fmt.Printf("  ✓ Supported Models: ")
+			for i, model := range models {
+				if i > 0 {
+					fmt.Print(", ")
+				}
+				fmt.Print(model)
+			}
+			fmt.Println()
+		}
+		fmt.Println()
+	}
+
+	// Available agents
+	if agents, ok := discovery["agents"].([]interface{}); ok {
+		fmt.Printf("🤖 AVAILABLE AGENTS (%d)\n", len(agents))
+		fmt.Println("----------------------------------------------------------------------")
+		for _, agent := range agents {
+			if agentMap, ok := agent.(map[string]interface{}); ok {
+				role, _ := agentMap["role"].(string)
+				description, _ := agentMap["description"].(string)
+
+				fmt.Printf("\n  • %s\n", role)
+				if description != "" {
+					// Wrap description at 68 chars for readability
+					wrapped := wrapText(description, 68, "    ")
+					fmt.Print(wrapped)
+				}
+
+				if *verboseOutput {
+					if tools, ok := agentMap["tools"].([]interface{}); ok && len(tools) > 0 {
+						fmt.Print("    Tools: ")
+						for i, tool := range tools {
+							if i > 0 {
+								fmt.Print(", ")
+							}
+							fmt.Print(tool)
+						}
+						fmt.Println()
+					}
+					if timeout, ok := agentMap["timeout"].(string); ok && timeout != "" {
+						fmt.Printf("    Timeout: %s\n", timeout)
+					}
+				}
+			}
+		}
+		fmt.Println()
+	}
+
+	// Endpoints
+	if endpoints, ok := discovery["endpoints"].(map[string]interface{}); ok {
+		fmt.Printf("📡 ENDPOINTS (%d)\n", len(endpoints))
+		fmt.Println("----------------------------------------------------------------------")
+		for name, endpoint := range endpoints {
+			if ep, ok := endpoint.(map[string]interface{}); ok {
+				path, _ := ep["path"].(string)
+				method, _ := ep["method"].(string)
+				desc, _ := ep["description"].(string)
+
+				fmt.Printf("\n  %s\n", name)
+				fmt.Printf("    Path: %s\n", path)
+				fmt.Printf("    Method: %s\n", method)
+				if desc != "" {
+					fmt.Printf("    Description: %s\n", desc)
+				}
+			}
+		}
+		fmt.Println()
+	}
+
+	fmt.Println("======================================================================")
+}
+
+func wrapText(text string, width int, indent string) string {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return indent + "\n"
+	}
+
+	var result strings.Builder
+	result.WriteString(indent)
+	lineLen := 0
+
+	for i, word := range words {
+		wordLen := len(word)
+		if i > 0 {
+			if lineLen+wordLen+1 > width {
+				result.WriteString("\n" + indent)
+				lineLen = 0
+			} else {
+				result.WriteString(" ")
+				lineLen++
+			}
+		}
+		result.WriteString(word)
+		lineLen += wordLen
+	}
+	result.WriteString("\n")
+
+	return result.String()
+}
+
 func min(a, b int) int {
 	if a < b {
 		return a
@@ -1681,6 +1845,7 @@ func usage() {
 	fmt.Println("  agent files <task-id>                               List modified files")
 	fmt.Println("  agent metrics                                       Show server metrics")
 	fmt.Println("  agent performance                                   Performance report with token usage")
+	fmt.Println("  agent discovery [--verbose] [--json]                Show server capabilities and available agents")
 	fmt.Println("  agent version                                       Show version")
 	fmt.Println()
 	fmt.Println("Examples:")
