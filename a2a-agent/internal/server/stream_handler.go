@@ -56,14 +56,14 @@ func (s *AgentServer) handleStream(w http.ResponseWriter, r *http.Request) {
 
 	// Stream events from channel
 	for event := range execution.streamChan {
-		eventData, err := json.Marshal(event.Data)
+		// Marshal the entire event structure (type, timestamp, data)
+		eventData, err := json.Marshal(event)
 		if err != nil {
 			monitoring.Logger.Error("event_marshal_error", "task_id", taskID, "error", err)
 			continue
 		}
 
-		// Send SSE event
-		fmt.Fprintf(w, "event: %s\n", event.Type)
+		// Send SSE event (using generic "message" event type, data contains full event)
 		fmt.Fprintf(w, "data: %s\n\n", eventData)
 		flusher.Flush()
 	}
