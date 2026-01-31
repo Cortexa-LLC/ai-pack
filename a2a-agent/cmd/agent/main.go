@@ -456,6 +456,18 @@ func handleResults(args []string) {
 }
 
 func handleLogs(args []string) {
+	// Manually reorder args to put flags first (Go's flag package requires this)
+	var flags []string
+	var positional []string
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "-") {
+			flags = append(flags, arg)
+		} else {
+			positional = append(positional, arg)
+		}
+	}
+	reorderedArgs := append(flags, positional...)
+
 	// Parse flags
 	fs := flag.NewFlagSet("logs", flag.ExitOnError)
 	tailLines := fs.Int("tail", 0, "Show last N lines")
@@ -473,7 +485,7 @@ func handleLogs(args []string) {
 		fs.PrintDefaults()
 	}
 
-	fs.Parse(args)
+	fs.Parse(reorderedArgs)
 	positionalArgs := fs.Args()
 
 	// Server logs
@@ -563,6 +575,21 @@ func followLogFile(logFile string, jsonOutput bool) {
 
 	if !jsonOutput {
 		fmt.Println(string(initialData))
+	}
+
+	// Check if initial content contains completion markers
+	initialContent := string(initialData)
+	if strings.Contains(initialContent, "✅ Agent completed") ||
+		strings.Contains(initialContent, "🎉 Task completed successfully") ||
+		strings.Contains(initialContent, "❌ Task failed") {
+		if !jsonOutput {
+			fmt.Println()
+			fmt.Println("✓ Task already completed")
+		}
+		return
+	}
+
+	if !jsonOutput {
 		fmt.Println()
 		fmt.Println("📡 Following log file (Ctrl+C to stop)...")
 	}
