@@ -734,7 +734,8 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 
 		// Truncate conversation history to prevent quadratic token growth
 		// Keep first message (initial prompt) + last N turns
-		const maxHistoryTurns = 10
+		// With prompt caching enabled, we can afford more history (cached tokens are 10x cheaper)
+		const maxHistoryTurns = 25
 		const messagesPerTurn = 2 // Each turn: assistant message + user tool results
 
 		truncatedMessages := messages
