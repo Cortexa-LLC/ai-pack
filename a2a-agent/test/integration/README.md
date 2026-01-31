@@ -83,6 +83,10 @@ Tests capability discovery:
 
 2. **Set environment variables:**
    ```bash
+   # For direct API authentication:
+   export ANTHROPIC_API_KEY=your-api-key-here
+
+   # OR for corporate proxy authentication:
    export ANTHROPIC_API_TOKEN=your-token-here
    ```
 

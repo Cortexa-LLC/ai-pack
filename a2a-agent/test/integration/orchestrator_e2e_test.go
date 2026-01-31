@@ -11,11 +11,19 @@ import (
 	"time"
 )
 
-const (
+var (
 	serverURL     = "http://localhost:8888"
-	testServerCmd = "../../bin/agent-server"
-	testAgentCmd  = "../../bin/agent"
+	testServerCmd = getProjectRoot() + "/bin/agent-server"
+	testAgentCmd  = getProjectRoot() + "/bin/agent"
 )
+
+// getProjectRoot returns the absolute path to the project root
+func getProjectRoot() string {
+	// Get the absolute path of the current test file's directory
+	wd, _ := os.Getwd()
+	// From test/integration, go up two levels to project root
+	return filepath.Join(wd, "..", "..")
+}
 
 // TestE2EOrchestratorSpawnAndWait tests the full orchestrator workflow:
 // 1. Start agent-server
@@ -74,8 +82,8 @@ func TestE2EOrchestratorSpawnAndWait(t *testing.T) {
 				t.Fatalf("Wait command failed: %v", err)
 			}
 			t.Log("Agent completed successfully")
-		case <-time.After(30 * time.Second):
-			t.Fatal("Wait timed out after 30 seconds")
+		case <-time.After(3 * time.Minute):
+			t.Fatal("Wait timed out after 3 minutes")
 		}
 
 		// Verify status
@@ -166,8 +174,8 @@ func TestE2EOrchestratorParallelAgents(t *testing.T) {
 				} else {
 					t.Logf("Agent %s completed", task.id)
 				}
-			case <-time.After(30 * time.Second):
-				t.Logf("Wait timed out for %s", task.id)
+			case <-time.After(3 * time.Minute):
+				t.Logf("Wait timed out for %s after 3 minutes", task.id)
 			}
 		}
 	})
@@ -207,8 +215,8 @@ func TestE2EOrchestratorStreamMode(t *testing.T) {
 				t.Fatalf("Stream command failed: %v", err)
 			}
 			t.Log("Agent completed via stream")
-		case <-time.After(30 * time.Second):
-			t.Fatal("Stream timed out after 30 seconds")
+		case <-time.After(3 * time.Minute):
+			t.Fatal("Stream timed out after 3 minutes")
 		}
 
 		// Verify final status
@@ -422,13 +430,23 @@ func startAgentServer(t *testing.T, workDir string) *exec.Cmd {
 
 	cmd := exec.Command(testServerCmd, "--server", "--port", "8888")
 	cmd.Dir = workDir
-	cmd.Env = append(os.Environ(), "ANTHROPIC_API_TOKEN=test-token-for-e2e")
+	// Inherit environment (ANTHROPIC_API_KEY or ANTHROPIC_API_TOKEN)
+	cmd.Env = os.Environ()
+
+	// Capture output for debugging
+	logFile := filepath.Join(workDir, "server.log")
+	outFile, err := os.Create(logFile)
+	if err != nil {
+		t.Fatalf("Failed to create log file: %v", err)
+	}
+	cmd.Stdout = outFile
+	cmd.Stderr = outFile
 
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
 
-	t.Logf("Started agent-server (PID %d) in %s", cmd.Process.Pid, workDir)
+	t.Logf("Started agent-server (PID %d) in %s (logs: %s)", cmd.Process.Pid, workDir, logFile)
 	return cmd
 }
 
@@ -442,9 +460,10 @@ func stopAgentServer(cmd *exec.Cmd) {
 
 // Helper: Wait for server to be ready
 func waitForServer(t *testing.T, url string) {
-	for i := 0; i < 30; i++ {
-		time.Sleep(100 * time.Millisecond)
+	// Give server a moment to start binding to port
+	time.Sleep(500 * time.Millisecond)
 
+	for i := 0; i < 30; i++ {
 		checkCmd := exec.Command("curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", url+"/health")
 		output, _ := checkCmd.Output()
 
@@ -452,6 +471,8 @@ func waitForServer(t *testing.T, url string) {
 			t.Log("Server is ready")
 			return
 		}
+
+		time.Sleep(200 * time.Millisecond)
 	}
 	t.Fatal("Server did not become ready in time")
 }
