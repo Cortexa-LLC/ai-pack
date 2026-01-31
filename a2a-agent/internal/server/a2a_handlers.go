@@ -334,7 +334,14 @@ func (s *AgentServer) handleStatusGET(w http.ResponseWriter, r *http.Request) {
 	// Get task status
 	status, err := s.getTaskStatus(taskID)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Task not found: %s", taskID), http.StatusNotFound)
+		// Return JSON error response instead of plain text
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":   "task_not_found",
+			"message": fmt.Sprintf("Task not found: %s", taskID),
+			"task_id": taskID,
+		})
 		return
 	}
 
