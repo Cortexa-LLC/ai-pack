@@ -1,12 +1,9 @@
 package monitoring
 
 import (
-	"os"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/shirou/gopsutil/v3/process"
 )
 
 // Metrics collects server performance metrics
@@ -61,7 +58,6 @@ type Metrics struct {
 
 	// Server metrics
 	startTime time.Time
-	proc      *process.Process
 }
 
 // TurnTokenData tracks token usage for a single turn
@@ -86,7 +82,6 @@ var GlobalMetrics *Metrics
 
 // InitMetrics initializes the global metrics collector
 func InitMetrics() {
-	proc, _ := process.NewProcess(int32(os.Getpid()))
 	GlobalMetrics = &Metrics{
 		maxDurations:   1000, // Keep last 1000 task durations for stats
 		taskDurations:  make([]int64, 0, 1000),
@@ -95,7 +90,6 @@ func InitMetrics() {
 		maxTurnData:    1000, // Keep last 1000 turns for per-turn analysis
 		turnTokenData:  make([]TurnTokenData, 0, 1000),
 		startTime:      time.Now(),
-		proc:           proc,
 	}
 }
 
