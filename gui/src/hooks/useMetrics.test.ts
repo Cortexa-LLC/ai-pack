@@ -50,9 +50,6 @@ describe('useMetrics', () => {
           failed: 2,
         },
         performance: {
-          cpuUsage: 25.5,
-          memoryUsageMB: 512.0,
-          goroutines: 10,
           uptime: '2h30m',
         },
       },

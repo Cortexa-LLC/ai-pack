@@ -23,7 +23,6 @@ const METRICS_QUERY = `
         failed
       }
       performance {
-        cpuUsage
         uptime
       }
     }
@@ -52,9 +51,6 @@ export interface Metrics {
       failed: number;
     };
     performance: {
-      cpuUsage: number;
-      memoryUsageMB: number;
-      goroutines: number;
       uptime: string;
     };
   };
