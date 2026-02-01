@@ -12,6 +12,7 @@ import (
 // This allows GraphQL resolvers to interact with the agent server without circular dependencies
 type ServerInterface interface {
 	GetActiveTasks() map[string]*TaskInfo
+	GetAllTasks() map[string]*TaskInfo
 	GetTaskStatus(taskID string) (*TaskInfo, error)
 	SpawnAgent(role, task, projectRoot string) (*TaskInfo, error)
 	GetMetrics() *MetricsInfo
