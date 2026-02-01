@@ -81,7 +81,6 @@ func (r *queryResolver) Tasks(ctx context.Context) ([]*AgentTask, error) {
 			Role:        taskInfo.Role,
 			Task:        taskInfo.Task,
 			Status:      taskInfo.Status,
-			Progress:    taskInfo.Progress,
 			CreatedAt:   taskInfo.CreatedAt,
 			UpdatedAt:   taskInfo.UpdatedAt,
 			CompletedAt: taskInfo.CompletedAt,
@@ -155,7 +154,6 @@ func (r *queryResolver) Metrics(ctx context.Context) (*Metrics, error) {
 			Failed:  int(metricsInfo.APIFailed),
 		},
 		Performance: &Performance{
-			CPUUsage: metricsInfo.CPUUsage,
 			Uptime:   metricsInfo.Uptime,
 		},
 		TurnMetrics: &TurnMetrics{
