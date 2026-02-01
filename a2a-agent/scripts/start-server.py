@@ -138,7 +138,7 @@ def start_server(a2a_agent_dir):
     try:
         # Run the server (this will block until server stops)
         subprocess.run(
-            ['go', 'run', 'cmd/agent-server/main.go'],
+            ['go', 'run', 'cmd/agent-server/main.go', '--server'],
             cwd=a2a_agent_dir,
             check=True
         )
