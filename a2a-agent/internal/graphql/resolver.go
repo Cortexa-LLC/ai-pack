@@ -15,6 +15,7 @@ type ServerInterface interface {
 	GetAllTasks() map[string]*TaskInfo
 	GetTaskStatus(taskID string) (*TaskInfo, error)
 	SpawnAgent(role, task, projectRoot string) (*TaskInfo, error)
+	CancelTask(taskID string) error
 	GetMetrics() *MetricsInfo
 }
 
