@@ -368,7 +368,6 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 		Role          string `json:"role"`
 		Description   string `json:"description"`
 		ProjectRoot   string `json:"project_root,omitempty"`
-		Progress      float64 `json:"progress"`
 		Error         string `json:"error,omitempty"`
 	}
 
@@ -379,7 +378,6 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 			Status:      execution.Status,
 			Role:        execution.Role,
 			Description: execution.Task, // Task field contains the description
-			Progress:    execution.Progress,
 			Error:       execution.Error,
 			ProjectRoot: execution.ProjectRoot,
 		}

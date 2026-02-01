@@ -94,7 +94,6 @@ func (a *GraphQLAdapter) GetTaskStatus(taskID string) (*graphql.TaskInfo, error)
 		Role:      status.Role,
 		Task:      status.Task,
 		Status:    status.Status,
-		Progress:  0.0, // Not available in stored tasks
 		CreatedAt: status.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: status.UpdatedAt.Format(time.RFC3339),
 	}
@@ -170,7 +169,6 @@ func (a *GraphQLAdapter) GetMetrics() *graphql.MetricsInfo {
 		APISuccess:           snapshot.APICallsSuccess,
 		APIFailed:            snapshot.APICallsFailed,
 		AverageTokensPerTask: snapshot.AverageTokensPerTask,
-		CPUUsage:             snapshot.CPUUsage,
 		Uptime:               formatUptime(snapshot.Uptime),
 		MemoryUsageMB:        0.0, // Removed from display
 		Goroutines:           0,   // Removed from display
@@ -211,7 +209,6 @@ func convertToTaskInfo(execution *TaskExecution) *graphql.TaskInfo {
 		Role:      execution.Role,
 		Task:      execution.Task,
 		Status:    execution.Status,
-		Progress:  execution.Progress,
 		CreatedAt: execution.StartTime.Format(time.RFC3339),
 		UpdatedAt: time.Now().Format(time.RFC3339),
 		Metadata:  execution.metadata,
