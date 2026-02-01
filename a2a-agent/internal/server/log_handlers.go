@@ -1,10 +1,16 @@
 package server
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
@@ -96,4 +102,203 @@ func (s *AgentServer) HandleLogsRecent(w http.ResponseWriter, r *http.Request) {
 		"count": len(entries),
 		"limit": limit,
 	})
+}
+
+// HandleTaskLogs returns logs for a specific task
+func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract task ID from path: /a2a/tasks/:task_id/logs
+	path := strings.TrimPrefix(r.URL.Path, "/a2a/tasks/")
+	path = strings.TrimSuffix(path, "/logs")
+	taskID := path
+
+	if taskID == "" {
+		http.Error(w, "Task ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Try to find the task execution (internal task ID lookup)
+	s.mu.RLock()
+	execution, exists := s.activeTasks[taskID]
+
+	// If not found by internal ID, try to find by Beads ID
+	if !exists {
+		for _, exec := range s.activeTasks {
+			if beadsID, ok := exec.metadata["beads_task_id"]; ok && beadsID == taskID {
+				execution = exec
+				exists = true
+				break
+			}
+		}
+	}
+	s.mu.RUnlock()
+
+	// Determine the log file path
+	var logFile string
+	var projectRoot string
+
+	if exists {
+		// Active task - use execution info
+		projectRoot = execution.ProjectRoot
+		if projectRoot == "" {
+			projectRoot = s.rootDir
+		}
+		logFile = filepath.Join(projectRoot, ".beads", "tasks", execution.TaskID, "execution.log")
+	} else {
+		// Try loading task from disk
+		status, err := s.loadTaskStatusFromDisk(taskID)
+		if err != nil {
+			// Last resort: assume it's an internal task ID in the server's root directory
+			logFile = filepath.Join(s.rootDir, ".beads", "tasks", taskID, "execution.log")
+		} else {
+			// Use the task's project root if available
+			projectRoot = s.rootDir
+			logFile = filepath.Join(projectRoot, ".beads", "tasks", status.TaskID, "execution.log")
+		}
+	}
+
+	// Check if log file exists
+	if _, err := os.Stat(logFile); os.IsNotExist(err) {
+		http.Error(w, fmt.Sprintf("No logs found for task: %s", taskID), http.StatusNotFound)
+		return
+	}
+
+	// Check if streaming is requested
+	stream := r.URL.Query().Get("stream") == "true"
+
+	if stream {
+		s.streamTaskLogs(w, r, logFile, taskID)
+	} else {
+		s.serveTaskLogs(w, r, logFile)
+	}
+}
+
+// serveTaskLogs serves the complete log file as plain text
+func (s *AgentServer) serveTaskLogs(w http.ResponseWriter, r *http.Request, logFile string) {
+	// Read log file
+	data, err := os.ReadFile(logFile)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to read logs: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Set CORS headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+
+	// Return logs as plain text
+	w.Write(data)
+}
+
+// streamTaskLogs streams log file updates via SSE
+func (s *AgentServer) streamTaskLogs(w http.ResponseWriter, r *http.Request, logFile string, taskID string) {
+	// Set SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Get flusher
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+		return
+	}
+
+	// Send initial connection event
+	fmt.Fprintf(w, "event: connected\n")
+	fmt.Fprintf(w, "data: {\"message\":\"Log stream connected\",\"task_id\":\"%s\"}\n\n", taskID)
+	flusher.Flush()
+
+	// Read initial content
+	initialData, err := os.ReadFile(logFile)
+	if err != nil {
+		fmt.Fprintf(w, "event: error\n")
+		fmt.Fprintf(w, "data: {\"message\":\"Failed to read log file\"}\n\n")
+		flusher.Flush()
+		return
+	}
+
+	// Send initial log lines
+	scanner := bufio.NewScanner(strings.NewReader(string(initialData)))
+	for scanner.Scan() {
+		line := scanner.Text()
+		// Escape the line for JSON
+		escapedLine := strings.ReplaceAll(line, "\"", "\\\"")
+		escapedLine = strings.ReplaceAll(escapedLine, "\n", "\\n")
+		fmt.Fprintf(w, "event: log\n")
+		fmt.Fprintf(w, "data: {\"line\":\"%s\"}\n\n", escapedLine)
+		flusher.Flush()
+	}
+
+	// Check if task is already completed
+	content := string(initialData)
+	if strings.Contains(content, "✅ Agent completed") ||
+		strings.Contains(content, "🎉 Task completed successfully") ||
+		strings.Contains(content, "❌ Task failed") {
+		// Task is done, close the stream
+		fmt.Fprintf(w, "event: complete\n")
+		fmt.Fprintf(w, "data: {\"message\":\"Task completed\"}\n\n")
+		flusher.Flush()
+		return
+	}
+
+	// Follow new lines
+	lastSize := int64(len(initialData))
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-r.Context().Done():
+			// Client disconnected
+			return
+		case <-ticker.C:
+			// Check for new content
+			stat, err := os.Stat(logFile)
+			if err != nil {
+				continue
+			}
+
+			if stat.Size() > lastSize {
+				file, err := os.Open(logFile)
+				if err != nil {
+					continue
+				}
+
+				// Seek to last read position
+				file.Seek(lastSize, 0)
+				newData, _ := io.ReadAll(file)
+				file.Close()
+
+				// Send new lines
+				scanner := bufio.NewScanner(strings.NewReader(string(newData)))
+				for scanner.Scan() {
+					line := scanner.Text()
+					// Escape the line for JSON
+					escapedLine := strings.ReplaceAll(line, "\"", "\\\"")
+					escapedLine = strings.ReplaceAll(escapedLine, "\n", "\\n")
+					fmt.Fprintf(w, "event: log\n")
+					fmt.Fprintf(w, "data: {\"line\":\"%s\"}\n\n", escapedLine)
+					flusher.Flush()
+
+					// Check for completion markers
+					if strings.Contains(line, "✅ Agent completed") ||
+						strings.Contains(line, "🎉 Task completed successfully") ||
+						strings.Contains(line, "❌ Task failed") {
+						fmt.Fprintf(w, "event: complete\n")
+						fmt.Fprintf(w, "data: {\"message\":\"Task completed\"}\n\n")
+						flusher.Flush()
+						return
+					}
+				}
+
+				lastSize = stat.Size()
+			}
+		}
+	}
 }

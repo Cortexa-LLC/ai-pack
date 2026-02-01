@@ -727,7 +727,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 	turn := 1
 	inactiveTurns := 0
 	lastTextLength := 0
-	lastToolPattern := ""
+	lastToolSignature := "" // Tracks tool names + input hash for better progress detection
 
 	for {
 		logMsg(fmt.Sprintf("   Turn %d (inactive: %d)...", turn, inactiveTurns))
@@ -860,15 +860,34 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 		currentTextLength := finalResult.Len()
 		textGrew := currentTextLength > lastTextLength
 
-		// Build tool pattern for this turn
+		// Build tool pattern for this turn (just names for logging)
 		var toolNames []string
 		for _, toolUse := range toolUses {
 			toolNames = append(toolNames, toolUse.Name)
 		}
 		currentToolPattern := strings.Join(toolNames, ",")
 
+		// Build tool signature including input details for better progress detection
+		var toolSignatures []string
+		for _, toolUse := range toolUses {
+			// Create a signature that includes tool name and key input parameters
+			var inputMap map[string]interface{}
+			if err := json.Unmarshal(toolUse.Input, &inputMap); err == nil {
+				// Extract a simple signature from the input (first 100 chars of JSON)
+				inputJSON := string(toolUse.Input)
+				if len(inputJSON) > 100 {
+					inputJSON = inputJSON[:100]
+				}
+				toolSignatures = append(toolSignatures, fmt.Sprintf("%s:%s", toolUse.Name, inputJSON))
+			} else {
+				toolSignatures = append(toolSignatures, toolUse.Name)
+			}
+		}
+		currentToolSignature := strings.Join(toolSignatures, "|")
+
 		// Check if agent is making progress
-		madeProgress := textGrew || (currentToolPattern != lastToolPattern)
+		// Progress = text grew OR different tools OR same tools with different inputs
+		madeProgress := textGrew || (currentToolSignature != lastToolSignature)
 
 		if madeProgress {
 			// Agent is making progress - reset inactive counter
@@ -877,7 +896,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 			}
 			inactiveTurns = 0
 			lastTextLength = currentTextLength
-			lastToolPattern = currentToolPattern
+			lastToolSignature = currentToolSignature
 		} else {
 			// No progress - increment inactive counter
 			inactiveTurns++
@@ -1137,6 +1156,8 @@ func (s *AgentServer) updateTaskCompletion(execution *TaskExecution, result stri
 		beadsTaskID = execution.metadata["beads_task_id"]
 		projectRoot = execution.metadata["project_root"]
 	}
+	// Remove from active tasks map since task is now completed
+	delete(s.activeTasks, execution.TaskID)
 	s.mu.Unlock()
 
 	return beadsTaskID, projectRoot
@@ -1176,6 +1197,8 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	s.mu.Lock()
 	execution.Status = "failed"
 	execution.Error = errorMsg
+	// Remove from active tasks map since task is now failed
+	delete(s.activeTasks, execution.TaskID)
 	s.mu.Unlock()
 
 	s.updateTaskStatus(execution.TaskID, "failed", errorMsg)

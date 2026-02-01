@@ -242,6 +242,112 @@ go build -o bin/agent-server cmd/agent-server/main.go
 - `GET /health` - Health check
 - `GET /metrics` - Prometheus metrics
 
+### GraphQL API
+
+The server exposes a comprehensive GraphQL API for querying tasks, metrics, and spawning agents.
+
+**Endpoints:**
+- `POST /graphql` - GraphQL API endpoint
+- `GET /playground` - Interactive GraphQL Playground UI
+
+**Available Queries:**
+
+```graphql
+# Health check
+query {
+  health {
+    status
+    message
+  }
+}
+
+# Get all active tasks
+query {
+  tasks {
+    taskId
+    role
+    task
+    status
+    progress
+    createdAt
+    updatedAt
+    result
+    error
+  }
+}
+
+# Get specific task by ID
+query {
+  task(taskId: "task-engineer-20260131-123456") {
+    taskId
+    role
+    status
+    progress
+    result
+  }
+}
+
+# Get system metrics
+query {
+  metrics {
+    tasksSpawned
+    tasksCompleted
+    tasksFailed
+    tasksActive
+    averageDurationMs
+    totalTokens
+    inputTokens
+    outputTokens
+    apiCalls
+    apiSuccess
+    apiFailed
+  }
+}
+
+# Get performance metrics
+query {
+  performance {
+    cpuUsage
+    memoryUsageMB
+    goroutines
+    uptime
+  }
+}
+```
+
+**Available Mutations:**
+
+```graphql
+# Spawn a new agent
+mutation {
+  spawnAgent(
+    role: "engineer"
+    task: "Implement user authentication"
+    projectRoot: "/path/to/project"
+  ) {
+    taskId
+    role
+    status
+    createdAt
+  }
+}
+```
+
+**Testing GraphQL:**
+
+```bash
+# Run the test script (requires jq)
+./test_graphql_endpoint.sh
+
+# Or use curl manually
+curl -X POST http://localhost:8888/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ health { status message } }"}'
+
+# Or visit the GraphQL Playground UI
+open http://localhost:8888/playground
+```
+
 ---
 
 ## Architecture
