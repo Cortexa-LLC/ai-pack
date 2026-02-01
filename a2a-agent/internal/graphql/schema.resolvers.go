@@ -66,10 +66,10 @@ func (r *queryResolver) Health(ctx context.Context) (*HealthStatus, error) {
 
 // Tasks is the resolver for the tasks field.
 func (r *queryResolver) Tasks(ctx context.Context) ([]*AgentTask, error) {
-	activeTasks := r.server.GetActiveTasks()
+	allTasks := r.server.GetAllTasks()
 
-	tasks := make([]*AgentTask, 0, len(activeTasks))
-	for _, taskInfo := range activeTasks {
+	tasks := make([]*AgentTask, 0, len(allTasks))
+	for _, taskInfo := range allTasks {
 		// Convert metadata from map[string]string to map[string]any
 		metadata := make(map[string]any)
 		for k, v := range taskInfo.Metadata {
