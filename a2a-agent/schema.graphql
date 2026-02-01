@@ -1,0 +1,169 @@
+scalar Time
+
+type Query {
+  # Health and server info
+  health: ServerHealth!
+
+  # Tasks
+  tasks(status: TaskStatus): [AgentTask!]!
+  task(id: ID!): AgentTask
+  beadsTask(id: ID!): BeadsTask
+  beadsTasks(status: BeadsTaskStatus): [BeadsTask!]!
+
+  # Metrics
+  metrics: Metrics!
+  performance: Performance!
+
+  # Logs (limited, use subscription for streaming)
+  logs(taskId: ID!, limit: Int): [LogEntry!]!
+}
+
+type Subscription {
+  # Real-time task updates
+  taskUpdated(taskId: ID): AgentTask!
+
+  # Real-time log streaming
+  logStream(taskId: ID!): LogEntry!
+
+  # Metrics updates
+  metricsUpdated: Metrics!
+}
+
+type Mutation {
+  # Agent operations
+  spawnAgent(role: String!, taskId: ID!): SpawnResult!
+  cancelAgent(taskId: ID!): Boolean!
+
+  # Beads task operations
+  updateTaskStatus(id: ID!, status: BeadsTaskStatus!): BeadsTask!
+  startTask(id: ID!): BeadsTask!
+  closeTask(id: ID!): BeadsTask!
+}
+
+# Types
+
+type ServerHealth {
+  status: String!
+  version: String!
+  server: String!
+  features: Features!
+}
+
+type Features {
+  a2aProtocol: Boolean!
+  monitoring: Boolean!
+  parallelExecution: Boolean!
+  sseStreaming: Boolean!
+}
+
+type AgentTask {
+  taskId: ID!
+  beadsTaskId: String
+  status: TaskStatus!
+  role: String!
+  description: String!
+  projectRoot: String
+  progress: Float!
+  error: String
+  currentTurn: Int
+  tokensUsed: Int
+  createdAt: Time!
+  updatedAt: Time!
+}
+
+type BeadsTask {
+  id: ID!
+  title: String!
+  status: BeadsTaskStatus!
+  priority: Priority
+  blockedBy: [String!]
+  blocks: [String!]
+  assignee: String
+  createdAt: Time
+  updatedAt: Time
+  agent: AgentTask
+}
+
+type Metrics {
+  tasksSpawned: Int!
+  tasksInProgress: Int!
+  tasksCompleted: Int!
+  tasksFailed: Int!
+  avgDurationMs: Float!
+  apiCallsTotal: Int!
+  apiCallsSuccess: Int!
+  apiCallsFailed: Int!
+  rateLimitViolations: Int!
+  totalInputTokens: Int!
+  totalOutputTokens: Int!
+  avgInputPerTurn: Float!
+  avgOutputPerTurn: Float!
+  totalTurns: Int!
+  cacheHitRate: Float!
+}
+
+type Performance {
+  recentTurns: [TurnMetrics!]!
+  taskTokenUsage: [TaskTokenUsage!]!
+}
+
+type TurnMetrics {
+  turn: Int!
+  durationMs: Float!
+  inputTokens: Int!
+  outputTokens: Int!
+  taskId: String!
+  timestamp: Time!
+}
+
+type TaskTokenUsage {
+  taskId: String!
+  inputTokens: Int!
+  outputTokens: Int!
+  turnCount: Int!
+}
+
+type LogEntry {
+  timestamp: Time!
+  level: LogLevel!
+  message: String!
+  taskId: String
+  turn: Int
+  metadata: String
+}
+
+type SpawnResult {
+  success: Boolean!
+  taskId: ID!
+  message: String
+}
+
+# Enums
+
+enum TaskStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum BeadsTaskStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARNING
+  ERROR
+  TURN
+  API
+  TOOL
+}

@@ -1,0 +1,249 @@
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strings"
+
+	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
+)
+
+// ChatRequest represents an incoming chat message
+type ChatRequest struct {
+	Message     string          `json:"message"`
+	Messages    []ChatMessage   `json:"messages,omitempty"` // Full conversation history
+	Role        string          `json:"role,omitempty"`     // Agent role (orchestrator, engineer, etc.)
+	Mode        string          `json:"mode,omitempty"`     // "chat" or "agent"
+	ProjectRoot string          `json:"project_root,omitempty"` // Working directory for agent mode
+}
+
+// ChatMessage represents a message in the conversation
+type ChatMessage struct {
+	Role    string `json:"role"`    // "user" or "assistant"
+	Content string `json:"content"`
+}
+
+// ChatResponse represents the response from a chat request
+type ChatResponse struct {
+	Status string `json:"status"` // "streaming", "complete", "agent_spawned"
+	TaskID string `json:"task_id,omitempty"` // For agent mode
+	Text   string `json:"text,omitempty"`
+}
+
+// HandleChat handles chat requests with streaming responses
+func (s *AgentServer) HandleChat(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse request
+	var req ChatRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Message == "" {
+		http.Error(w, "Message is required", http.StatusBadRequest)
+		return
+	}
+
+	// Default to chat mode if not specified
+	if req.Mode == "" {
+		req.Mode = "chat"
+	}
+
+	// Handle agent mode - spawn a task instead of chatting
+	if req.Mode == "agent" {
+		s.handleAgentMode(w, r, &req)
+		return
+	}
+
+	// Continue with chat mode
+	s.handleChatMode(w, r, &req)
+}
+
+// handleAgentMode spawns an agent task
+func (s *AgentServer) handleAgentMode(w http.ResponseWriter, r *http.Request, req *ChatRequest) {
+	// Default role if not specified
+	role := req.Role
+	if role == "" {
+		role = "engineer"
+	}
+
+	// Use provided project root or default to server root
+	projectRoot := req.ProjectRoot
+	if projectRoot == "" {
+		projectRoot = s.rootDir
+	}
+
+	// Spawn agent task
+	response, err := s.spawnAgentTask(role, req.Message, projectRoot)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to spawn agent: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Return task info as JSON
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "agent_spawned",
+		"task_id": response.TaskID,
+		"message": fmt.Sprintf("Agent task spawned with ID: %s", response.TaskID),
+	})
+}
+
+// handleChatMode handles conversational chat with optional role context
+func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req *ChatRequest) {
+
+	// Set SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Get flusher
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+		return
+	}
+
+	// Load role context if specified
+	var systemPrompt []anthropic.TextBlockParam
+	if req.Role != "" {
+		roleFile := fmt.Sprintf(".ai-pack/agents/%s.md", req.Role)
+		roleContext, err := s.loadRoleContext(roleFile)
+		if err != nil {
+			monitoring.Logger.Warn("chat_role_load_failed", "role", req.Role, "error", err)
+			// Continue without role context rather than failing
+		} else {
+			systemPrompt = []anthropic.TextBlockParam{
+				{
+					Text: roleContext,
+					Type: ContentTypeText,
+				},
+			}
+		}
+	}
+
+	// Build messages array for Claude
+	var messages []anthropic.MessageParam
+
+	// Add conversation history if provided
+	for _, msg := range req.Messages {
+		if msg.Role == "user" {
+			messages = append(messages, anthropic.NewUserMessage(anthropic.NewTextBlock(msg.Content)))
+		} else if msg.Role == "assistant" {
+			messages = append(messages, anthropic.NewAssistantMessage(anthropic.NewTextBlock(msg.Content)))
+		}
+	}
+
+	// Add current message
+	messages = append(messages, anthropic.NewUserMessage(anthropic.NewTextBlock(req.Message)))
+
+	// Create streaming request
+	ctx := context.Background()
+	params := anthropic.MessageNewParams{
+		Model:     anthropic.Model(s.model),
+		MaxTokens: int64(s.maxTokens),
+		Messages:  messages,
+	}
+
+	// Add system prompt if we have role context
+	if len(systemPrompt) > 0 {
+		params.System = systemPrompt
+	}
+
+	stream := s.client.Messages.NewStreaming(ctx, params)
+
+	// Send connected event
+	fmt.Fprintf(w, "event: connected\n")
+	fmt.Fprintf(w, "data: {\"status\":\"connected\"}\n\n")
+	flusher.Flush()
+
+	// Stream deltas and accumulate the message
+	var message anthropic.Message
+	for stream.Next() {
+		event := stream.Current()
+
+		// Log event type for debugging
+		monitoring.Logger.Debug("chat_stream_event", "type", event.Type)
+
+		// Send delta events for content blocks
+		if event.Type == ContentBlockDelta {
+			// Extract text from delta
+			deltaJSON, _ := json.Marshal(event)
+			var deltaData map[string]interface{}
+			json.Unmarshal(deltaJSON, &deltaData)
+
+			monitoring.Logger.Debug("chat_delta_data", "data", deltaData)
+
+			if delta, ok := deltaData["delta"].(map[string]interface{}); ok {
+				if text, ok := delta["text"].(string); ok {
+					// Send delta to client
+					textData, _ := json.Marshal(map[string]interface{}{
+						"text": text,
+					})
+					fmt.Fprintf(w, "event: delta\n")
+					fmt.Fprintf(w, "data: %s\n\n", textData)
+					flusher.Flush()
+				}
+			}
+		}
+
+		if err := message.Accumulate(event); err != nil {
+			monitoring.Logger.Error("chat_accumulate_error", "error", err)
+			continue
+		}
+	}
+
+	if err := stream.Err(); err != nil {
+		monitoring.Logger.Error("chat_stream_error", "error", err)
+		fmt.Fprintf(w, "event: error\n")
+		errMsg := strings.ReplaceAll(err.Error(), "\"", "\\\"")
+		fmt.Fprintf(w, "data: {\"error\":\"%s\"}\n\n", errMsg)
+		flusher.Flush()
+		return
+	}
+
+	// Get full text from message
+	fullText := ""
+	for _, block := range message.Content {
+		if block.Type == "text" {
+			fullText += block.Text
+		}
+	}
+
+	// Send completion event with full message
+	completionData, _ := json.Marshal(map[string]interface{}{
+		"status": "complete",
+		"text":   fullText,
+		"usage": map[string]int{
+			"input_tokens":  int(message.Usage.InputTokens),
+			"output_tokens": int(message.Usage.OutputTokens),
+		},
+	})
+
+	fmt.Fprintf(w, "event: complete\n")
+	fmt.Fprintf(w, "data: %s\n\n", completionData)
+	flusher.Flush()
+
+	// Log metrics
+	monitoring.Logger.Info("chat_completed",
+		"input_tokens", message.Usage.InputTokens,
+		"output_tokens", message.Usage.OutputTokens)
+}
+
+// HandleChatOptions handles CORS preflight for chat endpoint
+func (s *AgentServer) HandleChatOptions(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.WriteHeader(http.StatusOK)
+}

@@ -1,0 +1,187 @@
+# GraphQL Schema for AI-Pack Agent Server
+# Provides unified query interface for monitoring, task management, and real-time updates
+
+scalar JSON
+
+# Health check response
+type HealthStatus {
+  status: String!
+  version: String!
+  server: String!
+  features: JSON!
+}
+
+# Agent task representation
+type AgentTask {
+  taskID: String!
+  role: String!
+  task: String!
+  status: String!
+  progress: Float!
+  createdAt: String!
+  updatedAt: String!
+  completedAt: String
+  result: String
+  error: String
+  metadata: JSON
+  beadsTaskID: String
+}
+
+# Beads task representation
+type BeadsTask {
+  id: String!
+  title: String!
+  description: String!
+  status: String!
+  dependencies: [String!]
+  metadata: JSON
+}
+
+# Performance metrics
+type Performance {
+  cpuUsage: Float!
+  uptime: String!
+}
+
+# Metrics snapshot
+type Metrics {
+  tasksSpawned: Int!
+  tasksCompleted: Int!
+  tasksFailed: Int!
+  tasksActive: Int!
+  averageDurationMs: Float!
+  averageTokensPerTask: Int!
+  tokenUsage: TokenUsage!
+  apiCalls: APICalls!
+  performance: Performance!
+  turnMetrics: TurnMetrics!
+  sessionMetrics: SessionMetrics!
+  streaming: StreamingMetrics!
+  http: HTTPMetrics!
+  rateLimiting: RateLimiting!
+}
+
+# Token usage statistics
+type TokenUsage {
+  totalTokens: Int!
+  inputTokens: Int!
+  outputTokens: Int!
+}
+
+# Per-turn token statistics
+type TurnMetrics {
+  totalTurns: Int!
+  avgInputPerTurn: Int!
+  avgOutputPerTurn: Int!
+  recentTurns: [TurnData!]!
+}
+
+# Individual turn data
+type TurnData {
+  taskID: String!
+  turn: Int!
+  inputTokens: Int!
+  outputTokens: Int!
+  durationMs: Int!
+}
+
+# Session/Task token usage
+type SessionMetrics {
+  recentSessions: [SessionData!]!
+}
+
+# Individual session data
+type SessionData {
+  taskID: String!
+  inputTokens: Int!
+  outputTokens: Int!
+  turnCount: Int!
+}
+
+# API call statistics
+type APICalls {
+  total: Int!
+  success: Int!
+  failed: Int!
+}
+
+# Streaming metrics
+type StreamingMetrics {
+  opened: Int!
+  closed: Int!
+  active: Int!
+}
+
+# HTTP metrics
+type HTTPMetrics {
+  totalRequests: Int!
+  errors: Int!
+}
+
+# Rate limiting metrics
+type RateLimiting {
+  violations: Int!
+}
+
+# Log entry
+type LogEntry {
+  timestamp: String!
+  level: String!
+  message: String!
+  attributes: JSON
+}
+
+# Queries
+type Query {
+  # Health check
+  health: HealthStatus!
+
+  # Task queries
+  tasks: [AgentTask!]!
+  task(taskID: String!): AgentTask
+
+  # Beads task queries
+  beadsTasks(status: String): [BeadsTask!]!
+  beadsTask(id: String!): BeadsTask
+
+  # Metrics and monitoring
+  metrics: Metrics!
+  performance: Performance!
+
+  # Logs
+  logs(limit: Int, level: String): [LogEntry!]!
+}
+
+# Mutations
+type Mutation {
+  # Spawn a new agent task
+  spawnAgent(role: String!, task: String!, projectRoot: String): AgentTask!
+
+  # Cancel a running agent task
+  cancelAgent(taskID: String!): Boolean!
+
+  # Update task status (for external integrations)
+  updateTaskStatus(taskID: String!, status: String!): AgentTask!
+
+  # Retry a failed task
+  retryTask(taskID: String!): RetryResult!
+}
+
+# Retry task result
+type RetryResult {
+  success: Boolean!
+  taskID: String!
+  message: String
+}
+
+# Subscriptions
+type Subscription {
+  # Stream logs in real-time
+  logStream(level: String): LogEntry!
+
+  # Subscribe to task updates
+  taskUpdated(taskID: String): AgentTask!
+
+  # Subscribe to metrics updates
+  metricsUpdated: Metrics!
+}

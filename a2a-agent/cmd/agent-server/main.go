@@ -368,9 +368,16 @@ func main() {
 	mux.HandleFunc("/a2a/status/", s.HandleA2AStatus)      // A2A status (trailing slash for subpaths)
 	mux.HandleFunc("/a2a/status", s.HandleA2AStatus)       // A2A status (POST JSON-RPC)
 	mux.HandleFunc("/a2a/tasks", s.HandleTasksList)        // List all tasks (machine-wide)
+	mux.HandleFunc("/a2a/tasks/", s.HandleTaskLogs)        // Task-specific logs (trailing slash for subpaths)
 	mux.HandleFunc("/stream/", s.HandleStream)             // SSE streaming (tasks)
 	mux.HandleFunc("/logs/stream", s.HandleLogsStream)     // SSE streaming (logs)
 	mux.HandleFunc("/logs/recent", s.HandleLogsRecent)     // Recent logs (JSON)
+	mux.HandleFunc("/api/chat", s.HandleChat)              // Chat with Claude (SSE streaming)
+	mux.HandleFunc("/api/chat/options", s.HandleChatOptions) // CORS preflight
+	mux.HandleFunc("/api/browse-directories", s.HandleBrowseDirectories) // Directory autocomplete
+
+	// Setup GraphQL endpoints
+	s.SetupGraphQLHandlers(mux)
 
 	// Wrap with logging middleware
 	handler := server.LoggingMiddleware(mux)
@@ -386,8 +393,17 @@ func main() {
 	log.Printf("      - POST /a2a/status         (Task status - JSON-RPC 2.0)")
 	log.Printf("")
 	log.Printf("   🔄 Streaming:")
-	log.Printf("      - GET  /stream/:task_id    (Task progress - SSE)")
-	log.Printf("      - GET  /logs/stream        (Realtime logs - SSE)")
+	log.Printf("      - GET  /stream/:task_id            (Task progress - SSE)")
+	log.Printf("      - GET  /logs/stream                (Server logs - SSE)")
+	log.Printf("      - GET  /a2a/tasks/:task_id/logs    (Task logs - plain text)")
+	log.Printf("      - GET  /a2a/tasks/:task_id/logs?stream=true (Task logs - SSE)")
+	log.Printf("")
+	log.Printf("   📊 GraphQL:")
+	log.Printf("      - POST /graphql            (GraphQL API)")
+	log.Printf("      - GET  /playground         (GraphQL Playground UI)")
+	log.Printf("")
+	log.Printf("   💬 Chat:")
+	log.Printf("      - POST /api/chat           (Chat with Claude - SSE streaming)")
 	log.Printf("")
 	log.Printf("   🔧 Utility:")
 	log.Printf("      - GET  /health             (Health check)")

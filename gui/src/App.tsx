@@ -1,0 +1,1331 @@
+import { useState, useEffect, useRef } from 'react';
+import { useMetrics } from './hooks/useMetrics';
+import { useTasks } from './hooks/useTasks';
+import { useDetailedMetrics } from './hooks/useDetailedMetrics';
+import MetricsCard from './components/MetricsCard';
+import ChatPanel from './components/ChatPanel';
+
+/**
+ * Format milliseconds into human-readable duration
+ */
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms.toFixed(0)}ms`;
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const minutes = seconds / 60;
+  if (minutes < 60) return `${minutes.toFixed(1)}m`;
+  const hours = minutes / 60;
+  if (hours < 24) return `${hours.toFixed(1)}h`;
+  const days = hours / 24;
+  return `${days.toFixed(1)}d`;
+}
+
+/**
+ * Format large numbers into human-readable format (K/M/G)
+ */
+function formatNumber(num: number): string {
+  if (num < 1000) return num.toString();
+  if (num < 1000000) return `${(num / 1000).toFixed(1)}K`;
+  if (num < 1000000000) return `${(num / 1000000).toFixed(1)}M`;
+  return `${(num / 1000000000).toFixed(1)}G`;
+}
+
+/**
+ * Main application component for AI-Pack monitoring dashboard
+ */
+function App() {
+  const { data: metricsData, isLoading: metricsLoading, isError: metricsError } = useMetrics();
+  const { data: tasksData, isLoading: tasksLoading, isError: tasksError } = useTasks();
+  const { data: detailedMetrics } = useDetailedMetrics();
+  const [selectedTask, setSelectedTask] = useState<string | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'tasks' | 'server-logs' | 'task-logs'>('tasks');
+  const [logs, setLogs] = useState<string[]>([]);
+  const [serverLogs, setServerLogs] = useState<any[]>([]);
+  const [followLogs, setFollowLogs] = useState(true);
+  const [followServerLogs, setFollowServerLogs] = useState(true);
+
+  // Column widths for server logs table
+  const [logColumnWidths, setLogColumnWidths] = useState(() => {
+    const saved = localStorage.getItem('ai-pack-log-column-widths');
+    return saved ? JSON.parse(saved) : { time: 100, level: 65, message: 130, attributes: 0 }; // 0 = flex/auto
+  });
+  const [resizingColumn, setResizingColumn] = useState<string | null>(null);
+  const [columnResizeStartX, setColumnResizeStartX] = useState(0);
+  const [columnResizeStartWidth, setColumnResizeStartWidth] = useState(0);
+
+  // Column widths for Recent Turns table
+  const [turnColumnWidths, setTurnColumnWidths] = useState(() => {
+    const saved = localStorage.getItem('ai-pack-turn-column-widths');
+    return saved ? JSON.parse(saved) : { turn: 60, duration: 80, input: 80, output: 80, task: 0 }; // 0 = flex/auto
+  });
+  const [resizingTurnColumn, setResizingTurnColumn] = useState<string | null>(null);
+  const [turnResizeStartX, setTurnResizeStartX] = useState(0);
+  const [turnResizeStartWidth, setTurnResizeStartWidth] = useState(0);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  const serverLogsEndRef = useRef<HTMLTableRowElement>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const serverLogsEventSourceRef = useRef<EventSource | null>(null);
+
+  // Panel widths (resizable) - only chat panel now
+  const [chatWidth, setChatWidth] = useState(() => {
+    const saved = localStorage.getItem('ai-pack-chat-width');
+    return saved ? parseInt(saved) : 384; // default 384px (w-96)
+  });
+  const [isResizingChat, setIsResizingChat] = useState(false);
+  const [resizeStartX, setResizeStartX] = useState(0);
+  const [resizeStartWidth, setResizeStartWidth] = useState(0);
+
+  // Save panel widths to localStorage
+  useEffect(() => {
+    localStorage.setItem('ai-pack-chat-width', chatWidth.toString());
+  }, [chatWidth]);
+
+  // Handle resize for chat panel
+  useEffect(() => {
+    if (!isResizingChat) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = resizeStartX - e.clientX; // Positive delta = dragging left = wider panel
+      const newWidth = resizeStartWidth + delta;
+      setChatWidth(Math.max(300, Math.min(800, newWidth))); // Min 300px, max 800px
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingChat(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizingChat, resizeStartX, resizeStartWidth]);
+
+  // Auto-scroll to bottom when following logs
+  useEffect(() => {
+    if (followLogs && logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs, followLogs]);
+
+  // Auto-scroll server logs
+  useEffect(() => {
+    if (followServerLogs && serverLogsEndRef.current) {
+      serverLogsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [serverLogs, followServerLogs]);
+
+  // Save log column widths
+  useEffect(() => {
+    localStorage.setItem('ai-pack-log-column-widths', JSON.stringify(logColumnWidths));
+  }, [logColumnWidths]);
+
+  // Save turn column widths
+  useEffect(() => {
+    localStorage.setItem('ai-pack-turn-column-widths', JSON.stringify(turnColumnWidths));
+  }, [turnColumnWidths]);
+
+  // Handle column resize for server logs
+  useEffect(() => {
+    if (!resizingColumn) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - columnResizeStartX;
+      const newWidth = Math.max(50, columnResizeStartWidth + delta);
+      setLogColumnWidths((prev: Record<string, number>) => ({
+        ...prev,
+        [resizingColumn]: newWidth
+      }));
+    };
+
+    const handleMouseUp = () => {
+      setResizingColumn(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [resizingColumn, columnResizeStartX, columnResizeStartWidth]);
+
+  // Handle column resize for Recent Turns table
+  useEffect(() => {
+    if (!resizingTurnColumn) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - turnResizeStartX;
+      const newWidth = Math.max(50, turnResizeStartWidth + delta);
+      setTurnColumnWidths((prev: Record<string, number>) => ({
+        ...prev,
+        [resizingTurnColumn]: newWidth
+      }));
+    };
+
+    const handleMouseUp = () => {
+      setResizingTurnColumn(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [resizingTurnColumn, turnResizeStartX, turnResizeStartWidth]);
+
+  // Fetch server logs when on server logs tab
+  useEffect(() => {
+    if (activeTab !== 'server-logs') {
+      if (serverLogsEventSourceRef.current) {
+        serverLogsEventSourceRef.current.close();
+        serverLogsEventSourceRef.current = null;
+      }
+      return;
+    }
+
+    // Fetch recent logs first
+    fetch('/logs/recent?limit=50')
+      .then(res => res.json())
+      .then(data => {
+        if (data.logs) {
+          setServerLogs(data.logs);
+        }
+      })
+      .catch(err => console.error('Failed to load recent logs:', err));
+
+    // Set up SSE for streaming logs
+    try {
+      const eventSource = new EventSource('/logs/stream');
+      serverLogsEventSourceRef.current = eventSource;
+
+      eventSource.addEventListener('log', (event) => {
+        try {
+          const logEntry = JSON.parse(event.data);
+          setServerLogs(prev => [...prev, logEntry].slice(-200)); // Keep last 200 logs
+        } catch (err) {
+          console.error('Failed to parse log entry:', err);
+        }
+      });
+
+      eventSource.onerror = (err) => {
+        console.error('Server logs stream error:', err);
+        eventSource.close();
+      };
+    } catch (err) {
+      console.error('Failed to set up server logs stream:', err);
+    }
+
+    return () => {
+      if (serverLogsEventSourceRef.current) {
+        serverLogsEventSourceRef.current.close();
+        serverLogsEventSourceRef.current = null;
+      }
+    };
+  }, [activeTab]);
+
+  // Helper function to select a task and switch to task logs tab
+  const selectTask = (taskId: string) => {
+    setSelectedTask(taskId);
+    setActiveTab('task-logs');
+  };
+
+  // Fetch and stream logs when a task is selected or when switching to task logs tab
+  useEffect(() => {
+    if (!selectedTask || activeTab !== 'task-logs') {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      if (!selectedTask) {
+        setLogs([]);
+      }
+      return;
+    }
+
+    // Fetch initial logs
+    fetch(`http://localhost:8080/a2a/tasks/${selectedTask}/logs`)
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        return res.text();
+      })
+      .then(text => {
+        if (!text || text.trim() === '') {
+          setLogs(['No logs available for this task']);
+          return;
+        }
+        const logLines = text.split('\n').filter(line => line.trim());
+        setLogs(logLines.length > 0 ? logLines : ['No logs available']);
+      })
+      .catch(err => {
+        console.error('Error fetching logs:', err);
+        setLogs([
+          'Unable to load logs for this task.',
+          '',
+          'This may be because:',
+          '- The task has not started yet',
+          '- The task logs have been archived',
+          '- The log endpoint is not available',
+          '',
+          `Error: ${err.message}`
+        ]);
+      });
+
+    // Set up SSE for log streaming (only for active tasks)
+    // Find the task to check if it's still running
+    const task = tasksData?.tasks.find(t => t.taskID === selectedTask);
+    const isActiveTask = task?.status === 'IN_PROGRESS' || task?.status === 'in_progress';
+
+    if (isActiveTask) {
+      try {
+        const eventSource = new EventSource(`http://localhost:8080/a2a/tasks/${selectedTask}/logs?stream=true`);
+        eventSourceRef.current = eventSource;
+
+        // Handle connected event
+        eventSource.addEventListener('connected', (event) => {
+          console.log('Log stream connected:', event.data);
+        });
+
+        // Handle log events
+        eventSource.addEventListener('log', (event) => {
+          try {
+            const logData = JSON.parse(event.data);
+            if (logData.line && logData.line.trim()) {
+              setLogs(prev => [...prev, logData.line]);
+            }
+          } catch (err) {
+            console.error('Failed to parse log data:', err);
+          }
+        });
+
+        // Handle complete event
+        eventSource.addEventListener('complete', (event) => {
+          console.log('Task completed:', event.data);
+          eventSource.close();
+        });
+
+        eventSource.onerror = (err) => {
+          console.error('SSE error:', err);
+          eventSource.close();
+        };
+
+        return () => {
+          eventSource.close();
+        };
+      } catch (err) {
+        console.error('Failed to set up SSE:', err);
+      }
+    }
+  }, [selectedTask, tasksData, activeTab]);
+
+  return (
+    <div className="h-screen flex flex-col bg-gray-900 text-white">
+      {/* Header */}
+      <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="AI-Pack" className="h-8 w-8" />
+          <h1 className="text-xl font-bold">AI-Pack Console</h1>
+        </div>
+      </header>
+
+      {/* Main Layout: Left (Tasks + Metrics) and Right (Chat) */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left: Tasks and Metrics */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Tabs Section - Takes remaining space */}
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+            {/* Tab Bar */}
+            <div className="flex items-center border-b border-gray-700 bg-gray-800 px-4">
+              <button
+                onClick={() => setActiveTab('tasks')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'tasks'
+                    ? 'border-blue-500 text-blue-400'
+                    : 'border-transparent text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                📋 Tasks
+              </button>
+              <button
+                onClick={() => setActiveTab('server-logs')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'server-logs'
+                    ? 'border-blue-500 text-blue-400'
+                    : 'border-transparent text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                🖥️ Server Log
+              </button>
+              <button
+                onClick={() => setActiveTab('task-logs')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'task-logs'
+                    ? 'border-blue-500 text-blue-400'
+                    : 'border-transparent text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                📄 Task Logs {selectedTask && '✓'}
+              </button>
+              {selectedTask && activeTab === 'task-logs' && (
+                <div className="ml-auto flex items-center gap-2">
+                  <button
+                    onClick={() => setFollowLogs(!followLogs)}
+                    className={`px-2 py-1 text-xs rounded ${followLogs ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                    title={followLogs ? 'Following logs' : 'Follow disabled'}
+                  >
+                    {followLogs ? '📍 Following' : '⏸ Paused'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedTask(null);
+                      setActiveTab('tasks');
+                    }}
+                    className="text-gray-400 hover:text-white text-sm px-2"
+                  >
+                    ✕ Close
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Tab Content */}
+            {activeTab === 'tasks' && (
+              <div className="flex-1 overflow-auto p-4">
+
+            {tasksLoading && (
+              <div className="text-gray-400">Loading tasks...</div>
+            )}
+
+            {tasksError && (
+              <div className="bg-red-900/20 border border-red-800 rounded p-3 text-red-400">
+                Error loading tasks.
+              </div>
+            )}
+
+            {tasksData && (
+              <div className="h-full">
+                <div className="grid grid-cols-3 gap-4 h-full">
+                    {/* In Progress Lane */}
+                    <div className="flex flex-col border-2 border-yellow-600 rounded-lg bg-gray-800/50">
+                      <div className="bg-yellow-900 border-b-2 border-yellow-600 p-3">
+                        <h3 className="font-semibold text-yellow-300 flex items-center justify-between text-base">
+                          <span>🔄 In Progress</span>
+                          <span className="text-sm bg-yellow-800 px-2 py-1 rounded-full">
+                            {tasksData.tasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'in_progress').length}
+                          </span>
+                        </h3>
+                      </div>
+                      <div className="flex-1 space-y-2 overflow-auto p-3">
+                        {tasksData.tasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'in_progress').length === 0 ? (
+                          <div className="text-center text-gray-500 text-sm py-8">
+                            No tasks in progress
+                          </div>
+                        ) : (
+                          tasksData.tasks
+                            .filter(t => t.status === 'IN_PROGRESS' || t.status === 'in_progress')
+                            .map(task => (
+                              <div
+                                key={task.taskID}
+                                className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-yellow-500 cursor-pointer transition-colors"
+                                onClick={() => selectTask(task.taskID)}
+                              >
+                                <div className="text-xs font-medium text-white mb-1 truncate" title={task.task}>
+                                  {task.task.length > 40 ? task.task.substring(0, 40) + '...' : task.task}
+                                </div>
+                                <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                                  {task.beadsTaskID && <span>{task.beadsTaskID}</span>}
+                                  <span className="text-yellow-400">{Math.round(task.progress * 100)}%</span>
+                                </div>
+                                {task.progress > 0 && (
+                                  <div className="mt-2 bg-gray-700 rounded-full h-1">
+                                    <div
+                                      className="bg-yellow-400 h-1 rounded-full transition-all"
+                                      style={{ width: `${task.progress * 100}%` }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Completed Lane */}
+                    <div className="flex flex-col border-2 border-green-600 rounded-lg bg-gray-800/50">
+                      <div className="bg-green-900 border-b-2 border-green-600 p-3">
+                        <h3 className="font-semibold text-green-300 flex items-center justify-between text-base">
+                          <span>✅ Completed</span>
+                          <span className="text-sm bg-green-800 px-2 py-1 rounded-full">
+                            {tasksData.tasks.filter(t => t.status === 'COMPLETED' || t.status === 'completed').length}
+                          </span>
+                        </h3>
+                      </div>
+                      <div className="flex-1 space-y-2 overflow-auto p-3">
+                        {tasksData.tasks.filter(t => t.status === 'COMPLETED' || t.status === 'completed').length === 0 ? (
+                          <div className="text-center text-gray-500 text-sm py-8">
+                            No completed tasks
+                          </div>
+                        ) : (
+                          tasksData.tasks
+                            .filter(t => t.status === 'COMPLETED' || t.status === 'completed')
+                            .map(task => (
+                              <div
+                                key={task.taskID}
+                                className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-green-500 cursor-pointer transition-colors"
+                                onClick={() => selectTask(task.taskID)}
+                              >
+                                <div className="text-xs font-medium text-white mb-1 truncate" title={task.task}>
+                                  {task.task.length > 40 ? task.task.substring(0, 40) + '...' : task.task}
+                                </div>
+                                <div className="flex items-center justify-between text-xs text-gray-500">
+                                  {task.beadsTaskID && <span>{task.beadsTaskID}</span>}
+                                  <span className="text-green-400">✓</span>
+                                </div>
+                                {task.completedAt && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    Completed: {new Date(task.completedAt).toLocaleTimeString()}
+                                  </div>
+                                )}
+                              </div>
+                            ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Failed Lane */}
+                    <div className="flex flex-col border-2 border-red-600 rounded-lg bg-gray-800/50">
+                      <div className="bg-red-900 border-b-2 border-red-600 p-3">
+                        <h3 className="font-semibold text-red-300 flex items-center justify-between text-base">
+                          <span>❌ Failed</span>
+                          <span className="text-sm bg-red-800 px-2 py-1 rounded-full">
+                            {tasksData.tasks.filter(t => t.status === 'FAILED' || t.status === 'failed').length}
+                          </span>
+                        </h3>
+                      </div>
+                      <div className="flex-1 space-y-2 overflow-auto p-3">
+                        {tasksData.tasks.filter(t => t.status === 'FAILED' || t.status === 'failed').length === 0 ? (
+                          <div className="text-center text-gray-500 text-sm py-8">
+                            No failed tasks
+                          </div>
+                        ) : (
+                          tasksData.tasks
+                            .filter(t => t.status === 'FAILED' || t.status === 'failed')
+                            .map(task => (
+                              <div
+                                key={task.taskID}
+                                className="bg-gray-800 border border-gray-700 rounded-lg p-3 hover:border-red-500 transition-colors"
+                              >
+                                <div
+                                  className="cursor-pointer"
+                                  onClick={() => selectTask(task.taskID)}
+                                >
+                                  <div className="text-xs font-medium text-white mb-1 truncate" title={task.task}>
+                                    {task.task.length > 40 ? task.task.substring(0, 40) + '...' : task.task}
+                                  </div>
+                                  <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                                    {task.beadsTaskID && <span>{task.beadsTaskID}</span>}
+                                    <span className="text-red-400">✗</span>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (confirm(`Retry task: ${task.task}?`)) {
+                                      try {
+                                        const response = await fetch('http://localhost:8080/graphql', {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({
+                                            query: `mutation { retryTask(taskID: "${task.taskID}") { success message taskID } }`
+                                          })
+                                        });
+                                        const result = await response.json();
+                                        if (result.data?.retryTask?.success) {
+                                          const newTaskID = result.data.retryTask.taskID;
+                                          alert(`Task retried! New task ID: ${newTaskID}`);
+                                          // Switch to the new task and show its logs
+                                          selectTask(newTaskID);
+                                        } else {
+                                          alert('Failed to retry task: ' + (result.data?.retryTask?.message || 'Unknown error'));
+                                        }
+                                      } catch (err) {
+                                        alert('Error retrying task: ' + err);
+                                      }
+                                    }
+                                  }}
+                                  className="mt-3 w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <span>🔄</span>
+                                  <span>Retry Task</span>
+                                </button>
+                              </div>
+                            ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+              </div>
+            )}
+            </div>
+            )}
+
+            {/* Server Logs Tab Content */}
+            {activeTab === 'server-logs' && (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="p-3 bg-gray-800 border-b border-gray-700 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-md font-semibold">Agent Server Logs</h3>
+                    <div className="text-xs text-gray-500">Real-time server activity</div>
+                  </div>
+                  <button
+                    onClick={() => setFollowServerLogs(!followServerLogs)}
+                    className={`px-2 py-1 text-xs rounded ${followServerLogs ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                    title={followServerLogs ? 'Following logs' : 'Follow disabled'}
+                  >
+                    {followServerLogs ? '📍 Following' : '⏸ Paused'}
+                  </button>
+                </div>
+                <div className="flex-1 overflow-auto bg-gray-900">
+                  {serverLogs.length === 0 ? (
+                    <div className="p-4 text-gray-500 text-sm">Loading server logs...</div>
+                  ) : (
+                    <table className="w-full text-xs font-mono" style={{ tableLayout: 'fixed' }}>
+                      <colgroup>
+                        <col style={{ width: `${logColumnWidths.time}px` }} />
+                        <col style={{ width: `${logColumnWidths.level}px` }} />
+                        <col style={{ width: `${logColumnWidths.message}px` }} />
+                        <col />
+                      </colgroup>
+                      <thead className="sticky top-0 bg-gray-800 border-b border-gray-700">
+                        <tr>
+                          <th className="text-left p-2 text-gray-400 font-medium relative group">
+                            Time
+                            <div
+                              className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onMouseDown={(e) => {
+                                setColumnResizeStartX(e.clientX);
+                                setColumnResizeStartWidth(logColumnWidths.time);
+                                setResizingColumn('time');
+                              }}
+                            />
+                          </th>
+                          <th className="text-left p-2 text-gray-400 font-medium relative group">
+                            Level
+                            <div
+                              className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onMouseDown={(e) => {
+                                setColumnResizeStartX(e.clientX);
+                                setColumnResizeStartWidth(logColumnWidths.level);
+                                setResizingColumn('level');
+                              }}
+                            />
+                          </th>
+                          <th className="text-left p-2 text-gray-400 font-medium relative group">
+                            Message
+                            <div
+                              className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onMouseDown={(e) => {
+                                setColumnResizeStartX(e.clientX);
+                                setColumnResizeStartWidth(logColumnWidths.message);
+                                setResizingColumn('message');
+                              }}
+                            />
+                          </th>
+                          <th className="text-left p-2 text-gray-400 font-medium">Attributes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {serverLogs.map((log, idx) => {
+                          const level = log.level || 'INFO';
+                          const levelColor =
+                            level === 'ERROR' ? 'text-red-400' :
+                            level === 'WARN' ? 'text-yellow-400' :
+                            level === 'DEBUG' ? 'text-gray-500' :
+                            'text-blue-400';
+
+                          // Parse timestamp to show time with milliseconds and timezone abbreviation
+                          let time = '';
+                          if (log.timestamp) {
+                            const date = new Date(log.timestamp);
+                            const timeStr = date.toLocaleTimeString('en-US', {
+                              hour12: false,
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit'
+                            });
+                            const ms = date.getMilliseconds().toString().padStart(3, '0');
+                            // Get timezone abbreviation (e.g., PST, UTC, EST)
+                            const tzFormatter = new Intl.DateTimeFormat('en-US', {
+                              timeZoneName: 'short'
+                            });
+                            const tzParts = tzFormatter.formatToParts(date);
+                            const tzName = tzParts.find(part => part.type === 'timeZoneName')?.value || '';
+                            time = `${timeStr}.${ms} ${tzName}`;
+                          }
+
+                          const msg = log.message || '';
+                          const attrs = log.attrs || {};
+
+                          // Flatten nested attrs - if attrs has a 'message' field, show it prominently
+                          const flattenedAttrs: Record<string, any> = {};
+                          Object.entries(attrs).forEach(([key, value]) => {
+                            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                              // Flatten nested objects
+                              Object.entries(value).forEach(([nestedKey, nestedValue]) => {
+                                flattenedAttrs[`${key}.${nestedKey}`] = nestedValue;
+                              });
+                            } else {
+                              flattenedAttrs[key] = value;
+                            }
+                          });
+
+                          // Format attributes for display
+                          const renderAttribute = (key: string, value: any) => {
+                            const valueStr = Array.isArray(value) ? JSON.stringify(value) : String(value);
+                            const colorClass =
+                              key === 'error' || key.includes('error') ? 'text-red-400' :
+                              key === 'status_code' ? (value >= 400 ? 'text-red-400' : 'text-green-400') :
+                              key.includes('token') || key.includes('input') || key.includes('output') ? 'text-purple-400' :
+                              key.includes('duration') || key.includes('_ms') ? 'text-amber-400' :
+                              key === 'method' ? 'text-cyan-400' :
+                              key === 'path' ? 'text-blue-400' :
+                              key.includes('task_id') || key.includes('task-id') ? 'text-green-400' :
+                              key === 'message' || key.includes('.message') ? 'text-white' :
+                              'text-gray-300';
+
+                            return (
+                              <span key={key} className="inline-block mr-3">
+                                <span className="text-gray-500">{key}=</span>
+                                <span className={colorClass}>{valueStr}</span>
+                              </span>
+                            );
+                          };
+
+                          return (
+                            <tr key={idx} className="border-b border-gray-800 hover:bg-gray-800/50">
+                              <td className="p-2 text-gray-500 whitespace-nowrap font-mono text-xs">{time}</td>
+                              <td className={`p-2 font-semibold whitespace-nowrap text-xs ${levelColor}`}>{level}</td>
+                              <td className="p-2 text-gray-300 text-xs whitespace-nowrap">{msg}</td>
+                              <td className="p-2 text-xs">
+                                {Object.entries(flattenedAttrs).map(([key, value]) => renderAttribute(key, value))}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        <tr ref={serverLogsEndRef}><td colSpan={4}></td></tr>
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Task Logs Tab Content */}
+            {activeTab === 'task-logs' && selectedTask && (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="p-4 bg-gray-800 border-b border-gray-700">
+                  <div className="flex-1">
+                    <h3 className="text-md font-semibold mb-1">Task Logs</h3>
+                    {tasksData?.tasks.find(t => t.taskID === selectedTask)?.beadsTaskID && (
+                      <div className="text-xs text-gray-500">
+                        Beads: {tasksData.tasks.find(t => t.taskID === selectedTask)?.beadsTaskID}
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-500">Agent: {selectedTask}</div>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-auto p-4 bg-gray-900 font-mono text-xs">
+                  {logs.length === 0 ? (
+                    <div className="text-gray-500">Loading logs...</div>
+                  ) : (
+                    <div className="space-y-1">
+                      {logs.map((log, idx) => (
+                        <div key={idx} className="text-gray-300 whitespace-pre-wrap break-words">
+                          {log}
+                        </div>
+                      ))}
+                      <div ref={logsEndRef} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Show message when task logs tab is active but no task selected */}
+            {activeTab === 'task-logs' && !selectedTask && (
+              <div className="flex-1 flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <p className="text-lg mb-2">📄 No task selected</p>
+                  <p className="text-sm">Select a task from the Tasks tab to view its logs</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Section: Performance Metrics (Grafana-style) */}
+          <div className="border-t border-gray-700 bg-gray-850 overflow-y-auto flex-shrink-0">
+            <div className="p-3">
+              {metricsLoading && (
+                <div className="text-gray-400 text-sm">Loading metrics...</div>
+              )}
+
+              {metricsError && (
+                <div className="bg-red-900/20 border border-red-800 rounded p-2 text-red-400 text-sm">
+                  Error loading metrics.
+                </div>
+              )}
+
+              {metricsData && (
+                <div className="space-y-2">
+                  {/* Performance Metrics - Single Row */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2">
+                    <MetricsCard
+                      title="Active Tasks"
+                      value={metricsData.metrics.tasksActive}
+                      colorClass="text-yellow-400"
+                      detail={`Currently running tasks`}
+                    />
+                    <MetricsCard
+                      title="Tasks"
+                      value={formatNumber(metricsData.metrics.tasksSpawned)}
+                      subtitle={`${metricsData.metrics.tasksCompleted}✓ ${metricsData.metrics.tasksFailed}✗`}
+                      colorClass="text-blue-400"
+                      detail={`Click for task details`}
+                      onClick={() => setSelectedMetric('tasks')}
+                    />
+                    <MetricsCard
+                      title="Avg Duration"
+                      value={formatDuration(metricsData.metrics.averageDurationMs)}
+                      colorClass="text-amber-400"
+                      detail={`Click for performance details`}
+                      onClick={() => setSelectedMetric('performance')}
+                    />
+                    <MetricsCard
+                      title="Tokens"
+                      value={formatNumber(metricsData.metrics.tokenUsage.totalTokens)}
+                      subtitle={`${formatNumber(metricsData.metrics.tokenUsage.inputTokens)}↑ ${formatNumber(metricsData.metrics.tokenUsage.outputTokens)}↓`}
+                      colorClass="text-purple-400"
+                      detail={`Click for token details`}
+                      onClick={() => setSelectedMetric('tokens')}
+                    />
+                    <MetricsCard
+                      title="API Calls"
+                      value={formatNumber(metricsData.metrics.apiCalls.total)}
+                      subtitle={`${metricsData.metrics.apiCalls.success}✓ ${metricsData.metrics.apiCalls.failed}✗`}
+                      colorClass="text-cyan-400"
+                      detail={`Click for API details`}
+                      onClick={() => setSelectedMetric('api')}
+                    />
+                    <MetricsCard
+                      title="Success Rate"
+                      value={metricsData.metrics.apiCalls.total > 0
+                        ? `${((metricsData.metrics.apiCalls.success / metricsData.metrics.apiCalls.total) * 100).toFixed(1)}%`
+                        : '100%'}
+                      colorClass="text-emerald-400"
+                      detail={`API call success rate`}
+                    />
+                    <MetricsCard
+                      title="Uptime"
+                      value={metricsData.metrics.performance.uptime || '0s'}
+                      colorClass="text-lime-400"
+                      detail={`Click for system status`}
+                      onClick={() => setSelectedMetric('system')}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Metric Detail Modal */}
+        {selectedMetric && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedMetric(null)}>
+            <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-4xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-6 pb-4 border-b border-gray-700 flex-shrink-0">
+                <h3 className="text-lg font-semibold">
+                  {selectedMetric === 'tokens' && 'Token Usage Details'}
+                  {selectedMetric === 'api' && 'API Call Details'}
+                  {selectedMetric === 'performance' && 'Performance Details'}
+                  {selectedMetric === 'tasks' && 'Task Overview'}
+                  {selectedMetric === 'system' && 'System Status'}
+                </h3>
+                <button
+                  onClick={() => setSelectedMetric(null)}
+                  className="text-gray-400 hover:text-white text-xl"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="overflow-y-auto p-6 pt-4" style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#4B5563 #1F2937'
+              }}>
+
+              {metricsData && selectedMetric === 'tokens' && (
+                <div className="space-y-4">
+                  {/* Overview */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">Total Input</div>
+                      <div className="text-2xl font-bold text-indigo-400">
+                        {formatNumber(metricsData.metrics.tokenUsage.inputTokens)}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {metricsData.metrics.tokenUsage.inputTokens.toLocaleString()} tokens
+                      </div>
+                    </div>
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">Total Output</div>
+                      <div className="text-2xl font-bold text-violet-400">
+                        {formatNumber(metricsData.metrics.tokenUsage.outputTokens)}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {metricsData.metrics.tokenUsage.outputTokens.toLocaleString()} tokens
+                      </div>
+                    </div>
+                    {detailedMetrics && detailedMetrics.tasks_completed > 0 && (
+                      <>
+                        <div className="bg-gray-900 rounded p-4">
+                          <div className="text-sm text-gray-400 mb-1">Avg Input/Task</div>
+                          <div className="text-2xl font-bold text-indigo-400">
+                            {formatNumber(Math.floor(detailedMetrics.total_input_tokens / detailedMetrics.tasks_completed))}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {Math.floor(detailedMetrics.total_input_tokens / detailedMetrics.tasks_completed).toLocaleString()} tokens per task
+                          </div>
+                        </div>
+                        <div className="bg-gray-900 rounded p-4">
+                          <div className="text-sm text-gray-400 mb-1">Avg Output/Task</div>
+                          <div className="text-2xl font-bold text-violet-400">
+                            {formatNumber(Math.floor(detailedMetrics.total_output_tokens / detailedMetrics.tasks_completed))}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {Math.floor(detailedMetrics.total_output_tokens / detailedMetrics.tasks_completed).toLocaleString()} tokens per task
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">Input/Output Ratio</div>
+                      <div className="text-2xl font-bold text-cyan-400">
+                        {metricsData.metrics.tokenUsage.outputTokens > 0
+                          ? (metricsData.metrics.tokenUsage.inputTokens / metricsData.metrics.tokenUsage.outputTokens).toFixed(1)
+                          : '0.0'}:1
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">Input per output token</div>
+                    </div>
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">Cache Efficiency</div>
+                      <div className="text-2xl font-bold text-green-400">
+                        {metricsData.metrics.tokenUsage.inputTokens > 0 && (metricsData.metrics.tokenUsage.inputTokens / metricsData.metrics.tokenUsage.outputTokens) > 50
+                          ? 'Excellent'
+                          : metricsData.metrics.tokenUsage.inputTokens > 0 && (metricsData.metrics.tokenUsage.inputTokens / metricsData.metrics.tokenUsage.outputTokens) > 20
+                          ? 'Good'
+                          : 'Normal'}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {metricsData.metrics.tokenUsage.inputTokens > 0 && (metricsData.metrics.tokenUsage.inputTokens / metricsData.metrics.tokenUsage.outputTokens) > 50
+                          ? 'High I/O ratio indicates likely caching'
+                          : 'Based on I/O ratio'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Per-Turn Averages */}
+                  {detailedMetrics && detailedMetrics.total_turns > 0 && (
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-3 font-semibold">🔄 Per-Turn Averages</div>
+                      <div className="grid grid-cols-4 gap-4">
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Total Turns</div>
+                          <div className="text-xl font-bold text-blue-400">
+                            {detailedMetrics.total_turns.toLocaleString()}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Avg Input/Turn</div>
+                          <div className="text-xl font-bold text-indigo-400">
+                            {formatNumber(detailedMetrics.avg_input_per_turn)}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {detailedMetrics.avg_input_per_turn.toLocaleString()}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Avg Output/Turn</div>
+                          <div className="text-xl font-bold text-violet-400">
+                            {formatNumber(detailedMetrics.avg_output_per_turn)}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {detailedMetrics.avg_output_per_turn.toLocaleString()}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Avg Turn Ratio</div>
+                          <div className="text-xl font-bold text-cyan-400">
+                            {detailedMetrics.avg_output_per_turn > 0
+                              ? (detailedMetrics.avg_input_per_turn / detailedMetrics.avg_output_per_turn).toFixed(1)
+                              : '0.0'}:1
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recent Turns */}
+                  {detailedMetrics && detailedMetrics.turn_token_data && detailedMetrics.turn_token_data.length > 0 && (
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-3 font-semibold">📊 Recent Turns (last {Math.min(10, detailedMetrics.turn_token_data.length)})</div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs font-mono" style={{ tableLayout: 'fixed' }}>
+                          <colgroup>
+                            <col style={{ width: `${turnColumnWidths.turn}px` }} />
+                            <col style={{ width: `${turnColumnWidths.duration}px` }} />
+                            <col style={{ width: `${turnColumnWidths.input}px` }} />
+                            <col style={{ width: `${turnColumnWidths.output}px` }} />
+                            <col />
+                          </colgroup>
+                          <thead className="text-gray-400 border-b border-gray-700">
+                            <tr>
+                              <th className="text-left py-2 px-2 relative group">
+                                Turn
+                                <div
+                                  className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onMouseDown={(e) => {
+                                    setResizingTurnColumn('turn');
+                                    setTurnResizeStartX(e.clientX);
+                                    setTurnResizeStartWidth(turnColumnWidths.turn);
+                                  }}
+                                />
+                              </th>
+                              <th className="text-right py-2 px-2 relative group">
+                                Duration
+                                <div
+                                  className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onMouseDown={(e) => {
+                                    setResizingTurnColumn('duration');
+                                    setTurnResizeStartX(e.clientX);
+                                    setTurnResizeStartWidth(turnColumnWidths.duration);
+                                  }}
+                                />
+                              </th>
+                              <th className="text-right py-2 px-2 relative group">
+                                Input
+                                <div
+                                  className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onMouseDown={(e) => {
+                                    setResizingTurnColumn('input');
+                                    setTurnResizeStartX(e.clientX);
+                                    setTurnResizeStartWidth(turnColumnWidths.input);
+                                  }}
+                                />
+                              </th>
+                              <th className="text-right py-2 px-2 relative group">
+                                Output
+                                <div
+                                  className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onMouseDown={(e) => {
+                                    setResizingTurnColumn('output');
+                                    setTurnResizeStartX(e.clientX);
+                                    setTurnResizeStartWidth(turnColumnWidths.output);
+                                  }}
+                                />
+                              </th>
+                              <th className="text-left py-2 px-2">Task</th>
+                            </tr>
+                          </thead>
+                          <tbody className="text-gray-300">
+                            {detailedMetrics.turn_token_data.slice(-10).map((turn, idx) => (
+                              <tr key={idx} className="border-b border-gray-800">
+                                <td className="py-2 px-2 text-blue-400">{turn.Turn}</td>
+                                <td className="py-2 px-2 text-right text-amber-400">{formatDuration(turn.DurationMs)}</td>
+                                <td className="py-2 px-2 text-right text-indigo-400">{formatNumber(turn.InputTokens)}</td>
+                                <td className="py-2 px-2 text-right text-violet-400">{formatNumber(turn.OutputTokens)}</td>
+                                <td className="py-2 px-2 text-gray-400 truncate" title={turn.TaskID}>
+                                  {turn.TaskID}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recent Sessions */}
+                  {detailedMetrics && detailedMetrics.task_token_usage && detailedMetrics.task_token_usage.length > 0 && (
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-3 font-semibold">📋 Recent Sessions (last {Math.min(5, detailedMetrics.task_token_usage.length)})</div>
+                      <div className="space-y-3">
+                        {detailedMetrics.task_token_usage.slice(-5).reverse().map((session, idx) => (
+                          <div key={idx} className="bg-gray-800 rounded p-3">
+                            <div className="text-xs font-mono text-gray-300 mb-2">{session.TaskID}</div>
+                            <div className="grid grid-cols-3 gap-2 text-xs">
+                              <div>
+                                <span className="text-gray-500">Turns:</span>{' '}
+                                <span className="text-blue-400 font-semibold">{session.TurnCount}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Input:</span>{' '}
+                                <span className="text-indigo-400 font-semibold">{formatNumber(session.InputTokens)}</span>
+                                <span className="text-gray-600 ml-1">({session.InputTokens.toLocaleString()})</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Output:</span>{' '}
+                                <span className="text-violet-400 font-semibold">{formatNumber(session.OutputTokens)}</span>
+                                <span className="text-gray-600 ml-1">({session.OutputTokens.toLocaleString()})</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {metricsData && selectedMetric === 'api' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">Total API Calls</div>
+                      <div className="text-2xl font-bold text-cyan-400">
+                        {formatNumber(metricsData.metrics.apiCalls.total)}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {metricsData.metrics.apiCalls.total.toLocaleString()} calls
+                      </div>
+                    </div>
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">Success Rate</div>
+                      <div className="text-2xl font-bold text-green-400">
+                        {metricsData.metrics.apiCalls.total > 0
+                          ? `${((metricsData.metrics.apiCalls.success / metricsData.metrics.apiCalls.total) * 100).toFixed(1)}%`
+                          : '100%'}
+                      </div>
+                    </div>
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">Successful</div>
+                      <div className="text-2xl font-bold text-green-400">
+                        {formatNumber(metricsData.metrics.apiCalls.success)}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {metricsData.metrics.apiCalls.success.toLocaleString()} calls
+                        {metricsData.metrics.apiCalls.total > 0
+                          ? ` • ${((metricsData.metrics.apiCalls.success / metricsData.metrics.apiCalls.total) * 100).toFixed(1)}% of total`
+                          : ' • 100% of total'}
+                      </div>
+                    </div>
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">Failed</div>
+                      <div className="text-2xl font-bold text-red-400">
+                        {formatNumber(metricsData.metrics.apiCalls.failed)}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {metricsData.metrics.apiCalls.failed.toLocaleString()} calls
+                        {metricsData.metrics.apiCalls.total > 0
+                          ? ` • ${((metricsData.metrics.apiCalls.failed / metricsData.metrics.apiCalls.total) * 100).toFixed(1)}% of total`
+                          : ' • 0% of total'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {metricsData && selectedMetric === 'performance' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">Average Duration</div>
+                      <div className="text-2xl font-bold text-amber-400">
+                        {formatDuration(metricsData.metrics.averageDurationMs)}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {metricsData.metrics.averageDurationMs.toFixed(0)}ms per task
+                      </div>
+                    </div>
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">Uptime</div>
+                      <div className="text-2xl font-bold text-lime-400">
+                        {metricsData.metrics.performance.uptime || '0s'}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">Server running time</div>
+                    </div>
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">Tasks Active</div>
+                      <div className="text-2xl font-bold text-yellow-400">
+                        {metricsData.metrics.tasksActive}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {metricsData.metrics.tasksCompleted} completed, {metricsData.metrics.tasksFailed} failed
+                      </div>
+                    </div>
+                  </div>
+                  {metricsData.metrics.averageTokensPerTask > 0 && (
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-2">Token Efficiency</div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Avg Tokens/Task</div>
+                          <div className="text-xl font-bold text-purple-400">
+                            {formatNumber(metricsData.metrics.averageTokensPerTask)}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {metricsData.metrics.averageTokensPerTask.toLocaleString()} tokens
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Total Tasks</div>
+                          <div className="text-xl font-bold text-blue-400">
+                            {metricsData.metrics.tasksSpawned}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {metricsData && selectedMetric === 'tasks' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">Total Spawned</div>
+                      <div className="text-2xl font-bold text-blue-400">
+                        {formatNumber(metricsData.metrics.tasksSpawned)}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {metricsData.metrics.tasksSpawned.toLocaleString()} tasks created
+                      </div>
+                    </div>
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">Success Rate</div>
+                      <div className="text-2xl font-bold text-green-400">
+                        {metricsData.metrics.tasksSpawned > 0
+                          ? `${((metricsData.metrics.tasksCompleted / metricsData.metrics.tasksSpawned) * 100).toFixed(1)}%`
+                          : '0%'}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {metricsData.metrics.tasksCompleted} completed / {metricsData.metrics.tasksFailed} failed
+                      </div>
+                    </div>
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">Currently Active</div>
+                      <div className="text-2xl font-bold text-yellow-400">
+                        {formatNumber(metricsData.metrics.tasksActive)}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">Tasks in progress</div>
+                    </div>
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">Avg Task Duration</div>
+                      <div className="text-2xl font-bold text-amber-400">
+                        {formatDuration(metricsData.metrics.averageDurationMs)}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {metricsData.metrics.averageDurationMs.toFixed(0)}ms average
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-gray-900 rounded p-4">
+                    <div className="text-sm text-gray-400 mb-2">Task Efficiency</div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Tokens per Task</div>
+                        <div className="text-xl font-bold text-purple-400">
+                          {formatNumber(metricsData.metrics.averageTokensPerTask)}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">Average consumption</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Input/Output Ratio</div>
+                        <div className="text-xl font-bold text-cyan-400">
+                          {metricsData.metrics.tokenUsage.outputTokens > 0
+                            ? (metricsData.metrics.tokenUsage.inputTokens / metricsData.metrics.tokenUsage.outputTokens).toFixed(1)
+                            : '0.0'}:1
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">Input to output ratio</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {metricsData && selectedMetric === 'system' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">Server Uptime</div>
+                      <div className="text-2xl font-bold text-lime-400">
+                        {metricsData.metrics.performance.uptime || '0s'}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">Time since server started</div>
+                    </div>
+                    <div className="bg-gray-900 rounded p-4">
+                      <div className="text-sm text-gray-400 mb-1">API Success Rate</div>
+                      <div className="text-2xl font-bold text-green-400">
+                        {metricsData.metrics.apiCalls.total > 0
+                          ? `${((metricsData.metrics.apiCalls.success / metricsData.metrics.apiCalls.total) * 100).toFixed(1)}%`
+                          : '100%'}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {metricsData.metrics.apiCalls.success} / {metricsData.metrics.apiCalls.total} calls
+                      </div>
+                    </div>
+                    <div className="bg-gray-900 rounded p-4 col-span-2">
+                      <div className="text-sm text-gray-400 mb-2">Resource Usage</div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Total Token Throughput</div>
+                          <div className="text-xl font-bold text-purple-400">
+                            {formatNumber(metricsData.metrics.tokenUsage.totalTokens)}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {metricsData.metrics.tokenUsage.totalTokens.toLocaleString()} tokens processed
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Average Task Cost</div>
+                          <div className="text-xl font-bold text-amber-400">
+                            {formatNumber(metricsData.metrics.averageTokensPerTask)}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">Tokens per completed task</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Right: Chat Panel */}
+        {/* Resize handle for chat panel */}
+        <div
+          className="w-1 bg-gray-700 hover:bg-blue-500 cursor-col-resize flex-shrink-0 transition-colors"
+          onMouseDown={(e) => {
+            setResizeStartX(e.clientX);
+            setResizeStartWidth(chatWidth);
+            setIsResizingChat(true);
+          }}
+          title="Drag to resize"
+        />
+        <div style={{ width: `${chatWidth}px` }} className="flex-shrink-0">
+          <ChatPanel />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;

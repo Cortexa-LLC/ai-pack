@@ -1,9 +1,12 @@
 package monitoring
 
 import (
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/shirou/gopsutil/v3/process"
 )
 
 // Metrics collects server performance metrics
@@ -55,6 +58,10 @@ type Metrics struct {
 	// Per-task token tracking (session metrics)
 	taskTokenUsage []TaskTokenUsage
 	maxTokenUsage  int
+
+	// Server metrics
+	startTime time.Time
+	proc      *process.Process
 }
 
 // TurnTokenData tracks token usage for a single turn
@@ -79,6 +86,7 @@ var GlobalMetrics *Metrics
 
 // InitMetrics initializes the global metrics collector
 func InitMetrics() {
+	proc, _ := process.NewProcess(int32(os.Getpid()))
 	GlobalMetrics = &Metrics{
 		maxDurations:   1000, // Keep last 1000 task durations for stats
 		taskDurations:  make([]int64, 0, 1000),
@@ -86,6 +94,8 @@ func InitMetrics() {
 		taskTokenUsage: make([]TaskTokenUsage, 0, 100),
 		maxTurnData:    1000, // Keep last 1000 turns for per-turn analysis
 		turnTokenData:  make([]TurnTokenData, 0, 1000),
+		startTime:      time.Now(),
+		proc:           proc,
 	}
 }
 
@@ -245,6 +255,23 @@ func (m *Metrics) GetSnapshot() MetricsSnapshot {
 		avgOutputPerTurn = totalTurnOutput / totalTurns
 	}
 
+	// Calculate average tokens per task
+	var averageTokensPerTask int64
+	tasksCompleted := atomic.LoadInt64(&m.TasksCompleted)
+	if tasksCompleted > 0 {
+		totalTokens := atomic.LoadInt64(&m.TotalInputTokens) + atomic.LoadInt64(&m.TotalOutputTokens)
+		averageTokensPerTask = totalTokens / tasksCompleted
+	}
+
+	// Get CPU usage
+	var cpuPercent float64
+	if m.proc != nil {
+		cpuPercent, _ = m.proc.CPUPercent()
+	}
+
+	// Calculate uptime
+	uptime := time.Since(m.startTime)
+
 	return MetricsSnapshot{
 		TasksSpawned:        atomic.LoadInt64(&m.TasksSpawned),
 		TasksCompleted:      atomic.LoadInt64(&m.TasksCompleted),
@@ -264,9 +291,12 @@ func (m *Metrics) GetSnapshot() MetricsSnapshot {
 		TotalInputTokens:    atomic.LoadInt64(&m.TotalInputTokens),
 		TotalOutputTokens:   atomic.LoadInt64(&m.TotalOutputTokens),
 		TaskTokenUsage:      tokenUsageCopy,
-		TotalTurns:          totalTurns,
-		AvgInputPerTurn:     avgInputPerTurn,
-		AvgOutputPerTurn:    avgOutputPerTurn,
+		TotalTurns:           totalTurns,
+		AvgInputPerTurn:      avgInputPerTurn,
+		AvgOutputPerTurn:     avgOutputPerTurn,
+		AverageTokensPerTask: averageTokensPerTask,
+		CPUUsage:             cpuPercent,
+		Uptime:              uptime,
 		TurnTokenData:       turnDataCopy,
 		Timestamp:           time.Now(),
 	}
@@ -292,9 +322,12 @@ type MetricsSnapshot struct {
 	TotalInputTokens    int64            `json:"total_input_tokens"`
 	TotalOutputTokens   int64            `json:"total_output_tokens"`
 	TaskTokenUsage      []TaskTokenUsage `json:"task_token_usage,omitempty"`
-	TotalTurns          int64            `json:"total_turns"`
-	AvgInputPerTurn     int64            `json:"avg_input_per_turn"`
-	AvgOutputPerTurn    int64            `json:"avg_output_per_turn"`
+	TotalTurns           int64            `json:"total_turns"`
+	AvgInputPerTurn      int64            `json:"avg_input_per_turn"`
+	AvgOutputPerTurn     int64            `json:"avg_output_per_turn"`
+	AverageTokensPerTask int64            `json:"average_tokens_per_task"`
+	CPUUsage             float64          `json:"cpu_usage"`
+	Uptime              time.Duration    `json:"uptime"`
 	TurnTokenData       []TurnTokenData  `json:"turn_token_data,omitempty"`
 	Timestamp           time.Time        `json:"timestamp"`
 }
