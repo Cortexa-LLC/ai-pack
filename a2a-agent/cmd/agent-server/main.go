@@ -370,6 +370,7 @@ func main() {
 	mux.HandleFunc("/a2a/tasks", s.HandleTasksList)        // List all tasks (machine-wide)
 	mux.HandleFunc("/a2a/tasks/", s.HandleTaskLogs)        // Task-specific logs (trailing slash for subpaths)
 	mux.HandleFunc("/a2a/cancel/", s.HandleCancelTask)     // Cancel a running task
+	mux.HandleFunc("/a2a/retry/", s.HandleRetryTask)       // Retry a failed task
 	mux.HandleFunc("/stream/", s.HandleStream)             // SSE streaming (tasks)
 	mux.HandleFunc("/logs/stream", s.HandleLogsStream)     // SSE streaming (logs)
 	mux.HandleFunc("/logs/recent", s.HandleLogsRecent)     // Recent logs (JSON)
