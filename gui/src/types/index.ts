@@ -5,7 +5,6 @@ export interface AgentTask {
   role: string;
   description: string;
   project_root?: string;
-  progress: number;
   error?: string;
   current_turn?: number;
   tokens_used?: number;

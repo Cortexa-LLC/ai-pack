@@ -10,7 +10,6 @@ const TASKS_QUERY = `
       role
       task
       status
-      progress
       createdAt
       updatedAt
       completedAt
@@ -30,7 +29,6 @@ export interface AgentTask {
   role: string;
   task: string;
   status: string;
-  progress: number;
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
