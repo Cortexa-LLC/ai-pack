@@ -396,3 +396,32 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 		"count": len(tasks),
 	})
 }
+
+// HandleCancelTask cancels a running task
+func (s *AgentServer) HandleCancelTask(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract task ID from URL path: /a2a/cancel/{taskID}
+	taskID := strings.TrimPrefix(r.URL.Path, "/a2a/cancel/")
+	if taskID == "" {
+		http.Error(w, "task ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Cancel the task
+	err := s.CancelTask(taskID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Task cancelled",
+		"task_id": taskID,
+	})
+}

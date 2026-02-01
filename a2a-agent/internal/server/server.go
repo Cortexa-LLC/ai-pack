@@ -84,6 +84,9 @@ type TaskExecution struct {
 	// Streaming
 	streamChan chan *protocol.StreamEvent
 	streamOpen bool
+
+	// Cancellation
+	cancel context.CancelFunc
 }
 
 type AgentConfig struct {
@@ -937,7 +940,17 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 }
 
 func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
-	ctx := context.Background()
+	// Create cancellable context
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Store cancel function so task can be cancelled later
+	s.mu.Lock()
+	execution.cancel = cancel
+	s.mu.Unlock()
+
+	// Ensure cancel is called on exit
+	defer cancel()
+
 	taskID := execution.TaskID
 	startTime := time.Now()
 
@@ -1074,6 +1087,12 @@ func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskE
 
 	result, err := s.executeAgenticLoop(ctx, execution.TaskID, prompt, roleContext, workingDir, execution.Config, logMsg)
 	if err != nil {
+		// Check if error is due to cancellation
+		if ctx.Err() == context.Canceled {
+			logMsg("🛑 Task cancelled")
+			s.cancelTaskExecution(execution, "Task cancelled by user")
+			return "", fmt.Errorf("task cancelled")
+		}
 		logMsg(fmt.Sprintf("❌ Agentic loop failed: %v", err))
 		s.failTask(execution, fmt.Sprintf("Execution error: %v", err))
 		return "", err
@@ -1193,6 +1212,58 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	s.closeStream(execution)
 
 	monitoring.LogTaskFailed(ctx, execution.TaskID, execution.Role, errorMsg, durationMs)
+	monitoring.GlobalMetrics.IncrementTasksFailed(durationMs)
+}
+
+// CancelTask cancels a running task
+func (s *AgentServer) CancelTask(taskID string) error {
+	s.mu.Lock()
+	execution, exists := s.activeTasks[taskID]
+	s.mu.Unlock()
+
+	if !exists {
+		return fmt.Errorf("task not found or not active: %s", taskID)
+	}
+
+	// Call the cancel function if it exists
+	if execution.cancel != nil {
+		execution.cancel()
+
+		// Log cancellation to execution log
+		logPath := filepath.Join(execution.ProjectRoot, BeadsDir, "tasks", execution.TaskID, "execution.log")
+		logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err == nil {
+			timestamp := time.Now().Format("15:04:05")
+			_, _ = logFile.WriteString(fmt.Sprintf("[%s] 🛑 Task cancelled by user\n", timestamp))
+			_, _ = logFile.WriteString(fmt.Sprintf("[%s] %s\n", timestamp, strings.Repeat("=", 70)))
+			_ = logFile.Close()
+		}
+
+		return nil
+	}
+
+	return fmt.Errorf("task cannot be cancelled: %s", taskID)
+}
+
+// cancelTaskExecution marks a task as cancelled (called after context cancellation)
+func (s *AgentServer) cancelTaskExecution(execution *TaskExecution, message string) {
+	ctx := context.Background()
+	durationMs := time.Since(execution.StartTime).Milliseconds()
+
+	s.mu.Lock()
+	execution.Status = "cancelled"
+	execution.Error = message
+	// Remove from active tasks map since task is now cancelled
+	delete(s.activeTasks, execution.TaskID)
+	s.mu.Unlock()
+
+	s.updateTaskStatus(execution.TaskID, "cancelled", message)
+	s.sendStreamEvent(execution, "cancelled", map[string]interface{}{
+		"message": message,
+	})
+	s.closeStream(execution)
+
+	monitoring.LogTaskFailed(ctx, execution.TaskID, execution.Role, message, durationMs)
 	monitoring.GlobalMetrics.IncrementTasksFailed(durationMs)
 }
 
