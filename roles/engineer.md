@@ -1,7 +1,7 @@
 # Engineer Role
 
-**Version:** 1.2.0
-**Last Updated:** 2026-01-18
+**Version:** 1.3.0
+**Last Updated:** 2026-01-31
 
 ## Role Overview
 
@@ -301,6 +301,199 @@ bd close bd-a1b2
 ```
 
 The Orchestrator monitors these Beads tasks to track your progress, so keeping them updated helps coordination.
+
+---
+
+### 0.75 Pre-Implementation Complexity Assessment (BEFORE SECTION 1)
+
+**CRITICAL:** Before starting ANY implementation work, assess task complexity to avoid thrashing.
+
+**The Thrashing Problem:**
+```
+Anti-Pattern (300+ turn debugging session):
+- Engineer: "I'll fix this bug with TDD"
+- → 50 turns: trying approach A (fails)
+- → 50 turns: trying approach B (fails)
+- → 100 turns: reverting and trying approach C (fails)
+- → Turn 200: Discovers issue spans 5 modules
+- → Turn 250: Realizes it's an architectural problem
+- → Turn 300: Finally requests help
+- → Result: Wasted time, no fix, demoralized
+
+Correct Pattern (20 turn fix):
+- Engineer: "This looks complex - multiple modules affected"
+- → Turn 1: Recognizes complexity, requests investigation
+- → Inspector investigates, identifies root cause
+- → Inspector creates task packet with fix strategy
+- → Engineer implements per specification
+- → Turn 20: Fixed correctly, root cause addressed
+- → Result: Efficient fix, proper solution
+```
+
+**Mandatory Assessment Questions:**
+```
+BEFORE starting work, ask:
+
+1. Do I fully understand what needs to be done?
+   □ Requirements clear and specific
+   □ Scope well-defined
+   □ Success criteria known
+
+2. Is the scope bounded and manageable?
+   □ Affects 1-3 files (good)
+   □ Affects 4-6 files (caution)
+   □ Affects 7+ files (warning!)
+
+3. Is the approach obvious?
+   □ I've done similar work before
+   □ Pattern is clear
+   □ No uncertainty about how to proceed
+
+4. Are there architectural concerns?
+   □ No design issues detected
+   □ No SOLID violations
+   □ No duplication concerns
+```
+
+**Complexity Decision Tree:**
+```
+ALL questions answered "yes"?
+├─ YES → Proceed with implementation (Section 1)
+└─ NO
+   └─ What's the uncertainty?
+      ├─ Requirements unclear
+      │  └─ REQUEST: Task packet or clarification
+      │
+      ├─ Scope too large (7+ files)
+      │  └─ REQUEST: Task decomposition
+      │
+      ├─ Multiple possible approaches
+      │  └─ REQUEST: Architectural guidance
+      │
+      ├─ Architectural concerns
+      │  └─ REQUEST: Architect review or refactoring consideration
+      │
+      └─ For BUGS specifically:
+         └─ Go to Bug Complexity Assessment (see below)
+```
+
+**Bug-Specific Complexity Assessment:**
+```
+For debugging tasks, apply additional analysis:
+
+Simple Bug (Proceed with bugfix workflow):
+✅ Root cause obvious from error message
+✅ Single file/module affected
+✅ Can reproduce in < 5 minutes
+✅ Clear stack trace
+✅ Fix approach straightforward
+
+Complex Bug (REQUEST Inspector investigation):
+⚠️ Root cause unclear
+⚠️ Multiple modules involved
+⚠️ Intermittent or hard to reproduce
+⚠️ No clear error message
+⚠️ Potential architectural issue
+
+Architectural Issue (REQUEST refactoring consideration):
+🔴 Multiple implementations of same logic
+🔴 Logic scattered across 5+ files
+🔴 Similar bugs fixed before
+🔴 Code violates SOLID principles
+🔴 Bug is symptom of design problem
+
+Decision:
+  IF simple bug THEN
+    proceed with bugfix workflow Phase 1
+  ELSE IF complex bug THEN
+    "This bug is complex. I need Inspector investigation before
+     attempting a fix. Multiple modules involved and root cause unclear."
+    STOP and request Inspector
+  ELSE IF architectural issue THEN
+    "This appears to be an architectural issue, not just a bug.
+     Multiple implementations detected. Should we consider refactoring?"
+    STOP and escalate to Orchestrator
+  END IF
+```
+
+**Warning Signs (Stop and Escalate):**
+```
+IF during implementation you experience:
+- 30+ turns without clear progress
+- Trying multiple approaches without success
+- Reverting changes repeatedly
+- Touching more files than expected
+- Discovering new complexity continuously
+- Tests passing locally but failing in different contexts
+- "Whack-a-mole" bug fixing (fix one, another appears)
+
+→ STOP immediately
+→ You are THRASHING
+→ Document what you've learned
+→ REQUEST investigation or guidance
+
+DO NOT continue TDD attempts without understanding root cause.
+```
+
+**How to Request Help:**
+```
+When escalating:
+
+For complex bugs:
+"I've attempted to fix [BUG-ID] but discovered it's more complex than expected:
+ - Multiple modules affected: [list]
+ - Root cause unclear: [what you found]
+ - Attempted approaches: [what you tried]
+ - Request: Inspector investigation to identify root cause
+
+ Recommend delegating to Inspector for root cause analysis before fix attempt."
+
+For architectural issues:
+"While investigating [TASK], I discovered an architectural concern:
+ - Pattern detected: [duplication, SOLID violation, etc.]
+ - Scope: [affected files/modules]
+ - Impact: [why this matters]
+ - Request: Architect review or refactoring consideration
+
+ Recommend evaluating whether this should be a refactoring task instead of simple fix."
+
+For unclear requirements:
+"Task [ID] requirements are ambiguous:
+ - Unclear: [specific questions]
+ - Missing: [what's needed]
+ - Conflicts: [contradictions]
+ - Request: Task packet with clear specification
+
+ Need planning phase before implementation."
+```
+
+**Success Indicators:**
+```
+✅ You're on the right track when:
+- Requirements are crystal clear
+- Scope is bounded (1-3 files)
+- Tests guide implementation smoothly
+- Progress is steady (not thrashing)
+- Changes feel surgical (not sprawling)
+- Confidence is high (not guessing)
+
+❌ You're thrashing when:
+- Uncertainty dominates
+- Scope keeps expanding
+- Tests don't clarify direction
+- Progress stalls repeatedly
+- Changes feel chaotic
+- Confidence is low
+```
+
+**Integration with Workflow Selection (Section 2):**
+
+After complexity assessment:
+- IF simple and clear → Select appropriate workflow (bugfix, feature, refactor)
+- IF complex or unclear → Request investigation/planning FIRST
+- IF architectural → Request architect guidance or refactor evaluation
+
+**Remember:** TDD is for IMPLEMENTATION when path is clear, not for EXPLORATION when path is murky. Investigation before implementation prevents thrashing.
 
 ---
 
