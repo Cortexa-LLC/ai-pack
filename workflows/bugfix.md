@@ -1,7 +1,7 @@
 # Bugfix Workflow
 
-**Version:** 1.0.0
-**Last Updated:** 2026-01-07
+**Version:** 1.1.0
+**Last Updated:** 2026-01-31
 
 ## Overview
 
@@ -25,9 +25,142 @@ The Bugfix Workflow is specialized for identifying, analyzing, and fixing defect
 
 ## Bugfix-Specific Phases
 
+### Phase 0: Complexity Assessment (FIRST STEP)
+
+**Objective:** Determine whether bug requires investigation before attempting fix.
+
+**CRITICAL:** This assessment prevents engineers from thrashing on complex issues. Jumping to TDD without understanding scope leads to 100+ turn debugging sessions.
+
+**Complexity Indicators:**
+
+**Simple Bug (Proceed to Phase 1 directly):**
+```
+✅ Root cause obvious from error message
+✅ Single file/module affected
+✅ Can reproduce in < 5 minutes
+✅ Clear stack trace points to issue
+✅ Similar to previously fixed bugs
+✅ No architectural concerns
+✅ Fix approach is straightforward
+```
+
+**Complex Bug (Delegate to Inspector or Spelunker first):**
+```
+⚠️ Root cause unclear or mysterious
+⚠️ Multiple modules/files involved
+⚠️ Intermittent or hard to reproduce
+⚠️ No clear error message or stack trace
+⚠️ Potential design/architectural issue
+⚠️ Similar bugs may exist elsewhere
+⚠️ Affects multiple features/paths
+⚠️ Production-only issue (can't reproduce locally)
+```
+
+**Architectural Issue (Consider Refactoring instead):**
+```
+🔴 Multiple implementations of same logic detected
+🔴 Logic scattered across 5+ files
+🔴 Duplicate code causing inconsistency
+🔴 Violation of SOLID principles
+🔴 Bug is symptom, not root cause
+🔴 Similar bugs fixed before in different locations
+🔴 Code smells strongly suggest design problem
+```
+
+---
+
+**Decision Tree:**
+```
+IS bug simple and obvious?
+├─ YES → Proceed to Phase 1 (Engineer can handle)
+└─ NO
+   └─ IS root cause unclear OR multi-module?
+      ├─ YES → Delegate to Inspector (static analysis)
+      │        OR Spelunker (runtime investigation)
+      └─ NO
+         └─ ARE there multiple implementations or architectural smells?
+            ├─ YES → Consider REFACTORING instead
+            │        (Consult Architect, use refactor workflow)
+            └─ NO → Proceed to Phase 1 with caution
+```
+
+---
+
+**Why This Phase Matters:**
+
+**Without Phase 0 (Anti-Pattern):**
+- Engineer: "I'll fix this bug with TDD"
+- → 50 turns: trying approach A
+- → 50 turns: trying approach B
+- → 100 turns: reverting and trying approach C
+- → Discovers: issue spans 5 modules, architectural problem
+- → Total: 300+ turns wasted, still not fixed
+
+**With Phase 0 (Proper Flow):**
+- Orchestrator: "This looks complex - multiple modules affected"
+- → Delegates to Inspector for investigation
+- → Inspector: root cause analysis, identifies architectural issue
+- → Inspector: creates task packet with fix strategy
+- → Engineer: implements fix per specification in 20 turns
+- → Result: Fixed correctly, root cause addressed
+
+---
+
+**For Engineers:**
+
+IF you are assigned a bug directly (without investigation):
+- Perform this complexity assessment yourself
+- IF you discover it's more complex than expected:
+  - Multiple modules affected
+  - Unclear root cause
+  - Architectural concerns
+  - Taking more than 30 turns without progress
+
+STOP and request:
+- Inspector investigation (for complex bugs)
+- Orchestrator guidance (for architectural issues)
+- Task packet creation (for unclear requirements)
+
+**Anti-Pattern Recognition:**
+```
+Symptoms of thrashing:
+- 50+ turns without progress
+- Trying multiple approaches
+- Reverting changes repeatedly
+- Touching more files than expected
+- Discovering new complexity continuously
+
+→ STOP: You need investigation/planning, not more TDD attempts
+```
+
+---
+
+**Complexity Assessment Examples:**
+
+**Simple Bugs (Direct to Engineer):**
+- "Login button text shows 'Lgoin' instead of 'Login'" → Typo, 1 file, obvious
+- "Null pointer exception in UserService.getProfile line 42" → Clear stack trace, single location
+- "Off-by-one error in pagination (page 1 shows items 0-9 instead of 1-10)" → Logic error, obvious fix
+
+**Complex Bugs (Inspector/Spelunker First):**
+- "Users randomly logged out after 10-15 minutes" → Intermittent, timing issue
+- "Data inconsistency: order totals don't match between cart, checkout, and confirmation" → Multi-module
+- "API returns 500 error but only for some users" → Root cause unclear, needs investigation
+- "Performance degrades after 1000 concurrent users" → Needs profiling, Spelunker investigation
+
+**Architectural Issues (Consider Refactoring):**
+- "Validation logic inconsistent: 5 different implementations across modules" → Design problem
+- "Same null pointer bug fixed 3 times in 3 different payment processors" → Architectural smell
+- "Fix requires changing shared utility used by 20+ modules" → Refactoring candidate
+- "Bug reveals violation of single responsibility principle" → Design issue
+
+---
+
 ### Phase 1: Bug Triage & Reproduction
 
 **Objective:** Understand, reproduce, and assess the bug.
+
+**NOTE:** If you reached Phase 1, bug is assessed as "simple" with clear scope. For complex bugs, Inspector or Spelunker should investigate first.
 
 **DELEGATION STRATEGY:**
 
@@ -340,6 +473,115 @@ Document for team knowledge:
 □ Process improvements needed
 □ Convention updates needed
 ```
+
+---
+
+## When Bug Indicates Architectural Problem
+
+**CRITICAL:** Some bugs are symptoms of deeper architectural issues. Fixing the immediate bug without addressing the root design problem leads to recurring similar bugs.
+
+### Red Flags (Architectural Smells)
+
+```
+🔴 Multiple implementations of same logic (DRY violation)
+   Example: Validation logic duplicated in 5 controllers
+
+🔴 Logic scattered across many files
+   Example: Payment processing spread across 8 modules
+
+🔴 Fix requires changing 5+ files
+   Example: Adding field requires updates in 7 places
+
+🔴 Similar bugs fixed before in different locations
+   Example: Third time fixing "null user" bug in different module
+
+🔴 Code violates SOLID principles
+   Example: God class with 3000 lines doing everything
+
+🔴 Copy-paste code causing inconsistency
+   Example: Same algorithm with slight variations in 4 places
+
+🔴 Shotgun surgery required
+   Example: Simple change needs touching 10+ files
+```
+
+### What to Do When Architectural Issue Detected
+
+```
+WHEN architectural smell detected:
+
+STEP 1: Document the architectural concern
+  - Describe the design problem
+  - List affected modules/files
+  - Explain why it's a design issue not just a bug
+
+STEP 2: Assess severity and urgency
+  IF bug is CRITICAL and blocking users THEN
+    implement minimal fix to unblock
+    document technical debt created
+    create follow-up refactoring task
+  ELSE
+    escalate to Orchestrator for refactoring consideration
+  END IF
+
+STEP 3: Create refactoring proposal
+  - Problem description
+  - Proposed architecture
+  - Migration strategy
+  - Risk assessment
+
+STEP 4: Orchestrator decides
+  Option A: Refactor now (if time permits)
+    → Delegate to Architect for design
+    → Then Engineer implements refactoring
+  Option B: Minimal fix + refactor later
+    → Engineer fixes immediate bug
+    → Create backlog item for refactoring
+  Option C: Accept technical debt
+    → Document reasoning
+    → Track for future review
+```
+
+### Example: Validation Duplication
+
+**Bug Report:**
+"User registration fails validation but checkout succeeds with same invalid email"
+
+**Investigation:**
+- Email validation duplicated in 5 places
+- Each implementation slightly different
+- Some allow "user@domain" (no TLD), others reject
+- No single source of truth
+
+**Diagnosis:** Architectural issue, not simple bug
+
+**Options:**
+
+**Option A: Minimal Fix (Quick)**
+```javascript
+// Fix the immediate bug: make all validations consistent
+// Copy the strictest validation to all 5 locations
+// Document: "TODO: Consolidate validation logic"
+```
+
+**Option B: Proper Fix (Takes longer but correct)**
+```javascript
+// 1. Create shared validation utility
+class EmailValidator {
+  static isValid(email) {
+    // Single implementation
+  }
+}
+
+// 2. Replace all 5 duplicates with calls to utility
+// 3. Add comprehensive tests
+// 4. Verify all modules use consistent validation
+```
+
+**Decision Criteria:**
+- If CRITICAL: Option A (fix now, refactor later)
+- If MAJOR: Option B (fix it right)
+- If MINOR: Option B (no excuse not to do it right)
 
 ---
 
