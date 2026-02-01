@@ -162,8 +162,8 @@ func InitLogger(level slog.Level) {
 		Level: level,
 	}
 
-	// Create buffered handler that writes to both stdout and buffer
-	jsonHandler := slog.NewJSONHandler(os.Stdout, opts)
+	// Create buffered handler that writes to both stderr and buffer
+	jsonHandler := slog.NewJSONHandler(os.Stderr, opts)
 	bufferedHandler := &BufferedHandler{
 		handler: jsonHandler,
 		buffer:  globalLogBuffer,
