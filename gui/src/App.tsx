@@ -287,6 +287,54 @@ function App() {
     }
   };
 
+  const retryTask = async (taskID: string, taskDescription: string, event?: React.MouseEvent) => {
+    // Stop propagation if called from within a clickable card
+    if (event) {
+      event.stopPropagation();
+    }
+
+    if (!confirm(`Retry task: ${taskDescription}?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: `
+            mutation RetryTask($taskID: String!) {
+              retryTask(taskID: $taskID) {
+                success
+                message
+                taskID
+              }
+            }
+          `,
+          variables: { taskID },
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.errors) {
+        alert(`Failed to retry task: ${result.errors[0].message}`);
+      } else if (result.data?.retryTask?.success) {
+        const newTaskID = result.data.retryTask.taskID;
+        alert(`Task retried! New task ID: ${newTaskID}`);
+        // Switch to the new task and show its logs
+        selectTask(newTaskID);
+      } else {
+        alert('Failed to retry task: ' + (result.data?.retryTask?.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to retry task:', error);
+      alert('Failed to retry task. Check console for details.');
+    }
+  };
+
   // Fetch and stream logs when a task is selected or when switching to task logs tab
   useEffect(() => {
     if (!selectedTask || activeTab !== 'task-logs') {
@@ -589,31 +637,7 @@ function App() {
                                   </div>
                                 </div>
                                 <button
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    if (confirm(`Retry task: ${task.task}?`)) {
-                                      try {
-                                        const response = await fetch('http://localhost:8080/graphql', {
-                                          method: 'POST',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({
-                                            query: `mutation { retryTask(taskID: "${task.taskID}") { success message taskID } }`
-                                          })
-                                        });
-                                        const result = await response.json();
-                                        if (result.data?.retryTask?.success) {
-                                          const newTaskID = result.data.retryTask.taskID;
-                                          alert(`Task retried! New task ID: ${newTaskID}`);
-                                          // Switch to the new task and show its logs
-                                          selectTask(newTaskID);
-                                        } else {
-                                          alert('Failed to retry task: ' + (result.data?.retryTask?.message || 'Unknown error'));
-                                        }
-                                      } catch (err) {
-                                        alert('Error retrying task: ' + err);
-                                      }
-                                    }
-                                  }}
+                                  onClick={(e) => retryTask(task.taskID, task.task, e)}
                                   className="mt-3 w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors flex items-center justify-center gap-2"
                                 >
                                   <span>🔄</span>
