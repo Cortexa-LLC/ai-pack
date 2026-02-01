@@ -65,20 +65,6 @@ function TaskList({ tasks }: TaskListProps) {
             </div>
           </div>
 
-          {task.status === 'running' && (
-            <div className="mt-3">
-              <div className="w-full bg-gray-700 rounded-full h-2">
-                <div
-                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${(task.progress * 100).toFixed(0)}%` }}
-                />
-              </div>
-              <p className="text-xs text-gray-400 mt-1">
-                Progress: {(task.progress * 100).toFixed(0)}%
-              </p>
-            </div>
-          )}
-
           {task.error && (
             <div className="mt-3 p-3 bg-red-900/20 border border-red-800 rounded text-red-400 text-sm">
               Error: {task.error}
