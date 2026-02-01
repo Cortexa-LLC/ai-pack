@@ -48,8 +48,6 @@ type MetricsInfo struct {
 	APISuccess           int64
 	APIFailed            int64
 	AverageTokensPerTask int64
-	MemoryUsageMB        float64
-	Goroutines           int
 	Uptime               string
 	// Detailed metrics
 	TotalTurns          int64
