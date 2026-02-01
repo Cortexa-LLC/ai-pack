@@ -175,8 +175,6 @@ func (a *GraphQLAdapter) GetMetrics() *graphql.MetricsInfo {
 		APIFailed:            snapshot.APICallsFailed,
 		AverageTokensPerTask: snapshot.AverageTokensPerTask,
 		Uptime:               formatUptime(snapshot.Uptime),
-		MemoryUsageMB:        0.0, // Removed from display
-		Goroutines:           0,   // Removed from display
 		// New detailed metrics
 		TotalTurns:          snapshot.TotalTurns,
 		AvgInputPerTurn:     snapshot.AvgInputPerTurn,
