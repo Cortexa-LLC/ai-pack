@@ -1134,8 +1134,40 @@ func handleCancel(args []string) {
 }
 
 func handleRetry(args []string) {
-	fmt.Println("❌ Retry not yet implemented")
-	os.Exit(1)
+	if len(args) < 1 {
+		fmt.Println("Usage: agent retry <task-id>")
+		os.Exit(1)
+	}
+
+	taskID := args[0]
+
+	// POST to /a2a/retry/{taskID}
+	url := fmt.Sprintf("%s/a2a/retry/%s", ServerURL, taskID)
+	resp, err := http.Post(url, "application/json", nil)
+	if err != nil {
+		fmt.Printf("❌ Failed to retry task: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		fmt.Printf("❌ Failed to retry task: %s\n", string(body))
+		os.Exit(1)
+	}
+
+	// Parse response to get new task ID
+	body, _ := io.ReadAll(resp.Body)
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err == nil {
+		if newTaskID, ok := result["new_task_id"].(string); ok {
+			fmt.Printf("✅ Task %s retried successfully\n", taskID)
+			fmt.Printf("   New task ID: %s\n", newTaskID)
+			return
+		}
+	}
+
+	fmt.Printf("✅ Task %s retried successfully\n", taskID)
 }
 
 func handleMetrics(args []string) {
@@ -1897,6 +1929,7 @@ func usage() {
 	fmt.Println("  agent diff <task-id>                                Show git diff")
 	fmt.Println("  agent files <task-id>                               List modified files")
 	fmt.Println("  agent cancel <task-id>                              Cancel a running task")
+	fmt.Println("  agent retry <task-id>                               Retry a failed task")
 	fmt.Println("  agent metrics                                       Show server metrics")
 	fmt.Println("  agent performance                                   Performance report with token usage")
 	fmt.Println("  agent discovery [--verbose] [--json]                Show server capabilities and available agents")
