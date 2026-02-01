@@ -66,6 +66,8 @@ function App() {
   const serverLogsEndRef = useRef<HTMLTableRowElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const serverLogsEventSourceRef = useRef<EventSource | null>(null);
+  const followLogsRef = useRef(followLogs);
+  const followServerLogsRef = useRef(followServerLogs);
 
   // Panel widths (resizable) - only chat panel now
   const [chatWidth, setChatWidth] = useState(() => {
@@ -104,19 +106,28 @@ function App() {
     };
   }, [isResizingChat, resizeStartX, resizeStartWidth]);
 
+  // Update follow refs when state changes
+  useEffect(() => {
+    followLogsRef.current = followLogs;
+  }, [followLogs]);
+
+  useEffect(() => {
+    followServerLogsRef.current = followServerLogs;
+  }, [followServerLogs]);
+
   // Auto-scroll to bottom when following logs
   useEffect(() => {
-    if (followLogs && logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (followLogsRef.current && logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: 'auto' });
     }
-  }, [logs, followLogs]);
+  }, [logs]);
 
   // Auto-scroll server logs
   useEffect(() => {
-    if (followServerLogs && serverLogsEndRef.current) {
-      serverLogsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (followServerLogsRef.current && serverLogsEndRef.current) {
+      serverLogsEndRef.current.scrollIntoView({ behavior: 'auto' });
     }
-  }, [serverLogs, followServerLogs]);
+  }, [serverLogs]);
 
   // Save log column widths
   useEffect(() => {
@@ -234,6 +245,46 @@ function App() {
   const selectTask = (taskId: string) => {
     setSelectedTask(taskId);
     setActiveTab('task-logs');
+  };
+
+  const cancelTask = async (taskID: string, event?: React.MouseEvent) => {
+    // Stop propagation if called from within a clickable card
+    if (event) {
+      event.stopPropagation();
+    }
+
+    if (!confirm('Are you sure you want to cancel this task?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: `
+            mutation CancelAgent($taskID: String!) {
+              cancelAgent(taskID: $taskID)
+            }
+          `,
+          variables: { taskID },
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.errors) {
+        alert(`Failed to cancel task: ${result.errors[0].message}`);
+      } else if (result.data.cancelAgent) {
+        // Task cancelled successfully - the UI will update via the tasks query refresh
+        console.log('Task cancelled:', taskID);
+      }
+    } catch (error) {
+      console.error('Failed to cancel task:', error);
+      alert('Failed to cancel task. Check console for details.');
+    }
   };
 
   // Fetch and stream logs when a task is selected or when switching to task logs tab
@@ -437,8 +488,17 @@ function App() {
                                 className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-yellow-500 cursor-pointer transition-colors"
                                 onClick={() => selectTask(task.taskID)}
                               >
-                                <div className="text-xs font-medium text-white mb-1 truncate" title={task.task}>
-                                  {task.task.length > 40 ? task.task.substring(0, 40) + '...' : task.task}
+                                <div className="flex items-start justify-between mb-1">
+                                  <div className="text-xs font-medium text-white truncate flex-1" title={task.task}>
+                                    {task.task.length > 40 ? task.task.substring(0, 40) + '...' : task.task}
+                                  </div>
+                                  <button
+                                    onClick={(e) => cancelTask(task.taskID, e)}
+                                    className="ml-2 px-2 py-0.5 text-xs bg-red-600 hover:bg-red-700 text-white rounded transition-colors flex-shrink-0"
+                                    title="Cancel task"
+                                  >
+                                    🛑 Cancel
+                                  </button>
                                 </div>
                                 {task.beadsTaskID && (
                                   <div className="text-xs text-gray-500 mb-1">
