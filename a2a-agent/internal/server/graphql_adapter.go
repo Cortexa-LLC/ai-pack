@@ -2,6 +2,8 @@ package server
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/graphql"
@@ -28,6 +30,45 @@ func (a *GraphQLAdapter) GetActiveTasks() map[string]*graphql.TaskInfo {
 	for id, execution := range a.server.activeTasks {
 		tasks[id] = convertToTaskInfo(execution)
 	}
+	return tasks
+}
+
+// GetAllTasks returns all tasks (active + completed/failed from disk)
+func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
+	tasks := make(map[string]*graphql.TaskInfo)
+
+	// First, get all active tasks
+	a.server.mu.RLock()
+	for id, execution := range a.server.activeTasks {
+		tasks[id] = convertToTaskInfo(execution)
+	}
+	a.server.mu.RUnlock()
+
+	// Then, scan disk for completed/failed tasks
+	tasksDir := filepath.Join(a.server.rootDir, BeadsDir, "tasks")
+	entries, err := os.ReadDir(tasksDir)
+	if err != nil {
+		return tasks // Return active tasks if can't read directory
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		taskID := entry.Name()
+		// Skip if already in active tasks
+		if _, exists := tasks[taskID]; exists {
+			continue
+		}
+
+		// Load from disk
+		taskInfo, err := a.GetTaskStatus(taskID)
+		if err == nil {
+			tasks[taskID] = taskInfo
+		}
+	}
+
 	return tasks
 }
 
