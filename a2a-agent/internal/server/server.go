@@ -1081,17 +1081,26 @@ func (s *AgentServer) buildAndSavePrompt(execution *TaskExecution, roleContext, 
 	return prompt
 }
 
-// executeAgentWorkflow runs the agentic loop with progress tracking
+// executeAgentWorkflow runs the agentic loop with context support for cancellation.
+// The context can be cancelled via CancelTask() or timeout via DeadlineExceeded.
+// Cancellation flow: CancelTask() -> execution.cancel() -> ctx.Err() checked here
 func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskExecution, prompt, roleContext, workingDir string, logMsg func(string)) (string, error) {
 	s.sendStreamEvent(execution, "api_call_start", map[string]interface{}{})
 
 	result, err := s.executeAgenticLoop(ctx, execution.TaskID, prompt, roleContext, workingDir, execution.Config, logMsg)
 	if err != nil {
-		// Check if error is due to cancellation
+		// Check if error is due to cancellation or timeout.
+		// context.Canceled: User-initiated cancellation via CancelTask()
+		// context.DeadlineExceeded: Task exceeded configured timeout
 		if ctx.Err() == context.Canceled {
 			logMsg("🛑 Task cancelled")
 			s.cancelTaskExecution(execution, "Task cancelled by user")
 			return "", fmt.Errorf("task cancelled")
+		}
+		if ctx.Err() == context.DeadlineExceeded {
+			logMsg("⏱️ Task timeout exceeded")
+			s.cancelTaskExecution(execution, "Task exceeded deadline")
+			return "", fmt.Errorf("task timeout")
 		}
 		logMsg(fmt.Sprintf("❌ Agentic loop failed: %v", err))
 		s.failTask(execution, fmt.Sprintf("Execution error: %v", err))
@@ -1215,7 +1224,10 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	monitoring.GlobalMetrics.IncrementTasksFailed(durationMs)
 }
 
-// CancelTask cancels a running task
+// CancelTask cancels a running task by calling its context cancel function.
+// This triggers context cancellation which is detected in executeAgentWorkflow,
+// causing the task to be marked as cancelled via cancelTaskExecution.
+// Can be called from CLI, GUI, or GraphQL API.
 func (s *AgentServer) CancelTask(taskID string) error {
 	s.mu.Lock()
 	execution, exists := s.activeTasks[taskID]
@@ -1225,7 +1237,8 @@ func (s *AgentServer) CancelTask(taskID string) error {
 		return fmt.Errorf("task not found or not active: %s", taskID)
 	}
 
-	// Call the cancel function if it exists
+	// Call the cancel function to trigger context cancellation
+	// This will cause ctx.Err() to return context.Canceled in the execution loop
 	if execution.cancel != nil {
 		execution.cancel()
 
@@ -1246,6 +1259,8 @@ func (s *AgentServer) CancelTask(taskID string) error {
 }
 
 // cancelTaskExecution marks a task as cancelled (called after context cancellation)
+// This is invoked when a task is cancelled via CancelTask() or when the context
+// is cancelled/times out during execution.
 func (s *AgentServer) cancelTaskExecution(execution *TaskExecution, message string) {
 	ctx := context.Background()
 	durationMs := time.Since(execution.StartTime).Milliseconds()
