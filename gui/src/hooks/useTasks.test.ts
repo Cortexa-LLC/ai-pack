@@ -39,7 +39,6 @@ describe('useTasks', () => {
           role: 'engineer',
           task: 'Fix bug',
           status: 'running',
-          progress: 0.5,
           createdAt: '2026-01-31T12:00:00Z',
           updatedAt: '2026-01-31T12:30:00Z',
           completedAt: null,

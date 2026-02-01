@@ -440,16 +440,9 @@ function App() {
                                 <div className="text-xs font-medium text-white mb-1 truncate" title={task.task}>
                                   {task.task.length > 40 ? task.task.substring(0, 40) + '...' : task.task}
                                 </div>
-                                <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                                  {task.beadsTaskID && <span>{task.beadsTaskID}</span>}
-                                  <span className="text-yellow-400">{Math.round(task.progress * 100)}%</span>
-                                </div>
-                                {task.progress > 0 && (
-                                  <div className="mt-2 bg-gray-700 rounded-full h-1">
-                                    <div
-                                      className="bg-yellow-400 h-1 rounded-full transition-all"
-                                      style={{ width: `${task.progress * 100}%` }}
-                                    />
+                                {task.beadsTaskID && (
+                                  <div className="text-xs text-gray-500 mb-1">
+                                    {task.beadsTaskID}
                                   </div>
                                 )}
                               </div>
