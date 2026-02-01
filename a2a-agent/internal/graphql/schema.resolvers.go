@@ -22,7 +22,11 @@ func (r *mutationResolver) SpawnAgent(ctx context.Context, role string, task str
 
 // CancelAgent is the resolver for the cancelAgent field.
 func (r *mutationResolver) CancelAgent(ctx context.Context, taskID string) (bool, error) {
-	panic(fmt.Errorf("not implemented: CancelAgent - cancelAgent"))
+	err := r.server.CancelTask(taskID)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // UpdateTaskStatus is the resolver for the updateTaskStatus field.

@@ -131,6 +131,11 @@ func (a *GraphQLAdapter) SpawnAgent(role, task, projectRoot string) (*graphql.Ta
 	return convertToTaskInfo(execution), nil
 }
 
+// CancelTask cancels a running task
+func (a *GraphQLAdapter) CancelTask(taskID string) error {
+	return a.server.CancelTask(taskID)
+}
+
 // GetMetrics returns current system metrics
 func (a *GraphQLAdapter) GetMetrics() *graphql.MetricsInfo {
 	// Get metrics snapshot

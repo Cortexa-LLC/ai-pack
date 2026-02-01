@@ -1108,8 +1108,29 @@ func handleFiles(args []string) {
 }
 
 func handleCancel(args []string) {
-	fmt.Println("❌ Cancel not yet implemented")
-	os.Exit(1)
+	if len(args) < 1 {
+		fmt.Println("Usage: agent cancel <task-id>")
+		os.Exit(1)
+	}
+
+	taskID := args[0]
+
+	// POST to /a2a/cancel/{taskID}
+	url := fmt.Sprintf("%s/a2a/cancel/%s", ServerURL, taskID)
+	resp, err := http.Post(url, "application/json", nil)
+	if err != nil {
+		fmt.Printf("❌ Failed to cancel task: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		fmt.Printf("❌ Failed to cancel task: %s\n", string(body))
+		os.Exit(1)
+	}
+
+	fmt.Printf("✅ Task %s cancelled successfully\n", taskID)
 }
 
 func handleRetry(args []string) {
@@ -1875,6 +1896,7 @@ func usage() {
 	fmt.Println("  agent wait <task-id>                                Wait for completion")
 	fmt.Println("  agent diff <task-id>                                Show git diff")
 	fmt.Println("  agent files <task-id>                               List modified files")
+	fmt.Println("  agent cancel <task-id>                              Cancel a running task")
 	fmt.Println("  agent metrics                                       Show server metrics")
 	fmt.Println("  agent performance                                   Performance report with token usage")
 	fmt.Println("  agent discovery [--verbose] [--json]                Show server capabilities and available agents")
