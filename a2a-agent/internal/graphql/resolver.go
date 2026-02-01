@@ -24,7 +24,6 @@ type TaskInfo struct {
 	Role        string
 	Task        string
 	Status      string
-	Progress    float64
 	CreatedAt   string
 	UpdatedAt   string
 	CompletedAt *string
@@ -48,7 +47,6 @@ type MetricsInfo struct {
 	APISuccess           int64
 	APIFailed            int64
 	AverageTokensPerTask int64
-	CPUUsage             float64
 	MemoryUsageMB        float64
 	Goroutines           int
 	Uptime               string

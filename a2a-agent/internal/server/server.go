@@ -74,7 +74,6 @@ type TaskExecution struct {
 	Config      *AgentConfig
 	StartTime   time.Time
 	Status      string // "queued", "in_progress", "completed", "failed"
-	Progress    float64
 	Result      string
 	Error       string
 	ProjectRoot string // Project root directory where task metadata is stored
@@ -304,7 +303,6 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		Config:      config,
 		StartTime:   time.Now(),
 		Status:      "queued",
-		Progress:    0.0,
 		ProjectRoot: projectRoot,
 		streamChan:  make(chan *protocol.StreamEvent, 100),
 		streamOpen:  true,
@@ -351,7 +349,6 @@ func (s *AgentServer) getTaskStatus(taskID string) (*protocol.TaskStatusResponse
 		Role:      execution.Role,
 		Task:      execution.Task,
 		Status:    execution.Status,
-		Progress:  execution.Progress,
 		CreatedAt: execution.StartTime,
 		UpdatedAt: time.Now(),
 		Result:    execution.Result,
@@ -1011,7 +1008,6 @@ func (s *AgentServer) setupExecutionLogger(execution *TaskExecution) func(string
 func (s *AgentServer) initializeTaskExecution(execution *TaskExecution, logMsg func(string)) {
 	s.mu.Lock()
 	execution.Status = "in_progress"
-	execution.Progress = 0.1
 	s.mu.Unlock()
 
 	s.updateTaskStatus(execution.TaskID, "in_progress", "")
@@ -1074,12 +1070,7 @@ func (s *AgentServer) buildAndSavePrompt(execution *TaskExecution, roleContext, 
 
 // executeAgentWorkflow runs the agentic loop with progress tracking
 func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskExecution, prompt, roleContext, workingDir string, logMsg func(string)) (string, error) {
-	s.mu.Lock()
-	execution.Progress = 0.3
-	s.mu.Unlock()
-	s.sendStreamEvent(execution, "api_call_start", map[string]interface{}{
-		"progress": 0.3,
-	})
+	s.sendStreamEvent(execution, "api_call_start", map[string]interface{}{})
 
 	result, err := s.executeAgenticLoop(ctx, execution.TaskID, prompt, roleContext, workingDir, execution.Config, logMsg)
 	if err != nil {
@@ -1088,12 +1079,7 @@ func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskE
 		return "", err
 	}
 
-	s.mu.Lock()
-	execution.Progress = 0.9
-	s.mu.Unlock()
-	s.sendStreamEvent(execution, "api_call_complete", map[string]interface{}{
-		"progress": 0.9,
-	})
+	s.sendStreamEvent(execution, "api_call_complete", map[string]interface{}{})
 
 	return result, nil
 }
@@ -1148,7 +1134,6 @@ func (s *AgentServer) saveTaskResults(execution *TaskExecution, result string, l
 func (s *AgentServer) updateTaskCompletion(execution *TaskExecution, result string) (string, string) {
 	s.mu.Lock()
 	execution.Status = "completed"
-	execution.Progress = 1.0
 	execution.Result = result
 	beadsTaskID := ""
 	projectRoot := ""

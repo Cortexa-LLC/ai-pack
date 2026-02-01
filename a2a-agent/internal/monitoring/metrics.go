@@ -266,12 +266,6 @@ func (m *Metrics) GetSnapshot() MetricsSnapshot {
 		averageTokensPerTask = totalTokens / tasksCompleted
 	}
 
-	// Get CPU usage
-	var cpuPercent float64
-	if m.proc != nil {
-		cpuPercent, _ = m.proc.CPUPercent()
-	}
-
 	// Calculate uptime
 	uptime := time.Since(m.startTime)
 
@@ -298,7 +292,6 @@ func (m *Metrics) GetSnapshot() MetricsSnapshot {
 		AvgInputPerTurn:      avgInputPerTurn,
 		AvgOutputPerTurn:     avgOutputPerTurn,
 		AverageTokensPerTask: averageTokensPerTask,
-		CPUUsage:             cpuPercent,
 		Uptime:              uptime,
 		TurnTokenData:       turnDataCopy,
 		Timestamp:           time.Now(),
@@ -329,7 +322,6 @@ type MetricsSnapshot struct {
 	AvgInputPerTurn      int64            `json:"avg_input_per_turn"`
 	AvgOutputPerTurn     int64            `json:"avg_output_per_turn"`
 	AverageTokensPerTask int64            `json:"average_tokens_per_task"`
-	CPUUsage             float64          `json:"cpu_usage"`
 	Uptime              time.Duration    `json:"uptime"`
 	TurnTokenData       []TurnTokenData  `json:"turn_token_data,omitempty"`
 	Timestamp           time.Time        `json:"timestamp"`
