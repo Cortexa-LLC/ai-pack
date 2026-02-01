@@ -181,6 +181,10 @@ func (m *Metrics) RecordTurnTokens(taskID string, turn int, inputTokens, outputT
 	atomic.AddInt64(&m.TotalTurnInputTokens, inputTokens)
 	atomic.AddInt64(&m.TotalTurnOutputTokens, outputTokens)
 
+	// Update global token totals (for real-time display)
+	atomic.AddInt64(&m.TotalInputTokens, inputTokens)
+	atomic.AddInt64(&m.TotalOutputTokens, outputTokens)
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -203,9 +207,8 @@ func (m *Metrics) RecordTurnTokens(taskID string, turn int, inputTokens, outputT
 
 // RecordTokenUsage records token usage for a completed task/session
 func (m *Metrics) RecordTokenUsage(taskID string, inputTokens, outputTokens int64, turnCount int64) {
-	// Update global totals
-	atomic.AddInt64(&m.TotalInputTokens, inputTokens)
-	atomic.AddInt64(&m.TotalOutputTokens, outputTokens)
+	// Note: Token totals are now updated in real-time via RecordTurnTokens,
+	// so we don't add them here to avoid double-counting
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
