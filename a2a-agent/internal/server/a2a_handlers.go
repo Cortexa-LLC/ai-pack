@@ -425,3 +425,40 @@ func (s *AgentServer) HandleCancelTask(w http.ResponseWriter, r *http.Request) {
 		"task_id": taskID,
 	})
 }
+
+// HandleRetryTask retries a failed task
+func (s *AgentServer) HandleRetryTask(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract task ID from URL path: /a2a/retry/{taskID}
+	taskID := strings.TrimPrefix(r.URL.Path, "/a2a/retry/")
+	if taskID == "" {
+		http.Error(w, "task ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Get the task info
+	taskInfo, err := s.loadTaskStatusFromDisk(taskID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Task not found: %v", err), http.StatusNotFound)
+		return
+	}
+
+	// Spawn a new agent task with the same parameters
+	newTaskResponse, err := s.spawnAgentTask(taskInfo.Role, taskInfo.Task, "")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to retry task: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":     true,
+		"message":     "Task retried successfully",
+		"task_id":     taskID,
+		"new_task_id": newTaskResponse.TaskID,
+	})
+}
