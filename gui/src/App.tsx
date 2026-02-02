@@ -536,6 +536,7 @@ function App() {
                         ) : (
                           tasksData.tasks
                             .filter(t => t.status === 'QUEUED' || t.status === 'queued')
+                            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
                             .map(task => (
                               <div
                                 key={task.taskID}
@@ -583,6 +584,7 @@ function App() {
                         ) : (
                           tasksData.tasks
                             .filter(t => t.status === 'IN_PROGRESS' || t.status === 'in_progress')
+                            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
                             .map(task => (
                               <div
                                 key={task.taskID}
@@ -630,6 +632,7 @@ function App() {
                         ) : (
                           tasksData.tasks
                             .filter(t => t.status === 'COMPLETED' || t.status === 'completed')
+                            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
                             .map(task => (
                               <div
                                 key={task.taskID}
@@ -672,6 +675,7 @@ function App() {
                         ) : (
                           tasksData.tasks
                             .filter(t => t.status === 'FAILED' || t.status === 'failed')
+                            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
                             .map(task => (
                               <div
                                 key={task.taskID}
