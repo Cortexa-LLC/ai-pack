@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/beads"
@@ -345,7 +346,8 @@ func convertBeadsTaskToTaskInfo(beadsTask beads.Task, projectRoot string) *graph
 	case "in_progress":
 		status = "in_progress"
 	case "closed", "done":
-		status = "completed"
+		// For closed tasks, check execution log to determine if completed or failed
+		status = determineExecutionStatus(projectRoot, beadsTask.ID)
 	case "open":
 		status = "queued"
 	}
@@ -368,4 +370,62 @@ func convertBeadsTaskToTaskInfo(beadsTask beads.Task, projectRoot string) *graph
 	}
 
 	return taskInfo
+}
+
+// determineExecutionStatus checks execution log to determine if task completed or failed
+func determineExecutionStatus(projectRoot, beadsTaskID string) string {
+	// Find the execution log for this beads task
+	tasksDir := filepath.Join(projectRoot, BeadsDir, "tasks")
+	entries, err := os.ReadDir(tasksDir)
+	if err != nil {
+		return "completed" // Default to completed if we can't read
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		// Check metadata for matching beads_task_id
+		metadataPath := filepath.Join(tasksDir, entry.Name(), "00-metadata.json")
+		data, err := os.ReadFile(metadataPath)
+		if err != nil {
+			continue
+		}
+
+		var metadata struct {
+			Metadata map[string]string `json:"metadata"`
+		}
+		if err := json.Unmarshal(data, &metadata); err != nil {
+			continue
+		}
+
+		if metadata.Metadata["beads_task_id"] != beadsTaskID {
+			continue
+		}
+
+		// Found the execution - check the log
+		logPath := filepath.Join(tasksDir, entry.Name(), "execution.log")
+		logData, err := os.ReadFile(logPath)
+		if err != nil {
+			return "completed" // Default if can't read log
+		}
+
+		logContent := string(logData)
+		// Look for failure markers
+		if strings.Contains(logContent, "❌ Task failed") ||
+		   strings.Contains(logContent, "Agentic loop failed") {
+			return "failed"
+		}
+		// Look for success markers
+		if strings.Contains(logContent, "✅ Task completed successfully") ||
+		   strings.Contains(logContent, "Task completed successfully") {
+			return "completed"
+		}
+
+		// If closed but no clear marker, default to completed
+		return "completed"
+	}
+
+	return "completed" // Default if no execution found
 }
