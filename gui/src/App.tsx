@@ -348,6 +348,9 @@ function App() {
       return;
     }
 
+    // Clear logs immediately when switching tasks to avoid showing stale logs
+    setLogs([]);
+
     // Fetch initial logs
     fetch(`http://localhost:8080/a2a/tasks/${selectedTask}/logs`)
       .then(res => {
