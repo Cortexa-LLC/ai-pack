@@ -14,6 +14,9 @@ type Task struct {
 	Title        string                 `json:"title"`
 	Description  string                 `json:"description"`
 	Status       string                 `json:"status"`
+	CreatedAt    string                 `json:"created_at"`
+	UpdatedAt    string                 `json:"updated_at"`
+	ClosedAt     string                 `json:"closed_at,omitempty"`
 	Dependencies []interface{}          `json:"dependencies,omitempty"` // Can be strings or objects
 	Metadata     map[string]interface{} `json:"metadata,omitempty"`
 }
