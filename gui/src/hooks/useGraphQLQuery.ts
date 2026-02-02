@@ -29,5 +29,6 @@ export function useGraphQLQuery<T = any>(
     staleTime: 0, // Data is immediately stale
     refetchOnWindowFocus: true, // Refetch when window regains focus
     refetchOnReconnect: true, // Refetch when reconnecting
+    structuralSharing: true, // Prevent re-renders if data hasn't actually changed
   });
 }
