@@ -357,9 +357,6 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	// Build list of all tasks
 	type TaskInfo struct {
 		TaskID        string `json:"task_id"`
@@ -371,7 +368,10 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 		Error         string `json:"error,omitempty"`
 	}
 
-	var tasks []TaskInfo
+	tasksMap := make(map[string]TaskInfo)
+
+	// First, get all active tasks from memory
+	s.mu.RLock()
 	for _, execution := range s.activeTasks {
 		task := TaskInfo{
 			TaskID:      execution.TaskID,
@@ -387,6 +387,57 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 			task.BeadsTaskID = beadsID
 		}
 
+		tasksMap[task.TaskID] = task
+	}
+	s.mu.RUnlock()
+
+	// Get all project roots to scan (server root + registered projects)
+	projectRoots := s.GetProjectRoots()
+
+	// Then, get beads tasks from each project using bd list
+	beadsClient := s.beadsClient
+	for _, projectRoot := range projectRoots {
+		beadsTasks, err := beadsClient.ListAllTasksFromDir(projectRoot)
+		if err != nil {
+			continue // Skip if can't list tasks from this project
+		}
+
+		// Convert beads tasks to TaskInfo
+		for _, beadsTask := range beadsTasks {
+			taskID := beadsTask.ID
+			// Skip if already in tasks map (active tasks take precedence)
+			if _, exists := tasksMap[taskID]; exists {
+				continue
+			}
+
+			// Map beads status to agent status
+			status := "queued"
+			switch beadsTask.Status {
+			case "in_progress":
+				status = "in_progress"
+			case "closed", "done":
+				// For closed tasks, check execution log to determine if completed or failed
+				status = determineExecutionStatus(projectRoot, beadsTask.ID)
+			case "open":
+				status = "queued"
+			}
+
+			task := TaskInfo{
+				TaskID:      taskID,
+				BeadsTaskID: taskID,
+				Status:      status,
+				Role:        "beads-task",
+				Description: beadsTask.Title,
+				ProjectRoot: projectRoot,
+			}
+
+			tasksMap[taskID] = task
+		}
+	}
+
+	// Convert map to slice
+	var tasks []TaskInfo
+	for _, task := range tasksMap {
 		tasks = append(tasks, task)
 	}
 

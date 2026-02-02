@@ -17,6 +17,7 @@ describe('TaskList', () => {
       error: null,
       metadata: null,
       beadsTaskID: 'bd-123',
+      projectRoot: null,
     },
     {
       taskID: 'task-2',
@@ -30,6 +31,7 @@ describe('TaskList', () => {
       error: null,
       metadata: null,
       beadsTaskID: 'bd-456',
+      projectRoot: null,
     },
   ];
 
