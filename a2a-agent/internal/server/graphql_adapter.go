@@ -357,11 +357,16 @@ func convertBeadsTaskToTaskInfo(beadsTask beads.Task, projectRoot string) *graph
 		Role:        "beads-task",
 		Task:        beadsTask.Title,
 		Status:      status,
-		CreatedAt:   time.Now().Format(time.RFC3339), // Beads doesn't expose creation time in Task struct
-		UpdatedAt:   time.Now().Format(time.RFC3339),
+		CreatedAt:   beadsTask.CreatedAt,
+		UpdatedAt:   beadsTask.UpdatedAt,
 		Metadata:    make(map[string]string),
 		BeadsTaskID: &beadsTask.ID,
 		ProjectRoot: &projectRoot,
+	}
+
+	// Add completion timestamp if available
+	if beadsTask.ClosedAt != "" {
+		taskInfo.CompletedAt = &beadsTask.ClosedAt
 	}
 
 	// Add description as result if available
