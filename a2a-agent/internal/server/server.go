@@ -43,10 +43,14 @@ const (
 	ErrorEvent              = "error"
 
 	// File names
-	MetadataFileName = "00-metadata.json"
+	MetadataFileName        = "00-metadata.json"
+	ProjectRegistryFileName = "project-registry.json"
 
 	// Directory names
 	BeadsDir = ".beads"
+
+	// Project cleanup threshold (days)
+	ProjectInactiveDays = 30
 )
 
 type AgentServer struct {
@@ -59,12 +63,14 @@ type AgentServer struct {
 	maxTokens        int              // Maximum tokens per API call
 	model            string           // Anthropic model to use
 	maxInactiveTurns int              // Stop agent after N turns without progress
+	config           *config.Config   // Server configuration
 
 	// Concurrent execution tracking
-	mu          sync.RWMutex
-	activeTasks map[string]*TaskExecution
-	taskQueue   chan *TaskExecution
-	workerPool  chan struct{} // Semaphore for max concurrent agents
+	mu           sync.RWMutex
+	activeTasks  map[string]*TaskExecution
+	taskQueue    chan *TaskExecution
+	workerPool   chan struct{}          // Semaphore for max concurrent agents
+	projectRoots map[string]time.Time   // Registry of known project roots with last access time
 }
 
 type TaskExecution struct {
@@ -108,6 +114,23 @@ type AgentConfig struct {
 	Metadata         map[string]interface{} `yaml:"metadata"`          // Changed from map[string]string to support arrays
 	ExtendedThinking bool                   `yaml:"extended_thinking"` // Enable extended thinking mode
 	MaxTurns         int                    `yaml:"max_turns"`         // Deprecated: No turn limit, only max_inactive stops execution
+}
+
+// GetProjectRoots returns all known project roots
+func (s *AgentServer) GetProjectRoots() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	roots := make([]string, 0, len(s.projectRoots)+1)
+	roots = append(roots, s.rootDir) // Always include server root
+
+	for root := range s.projectRoots {
+		if root != s.rootDir {
+			roots = append(roots, root)
+		}
+	}
+
+	return roots
 }
 
 func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model string, cfg *config.Config) (*AgentServer, error) {
@@ -178,9 +201,11 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		maxTokens:        maxTokens,
 		model:            model,
 		maxInactiveTurns: maxInactiveTurns,
+		config:           cfg,
 		activeTasks:      make(map[string]*TaskExecution),
 		taskQueue:        make(chan *TaskExecution, 100),
 		workerPool:       make(chan struct{}, maxConcurrent),
+		projectRoots:     make(map[string]time.Time),
 	}
 
 	// Start worker pool
@@ -191,6 +216,19 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		monitoring.Logger.Info("beads_available", "installed", true)
 	} else {
 		monitoring.Logger.Warn("beads_not_installed", "message", "Install Beads for better task tracking: https://github.com/steveyegge/beads")
+	}
+
+	// Load registered project roots from disk
+	if err := server.loadProjectRoots(); err != nil {
+		monitoring.Logger.Warn("failed_to_load_project_registry", "error", err.Error())
+	}
+
+	// Clean up inactive projects
+	server.cleanupInactiveProjects()
+
+	// Handle orphaned in-progress beads tasks from previous server runs
+	if beads.IsInstalled() {
+		go server.handleOrphanedTasks()
 	}
 
 	return server, nil
@@ -317,10 +355,19 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		monitoring.Logger.Warn("failed_to_update_task_metadata", "error", err.Error())
 	}
 
-	// Register task
+	// Register task and project root
 	s.mu.Lock()
 	s.activeTasks[taskID] = execution
-	s.mu.Unlock()
+	if projectRoot != "" && projectRoot != s.rootDir {
+		s.projectRoots[projectRoot] = time.Now()
+		s.mu.Unlock()
+		// Persist project registry
+		if err := s.saveProjectRoots(); err != nil {
+			monitoring.Logger.Warn("failed_to_save_project_registry", "error", err.Error())
+		}
+	} else {
+		s.mu.Unlock()
+	}
 
 	// Queue for execution
 	s.taskQueue <- execution
@@ -1308,5 +1355,140 @@ func (s *AgentServer) closeStream(execution *TaskExecution) {
 	if execution.streamOpen {
 		execution.streamOpen = false
 		close(execution.streamChan)
+	}
+}
+
+// loadProjectRoots loads the project registry from config
+func (s *AgentServer) loadProjectRoots() error {
+	if s.config.Projects == nil {
+		s.config.Projects = make(map[string]string)
+		return nil
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for path, lastAccessedStr := range s.config.Projects {
+		lastAccessed, err := time.Parse(time.RFC3339, lastAccessedStr)
+		if err != nil {
+			continue // Skip invalid entries
+		}
+		s.projectRoots[path] = lastAccessed
+	}
+
+	monitoring.Logger.Info("project_registry_loaded", "count", len(s.projectRoots))
+	return nil
+}
+
+// saveProjectRoots persists the project registry to config file
+func (s *AgentServer) saveProjectRoots() error {
+	s.mu.RLock()
+	registry := make(map[string]string)
+	for path, lastAccessed := range s.projectRoots {
+		registry[path] = lastAccessed.Format(time.RFC3339)
+	}
+	s.mu.RUnlock()
+
+	// Update config
+	s.config.Projects = registry
+
+	// Save to config file (~/.claude/agent-server.json)
+	configPath := resolveConfigPath()
+	if configPath == "" {
+		// No config file to save to
+		return nil
+	}
+
+	return config.SaveConfig(s.config, configPath)
+}
+
+// resolveConfigPath returns the path to the active config file
+func resolveConfigPath() string {
+	// Check for explicit config path from environment
+	if envPath := os.Getenv("AGENT_SERVER_CONFIG"); envPath != "" {
+		return envPath
+	}
+
+	// Default to ~/.claude/agent-server.json
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		return filepath.Join(homeDir, ".claude", "agent-server.json")
+	}
+
+	return ""
+}
+
+// cleanupInactiveProjects removes projects that haven't been accessed in a while
+func (s *AgentServer) cleanupInactiveProjects() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	cutoff := time.Now().AddDate(0, 0, -ProjectInactiveDays)
+	removed := 0
+
+	for path, lastAccessed := range s.projectRoots {
+		if lastAccessed.Before(cutoff) {
+			delete(s.projectRoots, path)
+			removed++
+		}
+	}
+
+	if removed > 0 {
+		monitoring.Logger.Info("cleaned_inactive_projects", "count", removed)
+		// Save after cleanup
+		go func() {
+			if err := s.saveProjectRoots(); err != nil {
+				monitoring.Logger.Warn("failed_to_save_after_cleanup", "error", err.Error())
+			}
+		}()
+	}
+}
+
+// handleOrphanedTasks checks for beads tasks that are in_progress but have no active execution
+// This happens when the server restarts while tasks were running
+func (s *AgentServer) handleOrphanedTasks() {
+	// Wait a bit for server to fully initialize
+	time.Sleep(2 * time.Second)
+
+	projectRoots := s.GetProjectRoots()
+	orphanedCount := 0
+
+	for _, projectRoot := range projectRoots {
+		beadsTasks, err := s.beadsClient.ListAllTasksFromDir(projectRoot)
+		if err != nil {
+			continue
+		}
+
+		for _, beadsTask := range beadsTasks {
+			// Only check tasks that are marked as in_progress in beads
+			if beadsTask.Status != "in_progress" {
+				continue
+			}
+
+			// Check if there's an active execution for this task
+			s.mu.RLock()
+			_, hasActiveTask := s.activeTasks[beadsTask.ID]
+			s.mu.RUnlock()
+
+			if !hasActiveTask {
+				// This is an orphaned task - it's marked in_progress but not running
+				// Mark it as open (queued) so it can be picked up again
+				monitoring.Logger.Warn("orphaned_task_detected",
+					"task_id", beadsTask.ID,
+					"title", beadsTask.Title,
+					"project", projectRoot,
+				)
+
+				// TODO: Decide if we should:
+				// 1. Auto-restart the task (could be risky if it failed for a reason)
+				// 2. Mark it as failed
+				// 3. Reset it to "open" status
+				// For now, just log it - user can manually restart if needed
+				orphanedCount++
+			}
+		}
+	}
+
+	if orphanedCount > 0 {
+		monitoring.Logger.Info("orphaned_tasks_summary", "count", orphanedCount)
 	}
 }

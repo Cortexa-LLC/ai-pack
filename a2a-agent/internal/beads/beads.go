@@ -196,6 +196,35 @@ func IsInstalled() bool {
 	return err == nil
 }
 
+// ListAllTasks returns all beads tasks from the current directory
+func (c *Client) ListAllTasks() ([]Task, error) {
+	return c.ListAllTasksFromDir("")
+}
+
+// ListAllTasksFromDir returns all beads tasks from a specific working directory
+func (c *Client) ListAllTasksFromDir(workingDir string) ([]Task, error) {
+	// Run: bd list --all --json
+	cmd := exec.Command("bd", "list", "--all", "--json")
+	if workingDir != "" {
+		cmd.Dir = workingDir
+	}
+
+	output, err := cmd.Output()
+	if err != nil {
+		if _, checkErr := exec.LookPath("bd"); checkErr != nil {
+			return nil, fmt.Errorf("bd command not found - install Beads first")
+		}
+		return nil, fmt.Errorf("failed to list Beads tasks: %w", err)
+	}
+
+	var tasks []Task
+	if err := json.Unmarshal(output, &tasks); err != nil {
+		return nil, fmt.Errorf("failed to parse Beads tasks: %w", err)
+	}
+
+	return tasks, nil
+}
+
 // ValidateTaskID validates that a Beads task ID exists and is accessible
 func (c *Client) ValidateTaskID(taskID string) error {
 	return c.ValidateTaskIDFromDir(taskID, "")

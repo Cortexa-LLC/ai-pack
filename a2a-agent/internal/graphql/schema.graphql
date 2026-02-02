@@ -24,6 +24,7 @@ type AgentTask {
   error: String
   metadata: JSON
   beadsTaskID: String
+  projectRoot: String
 }
 
 # Beads task representation
