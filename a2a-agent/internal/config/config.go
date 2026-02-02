@@ -13,11 +13,12 @@ const (
 
 // Config holds all server configuration
 type Config struct {
-	Server  ServerConfig  `json:"server"`
-	API     APIConfig     `json:"api"`
-	Agent   AgentConfig   `json:"agent"`
-	Logging LoggingConfig `json:"logging"`
-	Metrics MetricsConfig `json:"metrics"`
+	Server   ServerConfig       `json:"server"`
+	API      APIConfig          `json:"api"`
+	Agent    AgentConfig        `json:"agent"`
+	Logging  LoggingConfig      `json:"logging"`
+	Metrics  MetricsConfig      `json:"metrics"`
+	Projects map[string]string  `json:"projects,omitempty"` // map[projectPath]lastAccessed
 }
 
 // ServerConfig holds server-specific settings
@@ -86,6 +87,7 @@ func DefaultConfig() *Config {
 			Enabled:          true,
 			MaxTaskDurations: 1000,
 		},
+		Projects: make(map[string]string),
 	}
 }
 

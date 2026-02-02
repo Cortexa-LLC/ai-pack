@@ -10,11 +10,6 @@ import (
 	"fmt"
 )
 
-// Helper function to create string pointer
-func stringPtr(s string) *string {
-	return &s
-}
-
 // SpawnAgent is the resolver for the spawnAgent field.
 func (r *mutationResolver) SpawnAgent(ctx context.Context, role string, task string, projectRoot *string) (*AgentTask, error) {
 	panic(fmt.Errorf("not implemented: SpawnAgent - spawnAgent"))
@@ -92,6 +87,7 @@ func (r *queryResolver) Tasks(ctx context.Context) ([]*AgentTask, error) {
 			Error:       taskInfo.Error,
 			Metadata:    metadata,
 			BeadsTaskID: taskInfo.BeadsTaskID,
+			ProjectRoot: taskInfo.ProjectRoot,
 		})
 	}
 
@@ -158,7 +154,7 @@ func (r *queryResolver) Metrics(ctx context.Context) (*Metrics, error) {
 			Failed:  int(metricsInfo.APIFailed),
 		},
 		Performance: &Performance{
-			Uptime:   metricsInfo.Uptime,
+			Uptime: metricsInfo.Uptime,
 		},
 		TurnMetrics: &TurnMetrics{
 			TotalTurns:       int(metricsInfo.TotalTurns),
@@ -221,15 +217,3 @@ func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionRes
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func stringPtr(s string) *string {
-	return &s
-}
-*/
