@@ -32,6 +32,7 @@ type TaskInfo struct {
 	Error       *string
 	Metadata    map[string]string
 	BeadsTaskID *string
+	ProjectRoot *string
 }
 
 // MetricsInfo represents system metrics

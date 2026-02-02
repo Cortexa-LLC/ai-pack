@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/beads"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
 
@@ -137,7 +138,7 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.RUnlock()
 
-	// Determine the log file path
+	// Determine the project root and log file path
 	var logFile string
 	var projectRoot string
 
@@ -149,32 +150,121 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 		}
 		logFile = filepath.Join(projectRoot, ".beads", "tasks", execution.TaskID, "execution.log")
 	} else {
-		// Try loading task from disk
-		status, err := s.loadTaskStatusFromDisk(taskID)
-		if err != nil {
-			// Last resort: assume it's an internal task ID in the server's root directory
-			logFile = filepath.Join(s.rootDir, ".beads", "tasks", taskID, "execution.log")
-		} else {
-			// Use the task's project root if available
-			projectRoot = s.rootDir
-			logFile = filepath.Join(projectRoot, ".beads", "tasks", status.TaskID, "execution.log")
+		// For beads tasks, find which project they belong to
+		projectRoot = s.findBeadsTaskProjectRoot(taskID)
+		if projectRoot == "" {
+			projectRoot = s.rootDir // Fallback to server root
+		}
+
+		// Try direct task directory first (agent-spawned tasks)
+		logFile = filepath.Join(projectRoot, ".beads", "tasks", taskID, "execution.log")
+
+		// If not found, search execution directories for beads task ID
+		if _, err := os.Stat(logFile); os.IsNotExist(err) {
+			if execLog := s.findBeadsTaskExecutionLog(projectRoot, taskID); execLog != "" {
+				logFile = execLog
+			}
 		}
 	}
 
-	// Check if log file exists
+	// Determine task status (we need this before checking log file)
+	var taskStatus string
+	if exists {
+		taskStatus = execution.Status
+	} else {
+		// For beads tasks, get status from the project root we found
+		if beadsTask, err := s.beadsClient.GetTaskFromDir(taskID, projectRoot); err == nil {
+			taskStatus = beadsTask.Status
+		}
+	}
+
+	// For queued/open tasks, show the task contract instead of logs
+	if taskStatus == "queued" || taskStatus == "open" {
+		s.serveTaskContract(w, r, taskID, projectRoot)
+		return
+	}
+
+	// Check if log file exists (only for non-queued tasks)
 	if _, err := os.Stat(logFile); os.IsNotExist(err) {
 		http.Error(w, fmt.Sprintf("No logs found for task: %s", taskID), http.StatusNotFound)
 		return
 	}
 
-	// Check if streaming is requested
-	stream := r.URL.Query().Get("stream") == "true"
+	// Determine if task is still running
+	isTaskRunning := taskStatus == "in_progress"
+
+	// Check if streaming is requested and task is still running
+	// Completed tasks should never stream (follow mode)
+	stream := r.URL.Query().Get("stream") == "true" && isTaskRunning
 
 	if stream {
 		s.streamTaskLogs(w, r, logFile, taskID)
 	} else {
 		s.serveTaskLogs(w, r, logFile)
 	}
+}
+
+// serveTaskContract serves the task description/contract for queued tasks
+func (s *AgentServer) serveTaskContract(w http.ResponseWriter, r *http.Request, taskID, projectRoot string) {
+	// Try to get beads task info
+	var beadsTask *beads.Task
+	var err error
+
+	if projectRoot != "" {
+		beadsTask, err = s.beadsClient.GetTaskFromDir(taskID, projectRoot)
+	} else {
+		// Try all project roots
+		for _, root := range s.GetProjectRoots() {
+			beadsTask, err = s.beadsClient.GetTaskFromDir(taskID, root)
+			if err == nil {
+				break
+			}
+		}
+	}
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Task not found: %s", taskID), http.StatusNotFound)
+		return
+	}
+
+	// Build markdown contract
+	var contract strings.Builder
+	contract.WriteString(fmt.Sprintf("# %s\n\n", beadsTask.Title))
+	contract.WriteString(fmt.Sprintf("**Task ID:** %s  \n", beadsTask.ID))
+	contract.WriteString(fmt.Sprintf("**Status:** %s  \n\n", beadsTask.Status))
+
+	if beadsTask.Description != "" && beadsTask.Description != beadsTask.Title {
+		contract.WriteString("## Description\n\n")
+		contract.WriteString(beadsTask.Description)
+		contract.WriteString("\n\n")
+	}
+
+	if len(beadsTask.Dependencies) > 0 {
+		contract.WriteString("## Dependencies\n\n")
+		for _, dep := range beadsTask.Dependencies {
+			if depID, ok := dep.(string); ok {
+				contract.WriteString(fmt.Sprintf("- %s\n", depID))
+			} else if depMap, ok := dep.(map[string]interface{}); ok {
+				if id, ok := depMap["id"].(string); ok {
+					contract.WriteString(fmt.Sprintf("- %s\n", id))
+				}
+			}
+		}
+		contract.WriteString("\n")
+	}
+
+	if beadsTask.Metadata != nil && len(beadsTask.Metadata) > 0 {
+		contract.WriteString("## Metadata\n\n")
+		for k, v := range beadsTask.Metadata {
+			contract.WriteString(fmt.Sprintf("- **%s:** %v\n", k, v))
+		}
+	}
+
+	// Set CORS headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+
+	w.Write([]byte(contract.String()))
 }
 
 // serveTaskLogs serves the complete log file as plain text
@@ -301,4 +391,57 @@ func (s *AgentServer) streamTaskLogs(w http.ResponseWriter, r *http.Request, log
 			}
 		}
 	}
+}
+
+// findBeadsTaskProjectRoot finds which project root contains the given beads task
+// Returns the project root path, or empty string if not found
+func (s *AgentServer) findBeadsTaskProjectRoot(taskID string) string {
+	// Try each registered project root
+	for _, root := range s.GetProjectRoots() {
+		if _, err := s.beadsClient.GetTaskFromDir(taskID, root); err == nil {
+			return root
+		}
+	}
+	return ""
+}
+
+// findBeadsTaskExecutionLog searches for an execution log by beads task ID
+// Beads stores execution logs in timestamped directories like task-engineer-20260202-122957-000000
+// This function scans those directories to find which one has the matching beads_task_id in metadata
+func (s *AgentServer) findBeadsTaskExecutionLog(projectRoot, beadsTaskID string) string {
+	tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
+	entries, err := os.ReadDir(tasksDir)
+	if err != nil {
+		return ""
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		// Read metadata to check for beads_task_id
+		metadataPath := filepath.Join(tasksDir, entry.Name(), "00-metadata.json")
+		data, err := os.ReadFile(metadataPath)
+		if err != nil {
+			continue
+		}
+
+		var metadata struct {
+			Metadata map[string]string `json:"metadata"`
+		}
+		if err := json.Unmarshal(data, &metadata); err != nil {
+			continue
+		}
+
+		// Check if this execution matches the beads task ID
+		if metadata.Metadata["beads_task_id"] == beadsTaskID {
+			logPath := filepath.Join(tasksDir, entry.Name(), "execution.log")
+			if _, err := os.Stat(logPath); err == nil {
+				return logPath
+			}
+		}
+	}
+
+	return ""
 }

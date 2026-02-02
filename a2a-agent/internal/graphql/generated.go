@@ -59,7 +59,7 @@ type ComplexityRoot struct {
 		CreatedAt   func(childComplexity int) int
 		Error       func(childComplexity int) int
 		Metadata    func(childComplexity int) int
-		Progress    func(childComplexity int) int
+		ProjectRoot func(childComplexity int) int
 		Result      func(childComplexity int) int
 		Role        func(childComplexity int) int
 		Status      func(childComplexity int) int
@@ -75,6 +75,11 @@ type ComplexityRoot struct {
 		Metadata     func(childComplexity int) int
 		Status       func(childComplexity int) int
 		Title        func(childComplexity int) int
+	}
+
+	HTTPMetrics struct {
+		Errors        func(childComplexity int) int
+		TotalRequests func(childComplexity int) int
 	}
 
 	HealthStatus struct {
@@ -95,12 +100,17 @@ type ComplexityRoot struct {
 		APICalls             func(childComplexity int) int
 		AverageDurationMs    func(childComplexity int) int
 		AverageTokensPerTask func(childComplexity int) int
+		HTTP                 func(childComplexity int) int
 		Performance          func(childComplexity int) int
+		RateLimiting         func(childComplexity int) int
+		SessionMetrics       func(childComplexity int) int
+		Streaming            func(childComplexity int) int
 		TasksActive          func(childComplexity int) int
 		TasksCompleted       func(childComplexity int) int
 		TasksFailed          func(childComplexity int) int
 		TasksSpawned         func(childComplexity int) int
 		TokenUsage           func(childComplexity int) int
+		TurnMetrics          func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -111,8 +121,7 @@ type ComplexityRoot struct {
 	}
 
 	Performance struct {
-		CPUUsage func(childComplexity int) int
-		Uptime   func(childComplexity int) int
+		Uptime func(childComplexity int) int
 	}
 
 	Query struct {
@@ -126,10 +135,31 @@ type ComplexityRoot struct {
 		Tasks       func(childComplexity int) int
 	}
 
+	RateLimiting struct {
+		Violations func(childComplexity int) int
+	}
+
 	RetryResult struct {
 		Message func(childComplexity int) int
 		Success func(childComplexity int) int
 		TaskID  func(childComplexity int) int
+	}
+
+	SessionData struct {
+		InputTokens  func(childComplexity int) int
+		OutputTokens func(childComplexity int) int
+		TaskID       func(childComplexity int) int
+		TurnCount    func(childComplexity int) int
+	}
+
+	SessionMetrics struct {
+		RecentSessions func(childComplexity int) int
+	}
+
+	StreamingMetrics struct {
+		Active func(childComplexity int) int
+		Closed func(childComplexity int) int
+		Opened func(childComplexity int) int
 	}
 
 	Subscription struct {
@@ -142,6 +172,21 @@ type ComplexityRoot struct {
 		InputTokens  func(childComplexity int) int
 		OutputTokens func(childComplexity int) int
 		TotalTokens  func(childComplexity int) int
+	}
+
+	TurnData struct {
+		DurationMs   func(childComplexity int) int
+		InputTokens  func(childComplexity int) int
+		OutputTokens func(childComplexity int) int
+		TaskID       func(childComplexity int) int
+		Turn         func(childComplexity int) int
+	}
+
+	TurnMetrics struct {
+		AvgInputPerTurn  func(childComplexity int) int
+		AvgOutputPerTurn func(childComplexity int) int
+		RecentTurns      func(childComplexity int) int
+		TotalTurns       func(childComplexity int) int
 	}
 }
 
@@ -235,12 +280,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.AgentTask.Metadata(childComplexity), true
-	case "AgentTask.progress":
-		if e.complexity.AgentTask.Progress == nil {
+	case "AgentTask.projectRoot":
+		if e.complexity.AgentTask.ProjectRoot == nil {
 			break
 		}
 
-		return e.complexity.AgentTask.Progress(childComplexity), true
+		return e.complexity.AgentTask.ProjectRoot(childComplexity), true
 	case "AgentTask.result":
 		if e.complexity.AgentTask.Result == nil {
 			break
@@ -315,6 +360,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.BeadsTask.Title(childComplexity), true
 
+	case "HTTPMetrics.errors":
+		if e.complexity.HTTPMetrics.Errors == nil {
+			break
+		}
+
+		return e.complexity.HTTPMetrics.Errors(childComplexity), true
+	case "HTTPMetrics.totalRequests":
+		if e.complexity.HTTPMetrics.TotalRequests == nil {
+			break
+		}
+
+		return e.complexity.HTTPMetrics.TotalRequests(childComplexity), true
+
 	case "HealthStatus.features":
 		if e.complexity.HealthStatus.Features == nil {
 			break
@@ -383,12 +441,36 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Metrics.AverageTokensPerTask(childComplexity), true
+	case "Metrics.http":
+		if e.complexity.Metrics.HTTP == nil {
+			break
+		}
+
+		return e.complexity.Metrics.HTTP(childComplexity), true
 	case "Metrics.performance":
 		if e.complexity.Metrics.Performance == nil {
 			break
 		}
 
 		return e.complexity.Metrics.Performance(childComplexity), true
+	case "Metrics.rateLimiting":
+		if e.complexity.Metrics.RateLimiting == nil {
+			break
+		}
+
+		return e.complexity.Metrics.RateLimiting(childComplexity), true
+	case "Metrics.sessionMetrics":
+		if e.complexity.Metrics.SessionMetrics == nil {
+			break
+		}
+
+		return e.complexity.Metrics.SessionMetrics(childComplexity), true
+	case "Metrics.streaming":
+		if e.complexity.Metrics.Streaming == nil {
+			break
+		}
+
+		return e.complexity.Metrics.Streaming(childComplexity), true
 	case "Metrics.tasksActive":
 		if e.complexity.Metrics.TasksActive == nil {
 			break
@@ -419,6 +501,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Metrics.TokenUsage(childComplexity), true
+	case "Metrics.turnMetrics":
+		if e.complexity.Metrics.TurnMetrics == nil {
+			break
+		}
+
+		return e.complexity.Metrics.TurnMetrics(childComplexity), true
 
 	case "Mutation.cancelAgent":
 		if e.complexity.Mutation.CancelAgent == nil {
@@ -465,12 +553,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Mutation.UpdateTaskStatus(childComplexity, args["taskID"].(string), args["status"].(string)), true
 
-	case "Performance.cpuUsage":
-		if e.complexity.Performance.CPUUsage == nil {
-			break
-		}
-
-		return e.complexity.Performance.CPUUsage(childComplexity), true
 	case "Performance.uptime":
 		if e.complexity.Performance.Uptime == nil {
 			break
@@ -547,6 +629,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Query.Tasks(childComplexity), true
 
+	case "RateLimiting.violations":
+		if e.complexity.RateLimiting.Violations == nil {
+			break
+		}
+
+		return e.complexity.RateLimiting.Violations(childComplexity), true
+
 	case "RetryResult.message":
 		if e.complexity.RetryResult.Message == nil {
 			break
@@ -565,6 +654,57 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.RetryResult.TaskID(childComplexity), true
+
+	case "SessionData.inputTokens":
+		if e.complexity.SessionData.InputTokens == nil {
+			break
+		}
+
+		return e.complexity.SessionData.InputTokens(childComplexity), true
+	case "SessionData.outputTokens":
+		if e.complexity.SessionData.OutputTokens == nil {
+			break
+		}
+
+		return e.complexity.SessionData.OutputTokens(childComplexity), true
+	case "SessionData.taskID":
+		if e.complexity.SessionData.TaskID == nil {
+			break
+		}
+
+		return e.complexity.SessionData.TaskID(childComplexity), true
+	case "SessionData.turnCount":
+		if e.complexity.SessionData.TurnCount == nil {
+			break
+		}
+
+		return e.complexity.SessionData.TurnCount(childComplexity), true
+
+	case "SessionMetrics.recentSessions":
+		if e.complexity.SessionMetrics.RecentSessions == nil {
+			break
+		}
+
+		return e.complexity.SessionMetrics.RecentSessions(childComplexity), true
+
+	case "StreamingMetrics.active":
+		if e.complexity.StreamingMetrics.Active == nil {
+			break
+		}
+
+		return e.complexity.StreamingMetrics.Active(childComplexity), true
+	case "StreamingMetrics.closed":
+		if e.complexity.StreamingMetrics.Closed == nil {
+			break
+		}
+
+		return e.complexity.StreamingMetrics.Closed(childComplexity), true
+	case "StreamingMetrics.opened":
+		if e.complexity.StreamingMetrics.Opened == nil {
+			break
+		}
+
+		return e.complexity.StreamingMetrics.Opened(childComplexity), true
 
 	case "Subscription.logStream":
 		if e.complexity.Subscription.LogStream == nil {
@@ -613,6 +753,62 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.TokenUsage.TotalTokens(childComplexity), true
+
+	case "TurnData.durationMs":
+		if e.complexity.TurnData.DurationMs == nil {
+			break
+		}
+
+		return e.complexity.TurnData.DurationMs(childComplexity), true
+	case "TurnData.inputTokens":
+		if e.complexity.TurnData.InputTokens == nil {
+			break
+		}
+
+		return e.complexity.TurnData.InputTokens(childComplexity), true
+	case "TurnData.outputTokens":
+		if e.complexity.TurnData.OutputTokens == nil {
+			break
+		}
+
+		return e.complexity.TurnData.OutputTokens(childComplexity), true
+	case "TurnData.taskID":
+		if e.complexity.TurnData.TaskID == nil {
+			break
+		}
+
+		return e.complexity.TurnData.TaskID(childComplexity), true
+	case "TurnData.turn":
+		if e.complexity.TurnData.Turn == nil {
+			break
+		}
+
+		return e.complexity.TurnData.Turn(childComplexity), true
+
+	case "TurnMetrics.avgInputPerTurn":
+		if e.complexity.TurnMetrics.AvgInputPerTurn == nil {
+			break
+		}
+
+		return e.complexity.TurnMetrics.AvgInputPerTurn(childComplexity), true
+	case "TurnMetrics.avgOutputPerTurn":
+		if e.complexity.TurnMetrics.AvgOutputPerTurn == nil {
+			break
+		}
+
+		return e.complexity.TurnMetrics.AvgOutputPerTurn(childComplexity), true
+	case "TurnMetrics.recentTurns":
+		if e.complexity.TurnMetrics.RecentTurns == nil {
+			break
+		}
+
+		return e.complexity.TurnMetrics.RecentTurns(childComplexity), true
+	case "TurnMetrics.totalTurns":
+		if e.complexity.TurnMetrics.TotalTurns == nil {
+			break
+		}
+
+		return e.complexity.TurnMetrics.TotalTurns(childComplexity), true
 
 	}
 	return 0, false
@@ -1150,35 +1346,6 @@ func (ec *executionContext) fieldContext_AgentTask_status(_ context.Context, fie
 	return fc, nil
 }
 
-func (ec *executionContext) _AgentTask_progress(ctx context.Context, field graphql.CollectedField, obj *AgentTask) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_AgentTask_progress,
-		func(ctx context.Context) (any, error) {
-			return obj.Progress, nil
-		},
-		nil,
-		ec.marshalNFloat2float64,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_AgentTask_progress(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "AgentTask",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Float does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _AgentTask_createdAt(ctx context.Context, field graphql.CollectedField, obj *AgentTask) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1382,6 +1549,35 @@ func (ec *executionContext) fieldContext_AgentTask_beadsTaskID(_ context.Context
 	return fc, nil
 }
 
+func (ec *executionContext) _AgentTask_projectRoot(ctx context.Context, field graphql.CollectedField, obj *AgentTask) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_AgentTask_projectRoot,
+		func(ctx context.Context) (any, error) {
+			return obj.ProjectRoot, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_AgentTask_projectRoot(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AgentTask",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _BeadsTask_id(ctx context.Context, field graphql.CollectedField, obj *BeadsTask) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1551,6 +1747,64 @@ func (ec *executionContext) fieldContext_BeadsTask_metadata(_ context.Context, f
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type JSON does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _HTTPMetrics_totalRequests(ctx context.Context, field graphql.CollectedField, obj *HTTPMetrics) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_HTTPMetrics_totalRequests,
+		func(ctx context.Context) (any, error) {
+			return obj.TotalRequests, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_HTTPMetrics_totalRequests(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "HTTPMetrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _HTTPMetrics_errors(ctx context.Context, field graphql.CollectedField, obj *HTTPMetrics) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_HTTPMetrics_errors,
+		func(ctx context.Context) (any, error) {
+			return obj.Errors, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_HTTPMetrics_errors(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "HTTPMetrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
 		},
 	}
 	return fc, nil
@@ -2060,12 +2314,187 @@ func (ec *executionContext) fieldContext_Metrics_performance(_ context.Context, 
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "cpuUsage":
-				return ec.fieldContext_Performance_cpuUsage(ctx, field)
 			case "uptime":
 				return ec.fieldContext_Performance_uptime(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Performance", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Metrics_turnMetrics(ctx context.Context, field graphql.CollectedField, obj *Metrics) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Metrics_turnMetrics,
+		func(ctx context.Context) (any, error) {
+			return obj.TurnMetrics, nil
+		},
+		nil,
+		ec.marshalNTurnMetrics2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐTurnMetrics,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Metrics_turnMetrics(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Metrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "totalTurns":
+				return ec.fieldContext_TurnMetrics_totalTurns(ctx, field)
+			case "avgInputPerTurn":
+				return ec.fieldContext_TurnMetrics_avgInputPerTurn(ctx, field)
+			case "avgOutputPerTurn":
+				return ec.fieldContext_TurnMetrics_avgOutputPerTurn(ctx, field)
+			case "recentTurns":
+				return ec.fieldContext_TurnMetrics_recentTurns(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type TurnMetrics", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Metrics_sessionMetrics(ctx context.Context, field graphql.CollectedField, obj *Metrics) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Metrics_sessionMetrics,
+		func(ctx context.Context) (any, error) {
+			return obj.SessionMetrics, nil
+		},
+		nil,
+		ec.marshalNSessionMetrics2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐSessionMetrics,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Metrics_sessionMetrics(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Metrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "recentSessions":
+				return ec.fieldContext_SessionMetrics_recentSessions(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type SessionMetrics", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Metrics_streaming(ctx context.Context, field graphql.CollectedField, obj *Metrics) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Metrics_streaming,
+		func(ctx context.Context) (any, error) {
+			return obj.Streaming, nil
+		},
+		nil,
+		ec.marshalNStreamingMetrics2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐStreamingMetrics,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Metrics_streaming(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Metrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "opened":
+				return ec.fieldContext_StreamingMetrics_opened(ctx, field)
+			case "closed":
+				return ec.fieldContext_StreamingMetrics_closed(ctx, field)
+			case "active":
+				return ec.fieldContext_StreamingMetrics_active(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type StreamingMetrics", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Metrics_http(ctx context.Context, field graphql.CollectedField, obj *Metrics) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Metrics_http,
+		func(ctx context.Context) (any, error) {
+			return obj.HTTP, nil
+		},
+		nil,
+		ec.marshalNHTTPMetrics2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐHTTPMetrics,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Metrics_http(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Metrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "totalRequests":
+				return ec.fieldContext_HTTPMetrics_totalRequests(ctx, field)
+			case "errors":
+				return ec.fieldContext_HTTPMetrics_errors(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type HTTPMetrics", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Metrics_rateLimiting(ctx context.Context, field graphql.CollectedField, obj *Metrics) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Metrics_rateLimiting,
+		func(ctx context.Context) (any, error) {
+			return obj.RateLimiting, nil
+		},
+		nil,
+		ec.marshalNRateLimiting2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐRateLimiting,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Metrics_rateLimiting(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Metrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "violations":
+				return ec.fieldContext_RateLimiting_violations(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type RateLimiting", field.Name)
 		},
 	}
 	return fc, nil
@@ -2104,8 +2533,6 @@ func (ec *executionContext) fieldContext_Mutation_spawnAgent(ctx context.Context
 				return ec.fieldContext_AgentTask_task(ctx, field)
 			case "status":
 				return ec.fieldContext_AgentTask_status(ctx, field)
-			case "progress":
-				return ec.fieldContext_AgentTask_progress(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_AgentTask_createdAt(ctx, field)
 			case "updatedAt":
@@ -2120,6 +2547,8 @@ func (ec *executionContext) fieldContext_Mutation_spawnAgent(ctx context.Context
 				return ec.fieldContext_AgentTask_metadata(ctx, field)
 			case "beadsTaskID":
 				return ec.fieldContext_AgentTask_beadsTaskID(ctx, field)
+			case "projectRoot":
+				return ec.fieldContext_AgentTask_projectRoot(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type AgentTask", field.Name)
 		},
@@ -2212,8 +2641,6 @@ func (ec *executionContext) fieldContext_Mutation_updateTaskStatus(ctx context.C
 				return ec.fieldContext_AgentTask_task(ctx, field)
 			case "status":
 				return ec.fieldContext_AgentTask_status(ctx, field)
-			case "progress":
-				return ec.fieldContext_AgentTask_progress(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_AgentTask_createdAt(ctx, field)
 			case "updatedAt":
@@ -2228,6 +2655,8 @@ func (ec *executionContext) fieldContext_Mutation_updateTaskStatus(ctx context.C
 				return ec.fieldContext_AgentTask_metadata(ctx, field)
 			case "beadsTaskID":
 				return ec.fieldContext_AgentTask_beadsTaskID(ctx, field)
+			case "projectRoot":
+				return ec.fieldContext_AgentTask_projectRoot(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type AgentTask", field.Name)
 		},
@@ -2291,35 +2720,6 @@ func (ec *executionContext) fieldContext_Mutation_retryTask(ctx context.Context,
 	if fc.Args, err = ec.field_Mutation_retryTask_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Performance_cpuUsage(ctx context.Context, field graphql.CollectedField, obj *Performance) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Performance_cpuUsage,
-		func(ctx context.Context) (any, error) {
-			return obj.CPUUsage, nil
-		},
-		nil,
-		ec.marshalNFloat2float64,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_Performance_cpuUsage(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Performance",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Float does not have child fields")
-		},
 	}
 	return fc, nil
 }
@@ -2424,8 +2824,6 @@ func (ec *executionContext) fieldContext_Query_tasks(_ context.Context, field gr
 				return ec.fieldContext_AgentTask_task(ctx, field)
 			case "status":
 				return ec.fieldContext_AgentTask_status(ctx, field)
-			case "progress":
-				return ec.fieldContext_AgentTask_progress(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_AgentTask_createdAt(ctx, field)
 			case "updatedAt":
@@ -2440,6 +2838,8 @@ func (ec *executionContext) fieldContext_Query_tasks(_ context.Context, field gr
 				return ec.fieldContext_AgentTask_metadata(ctx, field)
 			case "beadsTaskID":
 				return ec.fieldContext_AgentTask_beadsTaskID(ctx, field)
+			case "projectRoot":
+				return ec.fieldContext_AgentTask_projectRoot(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type AgentTask", field.Name)
 		},
@@ -2480,8 +2880,6 @@ func (ec *executionContext) fieldContext_Query_task(ctx context.Context, field g
 				return ec.fieldContext_AgentTask_task(ctx, field)
 			case "status":
 				return ec.fieldContext_AgentTask_status(ctx, field)
-			case "progress":
-				return ec.fieldContext_AgentTask_progress(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_AgentTask_createdAt(ctx, field)
 			case "updatedAt":
@@ -2496,6 +2894,8 @@ func (ec *executionContext) fieldContext_Query_task(ctx context.Context, field g
 				return ec.fieldContext_AgentTask_metadata(ctx, field)
 			case "beadsTaskID":
 				return ec.fieldContext_AgentTask_beadsTaskID(ctx, field)
+			case "projectRoot":
+				return ec.fieldContext_AgentTask_projectRoot(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type AgentTask", field.Name)
 		},
@@ -2666,6 +3066,16 @@ func (ec *executionContext) fieldContext_Query_metrics(_ context.Context, field 
 				return ec.fieldContext_Metrics_apiCalls(ctx, field)
 			case "performance":
 				return ec.fieldContext_Metrics_performance(ctx, field)
+			case "turnMetrics":
+				return ec.fieldContext_Metrics_turnMetrics(ctx, field)
+			case "sessionMetrics":
+				return ec.fieldContext_Metrics_sessionMetrics(ctx, field)
+			case "streaming":
+				return ec.fieldContext_Metrics_streaming(ctx, field)
+			case "http":
+				return ec.fieldContext_Metrics_http(ctx, field)
+			case "rateLimiting":
+				return ec.fieldContext_Metrics_rateLimiting(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Metrics", field.Name)
 		},
@@ -2697,8 +3107,6 @@ func (ec *executionContext) fieldContext_Query_performance(_ context.Context, fi
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "cpuUsage":
-				return ec.fieldContext_Performance_cpuUsage(ctx, field)
 			case "uptime":
 				return ec.fieldContext_Performance_uptime(ctx, field)
 			}
@@ -2867,6 +3275,35 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _RateLimiting_violations(ctx context.Context, field graphql.CollectedField, obj *RateLimiting) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_RateLimiting_violations,
+		func(ctx context.Context) (any, error) {
+			return obj.Violations, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_RateLimiting_violations(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RateLimiting",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _RetryResult_success(ctx context.Context, field graphql.CollectedField, obj *RetryResult) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2949,6 +3386,248 @@ func (ec *executionContext) fieldContext_RetryResult_message(_ context.Context, 
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _SessionData_taskID(ctx context.Context, field graphql.CollectedField, obj *SessionData) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_SessionData_taskID,
+		func(ctx context.Context) (any, error) {
+			return obj.TaskID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_SessionData_taskID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "SessionData",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _SessionData_inputTokens(ctx context.Context, field graphql.CollectedField, obj *SessionData) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_SessionData_inputTokens,
+		func(ctx context.Context) (any, error) {
+			return obj.InputTokens, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_SessionData_inputTokens(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "SessionData",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _SessionData_outputTokens(ctx context.Context, field graphql.CollectedField, obj *SessionData) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_SessionData_outputTokens,
+		func(ctx context.Context) (any, error) {
+			return obj.OutputTokens, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_SessionData_outputTokens(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "SessionData",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _SessionData_turnCount(ctx context.Context, field graphql.CollectedField, obj *SessionData) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_SessionData_turnCount,
+		func(ctx context.Context) (any, error) {
+			return obj.TurnCount, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_SessionData_turnCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "SessionData",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _SessionMetrics_recentSessions(ctx context.Context, field graphql.CollectedField, obj *SessionMetrics) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_SessionMetrics_recentSessions,
+		func(ctx context.Context) (any, error) {
+			return obj.RecentSessions, nil
+		},
+		nil,
+		ec.marshalNSessionData2ᚕgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐSessionDataᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_SessionMetrics_recentSessions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "SessionMetrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "taskID":
+				return ec.fieldContext_SessionData_taskID(ctx, field)
+			case "inputTokens":
+				return ec.fieldContext_SessionData_inputTokens(ctx, field)
+			case "outputTokens":
+				return ec.fieldContext_SessionData_outputTokens(ctx, field)
+			case "turnCount":
+				return ec.fieldContext_SessionData_turnCount(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type SessionData", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StreamingMetrics_opened(ctx context.Context, field graphql.CollectedField, obj *StreamingMetrics) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_StreamingMetrics_opened,
+		func(ctx context.Context) (any, error) {
+			return obj.Opened, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_StreamingMetrics_opened(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StreamingMetrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StreamingMetrics_closed(ctx context.Context, field graphql.CollectedField, obj *StreamingMetrics) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_StreamingMetrics_closed,
+		func(ctx context.Context) (any, error) {
+			return obj.Closed, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_StreamingMetrics_closed(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StreamingMetrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StreamingMetrics_active(ctx context.Context, field graphql.CollectedField, obj *StreamingMetrics) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_StreamingMetrics_active,
+		func(ctx context.Context) (any, error) {
+			return obj.Active, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_StreamingMetrics_active(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StreamingMetrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
 		},
 	}
 	return fc, nil
@@ -3038,8 +3717,6 @@ func (ec *executionContext) fieldContext_Subscription_taskUpdated(ctx context.Co
 				return ec.fieldContext_AgentTask_task(ctx, field)
 			case "status":
 				return ec.fieldContext_AgentTask_status(ctx, field)
-			case "progress":
-				return ec.fieldContext_AgentTask_progress(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_AgentTask_createdAt(ctx, field)
 			case "updatedAt":
@@ -3054,6 +3731,8 @@ func (ec *executionContext) fieldContext_Subscription_taskUpdated(ctx context.Co
 				return ec.fieldContext_AgentTask_metadata(ctx, field)
 			case "beadsTaskID":
 				return ec.fieldContext_AgentTask_beadsTaskID(ctx, field)
+			case "projectRoot":
+				return ec.fieldContext_AgentTask_projectRoot(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type AgentTask", field.Name)
 		},
@@ -3114,6 +3793,16 @@ func (ec *executionContext) fieldContext_Subscription_metricsUpdated(_ context.C
 				return ec.fieldContext_Metrics_apiCalls(ctx, field)
 			case "performance":
 				return ec.fieldContext_Metrics_performance(ctx, field)
+			case "turnMetrics":
+				return ec.fieldContext_Metrics_turnMetrics(ctx, field)
+			case "sessionMetrics":
+				return ec.fieldContext_Metrics_sessionMetrics(ctx, field)
+			case "streaming":
+				return ec.fieldContext_Metrics_streaming(ctx, field)
+			case "http":
+				return ec.fieldContext_Metrics_http(ctx, field)
+			case "rateLimiting":
+				return ec.fieldContext_Metrics_rateLimiting(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Metrics", field.Name)
 		},
@@ -3203,6 +3892,279 @@ func (ec *executionContext) fieldContext_TokenUsage_outputTokens(_ context.Conte
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TurnData_taskID(ctx context.Context, field graphql.CollectedField, obj *TurnData) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TurnData_taskID,
+		func(ctx context.Context) (any, error) {
+			return obj.TaskID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TurnData_taskID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TurnData",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TurnData_turn(ctx context.Context, field graphql.CollectedField, obj *TurnData) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TurnData_turn,
+		func(ctx context.Context) (any, error) {
+			return obj.Turn, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TurnData_turn(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TurnData",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TurnData_inputTokens(ctx context.Context, field graphql.CollectedField, obj *TurnData) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TurnData_inputTokens,
+		func(ctx context.Context) (any, error) {
+			return obj.InputTokens, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TurnData_inputTokens(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TurnData",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TurnData_outputTokens(ctx context.Context, field graphql.CollectedField, obj *TurnData) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TurnData_outputTokens,
+		func(ctx context.Context) (any, error) {
+			return obj.OutputTokens, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TurnData_outputTokens(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TurnData",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TurnData_durationMs(ctx context.Context, field graphql.CollectedField, obj *TurnData) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TurnData_durationMs,
+		func(ctx context.Context) (any, error) {
+			return obj.DurationMs, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TurnData_durationMs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TurnData",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TurnMetrics_totalTurns(ctx context.Context, field graphql.CollectedField, obj *TurnMetrics) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TurnMetrics_totalTurns,
+		func(ctx context.Context) (any, error) {
+			return obj.TotalTurns, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TurnMetrics_totalTurns(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TurnMetrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TurnMetrics_avgInputPerTurn(ctx context.Context, field graphql.CollectedField, obj *TurnMetrics) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TurnMetrics_avgInputPerTurn,
+		func(ctx context.Context) (any, error) {
+			return obj.AvgInputPerTurn, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TurnMetrics_avgInputPerTurn(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TurnMetrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TurnMetrics_avgOutputPerTurn(ctx context.Context, field graphql.CollectedField, obj *TurnMetrics) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TurnMetrics_avgOutputPerTurn,
+		func(ctx context.Context) (any, error) {
+			return obj.AvgOutputPerTurn, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TurnMetrics_avgOutputPerTurn(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TurnMetrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TurnMetrics_recentTurns(ctx context.Context, field graphql.CollectedField, obj *TurnMetrics) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TurnMetrics_recentTurns,
+		func(ctx context.Context) (any, error) {
+			return obj.RecentTurns, nil
+		},
+		nil,
+		ec.marshalNTurnData2ᚕgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐTurnDataᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TurnMetrics_recentTurns(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TurnMetrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "taskID":
+				return ec.fieldContext_TurnData_taskID(ctx, field)
+			case "turn":
+				return ec.fieldContext_TurnData_turn(ctx, field)
+			case "inputTokens":
+				return ec.fieldContext_TurnData_inputTokens(ctx, field)
+			case "outputTokens":
+				return ec.fieldContext_TurnData_outputTokens(ctx, field)
+			case "durationMs":
+				return ec.fieldContext_TurnData_durationMs(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type TurnData", field.Name)
 		},
 	}
 	return fc, nil
@@ -4742,11 +5704,6 @@ func (ec *executionContext) _AgentTask(ctx context.Context, sel ast.SelectionSet
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "progress":
-			out.Values[i] = ec._AgentTask_progress(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "createdAt":
 			out.Values[i] = ec._AgentTask_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -4767,6 +5724,8 @@ func (ec *executionContext) _AgentTask(ctx context.Context, sel ast.SelectionSet
 			out.Values[i] = ec._AgentTask_metadata(ctx, field, obj)
 		case "beadsTaskID":
 			out.Values[i] = ec._AgentTask_beadsTaskID(ctx, field, obj)
+		case "projectRoot":
+			out.Values[i] = ec._AgentTask_projectRoot(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -4825,6 +5784,50 @@ func (ec *executionContext) _BeadsTask(ctx context.Context, sel ast.SelectionSet
 			out.Values[i] = ec._BeadsTask_dependencies(ctx, field, obj)
 		case "metadata":
 			out.Values[i] = ec._BeadsTask_metadata(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var hTTPMetricsImplementors = []string{"HTTPMetrics"}
+
+func (ec *executionContext) _HTTPMetrics(ctx context.Context, sel ast.SelectionSet, obj *HTTPMetrics) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, hTTPMetricsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("HTTPMetrics")
+		case "totalRequests":
+			out.Values[i] = ec._HTTPMetrics_totalRequests(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "errors":
+			out.Values[i] = ec._HTTPMetrics_errors(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -5009,6 +6012,31 @@ func (ec *executionContext) _Metrics(ctx context.Context, sel ast.SelectionSet, 
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "turnMetrics":
+			out.Values[i] = ec._Metrics_turnMetrics(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "sessionMetrics":
+			out.Values[i] = ec._Metrics_sessionMetrics(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "streaming":
+			out.Values[i] = ec._Metrics_streaming(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "http":
+			out.Values[i] = ec._Metrics_http(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "rateLimiting":
+			out.Values[i] = ec._Metrics_rateLimiting(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -5113,11 +6141,6 @@ func (ec *executionContext) _Performance(ctx context.Context, sel ast.SelectionS
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Performance")
-		case "cpuUsage":
-			out.Values[i] = ec._Performance_cpuUsage(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "uptime":
 			out.Values[i] = ec._Performance_uptime(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -5366,6 +6389,45 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 	return out
 }
 
+var rateLimitingImplementors = []string{"RateLimiting"}
+
+func (ec *executionContext) _RateLimiting(ctx context.Context, sel ast.SelectionSet, obj *RateLimiting) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, rateLimitingImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RateLimiting")
+		case "violations":
+			out.Values[i] = ec._RateLimiting_violations(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var retryResultImplementors = []string{"RetryResult"}
 
 func (ec *executionContext) _RetryResult(ctx context.Context, sel ast.SelectionSet, obj *RetryResult) graphql.Marshaler {
@@ -5389,6 +6451,148 @@ func (ec *executionContext) _RetryResult(ctx context.Context, sel ast.SelectionS
 			}
 		case "message":
 			out.Values[i] = ec._RetryResult_message(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var sessionDataImplementors = []string{"SessionData"}
+
+func (ec *executionContext) _SessionData(ctx context.Context, sel ast.SelectionSet, obj *SessionData) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, sessionDataImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SessionData")
+		case "taskID":
+			out.Values[i] = ec._SessionData_taskID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "inputTokens":
+			out.Values[i] = ec._SessionData_inputTokens(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "outputTokens":
+			out.Values[i] = ec._SessionData_outputTokens(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "turnCount":
+			out.Values[i] = ec._SessionData_turnCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var sessionMetricsImplementors = []string{"SessionMetrics"}
+
+func (ec *executionContext) _SessionMetrics(ctx context.Context, sel ast.SelectionSet, obj *SessionMetrics) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, sessionMetricsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SessionMetrics")
+		case "recentSessions":
+			out.Values[i] = ec._SessionMetrics_recentSessions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var streamingMetricsImplementors = []string{"StreamingMetrics"}
+
+func (ec *executionContext) _StreamingMetrics(ctx context.Context, sel ast.SelectionSet, obj *StreamingMetrics) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, streamingMetricsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("StreamingMetrics")
+		case "opened":
+			out.Values[i] = ec._StreamingMetrics_opened(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "closed":
+			out.Values[i] = ec._StreamingMetrics_closed(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "active":
+			out.Values[i] = ec._StreamingMetrics_active(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -5459,6 +6663,119 @@ func (ec *executionContext) _TokenUsage(ctx context.Context, sel ast.SelectionSe
 			}
 		case "outputTokens":
 			out.Values[i] = ec._TokenUsage_outputTokens(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var turnDataImplementors = []string{"TurnData"}
+
+func (ec *executionContext) _TurnData(ctx context.Context, sel ast.SelectionSet, obj *TurnData) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, turnDataImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TurnData")
+		case "taskID":
+			out.Values[i] = ec._TurnData_taskID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "turn":
+			out.Values[i] = ec._TurnData_turn(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "inputTokens":
+			out.Values[i] = ec._TurnData_inputTokens(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "outputTokens":
+			out.Values[i] = ec._TurnData_outputTokens(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "durationMs":
+			out.Values[i] = ec._TurnData_durationMs(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var turnMetricsImplementors = []string{"TurnMetrics"}
+
+func (ec *executionContext) _TurnMetrics(ctx context.Context, sel ast.SelectionSet, obj *TurnMetrics) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, turnMetricsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TurnMetrics")
+		case "totalTurns":
+			out.Values[i] = ec._TurnMetrics_totalTurns(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "avgInputPerTurn":
+			out.Values[i] = ec._TurnMetrics_avgInputPerTurn(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "avgOutputPerTurn":
+			out.Values[i] = ec._TurnMetrics_avgOutputPerTurn(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "recentTurns":
+			out.Values[i] = ec._TurnMetrics_recentTurns(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -5974,6 +7291,16 @@ func (ec *executionContext) marshalNFloat2float64(ctx context.Context, sel ast.S
 	return graphql.WrapContextMarshaler(ctx, res)
 }
 
+func (ec *executionContext) marshalNHTTPMetrics2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐHTTPMetrics(ctx context.Context, sel ast.SelectionSet, v *HTTPMetrics) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._HTTPMetrics(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNHealthStatus2githubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐHealthStatus(ctx context.Context, sel ast.SelectionSet, v HealthStatus) graphql.Marshaler {
 	return ec._HealthStatus(ctx, sel, &v)
 }
@@ -6112,6 +7439,16 @@ func (ec *executionContext) marshalNPerformance2ᚖgithubᚗcomᚋcortexaᚑllc�
 	return ec._Performance(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNRateLimiting2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐRateLimiting(ctx context.Context, sel ast.SelectionSet, v *RateLimiting) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RateLimiting(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNRetryResult2githubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐRetryResult(ctx context.Context, sel ast.SelectionSet, v RetryResult) graphql.Marshaler {
 	return ec._RetryResult(ctx, sel, &v)
 }
@@ -6124,6 +7461,74 @@ func (ec *executionContext) marshalNRetryResult2ᚖgithubᚗcomᚋcortexaᚑllc�
 		return graphql.Null
 	}
 	return ec._RetryResult(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNSessionData2githubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐSessionData(ctx context.Context, sel ast.SelectionSet, v SessionData) graphql.Marshaler {
+	return ec._SessionData(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNSessionData2ᚕgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐSessionDataᚄ(ctx context.Context, sel ast.SelectionSet, v []SessionData) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNSessionData2githubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐSessionData(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNSessionMetrics2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐSessionMetrics(ctx context.Context, sel ast.SelectionSet, v *SessionMetrics) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._SessionMetrics(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNStreamingMetrics2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐStreamingMetrics(ctx context.Context, sel ast.SelectionSet, v *StreamingMetrics) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._StreamingMetrics(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
@@ -6150,6 +7555,64 @@ func (ec *executionContext) marshalNTokenUsage2ᚖgithubᚗcomᚋcortexaᚑllc�
 		return graphql.Null
 	}
 	return ec._TokenUsage(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNTurnData2githubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐTurnData(ctx context.Context, sel ast.SelectionSet, v TurnData) graphql.Marshaler {
+	return ec._TurnData(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNTurnData2ᚕgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐTurnDataᚄ(ctx context.Context, sel ast.SelectionSet, v []TurnData) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNTurnData2githubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐTurnData(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNTurnMetrics2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐTurnMetrics(ctx context.Context, sel ast.SelectionSet, v *TurnMetrics) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._TurnMetrics(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {

@@ -7,7 +7,6 @@ type AgentTask struct {
 	Role        string         `json:"role"`
 	Task        string         `json:"task"`
 	Status      string         `json:"status"`
-	Progress    float64        `json:"progress"`
 	CreatedAt   string         `json:"createdAt"`
 	UpdatedAt   string         `json:"updatedAt"`
 	CompletedAt *string        `json:"completedAt,omitempty"`
@@ -15,6 +14,7 @@ type AgentTask struct {
 	Error       *string        `json:"error,omitempty"`
 	Metadata    map[string]any `json:"metadata,omitempty"`
 	BeadsTaskID *string        `json:"beadsTaskID,omitempty"`
+	ProjectRoot *string        `json:"projectRoot,omitempty"`
 }
 
 type BeadsTask struct {

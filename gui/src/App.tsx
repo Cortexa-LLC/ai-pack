@@ -475,13 +475,16 @@ function App() {
               </button>
               {selectedTask && activeTab === 'task-logs' && (
                 <div className="ml-auto flex items-center gap-2">
-                  <button
-                    onClick={() => setFollowLogs(!followLogs)}
-                    className={`px-2 py-1 text-xs rounded ${followLogs ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
-                    title={followLogs ? 'Following logs' : 'Follow disabled'}
-                  >
-                    {followLogs ? '📍 Following' : '⏸ Paused'}
-                  </button>
+                  {/* Only show Following button for in-progress tasks */}
+                  {selectedTask.status === 'in_progress' && (
+                    <button
+                      onClick={() => setFollowLogs(!followLogs)}
+                      className={`px-2 py-1 text-xs rounded ${followLogs ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                      title={followLogs ? 'Following logs' : 'Follow disabled'}
+                    >
+                      {followLogs ? '📍 Following' : '⏸ Paused'}
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setSelectedTask(null);
@@ -511,7 +514,54 @@ function App() {
 
             {tasksData && (
               <div className="h-full">
-                <div className="grid grid-cols-3 gap-4 h-full">
+                <div className="grid grid-cols-4 gap-4 h-full">
+                    {/* Queued Lane */}
+                    <div className="flex flex-col border-2 border-blue-600 rounded-lg bg-gray-800/50">
+                      <div className="bg-blue-900 border-b-2 border-blue-600 p-3">
+                        <h3 className="font-semibold text-blue-300 flex items-center justify-between text-base">
+                          <span>⏳ Queued</span>
+                          <span className="text-sm bg-blue-800 px-2 py-1 rounded-full">
+                            {tasksData.tasks.filter(t => t.status === 'QUEUED' || t.status === 'queued').length}
+                          </span>
+                        </h3>
+                      </div>
+                      <div className="flex-1 space-y-2 overflow-auto p-3">
+                        {tasksData.tasks.filter(t => t.status === 'QUEUED' || t.status === 'queued').length === 0 ? (
+                          <div className="text-center text-gray-500 text-sm py-8">
+                            No queued tasks
+                          </div>
+                        ) : (
+                          tasksData.tasks
+                            .filter(t => t.status === 'QUEUED' || t.status === 'queued')
+                            .map(task => (
+                              <div
+                                key={task.taskID}
+                                className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-blue-500 cursor-pointer transition-colors"
+                                onClick={() => selectTask(task.taskID)}
+                              >
+                                <div className="flex items-start justify-between mb-1">
+                                  <div className="text-xs font-medium text-white truncate flex-1" title={task.task}>
+                                    {task.task.length > 40 ? task.task.substring(0, 40) + '...' : task.task}
+                                  </div>
+                                  <button
+                                    onClick={(e) => cancelTask(task.taskID, e)}
+                                    className="ml-2 px-2 py-0.5 text-xs bg-red-600 hover:bg-red-700 text-white rounded transition-colors flex-shrink-0"
+                                    title="Cancel task"
+                                  >
+                                    🛑 Cancel
+                                  </button>
+                                </div>
+                                {task.beadsTaskID && (
+                                  <div className="text-xs text-gray-500 mb-1">
+                                    {task.beadsTaskID}
+                                  </div>
+                                )}
+                              </div>
+                            ))
+                        )}
+                      </div>
+                    </div>
+
                     {/* In Progress Lane */}
                     <div className="flex flex-col border-2 border-yellow-600 rounded-lg bg-gray-800/50">
                       <div className="bg-yellow-900 border-b-2 border-yellow-600 p-3">

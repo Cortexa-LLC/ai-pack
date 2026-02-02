@@ -1,11 +1,13 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/beads"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/graphql"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
@@ -33,22 +35,51 @@ func (a *GraphQLAdapter) GetActiveTasks() map[string]*graphql.TaskInfo {
 	return tasks
 }
 
-// GetAllTasks returns all tasks (active + completed/failed from disk)
+// GetAllTasks returns all tasks (active from memory + beads tasks from all project roots)
 func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 	tasks := make(map[string]*graphql.TaskInfo)
 
-	// First, get all active tasks
+	// First, get all active tasks from memory
 	a.server.mu.RLock()
 	for id, execution := range a.server.activeTasks {
 		tasks[id] = convertToTaskInfo(execution)
 	}
 	a.server.mu.RUnlock()
 
-	// Then, scan disk for completed/failed tasks
-	tasksDir := filepath.Join(a.server.rootDir, BeadsDir, "tasks")
+	// Get all project roots to scan (server root + registered projects)
+	projectRoots := a.server.GetProjectRoots()
+
+	// Then, get beads tasks from each project using bd list
+	beadsClient := a.server.beadsClient
+	for _, projectRoot := range projectRoots {
+		beadsTasks, err := beadsClient.ListAllTasksFromDir(projectRoot)
+		if err != nil {
+			continue // Skip if can't list tasks from this project
+		}
+
+		// Convert beads tasks to TaskInfo
+		for _, beadsTask := range beadsTasks {
+			taskID := beadsTask.ID
+			// Skip if already in tasks map (active tasks take precedence)
+			if _, exists := tasks[taskID]; exists {
+				continue
+			}
+
+			// Convert beads.Task to graphql.TaskInfo
+			taskInfo := convertBeadsTaskToTaskInfo(beadsTask, projectRoot)
+			tasks[taskID] = taskInfo
+		}
+	}
+
+	return tasks
+}
+
+// scanProjectTasks scans a single project root for tasks
+func (a *GraphQLAdapter) scanProjectTasks(projectRoot string, tasks map[string]*graphql.TaskInfo) {
+	tasksDir := filepath.Join(projectRoot, BeadsDir, "tasks")
 	entries, err := os.ReadDir(tasksDir)
 	if err != nil {
-		return tasks // Return active tasks if can't read directory
+		return // Skip if can't read directory
 	}
 
 	for _, entry := range entries {
@@ -57,19 +88,83 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 		}
 
 		taskID := entry.Name()
-		// Skip if already in active tasks
+		// Skip if already in tasks map
 		if _, exists := tasks[taskID]; exists {
 			continue
 		}
 
 		// Load from disk
-		taskInfo, err := a.GetTaskStatus(taskID)
+		taskInfo, err := a.loadTaskFromProject(projectRoot, taskID)
 		if err == nil {
 			tasks[taskID] = taskInfo
 		}
 	}
+}
 
-	return tasks
+// loadTaskFromProject loads a task from a specific project root
+func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graphql.TaskInfo, error) {
+	metadataPath := filepath.Join(projectRoot, BeadsDir, "tasks", taskID, MetadataFileName)
+	data, err := os.ReadFile(metadataPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var status struct {
+		TaskID      string            `json:"task_id"`
+		Role        string            `json:"role"`
+		Task        string            `json:"task"`
+		Status      string            `json:"status"`
+		CreatedAt   time.Time         `json:"created_at"`
+		UpdatedAt   time.Time         `json:"updated_at"`
+		CompletedAt *time.Time        `json:"completed_at,omitempty"`
+		Result      string            `json:"result,omitempty"`
+		Error       string            `json:"error,omitempty"`
+		Metadata    map[string]string `json:"metadata,omitempty"`
+	}
+
+	if err := json.Unmarshal(data, &status); err != nil {
+		return nil, err
+	}
+
+	// Convert to TaskInfo
+	taskInfo := &graphql.TaskInfo{
+		TaskID:    status.TaskID,
+		Role:      status.Role,
+		Task:      status.Task,
+		Status:    status.Status,
+		CreatedAt: status.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: status.UpdatedAt.Format(time.RFC3339),
+		Metadata:  make(map[string]string),
+	}
+
+	// Copy metadata
+	for k, v := range status.Metadata {
+		taskInfo.Metadata[k] = v
+	}
+
+	// Add project root to metadata if not already there
+	if _, exists := taskInfo.Metadata["project_root"]; !exists {
+		taskInfo.Metadata["project_root"] = projectRoot
+	}
+
+	// Set project root
+	taskInfo.ProjectRoot = &projectRoot
+
+	if status.CompletedAt != nil {
+		completedAt := status.CompletedAt.Format(time.RFC3339)
+		taskInfo.CompletedAt = &completedAt
+	}
+	if status.Result != "" {
+		taskInfo.Result = &status.Result
+	}
+	if status.Error != "" {
+		taskInfo.Error = &status.Error
+	}
+	if beadsID, ok := status.Metadata["beads_task_id"]; ok {
+		taskInfo.BeadsTaskID = &beadsID
+	}
+
+	return taskInfo, nil
 }
 
 // GetTaskStatus returns status for a specific task
@@ -231,6 +326,45 @@ func convertToTaskInfo(execution *TaskExecution) *graphql.TaskInfo {
 
 	if beadsID, ok := execution.metadata["beads_task_id"]; ok {
 		taskInfo.BeadsTaskID = &beadsID
+	}
+
+	if execution.ProjectRoot != "" {
+		taskInfo.ProjectRoot = &execution.ProjectRoot
+	}
+
+	return taskInfo
+}
+
+// convertBeadsTaskToTaskInfo converts beads.Task to graphql.TaskInfo
+func convertBeadsTaskToTaskInfo(beadsTask beads.Task, projectRoot string) *graphql.TaskInfo {
+	// Map beads status to agent status
+	// Beads statuses: "open", "in_progress", "closed", "done"
+	// Agent statuses: "queued", "in_progress", "completed", "failed"
+	status := "queued"
+	switch beadsTask.Status {
+	case "in_progress":
+		status = "in_progress"
+	case "closed", "done":
+		status = "completed"
+	case "open":
+		status = "queued"
+	}
+
+	taskInfo := &graphql.TaskInfo{
+		TaskID:      beadsTask.ID,
+		Role:        "beads-task",
+		Task:        beadsTask.Title,
+		Status:      status,
+		CreatedAt:   time.Now().Format(time.RFC3339), // Beads doesn't expose creation time in Task struct
+		UpdatedAt:   time.Now().Format(time.RFC3339),
+		Metadata:    make(map[string]string),
+		BeadsTaskID: &beadsTask.ID,
+		ProjectRoot: &projectRoot,
+	}
+
+	// Add description as result if available
+	if beadsTask.Description != "" && beadsTask.Description != beadsTask.Title {
+		taskInfo.Result = &beadsTask.Description
 	}
 
 	return taskInfo
