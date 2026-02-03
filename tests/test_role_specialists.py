@@ -3,7 +3,7 @@
 Role Test: Specialist Roles Execution and Deliverables Validation
 
 Tests specialist roles:
-- Cartographer (PRD creation)
+- Product Manager (PRD creation)
 - Architect (Architecture docs + ADRs)
 - Designer (UX wireframes)
 - Inspector (RCA documents)
@@ -20,8 +20,8 @@ from pathlib import Path
 from datetime import datetime
 
 
-class TestCartographerRole(unittest.TestCase):
-    """Test Cartographer role - PRD creation"""
+class TestProduct ManagerRole(unittest.TestCase):
+    """Test Product Manager role - PRD creation"""
 
     @classmethod
     def setUpClass(cls):
@@ -32,7 +32,7 @@ class TestCartographerRole(unittest.TestCase):
                 raise RuntimeError("Not in a git repository")
             cls.repo_root = cls.repo_root.parent
 
-        cls.test_dir = cls.repo_root / ".ai" / "test-artifacts" / f"cartographer-test-{int(time.time())}"
+        cls.test_dir = cls.repo_root / ".ai" / "test-artifacts" / f"product-manager-test-{int(time.time())}"
         cls.test_dir.mkdir(parents=True, exist_ok=True)
 
     @classmethod
@@ -42,13 +42,13 @@ class TestCartographerRole(unittest.TestCase):
             import shutil
             shutil.rmtree(cls.test_dir)
 
-    def test_01_cartographer_creates_prd(self):
-        """Test: Cartographer creates PRD in docs/product/"""
+    def test_01_product-manager_creates_prd(self):
+        """Test: Product Manager creates PRD in docs/product/"""
         print("\n" + "="*70)
         print("CARTOGRAPHER TEST 1: Creates PRD")
         print("="*70)
 
-        # Cartographer creates PRD
+        # Product Manager creates PRD
         prd_dir = self.test_dir / "docs" / "product" / "2026-01-15-user-auth"
         prd_dir.mkdir(parents=True, exist_ok=True)
 
@@ -57,7 +57,7 @@ class TestCartographerRole(unittest.TestCase):
 
 **Date:** {datetime.now().strftime("%Y-%m-%d")}
 **Status:** Draft
-**Owner:** Cartographer
+**Owner:** Product Manager
 
 ---
 
@@ -144,8 +144,8 @@ Users need secure authentication to access the system.
 
         print("✅ PRD has all required sections")
 
-    def test_02_cartographer_uses_absolute_paths(self):
-        """Test: Cartographer uses absolute paths for PRD creation"""
+    def test_02_product-manager_uses_absolute_paths(self):
+        """Test: Product Manager uses absolute paths for PRD creation"""
         print("\n" + "="*70)
         print("CARTOGRAPHER TEST 2: Uses Absolute Paths")
         print("="*70)
@@ -742,7 +742,7 @@ class TestSpecialistIntegration(unittest.TestCase):
         Integration Test: Specialist roles workflow
 
         Scenario:
-        1. Cartographer creates PRD
+        1. Product Manager creates PRD
         2. Architect creates architecture docs + ADRs
         3. Designer creates UX specs
         4. All artifacts persist to correct locations
@@ -756,12 +756,12 @@ class TestSpecialistIntegration(unittest.TestCase):
         print("INTEGRATION TEST: Specialist Workflow")
         print("="*70)
 
-        # Cartographer creates PRD
+        # Product Manager creates PRD
         prd_dir = self.test_dir / "docs" / "product" / "2026-01-15-feature"
         prd_dir.mkdir(parents=True, exist_ok=True)
         prd_file = prd_dir / "prd.md"
         prd_file.write_text("# PRD: Feature\n\n## Requirements\n- Requirement 1")
-        print("✅ Cartographer: PRD created")
+        print("✅ Product Manager: PRD created")
 
         # Architect creates architecture
         arch_dir = self.test_dir / "docs" / "architecture" / "2026-01-15-feature"
@@ -792,7 +792,7 @@ class TestSpecialistIntegration(unittest.TestCase):
 
         print("\n✅ INTEGRATION TEST PASSED")
         print("\nSpecialist deliverables verified:")
-        print(f"   ✓ Cartographer PRD: {prd_file}")
+        print(f"   ✓ Product Manager PRD: {prd_file}")
         print(f"   ✓ Architect docs: {arch_file}")
         print(f"   ✓ Architect ADR: {adr_file}")
         print(f"   ✓ Designer specs: {design_file}")
@@ -803,7 +803,7 @@ if __name__ == "__main__":
     print("="*70)
     print("Specialist Roles Execution Tests")
     print("="*70)
-    print("\nValidating Cartographer, Architect, Designer, Inspector roles...")
+    print("\nValidating Product Manager, Architect, Designer, Inspector roles...")
     print()
 
     # Run tests

@@ -10,7 +10,7 @@ agents/
 ├── tester.yml          # Testing specialist
 ├── reviewer.yml        # Code review specialist
 ├── architect.yml       # System architecture specialist
-├── cartographer.yml    # Requirements and user stories
+├── product-manager.yml    # Requirements and user stories
 └── README.md          # This file
 ```
 
@@ -164,7 +164,7 @@ To add a new agent:
 | **tester** | Testing | 10min | read, write, edit, bash, grep, glob |
 | **reviewer** | Code review | 10min | read, grep, glob, bash |
 | **architect** | System design | 15min | read, write, edit, bash, grep, glob, webfetch |
-| **cartographer** | Requirements | 15min | read, write, edit, bash, grep, glob, webfetch |
+| **product-manager** | Requirements | 15min | read, write, edit, bash, grep, glob, webfetch |
 
 ## Best Practices
 

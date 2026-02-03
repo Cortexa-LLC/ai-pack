@@ -1,0 +1,25 @@
+# Agent Configuration: inspector
+# Auto-generated from roles/inspector.md
+# DO NOT EDIT - regenerate using scripts/generate-agent-configs.py
+
+name: inspector
+description: Code quality and compliance inspection specialist
+tier: lightweight
+context:
+  role_file: roles/inspector.md
+  gates:
+    - quality-inspection
+    - beads-enforcement
+delegation:
+  mode: delegate
+  timeout: 5min
+tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+output:
+  format: task-packet
+  artifacts:
+    - inspection-report
+    - violations

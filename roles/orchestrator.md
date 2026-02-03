@@ -684,7 +684,7 @@ WHEN major initiative or feature requested:
       END IF
 
   ELSE IF market already validated AND business case clear THEN
-    ACCEPTABLE: Skip to Cartographer for PRD
+    ACCEPTABLE: Skip to Product Manager for PRD
     Pattern:
       pm = Task(pm_role, "Define requirements for [FEATURE]")
       [Continue with standard flow]
@@ -703,7 +703,7 @@ WHEN major initiative or feature requested:
 - Strategic direction needed
 - Competitive response required
 
-✅ Skip to Cartographer when:
+✅ Skip to Product Manager when:
 - Market already validated
 - Business case already approved
 - No competitive considerations
@@ -721,7 +721,7 @@ Strategist creates:
   - Business Case
   - Strategic recommendation (Proceed/Defer/Do Not Pursue)
 
-Cartographer uses MRD as input:
+Product Manager uses MRD as input:
   - Reads market requirements
   - Translates to product requirements
   - Creates PRD with detailed features
@@ -747,7 +747,7 @@ Receiving MRD from Strategist:
 IF recommendation == "PROCEED" THEN
   "MRD approved. Market opportunity validated.
 
-   Delegating to Cartographer to create Product Requirements
+   Delegating to Product Manager to create Product Requirements
    Document based on market requirements in MRD.
 
    MRD location: docs/market/YYYY-MM-DD-product-name/mrd.md"
@@ -758,7 +758,7 @@ END IF
 
 ### 2.8 Feature Planning Delegation Strategy
 
-**RESPONSIBILITY:** Determine whether to delegate feature to Cartographer or directly to Engineer.
+**RESPONSIBILITY:** Determine whether to delegate feature to Product Manager or directly to Engineer.
 
 **Decision Criteria:**
 ```
@@ -766,7 +766,7 @@ WHEN large feature requested:
   assess_feature_complexity()
 
   IF feature is large OR requirements unclear THEN
-    RECOMMENDED: Delegate to Cartographer
+    RECOMMENDED: Delegate to Product Manager
     Pattern:
       pm = Task(pm_role, "Define requirements for [FEATURE]")
       wait_for_prd()
@@ -782,7 +782,7 @@ WHEN large feature requested:
 
 **Feature Complexity Indicators:**
 ```
-✅ Delegate to Cartographer when:
+✅ Delegate to Product Manager when:
 - Large feature with multiple components
 - Requirements unclear or incomplete
 - Success metrics undefined
@@ -850,7 +850,7 @@ WHEN user-facing feature requested:
 **Collaboration Pattern:**
 ```
 Typical flow for user-facing features:
-  1. Cartographer defines requirements (WHAT and WHY)
+  1. Product Manager defines requirements (WHAT and WHY)
   2. Designer creates user flows and wireframes (HOW USERS INTERACT)
   3. Architect designs technical implementation (HOW SYSTEM WORKS)
   4. Engineer implements solution (BUILDS IT)
@@ -967,7 +967,7 @@ Typical flow for legacy code work:
 
 Alternatively for understanding before feature work:
   1. Archaeologist investigates existing system (maps historical context)
-  2. Cartographer/Designer define new feature (with awareness of existing patterns)
+  2. Product Manager/Designer define new feature (with awareness of existing patterns)
   3. Architect designs integration (respecting or evolving existing patterns)
   4. Engineer implements (with full historical awareness)
 ```
@@ -1002,7 +1002,7 @@ With archaeological investigation:
 
 ### 2.10 MANDATORY Artifact Persistence Enforcement
 
-**ENFORCEMENT:** When Strategist, Cartographer, Designer, Architect, Inspector, Archaeologist, or Spelunker completes their planning phase, orchestrator MUST verify artifacts are persisted to repository before proceeding to implementation. This is enforced by the **[Artifact Persistence Gate](../gates/10-persistence.md#11-artifact-repository-persistence)**.
+**ENFORCEMENT:** When Strategist, Product Manager, Designer, Architect, Inspector, Archaeologist, or Spelunker completes their planning phase, orchestrator MUST verify artifacts are persisted to repository before proceeding to implementation. This is enforced by the **[Artifact Persistence Gate](../gates/10-persistence.md#11-artifact-repository-persistence)**.
 
 **Trigger Conditions:**
 ```
@@ -1011,7 +1011,7 @@ WHEN specialist completes planning phase:
     REQUIRE persistence to docs/market/YYYY-MM-DD-product-name/
   END IF
 
-  IF Cartographer delivered PRD/requirements THEN
+  IF Product Manager delivered PRD/requirements THEN
     REQUIRE persistence to docs/product/YYYY-MM-DD-feature-name/
   END IF
 
@@ -1075,7 +1075,7 @@ Strategist artifacts → docs/market/YYYY-MM-DD-product-name/
   - business-case.md
   - market-research.md
 
-Cartographer artifacts → docs/product/YYYY-MM-DD-feature-name/
+Product Manager artifacts → docs/product/YYYY-MM-DD-feature-name/
   - prd.md
   - epics.md
   - user-stories.md
@@ -2028,7 +2028,7 @@ ls .ai-pack/agents/
 - tester.yml        # Test validation
 - reviewer.yml      # Code review
 - architect.yml     # Architecture design
-- cartographer.yml  # Product requirements
+- product-manager.yml  # Product requirements
 - inspector.yml     # Bug investigation
 - archaeologist.yml # Legacy code investigation
 - spelunker.yml     # Runtime investigation

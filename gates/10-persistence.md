@@ -592,7 +592,7 @@ END WHEN
 Before marking planning phase complete:
   ✓ Artifacts moved from .ai/tasks/ to docs/
   ✓ docs/market/ updated (if Strategist phase occurred)
-  ✓ docs/product/ updated (if Cartographer phase occurred)
+  ✓ docs/product/ updated (if Product Manager phase occurred)
   ✓ docs/architecture/ updated (if Architect phase occurred)
   ✓ docs/adr/ updated (if ADRs created)
   ✓ docs/security/ updated (if security issues documented)

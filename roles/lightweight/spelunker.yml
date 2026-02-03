@@ -1,0 +1,24 @@
+# Agent Configuration: spelunker
+# Auto-generated from roles/spelunker.md
+# DO NOT EDIT - regenerate using scripts/generate-agent-configs.py
+
+name: spelunker
+description: Deep code investigation and exploration specialist
+tier: lightweight
+context:
+  role_file: roles/spelunker.md
+  gates:
+    - beads-enforcement
+delegation:
+  mode: delegate
+  timeout: 10min
+tools:
+  - Read
+  - Grep
+  - Glob
+  - Task
+output:
+  format: task-packet
+  artifacts:
+    - exploration-report
+    - insights

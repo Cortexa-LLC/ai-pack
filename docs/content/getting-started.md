@@ -178,7 +178,7 @@ your-project/
 │
 ├── docs/                        # Permanent documentation
 │   ├── market/                  # Market requirements (Strategist)
-│   ├── product/                 # Product requirements (Cartographer)
+│   ├── product/                 # Product requirements (Product Manager)
 │   ├── design/                  # UX design (Designer)
 │   ├── architecture/            # Technical design (Architect)
 │   ├── adr/                     # Architecture Decision Records
@@ -268,7 +268,7 @@ After setup, these commands are available:
 - `/ai-pack architect` - Architecture design
 - `/ai-pack designer` - UX workflows
 - `/ai-pack strategist` - Market analysis
-- `/ai-pack cartographer` - Product requirements
+- `/ai-pack product-manager` - Product requirements
 - `/ai-pack help` - Show all commands
 
 ## Next Steps

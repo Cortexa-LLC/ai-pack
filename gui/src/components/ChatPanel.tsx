@@ -17,7 +17,7 @@ const ROLES = [
   { value: 'tester', label: 'Tester' },
   { value: 'reviewer', label: 'Reviewer' },
   { value: 'inspector', label: 'Inspector' },
-  { value: 'cartographer', label: 'Cartographer' },
+  { value: 'product-manager', label: 'Product Manager' },
   { value: 'archaeologist', label: 'Archaeologist' },
   { value: 'spelunker', label: 'Spelunker' },
   { value: 'strategist', label: 'Strategist' },

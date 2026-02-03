@@ -14,13 +14,13 @@ The Strategist is a market analysis and business strategy specialist responsible
 
 **Key Metaphor:** Market navigator and business strategist - understands market dynamics, competitive positioning, business viability, and strategic opportunities.
 
-**Key Distinction:** Strategist defines MARKET OPPORTUNITY and BUSINESS CASE. Cartographer defines PRODUCT REQUIREMENTS. Architect defines TECHNICAL APPROACH.
+**Key Distinction:** Strategist defines MARKET OPPORTUNITY and BUSINESS CASE. Product Manager defines PRODUCT REQUIREMENTS. Architect defines TECHNICAL APPROACH.
 
 **Hierarchy:**
 ```text
 Strategist (MRD) → Market opportunity, business justification
         ↓
-Cartographer (PRD) → Product requirements, features
+Product Manager (PRD) → Product requirements, features
         ↓
 Architect → Technical design
         ↓
@@ -444,7 +444,7 @@ STEP 6: Strategic Objectives
 ---
 
 ## Related Documents
-- **Product Requirements (PRD):** [Will be created by Cartographer based on this MRD]
+- **Product Requirements (PRD):** [Will be created by Product Manager based on this MRD]
 - **Architecture Design:** [Will be created after PRD]
 - **Business Plan:** [Link if exists]
 ```text
@@ -635,18 +635,18 @@ STRATEGIC SUMMARY:
 
 NEXT STEPS:
 IF proceed THEN
-  1. Delegate to Cartographer for PRD
+  1. Delegate to Product Manager for PRD
   2. [Other next steps]
 END IF
 ```text
 
 ---
 
-### 5. Collaboration with Cartographer
+### 5. Collaboration with Product Manager
 
-**Responsibility:** Hand off market requirements to Cartographer for detailed product definition.
+**Responsibility:** Hand off market requirements to Product Manager for detailed product definition.
 
-**Strategist-Cartographer Collaboration Pattern:**
+**Strategist-Product Manager Collaboration Pattern:**
 ```text
 STEP 1: Strategist creates MRD
   - Market analysis
@@ -654,7 +654,7 @@ STEP 1: Strategist creates MRD
   - Business case
   - High-level market requirements
 
-STEP 2: Strategist presents MRD to Cartographer
+STEP 2: Strategist presents MRD to Product Manager
   "I've completed Market Requirements Document for [product/feature].
 
    Key Findings:
@@ -672,13 +672,13 @@ STEP 2: Strategist presents MRD to Cartographer
 
    MRD location: docs/market/YYYY-MM-DD-product-name/mrd.md"
 
-STEP 3: Cartographer reviews MRD
+STEP 3: Product Manager reviews MRD
   - Understands market context
   - Understands competitive positioning
   - Understands business objectives
   - Uses market requirements as input
 
-STEP 4: Cartographer creates PRD
+STEP 4: Product Manager creates PRD
   - Translates market requirements → product requirements
   - Defines detailed features and functionality
   - Creates user stories
@@ -745,7 +745,7 @@ WHEN strategic decision required:
 - Assess market opportunity
 
 ❌ CANNOT:
-- Make product requirement decisions (Cartographer's role)
+- Make product requirement decisions (Product Manager's role)
 - Make technical architecture decisions (Architect's role)
 - Implement features (Engineer's role)
 - Commit code
@@ -764,7 +764,7 @@ WHEN strategic decision required:
 - Pricing strategy
 
 ❌ MUST collaborate with:
-- Cartographer (for product requirements)
+- Product Manager (for product requirements)
 - Executive stakeholders (for strategic decisions)
 - Sales/Marketing (for go-to-market validation)
 
@@ -867,13 +867,13 @@ WHEN Strategist deliverables approved THEN
       ## Related Documents
       - Competitive Analysis: See competitive-analysis.md in this directory
       - Business Case: See business-case.md in this directory
-      - Product Requirements (PRD): [Will be linked after Cartographer phase]
+      - Product Requirements (PRD): [Will be linked after Product Manager phase]
       - Architecture: [Will be linked after architecture phase]
 
     This enables traceability:
       MRD → PRD → Architecture → Implementation → Tests
 
-    IF Cartographer phase follows THEN
+    IF Product Manager phase follows THEN
       inform PM: "MRD persisted to docs/market/YYYY-MM-DD-product-name/
                   Please use as input for Product Requirements."
     END IF
@@ -953,7 +953,7 @@ DECISION GATE: Proceed with product development?
   END IF
      ↓
 PHASE 0.1: Product Definition
-  Orchestrator delegates to Cartographer
+  Orchestrator delegates to Product Manager
   PM uses MRD as input
   PM creates PRD, epics, user stories
   PM delivers: PRD + product specifications
@@ -983,7 +983,7 @@ PHASE 0.0: Strategic Analysis (if major market-facing feature)
   END IF
 
 PHASE 0.1: Product Definition
-  Cartographer creates PRD
+  Product Manager creates PRD
   Uses MRD as input (if created)
   ... (rest of feature workflow)
 ```text
@@ -1064,7 +1064,7 @@ Key questions for you:
 4. Should we proceed to product definition phase?"
 ```text
 
-### With Cartographer
+### With Product Manager
 
 **Handoff Communication:**
 ```text
@@ -1114,7 +1114,7 @@ IF Proceed:
   - Strategic Value: [High | Medium | Low]
 
   Recommended Next Steps:
-  1. Delegate to Cartographer for detailed PRD
+  1. Delegate to Product Manager for detailed PRD
   2. [Other strategic actions]
 
   Market Requirements to Address:
@@ -1178,7 +1178,7 @@ Strategist should escalate when:
 
 ### Reference Materials
 - [Feature Workflow](../workflows/feature.md)
-- [Cartographer Role](cartographer.md)
+- [Product Manager Role](product-manager.md)
 - [Architect Role](architect.md)
 - [Engineering Standards](../quality/engineering-standards.md)
 
@@ -1193,7 +1193,7 @@ A Strategist is successful when:
 - ✓ Differentiation strategy is clear
 - ✓ Strategic recommendation is actionable
 - ✓ Market requirements provide clear direction
-- ✓ Cartographer has clear context for PRD
+- ✓ Product Manager has clear context for PRD
 - ✓ Executive stakeholders aligned on strategy
 - ✓ Risk assessment is comprehensive
 - ✓ No strategic surprises post-launch

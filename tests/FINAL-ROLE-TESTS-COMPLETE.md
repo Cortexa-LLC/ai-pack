@@ -72,7 +72,7 @@ All role execution tests have been successfully implemented and are passing.
 ### 4. Specialist Roles Test (8 tests)
 **File:** `test_role_specialists.py`
 
-**Cartographer (2 tests):**
+**Product Manager (2 tests):**
 - ✅ Creates PRD in docs/product/
 - ✅ Uses absolute paths
 
@@ -98,7 +98,7 @@ All role execution tests have been successfully implemented and are passing.
 **File:** `test_orchestrator_delegation.py`
 
 **Tests:**
-- ✅ Delegates to Cartographer (PRD creation)
+- ✅ Delegates to Product Manager (PRD creation)
 - ✅ Delegates to Architect (architecture)
 - ✅ Delegates to Engineer (implementation)
 - ✅ Delegates to Reviewer (code review)
@@ -189,7 +189,7 @@ FAILED (failures=1, skipped=9)
 
 ---
 
-### ✅ 4. Cartographer
+### ✅ 4. Product Manager
 **Deliverables Verified:**
 - Creates PRD in docs/product/
 - Uses absolute paths
@@ -230,7 +230,7 @@ FAILED (failures=1, skipped=9)
 
 ### ✅ 8. Orchestrator
 **Deliverables Verified:**
-- Delegates to Cartographer
+- Delegates to Product Manager
 - Delegates to Architect
 - Delegates to Engineer
 - Delegates to Reviewer
@@ -248,7 +248,7 @@ FAILED (failures=1, skipped=9)
 1. **`test_role_engineer.py`** (9 tests) - Engineer role
 2. **`test_role_reviewer.py`** (9 tests) - Reviewer role
 3. **`test_role_tester.py`** (9 tests) - Tester role
-4. **`test_role_specialists.py`** (8 tests) - Cartographer, Architect, Designer, Inspector
+4. **`test_role_specialists.py`** (8 tests) - Product Manager, Architect, Designer, Inspector
 5. **`test_orchestrator_delegation.py`** (7 tests) - Orchestrator delegation
 
 ### Existing Test Files (2 files)
@@ -270,7 +270,7 @@ FAILED (failures=1, skipped=9)
 - ✅ Engineer role validated (9 tests)
 - ✅ Reviewer role validated (9 tests)
 - ✅ Tester role validated (9 tests)
-- ✅ Cartographer role validated (2 tests)
+- ✅ Product Manager role validated (2 tests)
 - ✅ Architect role validated (2 tests)
 - ✅ Designer role validated (2 tests)
 - ✅ Inspector role validated (1 test)
@@ -279,7 +279,7 @@ FAILED (failures=1, skipped=9)
 **Coverage:** 100% of roles tested
 
 ### ✅ Orchestrator Interaction - COMPLETE
-- ✅ Delegation to Cartographer validated
+- ✅ Delegation to Product Manager validated
 - ✅ Delegation to Architect validated
 - ✅ Delegation to Engineer validated
 - ✅ Delegation to Reviewer validated
@@ -300,7 +300,7 @@ FAILED (failures=1, skipped=9)
 - ✅ Engineer deliverables verified
 - ✅ Reviewer deliverables verified
 - ✅ Tester deliverables verified
-- ✅ Cartographer deliverables verified (PRD)
+- ✅ Product Manager deliverables verified (PRD)
 - ✅ Architect deliverables verified (docs + ADRs)
 - ✅ Designer deliverables verified (specs + wireframes)
 - ✅ Inspector deliverables verified (RCA)
@@ -551,7 +551,7 @@ class TestOrchestration(unittest.TestCase):
 1. ✅ Engineer
 2. ✅ Reviewer
 3. ✅ Tester
-4. ✅ Cartographer
+4. ✅ Product Manager
 5. ✅ Architect
 6. ✅ Designer
 7. ✅ Inspector

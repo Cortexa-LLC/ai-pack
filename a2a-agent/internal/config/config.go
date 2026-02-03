@@ -13,12 +13,13 @@ const (
 
 // Config holds all server configuration
 type Config struct {
-	Server   ServerConfig       `json:"server"`
-	API      APIConfig          `json:"api"`
-	Agent    AgentConfig        `json:"agent"`
-	Logging  LoggingConfig      `json:"logging"`
-	Metrics  MetricsConfig      `json:"metrics"`
-	Projects map[string]string  `json:"projects,omitempty"` // map[projectPath]lastAccessed
+	Server      ServerConfig       `json:"server"`
+	API         APIConfig          `json:"api"`
+	Agent       AgentConfig        `json:"agent"`
+	Logging     LoggingConfig      `json:"logging"`
+	Metrics     MetricsConfig      `json:"metrics"`
+	TaskCleanup TaskCleanupConfig  `json:"task_cleanup"`
+	Projects    map[string]string  `json:"projects,omitempty"` // map[projectPath]lastAccessed
 }
 
 // ServerConfig holds server-specific settings
@@ -60,6 +61,12 @@ type MetricsConfig struct {
 	MaxTaskDurations int  `json:"max_task_durations"`
 }
 
+// TaskCleanupConfig holds task cleanup/archival settings
+type TaskCleanupConfig struct {
+	Enabled         bool `json:"enabled"`           // Enable automatic cleanup on startup
+	ArchiveAfterDays int  `json:"archive_after_days"` // Archive tasks older than N days
+}
+
 // DefaultConfig returns default configuration
 func DefaultConfig() *Config {
 	return &Config{
@@ -71,7 +78,7 @@ func DefaultConfig() *Config {
 		},
 		API: APIConfig{
 			AnthropicModel: "claude-sonnet-4-5-20250929",
-			MaxTokens:      8000,
+			MaxTokens:      24000,
 			TimeoutSeconds: 600,
 			Mode:           "direct", // "direct" or "proxy"
 			Proxy:          nil,      // No proxy by default
@@ -86,6 +93,10 @@ func DefaultConfig() *Config {
 		Metrics: MetricsConfig{
 			Enabled:          true,
 			MaxTaskDurations: 1000,
+		},
+		TaskCleanup: TaskCleanupConfig{
+			Enabled:          true,
+			ArchiveAfterDays: 15,
 		},
 		Projects: make(map[string]string),
 	}

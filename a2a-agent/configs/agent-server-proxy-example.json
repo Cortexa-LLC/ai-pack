@@ -14,6 +14,9 @@
       "base_url": "https://api.acme.com/anthropic/v1"
     }
   },
+  "agent": {
+    "max_inactive_turns": 10
+  },
   "logging": {
     "level": "info",
     "format": "json"
@@ -21,6 +24,10 @@
   "metrics": {
     "enabled": true,
     "max_task_durations": 1000
+  },
+  "task_cleanup": {
+    "enabled": true,
+    "archive_after_days": 15
   }
 }
 

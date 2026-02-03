@@ -64,7 +64,7 @@
   - Provides BLOCKING verdicts ✓
   - Enforces TDD gate ✓
 
-- ✅ **Cartographer role** - COMPLETE (2 tests)
+- ✅ **Product Manager role** - COMPLETE (2 tests)
   - Creates PRD ✓
   - Uses absolute paths ✓
 
@@ -241,24 +241,24 @@ def test_engineer_full_task_execution():
 
 ---
 
-### Test: Cartographer Role Deliverables
-**File:** `test_role_cartographer.py`
+### Test: Product Manager Role Deliverables
+**File:** `test_role_product-manager.py`
 
 **What to Test:**
 ```python
-✅ test_cartographer_creates_prd()
+✅ test_product-manager_creates_prd()
    - Receives feature requirements
    - Creates PRD in docs/product/
    - PRD has all required sections
    - File persists to repository
 
-✅ test_cartographer_prd_content_quality()
+✅ test_product-manager_prd_content_quality()
    - User stories present
    - Acceptance criteria clear
    - Technical constraints documented
    - Stakeholders identified
 
-✅ test_cartographer_links_to_architecture()
+✅ test_product-manager_links_to_architecture()
    - References architecture docs if exist
    - Notes architectural implications
    - Flags technical risks
@@ -266,15 +266,15 @@ def test_engineer_full_task_execution():
 
 **Integration Test:**
 ```python
-def test_orchestrator_delegates_to_cartographer():
+def test_orchestrator_delegates_to_product-manager():
     """
-    Test orchestrator → cartographer delegation
+    Test orchestrator → product-manager delegation
 
     Scenario:
     - User requests new feature
     - Orchestrator identifies need for PRD
-    - Delegates to Cartographer
-    - Cartographer creates PRD
+    - Delegates to Product Manager
+    - Product Manager creates PRD
     - Orchestrator verifies PRD exists
     - Continues to next phase
     """
@@ -466,7 +466,7 @@ def test_orchestrator_uses_beads_for_decomposition():
 **What to Test:**
 ```python
 ✅ test_feature_workflow_phase_0_planning()
-   - Optional: Cartographer creates PRD
+   - Optional: Product Manager creates PRD
    - Optional: Architect creates design
    - Optional: Designer creates UX
    - Artifacts persist to docs/
@@ -587,7 +587,7 @@ def test_complete_feature_development():
     Scenario: Implement "User Login" feature
 
     Phase 0: Planning (specialists)
-    - Cartographer creates PRD
+    - Product Manager creates PRD
     - Architect creates architecture + ADRs
     - Designer creates UX wireframes
     - All docs persist to docs/
@@ -641,9 +641,9 @@ def test_complete_feature_development():
 
 **What to Test:**
 ```python
-✅ test_orchestrator_delegates_to_cartographer()
+✅ test_orchestrator_delegates_to_product-manager()
    - Large feature detected
-   - Spawns Cartographer
+   - Spawns Product Manager
    - Waits for PRD
    - Verifies PRD exists
    - Continues to next phase
@@ -685,8 +685,8 @@ def test_complete_feature_development():
 
 **What to Test:**
 ```python
-✅ test_cartographer_to_architect_handoff()
-   - Cartographer creates PRD
+✅ test_product-manager_to_architect_handoff()
+   - Product Manager creates PRD
    - Architect reads PRD
    - Architect references PRD in design
    - Cross-references verified
@@ -722,7 +722,7 @@ def test_complete_feature_development():
 - [ ] Document results
 
 ### Phase 2: Specialist Role Tests (Week 1-2)
-- [ ] Create test_role_cartographer.py
+- [ ] Create test_role_product-manager.py
 - [ ] Create test_role_architect.py
 - [ ] Create test_role_designer.py
 - [ ] Create test_role_inspector.py
@@ -799,7 +799,7 @@ def test_complete_feature_development():
 - ✅ Engineer role: COMPLETE (9 tests)
 - ✅ Reviewer role: COMPLETE (9 tests)
 - ✅ Tester role: COMPLETE (9 tests)
-- ✅ Cartographer role: COMPLETE (2 tests)
+- ✅ Product Manager role: COMPLETE (2 tests)
 - ✅ Architect role: COMPLETE (2 tests)
 - ✅ Designer role: COMPLETE (2 tests)
 - ✅ Inspector role: COMPLETE (1 test)

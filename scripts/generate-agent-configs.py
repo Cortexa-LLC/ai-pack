@@ -83,12 +83,12 @@ AGENT_CONFIGS = {
             "artifacts": ["architecture-doc", "design-decisions"]
         }
     },
-    "cartographer": {
-        "name": "cartographer",
+    "product-manager": {
+        "name": "product-manager",
         "description": "Codebase exploration and mapping specialist",
         "tier": "lightweight",
         "context": {
-            "role_file": "roles/cartographer.md",
+            "role_file": "roles/product-manager.md",
             "gates": ["beads-enforcement"]
         },
         "delegation": {

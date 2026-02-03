@@ -3,7 +3,7 @@
 Feature Workflow Tests
 
 Tests the complete feature workflow:
-Phase 0: Planning (Cartographer → Architect → Designer)
+Phase 0: Planning (Product Manager → Architect → Designer)
 Phase 1: Setup (Orchestrator creates task packet)
 Phase 2: Implementation (Engineer with TDD)
 Phase 3: Review (Tester → Reviewer)
@@ -56,13 +56,13 @@ class TestFeatureWorkflowPhases(unittest.TestCase):
             shutil.rmtree(cls.test_dir)
             print(f"\n🧹 Cleaned up: {cls.test_dir}")
 
-    def test_01_phase_0_cartographer_creates_prd(self):
-        """Test: Phase 0 - Cartographer creates PRD"""
+    def test_01_phase_0_product-manager_creates_prd(self):
+        """Test: Phase 0 - Product Manager creates PRD"""
         print("\n" + "="*70)
-        print("FEATURE WORKFLOW TEST 1: Phase 0 - Cartographer (PRD)")
+        print("FEATURE WORKFLOW TEST 1: Phase 0 - Product Manager (PRD)")
         print("="*70)
 
-        # Cartographer creates PRD
+        # Product Manager creates PRD
         prd_dir = self.test_dir / "docs" / "product" / "2026-01-15-user-profile"
         prd_dir.mkdir(parents=True, exist_ok=True)
 
@@ -70,7 +70,7 @@ class TestFeatureWorkflowPhases(unittest.TestCase):
         prd_file.write_text("""# PRD: User Profile Feature
 
 **Date:** 2026-01-15
-**Author:** Cartographer
+**Author:** Product Manager
 
 ## Problem Statement
 Users need to manage their profile information.
@@ -90,7 +90,7 @@ Enables users to personalize their experience.
 """)
 
         self.assertTrue(prd_file.exists(), "❌ PRD not created")
-        print(f"✅ Cartographer created PRD: {prd_file}")
+        print(f"✅ Product Manager created PRD: {prd_file}")
 
     def test_02_phase_0_architect_creates_design(self):
         """Test: Phase 0 - Architect creates architecture"""
@@ -490,7 +490,7 @@ class TestFeatureWorkflowIntegration(unittest.TestCase):
         prd_dir = self.test_dir / "docs" / "product" / "2026-01-15-dark-mode"
         prd_dir.mkdir(parents=True, exist_ok=True)
         (prd_dir / "prd.md").write_text("# PRD: Dark Mode\n## Requirements\n- Toggle dark mode")
-        print("  ✅ Cartographer: PRD created")
+        print("  ✅ Product Manager: PRD created")
 
         arch_dir = self.test_dir / "docs" / "architecture" / "2026-01-15-dark-mode"
         arch_dir.mkdir(parents=True, exist_ok=True)

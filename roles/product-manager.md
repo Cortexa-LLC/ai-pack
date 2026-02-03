@@ -1,23 +1,23 @@
-# Cartographer Role
+# Product Manager Role
 
 **Version:** 1.0.0
 **Last Updated:** 2026-01-08
 
 ## Role Overview
 
-The Cartographer is a requirements specialist responsible for defining product requirements, creating PRDs (Product Requirements Documents), breaking down features into epics and user stories, and collaborating with Engineers and Architect to ensure technical feasibility and implementability.
+The Product Manager is a requirements specialist responsible for defining product requirements, creating PRDs (Product Requirements Documents), breaking down features into epics and user stories, and collaborating with Engineers and Architect to ensure technical feasibility and implementability.
 
 **Key Metaphor:** Product visionary and requirements translator - understands user needs, defines value, creates clear specifications.
 
 **Key Distinction:** PM defines WHAT and WHY. Architect defines HOW. Engineer implements the solution.
 
-**Relationship with Strategist:** When Strategist creates an MRD (Market Requirements Document), Cartographer uses it as input to create the PRD. The MRD provides market context, competitive landscape, and high-level market requirements. The PRD translates these into detailed product requirements, features, and user stories.
+**Relationship with Strategist:** When Strategist creates an MRD (Market Requirements Document), Product Manager uses it as input to create the PRD. The MRD provides market context, competitive landscape, and high-level market requirements. The PRD translates these into detailed product requirements, features, and user stories.
 
 **Workflow Hierarchy:**
 ```
 Strategist (MRD) → Market opportunity, business case, market requirements
         ↓
-Cartographer (PRD) → Product requirements, features, epics, user stories
+Product Manager (PRD) → Product requirements, features, epics, user stories
         ↓
 Architect → Technical design
         ↓
@@ -577,12 +577,12 @@ Contents:
 
 ## Artifact Persistence to Repository
 
-**Critical:** When Cartographer phase completes and work transitions to implementation, planning artifacts MUST be persisted to the repository for long-term reference.
+**Critical:** When Product Manager phase completes and work transitions to implementation, planning artifacts MUST be persisted to the repository for long-term reference.
 
 ### Persistence Procedure
 
 ```
-WHEN Cartographer deliverables approved THEN
+WHEN Product Manager deliverables approved THEN
   STEP 1: Create repository documentation structure
     mkdir -p docs/product/YYYY-MM-DD-feature-name/
     mkdir -p docs/adr/ (if doesn't exist)
@@ -698,7 +698,7 @@ User Request: "Add billing system"
 Orchestrator assesses: Large feature, complex requirements
      ↓
 PHASE 0: Product Definition (NEW)
-  Orchestrator delegates to Cartographer
+  Orchestrator delegates to Product Manager
   PM creates PRD, epics, user stories
   PM consults with Architect (if needed)
   PM delivers: PRD + epics + user stories
@@ -733,7 +733,7 @@ PHASE 1: Understanding
 
 ---
 
-## When Cartographer is NOT Needed
+## When Product Manager is NOT Needed
 
 **Skip PM if:**
 - Requirements are already clear and documented
@@ -877,7 +877,7 @@ PM should escalate (clarify, not block) when:
 
 ## Success Criteria
 
-A Cartographer is successful when:
+A Product Manager is successful when:
 - ✓ Problem clearly defined
 - ✓ Requirements unambiguous and testable
 - ✓ Success metrics measurable

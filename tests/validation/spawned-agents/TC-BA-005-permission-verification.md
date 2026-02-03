@@ -9,12 +9,12 @@
 
 ## Objective
 
-Validate that orchestrators verify Write(*) permissions are configured BEFORE spawning spawned agents for artifact persistence tasks (Cartographer, Architect, Designer).
+Validate that orchestrators verify Write(*) permissions are configured BEFORE spawning spawned agents for artifact persistence tasks (Product Manager, Architect, Designer).
 
 ## Background
 
 **Production Failure (consumer-project 2026-01-14):**
-- Cartographer spawned to create PRD
+- Product Manager spawned to create PRD
 - Agent generated 26KB of content (visible in agent logs)
 - PRD never persisted to `docs/product/`
 - Orchestrator continued as if successful
@@ -156,7 +156,7 @@ Background agents (``) need Write(*) permission configured in `.claude/settings.
    Task(
      subagent_type="general-purpose",
      description="Create PRD",
-     prompt="""Cartographer role from .ai-pack/roles/cartographer.md
+     prompt="""Product Manager role from .ai-pack/roles/product-manager.md
 
      Working directory: /Users/user/project
 
@@ -227,7 +227,7 @@ Permissions verified. Proceeding to spawn spawned agent.
 
 **Agent Execution:**
 ```
-Cartographer generating PRD...
+Product Manager generating PRD...
 
 ✅ Created docs/product/2026-01-15-feature-name/prd.md (26KB)
 
