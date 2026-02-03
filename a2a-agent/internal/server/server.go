@@ -17,6 +17,7 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/beads"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/claude"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/execution_log"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/proxy"
@@ -59,6 +60,7 @@ type AgentServer struct {
 	client           anthropic.Client // SDK v1.19+ returns Client by value
 	beadsClient      *beads.Client
 	claudeSettings   *claude.Settings // Claude Code settings (deny patterns, etc.)
+	executionLog     *execution_log.ExecutionLog // Persistent agent execution log
 	maxConcurrent    int              // Maximum concurrent agents (configurable)
 	maxTokens        int              // Maximum tokens per API call
 	model            string           // Anthropic model to use
@@ -191,12 +193,19 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		maxInactiveTurns = 10 // Default fallback
 	}
 
+	// Initialize execution log
+	execLog, err := execution_log.NewExecutionLog(rootDir)
+	if err != nil {
+		monitoring.Logger.Warn("failed_to_create_execution_log", "error", err.Error())
+	}
+
 	server := &AgentServer{
 		rootDir:          rootDir,
 		anthropicKey:     apiKey,
 		client:           client,
 		beadsClient:      beads.NewClient(),
 		claudeSettings:   claudeSettings,
+		executionLog:     execLog,
 		maxConcurrent:    maxConcurrent,
 		maxTokens:        maxTokens,
 		model:            model,
@@ -225,6 +234,11 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 
 	// Clean up inactive projects
 	server.cleanupInactiveProjects()
+
+	// Archive old completed tasks if enabled
+	if cfg.TaskCleanup.Enabled && beads.IsInstalled() {
+		server.archiveOldTasks()
+	}
 
 	// Handle orphaned in-progress beads tasks from previous server runs
 	if beads.IsInstalled() {
@@ -371,6 +385,17 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 
 	// Queue for execution
 	s.taskQueue <- execution
+
+	// Log spawned event
+	if s.executionLog != nil {
+		metadataMap := make(map[string]interface{})
+		for k, v := range metadata {
+			metadataMap[k] = v
+		}
+		if err := s.executionLog.LogSpawned(taskID, role, taskDescription, metadataMap); err != nil {
+			monitoring.Logger.Warn("failed_to_log_spawned_event", "error", err.Error())
+		}
+	}
 
 	// Build stream URL
 	streamURL := fmt.Sprintf("/stream/%s", taskID)
@@ -693,8 +718,8 @@ Execute the task according to your role definition.`,
 	return prompt
 }
 
-func (s *AgentServer) updateTaskStatus(taskID, status, errorMsg string) {
-	metadataPath := filepath.Join(s.rootDir, BeadsDir, "tasks", taskID, MetadataFileName)
+func (s *AgentServer) updateTaskStatus(taskID, projectRoot, status, errorMsg string) {
+	metadataPath := filepath.Join(projectRoot, BeadsDir, "tasks", taskID, MetadataFileName)
 
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {
@@ -820,10 +845,33 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 
 		// Use SDK's Accumulate method to build the message
 		var message anthropic.Message
+		eventCount := 0
 		for stream.Next() {
 			event := stream.Current()
+			eventCount++
 			if err := message.Accumulate(event); err != nil {
-				return "", fmt.Errorf("failed to accumulate stream event: %w", err)
+				// Check if we hit max_tokens limit
+				stopReason := string(message.StopReason)
+				if stopReason == "max_tokens" {
+					monitoring.Logger.Warn("max_tokens_limit_reached",
+						"task_id", taskID,
+						"turn", turn,
+						"output_tokens", int(message.Usage.OutputTokens),
+					)
+					logMsg(fmt.Sprintf("      ⚠️  Max tokens reached (%d). Completing turn.", message.Usage.OutputTokens))
+					break
+				}
+
+				// Log stream error with essential context
+				monitoring.Logger.Error("stream_error",
+					"task_id", taskID,
+					"turn", turn,
+					"event", eventCount,
+					"stop_reason", stopReason,
+					"error", err.Error(),
+				)
+
+				return "", fmt.Errorf("stream error on turn %d: %w", turn, err)
 			}
 		}
 
@@ -1070,13 +1118,19 @@ func (s *AgentServer) initializeTaskExecution(execution *TaskExecution, logMsg f
 	execution.Status = "in_progress"
 	s.mu.Unlock()
 
-	s.updateTaskStatus(execution.TaskID, "in_progress", "")
+	s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "in_progress", "")
 	logMsg("📝 Status updated: in_progress")
 
 	s.sendStreamEvent(execution, "status_update", map[string]interface{}{
-		"status":   "in_progress",
-		"progress": 0.1,
+		"status": "in_progress",
 	})
+
+	// Log started event
+	if s.executionLog != nil {
+		if err := s.executionLog.LogStarted(execution.TaskID); err != nil {
+			monitoring.Logger.Warn("failed_to_log_started_event", "error", err.Error())
+		}
+	}
 }
 
 // loadAndLogRoleContext loads role context with logging and error handling
@@ -1174,13 +1228,23 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 
 	// Finalize task
 	durationMs := time.Since(startTime).Milliseconds()
-	s.updateTaskStatus(execution.TaskID, "completed", "")
+	s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "completed", "")
 	s.sendStreamEvent(execution, "completed", map[string]interface{}{
-		"progress": 1.0,
-		"result":   result,
+		"result": result,
 	})
 
 	s.closeStream(execution)
+
+	// Log completed event
+	if s.executionLog != nil {
+		resultSummary := result
+		if len(resultSummary) > 500 {
+			resultSummary = resultSummary[:500] + "..."
+		}
+		if err := s.executionLog.LogCompleted(execution.TaskID, durationMs, resultSummary); err != nil {
+			monitoring.Logger.Warn("failed_to_log_completed_event", "error", err.Error())
+		}
+	}
 
 	logMsg(fmt.Sprintf("🎉 Task completed successfully (duration: %dms)", durationMs))
 	logMsg("=" + strings.Repeat("=", 70))
@@ -1261,11 +1325,18 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	delete(s.activeTasks, execution.TaskID)
 	s.mu.Unlock()
 
-	s.updateTaskStatus(execution.TaskID, "failed", errorMsg)
+	s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "failed", errorMsg)
 	s.sendStreamEvent(execution, "failed", map[string]interface{}{
 		"error": errorMsg,
 	})
 	s.closeStream(execution)
+
+	// Log failed event
+	if s.executionLog != nil {
+		if err := s.executionLog.LogFailed(execution.TaskID, durationMs, errorMsg); err != nil {
+			monitoring.Logger.Warn("failed_to_log_failed_event", "error", err.Error())
+		}
+	}
 
 	monitoring.LogTaskFailed(ctx, execution.TaskID, execution.Role, errorMsg, durationMs)
 	monitoring.GlobalMetrics.IncrementTasksFailed(durationMs)
@@ -1319,11 +1390,18 @@ func (s *AgentServer) cancelTaskExecution(execution *TaskExecution, message stri
 	delete(s.activeTasks, execution.TaskID)
 	s.mu.Unlock()
 
-	s.updateTaskStatus(execution.TaskID, "cancelled", message)
+	s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "cancelled", message)
 	s.sendStreamEvent(execution, "cancelled", map[string]interface{}{
 		"message": message,
 	})
 	s.closeStream(execution)
+
+	// Log cancelled event
+	if s.executionLog != nil {
+		if err := s.executionLog.LogCancelled(execution.TaskID, durationMs); err != nil {
+			monitoring.Logger.Warn("failed_to_log_cancelled_event", "error", err.Error())
+		}
+	}
 
 	monitoring.LogTaskFailed(ctx, execution.TaskID, execution.Role, message, durationMs)
 	monitoring.GlobalMetrics.IncrementTasksFailed(durationMs)
@@ -1341,10 +1419,47 @@ func (s *AgentServer) sendStreamEvent(execution *TaskExecution, eventType string
 		Data:      data,
 	}
 
+	// Send to channel for live streaming
 	select {
 	case execution.streamChan <- event:
 	default:
-		// Channel full, skip event
+		// Channel full, skip event (but still write to file)
+	}
+
+	// Also write to per-task log file for historical access
+	s.writeStreamEventToFile(execution, event)
+}
+
+// writeStreamEventToFile appends a stream event to the per-task log file
+func (s *AgentServer) writeStreamEventToFile(execution *TaskExecution, event *protocol.StreamEvent) {
+	// Build path to task log directory
+	logDir := filepath.Join(execution.ProjectRoot, BeadsDir, "tasks", execution.TaskID)
+	logPath := filepath.Join(logDir, "execution.log")
+
+	// Ensure directory exists
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		monitoring.Logger.Warn("failed_to_create_log_dir", "task_id", execution.TaskID, "error", err.Error())
+		return
+	}
+
+	// Marshal event to JSON
+	data, err := json.Marshal(event)
+	if err != nil {
+		monitoring.Logger.Warn("failed_to_marshal_stream_event", "task_id", execution.TaskID, "error", err.Error())
+		return
+	}
+
+	// Append to log file
+	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		monitoring.Logger.Warn("failed_to_open_task_log", "task_id", execution.TaskID, "error", err.Error())
+		return
+	}
+	defer f.Close()
+
+	// Write JSON line
+	if _, err := f.Write(append(data, '\n')); err != nil {
+		monitoring.Logger.Warn("failed_to_write_stream_event", "task_id", execution.TaskID, "error", err.Error())
 	}
 }
 
@@ -1491,4 +1606,139 @@ func (s *AgentServer) handleOrphanedTasks() {
 	if orphanedCount > 0 {
 		monitoring.Logger.Info("orphaned_tasks_summary", "count", orphanedCount)
 	}
+}
+
+// archiveOldTasks archives completed/closed tasks older than configured threshold
+func (s *AgentServer) archiveOldTasks() {
+	if !s.config.TaskCleanup.Enabled {
+		return
+	}
+
+	archiveDays := s.config.TaskCleanup.ArchiveAfterDays
+	if archiveDays <= 0 {
+		monitoring.Logger.Warn("invalid_archive_days", "days", archiveDays)
+		return
+	}
+
+	cutoffTime := time.Now().AddDate(0, 0, -archiveDays)
+	projectRoots := s.GetProjectRoots()
+	totalArchived := 0
+
+	monitoring.Logger.Info("starting_task_archival",
+		"archive_after_days", archiveDays,
+		"cutoff_date", cutoffTime.Format("2006-01-02"),
+		"project_count", len(projectRoots))
+
+	for _, projectRoot := range projectRoots {
+		// List all tasks from this project
+		beadsTasks, err := s.beadsClient.ListAllTasksFromDir(projectRoot)
+		if err != nil {
+			monitoring.Logger.Warn("failed_to_list_tasks_for_archival",
+				"project", projectRoot,
+				"error", err.Error())
+			continue
+		}
+
+		archivedInProject := 0
+
+		for _, task := range beadsTasks {
+			// Only archive closed/completed tasks
+			if task.Status != "closed" && task.Status != "done" && task.Status != "completed" {
+				continue
+			}
+
+			// Check if task is old enough to archive
+			var taskDate time.Time
+			if task.ClosedAt != "" {
+				taskDate, err = time.Parse(time.RFC3339, task.ClosedAt)
+				if err != nil {
+					// Try alternate format
+					taskDate, err = time.Parse("2006-01-02T15:04:05", task.ClosedAt)
+					if err != nil {
+						monitoring.Logger.Warn("failed_to_parse_closed_at",
+							"task_id", task.ID,
+							"closed_at", task.ClosedAt)
+						continue
+					}
+				}
+			} else if task.UpdatedAt != "" {
+				taskDate, err = time.Parse(time.RFC3339, task.UpdatedAt)
+				if err != nil {
+					taskDate, err = time.Parse("2006-01-02T15:04:05", task.UpdatedAt)
+					if err != nil {
+						continue
+					}
+				}
+			} else {
+				continue
+			}
+
+			// Skip if not old enough
+			if taskDate.After(cutoffTime) {
+				continue
+			}
+
+			// Archive the task
+			if err := s.archiveTask(projectRoot, &task); err != nil {
+				monitoring.Logger.Warn("failed_to_archive_task",
+					"task_id", task.ID,
+					"project", projectRoot,
+					"error", err.Error())
+			} else {
+				archivedInProject++
+				totalArchived++
+			}
+		}
+
+		if archivedInProject > 0 {
+			monitoring.Logger.Info("archived_tasks_in_project",
+				"project", projectRoot,
+				"count", archivedInProject)
+		}
+	}
+
+	if totalArchived > 0 {
+		monitoring.Logger.Info("task_archival_complete",
+			"total_archived", totalArchived,
+			"archive_after_days", archiveDays)
+	} else {
+		monitoring.Logger.Info("no_tasks_to_archive",
+			"archive_after_days", archiveDays)
+	}
+}
+
+// archiveTask moves a task's data to the archive directory
+func (s *AgentServer) archiveTask(projectRoot string, task *beads.Task) error {
+	// Source: .beads/tasks/<task-id>/
+	taskDir := filepath.Join(projectRoot, BeadsDir, "tasks", task.ID)
+
+	// Check if task directory exists
+	if _, err := os.Stat(taskDir); os.IsNotExist(err) {
+		// Task directory doesn't exist, nothing to archive
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to stat task directory: %w", err)
+	}
+
+	// Destination: .beads/archive/<YYYY-MM>/<task-id>/
+	now := time.Now()
+	archiveDir := filepath.Join(projectRoot, BeadsDir, "archive", now.Format("2006-01"))
+
+	// Create archive directory if it doesn't exist
+	if err := os.MkdirAll(archiveDir, 0755); err != nil {
+		return fmt.Errorf("failed to create archive directory: %w", err)
+	}
+
+	// Move task directory to archive
+	destDir := filepath.Join(archiveDir, task.ID)
+	if err := os.Rename(taskDir, destDir); err != nil {
+		return fmt.Errorf("failed to move task to archive: %w", err)
+	}
+
+	monitoring.Logger.Info("task_archived",
+		"task_id", task.ID,
+		"title", task.Title,
+		"archive_path", destDir)
+
+	return nil
 }

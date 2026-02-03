@@ -26,12 +26,12 @@ function MetricsCard({ title, value, subtitle, colorClass = 'text-blue-400', onC
 
   return (
     <div
-      className={`bg-gray-800 rounded-lg p-3 border border-gray-700 ${isClickable ? 'cursor-pointer hover:border-gray-600 hover:bg-gray-750 transition-colors' : ''}`}
+      className={`bg-gray-800 rounded-lg p-2 border border-gray-700 ${isClickable ? 'cursor-pointer hover:border-gray-600 hover:bg-gray-750 transition-colors' : ''}`}
       onClick={onClick}
       title={detail}
     >
-      <h3 className="text-xs font-medium text-gray-400 mb-1">{title}</h3>
-      <div className={`text-xl font-bold ${colorClass}`}>{value}</div>
+      <h3 className="text-xs font-medium text-gray-400 mb-0.5">{title}</h3>
+      <div className={`text-lg font-bold ${colorClass}`}>{value}</div>
       {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
     </div>
   );

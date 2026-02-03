@@ -134,7 +134,7 @@ class PreChangeValidator:
             "engineer.md": "test_role_engineer.py",
             "reviewer.md": "test_role_reviewer.py",
             "tester.md": "test_role_tester.py",
-            "cartographer.md": "test_role_specialists.py",
+            "product-manager.md": "test_role_specialists.py",
             "architect.md": "test_role_specialists.py",
             "designer.md": "test_role_specialists.py",
             "inspector.md": "test_role_specialists.py",

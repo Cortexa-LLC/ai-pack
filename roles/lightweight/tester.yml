@@ -1,0 +1,28 @@
+# Agent Configuration: tester
+# Auto-generated from roles/tester.md
+# DO NOT EDIT - regenerate using scripts/generate-agent-configs.py
+
+name: tester
+description: Test creation and validation specialist
+tier: lightweight
+context:
+  role_file: roles/tester.md
+  gates:
+    - test-coverage
+    - tdd-enforcement
+    - beads-enforcement
+delegation:
+  mode: delegate
+  timeout: 5min
+tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Grep
+  - Glob
+output:
+  format: task-packet
+  artifacts:
+    - tests
+    - test-report

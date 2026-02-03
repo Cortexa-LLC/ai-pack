@@ -51,17 +51,17 @@ class TestOrchestratorDelegation(unittest.TestCase):
             import shutil
             shutil.rmtree(cls.test_dir)
 
-    def test_01_orchestrator_delegates_to_cartographer(self):
-        """Test: Orchestrator delegates PRD creation to Cartographer"""
+    def test_01_orchestrator_delegates_to_product-manager(self):
+        """Test: Orchestrator delegates PRD creation to Product Manager"""
         print("\n" + "="*70)
-        print("ORCHESTRATOR TEST 1: Delegates to Cartographer")
+        print("ORCHESTRATOR TEST 1: Delegates to Product Manager")
         print("="*70)
 
         # Orchestrator identifies need for PRD
         print("Step 1: Orchestrator analyzes task")
         print("   Task type: Feature implementation")
         print("   Size: Large (requires PRD)")
-        print("   Decision: Delegate to Cartographer")
+        print("   Decision: Delegate to Product Manager")
 
         # Orchestrator creates delegation record
         delegation_log = self.test_dir / "delegation-log.md"
@@ -69,7 +69,7 @@ class TestOrchestratorDelegation(unittest.TestCase):
 
 **Date:** {datetime.now().strftime("%Y-%m-%d %H:%M")}
 
-## Delegation 1: Cartographer
+## Delegation 1: Product Manager
 
 **Task:** Create PRD for User Authentication feature
 **Reason:** Large feature requires product requirements documentation
@@ -82,20 +82,20 @@ class TestOrchestratorDelegation(unittest.TestCase):
 - [ ] Requirements are clear and testable
 ''')
 
-        print("Step 2: Orchestrator delegates to Cartographer")
+        print("Step 2: Orchestrator delegates to Product Manager")
         print("   Creating delegation log...")
 
         # Verify delegation log created
         self.assertTrue(delegation_log.exists(), "❌ Delegation log not created")
         print(f"✅ Delegation log created: {delegation_log}")
 
-        # Simulate Cartographer completing work
+        # Simulate Product Manager completing work
         prd_dir = self.test_dir / "docs" / "product" / "2026-01-15-user-auth"
         prd_dir.mkdir(parents=True, exist_ok=True)
         prd_file = prd_dir / "prd.md"
         prd_file.write_text("# PRD: User Authentication\n\n## Requirements\n- FR-1: User login")
 
-        print("Step 3: Cartographer completes PRD")
+        print("Step 3: Product Manager completes PRD")
 
         # Orchestrator verifies deliverable
         if prd_file.exists():
@@ -325,7 +325,7 @@ class TestOrchestratorCoordination(unittest.TestCase):
 
         # Orchestrator tracks expected deliverables
         expected_deliverables = {
-            "Cartographer": self.test_dir / "docs" / "product" / "prd.md",
+            "Product Manager": self.test_dir / "docs" / "product" / "prd.md",
             "Architect": self.test_dir / "docs" / "architecture" / "architecture.md",
             "Designer": self.test_dir / "docs" / "design" / "design-specs.md",
             "Engineer": self.test_dir / "src" / "auth.py"
@@ -386,7 +386,7 @@ class TestOrchestratorIntegration(unittest.TestCase):
 
         Scenario:
         1. Orchestrator receives feature request
-        2. Delegates to Cartographer for PRD
+        2. Delegates to Product Manager for PRD
         3. Delegates to Architect for design
         4. Delegates to Engineer for implementation
         5. Delegates to Reviewer for code review
@@ -401,13 +401,13 @@ class TestOrchestratorIntegration(unittest.TestCase):
         print("INTEGRATION TEST: Full Orchestrator Workflow")
         print("="*70)
 
-        # Phase 1: Orchestrator delegates to Cartographer
-        print("\nPhase 1: Requirements (Cartographer)")
+        # Phase 1: Orchestrator delegates to Product Manager
+        print("\nPhase 1: Requirements (Product Manager)")
         prd_dir = self.test_dir / "docs" / "product" / "2026-01-15-feature"
         prd_dir.mkdir(parents=True, exist_ok=True)
         prd_file = prd_dir / "prd.md"
         prd_file.write_text("# PRD: Feature\n\n## Requirements\n- Requirement 1")
-        print("   ✅ Cartographer: PRD created")
+        print("   ✅ Product Manager: PRD created")
 
         # Phase 2: Orchestrator delegates to Architect
         print("\nPhase 2: Architecture (Architect)")

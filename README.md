@@ -92,21 +92,21 @@ Roles define different agent personas with specific responsibilities. Located in
 - **[strategist.md](roles/strategist.md)** - Market analysis and business strategy specialist
   - **Analyzes:** Market opportunity, competitive landscape, business case, strategic positioning
   - **Delivers:** MRD (Market Requirements Document), competitive analysis, business case, strategic recommendations
-  - **Collaborates:** Hands off market requirements to Cartographer for detailed product definition
+  - **Collaborates:** Hands off market requirements to Product Manager for detailed product definition
   - **Optional:** Invoked by Orchestrator for new products, major features with market implications, or business case validation
-- **[cartographer.md](roles/cartographer.md)** - Requirements specialist, creates PRDs and user stories
+- **[product-manager.md](roles/product-manager.md)** - Requirements specialist, creates PRDs and user stories
   - **Defines:** Product requirements, success metrics, epics and user stories (JIRA-style)
   - **Collaborates:** Works with Engineers and Architect on technical feasibility and breakdown
   - **Delivers:** PRD, epics, user stories with acceptance criteria
   - **Optional:** Invoked by Orchestrator for large features or directly by user
 - **[designer.md](roles/designer.md)** - UX specialist, creates user flows and wireframes for value stream delivery
   - **Designs:** User workflows, journey maps, wireframes (HTML for web/iOS/Android), design specifications
-  - **Collaborates:** Works with Cartographer on requirements, Architect on feasibility
+  - **Collaborates:** Works with Product Manager on requirements, Architect on feasibility
   - **Delivers:** User research, user flows, wireframes, design specs, accessibility requirements
   - **Optional:** Invoked by Orchestrator for user-facing features with significant UI/UX work
 - **[architect.md](roles/architect.md)** - Technical design specialist, system architecture and design
   - **Designs:** System architecture, API specifications, data models, technology choices
-  - **Collaborates:** Works with Cartographer and Designer on feasibility, Engineers on implementation
+  - **Collaborates:** Works with Product Manager and Designer on feasibility, Engineers on implementation
   - **Delivers:** Architecture documents, API specs, data models, ADRs
   - **Optional:** Invoked by Orchestrator for complex features requiring architectural design
 - **[archaeologist.md](roles/archaeologist.md)** - Legacy code investigation specialist, reconstructs historical context
@@ -345,7 +345,7 @@ Strategist Phase Complete:
   .ai/tasks/[id]/business-case.md    → docs/market/[product-name]/business-case.md
   .ai/tasks/[id]/market-research.md  → docs/market/[product-name]/market-research.md
 
-Cartographer Phase Complete:
+Product Manager Phase Complete:
   .ai/tasks/[id]/prd.md          → docs/product/[feature-name]/prd.md
   .ai/tasks/[id]/epics.md        → docs/product/[feature-name]/epics.md
   .ai/tasks/[id]/user-stories.md → docs/product/[feature-name]/user-stories.md
@@ -805,7 +805,7 @@ Located in `templates/.claude/`:
    - `/ai-pack architect` - Architecture design
    - `/ai-pack designer` - UX workflows
    - `/ai-pack strategist` - Market analysis and business strategy
-   - `/ai-pack cartographer` - Product requirements
+   - `/ai-pack product-manager` - Product requirements
    - `/ai-pack help` - Show all commands
 
 2. **Skills** (`skills/`)
@@ -1130,7 +1130,7 @@ ai-pack/
 │   ├── orchestrator.md                # Coordinator role
 │   ├── engineer.md                    # Implementation specialist
 │   ├── inspector.md                   # Bug investigation specialist
-│   ├── cartographer.md             # Requirements specialist
+│   ├── product-manager.md             # Requirements specialist
 │   ├── architect.md                   # Technical design specialist
 │   ├── tester.md                      # Testing specialist
 │   └── reviewer.md                    # Quality assurance

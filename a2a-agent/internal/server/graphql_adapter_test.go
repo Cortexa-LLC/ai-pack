@@ -110,7 +110,6 @@ func TestGetActiveTasksWithTask(t *testing.T) {
 		Role:      "engineer",
 		Task:      "test task",
 		Status:    "in_progress",
-		Progress:  0.5,
 		StartTime: time.Now(),
 		Result:    "",
 		Error:     "",
@@ -143,9 +142,5 @@ func TestGetActiveTasksWithTask(t *testing.T) {
 
 	if task.Status != "in_progress" {
 		t.Errorf("Expected Status 'in_progress', got %s", task.Status)
-	}
-
-	if task.Progress != 0.5 {
-		t.Errorf("Expected Progress 0.5, got %f", task.Progress)
 	}
 }

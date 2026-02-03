@@ -1,0 +1,24 @@
+# Agent Configuration: strategist
+# Auto-generated from roles/strategist.md
+# DO NOT EDIT - regenerate using scripts/generate-agent-configs.py
+
+name: strategist
+description: Strategic planning and roadmap specialist
+tier: lightweight
+context:
+  role_file: roles/strategist.md
+  gates:
+    - beads-enforcement
+delegation:
+  mode: delegate
+  timeout: 15min
+tools:
+  - Read
+  - Grep
+  - Glob
+  - Task
+output:
+  format: task-packet
+  artifacts:
+    - strategy-doc
+    - roadmap

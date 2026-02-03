@@ -42,8 +42,23 @@ function App() {
   const [activeTab, setActiveTab] = useState<'tasks' | 'server-logs' | 'task-logs'>('tasks');
   const [logs, setLogs] = useState<string[]>([]);
   const [serverLogs, setServerLogs] = useState<any[]>([]);
+  const [taskDateFilter, setTaskDateFilter] = useState<'7d' | '30d' | 'all'>('30d');
   const [followLogs, setFollowLogs] = useState(true);
   const [followServerLogs, setFollowServerLogs] = useState(true);
+
+  // Filter tasks by date
+  const filterTasksByDate = (tasks: any[]) => {
+    if (taskDateFilter === 'all') return tasks;
+
+    const now = new Date();
+    const cutoffDays = taskDateFilter === '7d' ? 7 : 30;
+    const cutoffDate = new Date(now.getTime() - cutoffDays * 24 * 60 * 60 * 1000);
+
+    return tasks.filter(task => {
+      const taskDate = new Date(task.completedAt || task.updatedAt || task.createdAt);
+      return taskDate >= cutoffDate;
+    });
+  };
 
   // Column widths for server logs table
   const [logColumnWidths, setLogColumnWidths] = useState(() => {
@@ -445,7 +460,7 @@ function App() {
           {/* Tabs Section - Takes remaining space */}
           <div className="flex-1 flex flex-col overflow-hidden min-h-0">
             {/* Tab Bar */}
-            <div className="flex items-center border-b border-gray-700 bg-gray-800 px-4">
+            <div className="flex items-center border-b border-gray-700 bg-gray-800 px-4 flex-shrink-0">
               <button
                 onClick={() => setActiveTab('tasks')}
                 className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
@@ -479,7 +494,10 @@ function App() {
               {selectedTask && activeTab === 'task-logs' && (
                 <div className="ml-auto flex items-center gap-2">
                   {/* Only show Following button for in-progress tasks */}
-                  {selectedTask.status === 'in_progress' && (
+                  {(() => {
+                    const task = tasksData?.tasks.find(t => t.taskID === selectedTask);
+                    return task?.status === 'IN_PROGRESS' || task?.status === 'in_progress';
+                  })() && (
                     <button
                       onClick={() => setFollowLogs(!followLogs)}
                       className={`px-2 py-1 text-xs rounded ${followLogs ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
@@ -503,7 +521,21 @@ function App() {
 
             {/* Tab Content */}
             {activeTab === 'tasks' && (
-              <div className="flex-1 overflow-auto p-4">
+              <div className="flex-1 overflow-hidden p-4 flex flex-col">
+
+            {/* Date Filter */}
+            <div className="mb-3 flex items-center gap-2">
+              <label className="text-sm text-gray-400">Show tasks from:</label>
+              <select
+                value={taskDateFilter}
+                onChange={(e) => setTaskDateFilter(e.target.value as '7d' | '30d' | 'all')}
+                className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-gray-300 focus:outline-none focus:border-blue-500"
+              >
+                <option value="7d">Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+                <option value="all">All time</option>
+              </select>
+            </div>
 
             {tasksLoading && (
               <div className="text-gray-400">Loading tasks...</div>
@@ -516,11 +548,11 @@ function App() {
             )}
 
             {tasksData && (
-              <div className="h-full">
+              <div className="flex-1 min-h-0 overflow-hidden">
                 <div className="grid grid-cols-4 gap-4 h-full">
                     {/* Queued Lane */}
-                    <div className="flex flex-col border-2 border-blue-600 rounded-lg bg-gray-800/50">
-                      <div className="bg-blue-900 border-b-2 border-blue-600 p-3">
+                    <div className="flex flex-col h-full min-h-0 border-2 border-blue-600 rounded-lg bg-gray-800/50">
+                      <div className="bg-blue-900 border-b-2 border-blue-600 p-3 flex-shrink-0">
                         <h3 className="font-semibold text-blue-300 flex items-center justify-between text-base">
                           <span>⏳ Queued</span>
                           <span className="text-sm bg-blue-800 px-2 py-1 rounded-full">
@@ -567,8 +599,8 @@ function App() {
                     </div>
 
                     {/* In Progress Lane */}
-                    <div className="flex flex-col border-2 border-yellow-600 rounded-lg bg-gray-800/50">
-                      <div className="bg-yellow-900 border-b-2 border-yellow-600 p-3">
+                    <div className="flex flex-col h-full min-h-0 border-2 border-yellow-600 rounded-lg bg-gray-800/50">
+                      <div className="bg-yellow-900 border-b-2 border-yellow-600 p-3 flex-shrink-0">
                         <h3 className="font-semibold text-yellow-300 flex items-center justify-between text-base">
                           <span>🔄 In Progress</span>
                           <span className="text-sm bg-yellow-800 px-2 py-1 rounded-full">
@@ -615,12 +647,12 @@ function App() {
                     </div>
 
                     {/* Completed Lane */}
-                    <div className="flex flex-col border-2 border-green-600 rounded-lg bg-gray-800/50">
-                      <div className="bg-green-900 border-b-2 border-green-600 p-3">
+                    <div className="flex flex-col h-full min-h-0 border-2 border-green-600 rounded-lg bg-gray-800/50">
+                      <div className="bg-green-900 border-b-2 border-green-600 p-3 flex-shrink-0">
                         <h3 className="font-semibold text-green-300 flex items-center justify-between text-base">
                           <span>✅ Completed</span>
                           <span className="text-sm bg-green-800 px-2 py-1 rounded-full">
-                            {tasksData.tasks.filter(t => t.status === 'COMPLETED' || t.status === 'completed').length}
+                            {filterTasksByDate(tasksData.tasks.filter(t => t.status === 'COMPLETED' || t.status === 'completed')).length}
                           </span>
                         </h3>
                       </div>
@@ -630,9 +662,10 @@ function App() {
                             No completed tasks
                           </div>
                         ) : (
-                          tasksData.tasks
-                            .filter(t => t.status === 'COMPLETED' || t.status === 'completed')
-                            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                          filterTasksByDate(
+                            tasksData.tasks.filter(t => t.status === 'COMPLETED' || t.status === 'completed')
+                          )
+                            .sort((a, b) => new Date(b.completedAt || b.updatedAt).getTime() - new Date(a.completedAt || a.updatedAt).getTime())
                             .map(task => (
                               <div
                                 key={task.taskID}
@@ -658,12 +691,12 @@ function App() {
                     </div>
 
                     {/* Failed Lane */}
-                    <div className="flex flex-col border-2 border-red-600 rounded-lg bg-gray-800/50">
-                      <div className="bg-red-900 border-b-2 border-red-600 p-3">
+                    <div className="flex flex-col h-full min-h-0 border-2 border-red-600 rounded-lg bg-gray-800/50">
+                      <div className="bg-red-900 border-b-2 border-red-600 p-3 flex-shrink-0">
                         <h3 className="font-semibold text-red-300 flex items-center justify-between text-base">
                           <span>❌ Failed</span>
                           <span className="text-sm bg-red-800 px-2 py-1 rounded-full">
-                            {tasksData.tasks.filter(t => t.status === 'FAILED' || t.status === 'failed').length}
+                            {filterTasksByDate(tasksData.tasks.filter(t => t.status === 'FAILED' || t.status === 'failed')).length}
                           </span>
                         </h3>
                       </div>
@@ -673,9 +706,10 @@ function App() {
                             No failed tasks
                           </div>
                         ) : (
-                          tasksData.tasks
-                            .filter(t => t.status === 'FAILED' || t.status === 'failed')
-                            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                          filterTasksByDate(
+                            tasksData.tasks.filter(t => t.status === 'FAILED' || t.status === 'failed')
+                          )
+                            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                             .map(task => (
                               <div
                                 key={task.taskID}
@@ -905,8 +939,8 @@ function App() {
           </div>
 
           {/* Bottom Section: Performance Metrics (Grafana-style) */}
-          <div className="border-t border-gray-700 bg-gray-850 overflow-y-auto flex-shrink-0">
-            <div className="p-3">
+          <div className="border-t border-gray-700 bg-gray-850 overflow-y-auto flex-shrink-0 max-h-64">
+            <div className="p-2">
               {metricsLoading && (
                 <div className="text-gray-400 text-sm">Loading metrics...</div>
               )}

@@ -150,8 +150,16 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 		}
 		logFile = filepath.Join(projectRoot, ".beads", "tasks", execution.TaskID, "execution.log")
 	} else {
-		// For beads tasks, find which project they belong to
-		projectRoot = s.findBeadsTaskProjectRoot(taskID)
+		// Check global execution log first for completed tasks
+		if foundRoot, _, err := s.findTaskProjectRoot(taskID); err == nil && foundRoot != "" {
+			projectRoot = foundRoot
+		}
+
+		// If not in execution log, try finding beads task
+		if projectRoot == "" {
+			projectRoot = s.findBeadsTaskProjectRoot(taskID)
+		}
+
 		if projectRoot == "" {
 			projectRoot = s.rootDir // Fallback to server root
 		}

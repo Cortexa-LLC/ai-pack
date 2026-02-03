@@ -1,0 +1,25 @@
+# Agent Configuration: archaeologist
+# Auto-generated from roles/archaeologist.md
+# DO NOT EDIT - regenerate using scripts/generate-agent-configs.py
+
+name: archaeologist
+description: Historical code analysis and investigation specialist
+tier: lightweight
+context:
+  role_file: roles/archaeologist.md
+  gates:
+    - beads-enforcement
+delegation:
+  mode: delegate
+  timeout: 10min
+tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+  - Task
+output:
+  format: task-packet
+  artifacts:
+    - investigation-report
+    - findings

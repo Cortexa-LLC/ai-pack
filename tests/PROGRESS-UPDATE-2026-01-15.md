@@ -102,7 +102,7 @@ FAILED (failures=1, skipped=9)
   - ✅ Engineer: COMPLETE
   - ❌ Reviewer: 0%
   - ❌ Tester: 0%
-  - ❌ Cartographer: 0%
+  - ❌ Product Manager: 0%
   - ❌ Architect: 0%
   - ❌ Designer: 0%
   - ❌ Inspector: 0%
@@ -169,7 +169,7 @@ Based on `TEST-COVERAGE-GAP-ANALYSIS.md`:
 ### Next Phase (2-3 hours)
 
 **Priority 2C: Specialist Roles**
-- `test_role_cartographer.py` - PRD creation
+- `test_role_product-manager.py` - PRD creation
 - `test_role_architect.py` - Architecture docs + ADRs
 - `test_role_designer.py` - UX wireframes
 - `test_role_inspector.py` - RCA documents
@@ -275,7 +275,7 @@ Based on Engineer role taking ~2 hours to create and validate:
 **Remaining Roles (7):** ~14 hours
 - Reviewer: 2 hours
 - Tester: 2 hours
-- Cartographer: 2 hours
+- Product Manager: 2 hours
 - Architect: 2 hours
 - Designer: 2 hours
 - Inspector: 2 hours

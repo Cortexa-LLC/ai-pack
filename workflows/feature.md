@@ -67,12 +67,12 @@ END IF
 **Step 0.1: Product Definition (Optional - for large features)**
 ```
 IF feature is large OR requirements unclear THEN
-  Orchestrator delegates to Cartographer
-  Cartographer reviews MRD (if created by Strategist in Step 0.0)
-  Cartographer creates PRD based on market requirements
-  Cartographer defines epics and user stories
-  Cartographer consults with Architect (if complex)
-  Cartographer delivers requirements package
+  Orchestrator delegates to Product Manager
+  Product Manager reviews MRD (if created by Strategist in Step 0.0)
+  Product Manager creates PRD based on market requirements
+  Product Manager defines epics and user stories
+  Product Manager consults with Architect (if complex)
+  Product Manager delivers requirements package
 
   THEN proceed to Phase 0.2 or Phase 1 with clear requirements
 END IF
@@ -130,7 +130,7 @@ END IF
 - Feature may conflict with historical constraints
 - Need to understand "why" before designing "what"
 
-**Delegate to Cartographer when:**
+**Delegate to Product Manager when:**
 - Large feature with multiple components
 - Requirements unclear or incomplete
 - Success metrics undefined
@@ -165,7 +165,7 @@ END IF
 
 **Deliverables from Phase 0:**
 - **From Strategist (if invoked):** MRD, competitive analysis, business case, market research
-- **From Cartographer (if invoked):** PRD, epics, user stories with acceptance criteria
+- **From Product Manager (if invoked):** PRD, epics, user stories with acceptance criteria
 - **From Designer (if invoked):** User research, user flows, wireframes (HTML), design specs, accessibility requirements
 - **From Architect (if invoked):** Architecture document, API specifications, data models, ADRs
 
@@ -179,10 +179,10 @@ WHEN Strategist phase complete:
   commit: MRD, competitive analysis, business case, market research
   see roles/strategist.md "Artifact Persistence" section
 
-WHEN Cartographer phase complete:
+WHEN Product Manager phase complete:
   persist artifacts to docs/product/[feature-name]/
   commit: PRD, epics, user stories
-  see roles/cartographer.md "Artifact Persistence" section
+  see roles/product-manager.md "Artifact Persistence" section
 
 WHEN Designer phase complete:
   persist artifacts to docs/design/[feature-name]/
