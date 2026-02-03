@@ -15,7 +15,7 @@ title: "A2A Usage Guide"
 AI-Pack provides a production-grade agent spawning system that enables you to delegate tasks to specialized AI agents. Each agent operates autonomously within its defined role and tool permissions.
 
 **Key Features:**
-- 🤖 5 specialized agent roles (Engineer, Tester, Reviewer, Architect, Cartographer)
+- 🤖 5 specialized agent roles (Engineer, Tester, Reviewer, Architect, Product Manager)
 - 📦 Automatic task tracking via Beads
 - 🛠️ Full tool access (file operations, web, bash, MCP servers)
 - ⚡ Fast spawn times (~0.06s average)

@@ -1,0 +1,26 @@
+# Agent Configuration: reviewer
+# Auto-generated from roles/reviewer.md
+# DO NOT EDIT - regenerate using scripts/generate-agent-configs.py
+
+name: reviewer
+description: Code review and quality assurance specialist
+tier: lightweight
+context:
+  role_file: roles/reviewer.md
+  gates:
+    - code-quality-review
+    - security-review
+    - beads-enforcement
+delegation:
+  mode: delegate
+  timeout: 5min
+tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+output:
+  format: task-packet
+  artifacts:
+    - review-report
+    - recommendations

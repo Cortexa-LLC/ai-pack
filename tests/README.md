@@ -103,7 +103,7 @@ tests/
 - `TC-WF-001` - Feature Workflow Compliance
 - `TC-WF-002` - Bugfix Workflow Compliance
 - `TC-WF-003` - Refactor Workflow Compliance
-- `TC-WF-004` - Specialist Integration (Cartographer, Architect, Designer)
+- `TC-WF-004` - Specialist Integration (Product Manager, Architect, Designer)
 
 ### 5. Integration Tests (`validation/integration/`)
 

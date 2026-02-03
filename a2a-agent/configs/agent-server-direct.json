@@ -21,5 +21,9 @@
   "metrics": {
     "enabled": true,
     "max_task_durations": 1000
+  },
+  "task_cleanup": {
+    "enabled": true,
+    "archive_after_days": 15
   }
 }

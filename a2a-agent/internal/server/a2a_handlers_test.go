@@ -83,18 +83,16 @@ func TestHandleTasksListWithActiveTasks(t *testing.T) {
 		Role:        "engineer",
 		Task:        "Test task 1",
 		Status:      "in_progress",
-		Progress:    0.5,
 		ProjectRoot: "/test/project",
 		metadata: map[string]string{
 			"beads_task_id": "test-123",
 		},
 	}
 	server.activeTasks["task-2"] = &TaskExecution{
-		TaskID:   "task-2",
-		Role:     "tester",
-		Task:     "Test task 2",
-		Status:   "queued",
-		Progress: 0.0,
+		TaskID: "task-2",
+		Role:   "tester",
+		Task:   "Test task 2",
+		Status: "queued",
 	}
 	server.mu.Unlock()
 
@@ -204,11 +202,10 @@ func TestHandleStatusGETSuccess(t *testing.T) {
 	// Add mock task
 	server.mu.Lock()
 	server.activeTasks["test-task-123"] = &TaskExecution{
-		TaskID:   "test-task-123",
-		Role:     "engineer",
-		Task:     "Test task",
-		Status:   "in_progress",
-		Progress: 0.75,
+		TaskID: "test-task-123",
+		Role:   "engineer",
+		Task:   "Test task",
+		Status: "in_progress",
 	}
 	server.mu.Unlock()
 
@@ -240,10 +237,6 @@ func TestHandleStatusGETSuccess(t *testing.T) {
 
 	if status, ok := result["status"].(string); !ok || status != "in_progress" {
 		t.Errorf("Expected status 'in_progress', got %v", result["status"])
-	}
-
-	if progress, ok := result["progress"].(float64); !ok || progress != 0.75 {
-		t.Errorf("Expected progress 0.75, got %v", result["progress"])
 	}
 }
 
@@ -333,10 +326,9 @@ func TestHandleA2AStatusGET(t *testing.T) {
 	// Add mock task
 	server.mu.Lock()
 	server.activeTasks["test-123"] = &TaskExecution{
-		TaskID:   "test-123",
-		Role:     "engineer",
-		Status:   "completed",
-		Progress: 1.0,
+		TaskID: "test-123",
+		Role:   "engineer",
+		Status: "completed",
 	}
 	server.mu.Unlock()
 

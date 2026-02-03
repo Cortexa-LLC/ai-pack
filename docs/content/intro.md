@@ -27,7 +27,7 @@ Specialized agent personas with specific responsibilities:
 - **Engineer** - Implementation specialist following TDD
 - **Inspector** - Bug investigation and root cause analysis
 - **Strategist** - Market analysis and business strategy
-- **Cartographer** - Product requirements and user stories
+- **Product Manager** - Product requirements and user stories
 - **Designer** - UX workflows and wireframes
 - **Architect** - Technical design and system architecture
 - **Tester** - Testing validation and TDD compliance

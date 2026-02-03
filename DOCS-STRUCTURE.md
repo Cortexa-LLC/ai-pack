@@ -120,7 +120,7 @@ docs/product/2024-01-15-user-authentication/
 └── user-stories.md
 ```
 
-**Created By:** Cartographer role
+**Created By:** Product Manager role
 
 ---
 
@@ -410,7 +410,7 @@ SEC-2024-003-csrf-api.md
 | Directory | Naming | Prefix | Example | Created By |
 |-----------|--------|--------|---------|------------|
 | `market/` | Date-prefixed | - | `2024-01-10-mobile-app/` | Strategist |
-| `product/` | Date-prefixed | - | `2024-01-15-user-auth/` | Cartographer |
+| `product/` | Date-prefixed | - | `2024-01-15-user-auth/` | Product Manager |
 | `design/` | Date-prefixed | - | `2024-01-18-user-auth/` | Designer |
 | `architecture/` | Date-prefixed | - | `2024-01-20-user-auth/` | Architect |
 | `adr/` | Sequential | - | `001-decision.md` | Architect |
@@ -426,5 +426,5 @@ SEC-2024-003-csrf-api.md
 **See Also:**
 - [Persistence Gates](gates/10-persistence.md)
 - [Architect Role](roles/architect.md)
-- [Cartographer Role](roles/cartographer.md)
+- [Product Manager Role](roles/product-manager.md)
 - [Strategist Role](roles/strategist.md)

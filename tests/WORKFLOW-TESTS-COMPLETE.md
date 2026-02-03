@@ -161,7 +161,7 @@ OK
 **Tests:** 9 tests
 
 **Validates:**
-- ✅ Phase 0: Cartographer → Architect → Designer (Planning)
+- ✅ Phase 0: Product Manager → Architect → Designer (Planning)
 - ✅ Phase 1: Orchestrator creates task packet
 - ✅ Phase 2: Engineer implements with TDD
 - ✅ Phase 3: Tester → Reviewer (Review)
@@ -517,7 +517,7 @@ task = Task(
 ### 4. Full Workflow Execution
 
 - Run complete feature workflow with real agents
-- Cartographer → Architect → Designer → Engineer → Tester → Reviewer
+- Product Manager → Architect → Designer → Engineer → Tester → Reviewer
 - Verify all artifacts created
 - Confirm gates enforced
 - Validate acceptance criteria met

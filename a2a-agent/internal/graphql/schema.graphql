@@ -130,6 +130,34 @@ type LogEntry {
   attributes: JSON
 }
 
+# Execution event from agent execution log
+type ExecutionEvent {
+  eventType: String!
+  taskID: String!
+  role: String!
+  task: String!
+  timestamp: String!
+  status: String
+  error: String
+  durationMs: Int
+  result: String
+  metadata: JSON
+}
+
+# Task summary with final status
+type TaskSummary {
+  taskID: String!
+  role: String!
+  task: String!
+  status: String!
+  created: String!
+  updated: String!
+  durationMs: Int!
+  error: String
+  result: String
+  events: [String!]!
+}
+
 # Queries
 type Query {
   # Health check
@@ -149,6 +177,11 @@ type Query {
 
   # Logs
   logs(limit: Int, level: String): [LogEntry!]!
+
+  # Execution log queries
+  executionLog(limit: Int): [ExecutionEvent!]!
+  taskHistory(limit: Int): [TaskSummary!]!
+  executionEventsByTask(taskID: String!): [ExecutionEvent!]!
 }
 
 # Mutations

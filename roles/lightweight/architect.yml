@@ -1,0 +1,25 @@
+# Agent Configuration: architect
+# Auto-generated from roles/architect.md
+# DO NOT EDIT - regenerate using scripts/generate-agent-configs.py
+
+name: architect
+description: System design and architecture specialist
+tier: lightweight
+context:
+  role_file: roles/architect.md
+  gates:
+    - architecture-review
+    - beads-enforcement
+delegation:
+  mode: delegate
+  timeout: 10min
+tools:
+  - Read
+  - Grep
+  - Glob
+  - Task
+output:
+  format: task-packet
+  artifacts:
+    - architecture-doc
+    - design-decisions

@@ -223,7 +223,7 @@ Proceeding but verify permissions work correctly...
 
 ### Point 1: Before Spawning Background Planning Agents
 
-**When:** Before calling `Task(..., spawning agents)` for Cartographer, Architect, Designer, Inspector
+**When:** Before calling `Task(..., spawning agents)` for Product Manager, Architect, Designer, Inspector
 
 **Check:**
 ```python
@@ -494,14 +494,14 @@ python3 tests/tools/verify-background-agent-permissions.py
 
 ### Example 1: Missing Write(*) Permission
 
-**Scenario:** Orchestrator attempts to spawn Cartographer for PRD
+**Scenario:** Orchestrator attempts to spawn Product Manager for PRD
 
 ```python
 # Orchestrator code
 Task(
     subagent_type="general-purpose",
     description="Create PRD",
-    prompt="""Cartographer role from .ai-pack/roles/cartographer.md
+    prompt="""Product Manager role from .ai-pack/roles/product-manager.md
 
     Create Product Requirements Document for user authentication feature.
     Persist to: docs/product/2026-01-15-auth/prd.md
@@ -528,7 +528,7 @@ Current .claude/settings.json:
 }
 
 PROBLEM:
-Cartographer needs Write(*) to create PRD.
+Product Manager needs Write(*) to create PRD.
 Without it, agent will fail silently and PRD won't be created.
 
 REQUIRED FIX:
@@ -547,7 +547,7 @@ Add "Write(*)" to permissions.allow:
 
 Save changes and retry.
 
-Cannot spawn Cartographer until Write(*) configured.
+Cannot spawn Product Manager until Write(*) configured.
 ```
 
 ---

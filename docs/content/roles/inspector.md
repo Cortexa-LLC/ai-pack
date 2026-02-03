@@ -410,7 +410,7 @@ project-root/
 │   ├── architecture/
 │   │   └── ... (from Architect)
 │   ├── product/
-│   │   └── ... (from Cartographer)
+│   │   └── ... (from Product Manager)
 │   └── ...
 └── .ai/
     └── tasks/ (temporary, not committed)

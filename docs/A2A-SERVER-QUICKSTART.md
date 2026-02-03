@@ -215,7 +215,7 @@ go run cmd/agent-server/main.go --server --config configs/my-config.json
 | **tester** | Testing | Unit tests, integration tests |
 | **reviewer** | Code review | Quality, security, best practices |
 | **architect** | System design | Architecture, technical design |
-| **cartographer** | Requirements | User stories, acceptance criteria |
+| **product-manager** | Requirements | User stories, acceptance criteria |
 
 ### Agent Usage Examples
 
@@ -238,7 +238,7 @@ agent architect bd-p5q6
 
 # Requirements
 bd create "Write user stories for checkout flow"
-agent cartographer bd-r8s9
+agent product-manager bd-r8s9
 ```
 
 ---
@@ -473,7 +473,7 @@ agent engineer bd-xxxx                    # Implementation
 agent tester bd-xxxx                      # Testing
 agent reviewer bd-xxxx                    # Code review
 agent architect bd-xxxx                   # Architecture
-agent cartographer bd-xxxx                # Requirements
+agent product-manager bd-xxxx                # Requirements
 agent --async engineer bd-xxxx            # Background mode
 
 # Health

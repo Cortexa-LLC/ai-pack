@@ -1,0 +1,28 @@
+# Agent Configuration: engineer
+# Auto-generated from roles/engineer.md
+# DO NOT EDIT - regenerate using scripts/generate-agent-configs.py
+
+name: engineer
+description: Implementation specialist following TDD and code quality standards
+tier: lightweight
+context:
+  role_file: roles/engineer.md
+  gates:
+    - tdd-enforcement
+    - code-quality-review
+    - beads-enforcement
+delegation:
+  mode: delegate
+  timeout: 5min
+tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Grep
+  - Glob
+output:
+  format: task-packet
+  artifacts:
+    - code
+    - tests

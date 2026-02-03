@@ -310,7 +310,7 @@ Available via explicit commands:
 - `/ai-pack inspect` - Inspector role (bug investigation)
 - `/ai-pack architect` - Architect role (architecture design)
 - `/ai-pack designer` - Designer role (UX workflows)
-- `/ai-pack cartographer` - Cartographer role (product requirements)
+- `/ai-pack product-manager` - Product Manager role (product requirements)
 
 **Unless instructed otherwise: Stay in Orchestrator role.**
 

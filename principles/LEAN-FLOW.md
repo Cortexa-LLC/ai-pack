@@ -266,7 +266,7 @@ def spawn_background_agent(self, task):
 **Minimize Handoffs:**
 - ✅ Engineer completes full feature (no handoff to separate tester)
 - ✅ Single agent handles related files (no handoff between agents)
-- ❌ Avoid: Cartographer → Architect → Designer → Engineer (4 handoffs!)
+- ❌ Avoid: Product Manager → Architect → Designer → Engineer (4 handoffs!)
 
 **Minimize Wait Time:**
 - ✅ Background agents run in parallel (when WIP limits allow)

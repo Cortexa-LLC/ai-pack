@@ -107,7 +107,7 @@ python3 run_tests.py -v
 roles/engineer.md          → tests/test_role_engineer.py
 roles/reviewer.md          → tests/test_role_reviewer.py
 roles/tester.md            → tests/test_role_tester.py
-roles/cartographer.md      → tests/test_role_specialists.py
+roles/product-manager.md      → tests/test_role_specialists.py
 roles/architect.md         → tests/test_role_specialists.py
 roles/designer.md          → tests/test_role_specialists.py
 roles/inspector.md         → tests/test_role_specialists.py

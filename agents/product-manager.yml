@@ -1,4 +1,4 @@
-name: cartographer
+name: product-manager
 description: Product requirements and user story specialist
 delegation:
   mode: delegate
@@ -13,7 +13,7 @@ tools:
   - glob
   - webfetch
 context:
-  role_file: roles/cartographer.md
+  role_file: roles/product-manager.md
   gates:
     - user-story-validation
   additional_instructions: |

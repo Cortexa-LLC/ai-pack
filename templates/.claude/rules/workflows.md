@@ -35,7 +35,7 @@ Choose the appropriate workflow based on task type.
 
 **Phases:**
 0. **Product Definition & Architecture** (Optional for large features)
-   - Step 0.1: Cartographer → PRD
+   - Step 0.1: Product Manager → PRD
    - Step 0.2: Architect → Architecture design
    - Step 0.3: Designer → UX wireframes
 1. Setup
@@ -48,7 +48,7 @@ Choose the appropriate workflow based on task type.
 **Use for:** Adding new capabilities, enhancements
 
 **Optional Planning Specialists:**
-- **Cartographer** - Large/unclear features
+- **Product Manager** - Large/unclear features
 - **Architect** - Complex technical design
 - **Designer** - User-facing UI/UX
 
@@ -126,7 +126,7 @@ Choose the appropriate workflow based on task type.
 
 ### Specialist Roles (Optional)
 
-**Cartographer**
+**Product Manager**
 - When: Large features, unclear requirements
 - Output: PRD in `docs/product/`
 - Workflow: Feature (Phase 0)
@@ -152,7 +152,7 @@ Choose the appropriate workflow based on task type.
 
 1. **Is this a new feature?**
    → Use **feature.md**
-   → Consider Cartographer for large features
+   → Consider Product Manager for large features
    → Consider Architect for complex design
    → Consider Designer for UI/UX
 

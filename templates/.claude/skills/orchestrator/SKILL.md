@@ -636,7 +636,7 @@ See: `.ai-pack/gates/25-execution-strategy.md` for parallel execution requiremen
 | Specialist | When to Use |
 |------------|-------------|
 | **Inspector** | Complex bug, root cause unknown |
-| **Cartographer** | Large feature, unclear requirements |
+| **Product Manager** | Large feature, unclear requirements |
 | **Architect** | Architecture decisions, API design |
 | **Designer** | User-facing UI/UX workflows |
 | **Engineer** | Implementation work |
@@ -1242,7 +1242,7 @@ fi
 
 **✅ MUST verify after:**
 - Engineer agents (code files, tests)
-- Cartographer agents (PRD, user stories)
+- Product Manager agents (PRD, user stories)
 - Architect agents (architecture docs, ADRs)
 - Designer agents (wireframes, design specs)
 - Inspector agents (retrospectives)
@@ -1426,7 +1426,7 @@ Report findings in 30-review.md with verdict: APPROVED or CHANGES REQUESTED.",
 If specialists used (PM, Architect, Designer, Inspector):
 
 **MUST persist artifacts to `docs/`:**
-- Cartographer → `docs/product/*.md`
+- Product Manager → `docs/product/*.md`
 - Architect → `docs/architecture/*.md` + `docs/adr/*.md`
 - Designer → `docs/design/[feature]/`
 - Inspector → `docs/investigations/*.md`
@@ -1578,7 +1578,7 @@ ORCHESTRATION PAUSED."
 
 ### Pattern: Feature with Planning Phase
 ```
-1. Cartographer → PRD (docs/product/)
+1. Product Manager → PRD (docs/product/)
 2. Architect → Architecture (docs/architecture/)
 3. Designer → Wireframes (docs/design/)
 4. Verify artifacts persisted & cross-referenced

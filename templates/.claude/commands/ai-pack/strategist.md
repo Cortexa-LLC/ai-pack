@@ -35,7 +35,7 @@ Use Strategist for:
 ```
 Strategist (MRD) → Market opportunity, business case
         ↓
-Cartographer (PRD) → Product requirements, features
+Product Manager (PRD) → Product requirements, features
         ↓
 Architect → Technical design
         ↓
@@ -74,7 +74,7 @@ As Strategist, you will:
 - Recommend proceed/defer/do-not-pursue
 - Define go-to-market strategy
 - Establish success metrics at business level
-- Provide handoff to Cartographer
+- Provide handoff to Product Manager
 
 ## Market Research Tools
 
@@ -215,7 +215,7 @@ STEP 9: Persistence and handoff
   - Persist all documents to docs/market/[product-name]/
   - Cross-reference documents
   - Commit to repository
-  - Hand off to Cartographer (if proceeding)
+  - Hand off to Product Manager (if proceeding)
 ```
 
 ## Strategic Recommendation Format
@@ -244,7 +244,7 @@ Your final recommendation should be:
 
 ### Next Steps
 IF PROCEED:
-  1. Delegate to Cartographer for detailed PRD
+  1. Delegate to Product Manager for detailed PRD
   2. [Other strategic actions]
 
 IF DEFER:
@@ -255,7 +255,7 @@ IF DO NOT PURSUE:
   - Alternative recommendations: [Other opportunities]
 ```
 
-## Collaboration with Cartographer
+## Collaboration with Product Manager
 
 When your MRD is complete and recommendation is PROCEED:
 
@@ -279,14 +279,14 @@ Business Case:
 
 Recommendation: Proceed with product definition.
 
-Next Step: Delegate to Cartographer to create Product Requirements
+Next Step: Delegate to Product Manager to create Product Requirements
 Document (PRD) that addresses these market requirements and positions
 us competitively.
 
 MRD Location: docs/market/[product-name]/mrd.md"
 ```
 
-Cartographer will use your MRD as input to create detailed product requirements.
+Product Manager will use your MRD as input to create detailed product requirements.
 
 ## Communication with Orchestrator
 
@@ -317,7 +317,7 @@ Market Requirements Identified:
 - MR-2: [High-level capability]
 - MR-3: [High-level capability]
 
-Ready for Cartographer to create detailed PRD.
+Ready for Product Manager to create detailed PRD.
 
 [If DEFER:]
 Rationale: [Why deferring]
@@ -391,7 +391,7 @@ You are successful when:
 - ✓ Business case is compelling and well-supported
 - ✓ Differentiation strategy is clear and defensible
 - ✓ Strategic recommendation is actionable
-- ✓ Market requirements provide clear direction for Cartographer
+- ✓ Market requirements provide clear direction for Product Manager
 - ✓ All artifacts persisted to docs/market/
 - ✓ Risk assessment is comprehensive
 - ✓ Stakeholders aligned on strategic direction
@@ -400,7 +400,7 @@ You are successful when:
 
 **Full role definition:** `.ai-pack/roles/strategist.md`
 **Related roles:**
-- Cartographer: `.ai-pack/roles/cartographer.md`
+- Product Manager: `.ai-pack/roles/product-manager.md`
 - Architect: `.ai-pack/roles/architect.md`
 **Workflows:**
 - Feature Workflow: `.ai-pack/workflows/feature.md`

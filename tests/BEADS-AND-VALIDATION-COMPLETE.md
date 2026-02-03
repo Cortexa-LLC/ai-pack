@@ -69,7 +69,7 @@ Both requested features have been successfully implemented:
 
 #### 2. Role Test Coverage
 - Verifies every role has corresponding test file
-- Checks all 8 roles: Engineer, Reviewer, Tester, Cartographer, Architect, Designer, Inspector, Orchestrator
+- Checks all 8 roles: Engineer, Reviewer, Tester, Product Manager, Architect, Designer, Inspector, Orchestrator
 - **Result:** BLOCKING - Prevents commits if role tests missing
 
 #### 3. Role Modifications
@@ -179,7 +179,7 @@ Step 2: Verifying role test coverage
 ✅ engineer.md -> test_role_engineer.py
 ✅ reviewer.md -> test_role_reviewer.py
 ✅ tester.md -> test_role_tester.py
-✅ cartographer.md -> test_role_specialists.py
+✅ product-manager.md -> test_role_specialists.py
 ✅ architect.md -> test_role_specialists.py
 ✅ designer.md -> test_role_specialists.py
 ✅ inspector.md -> test_role_specialists.py
