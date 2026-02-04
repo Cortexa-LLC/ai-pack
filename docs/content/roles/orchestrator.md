@@ -1,8 +1,3 @@
----
-sidebar_position: 1
-title: "Orchestrator Role"
----
-
 # Orchestrator Role
 
 **Version:** 1.2.0
@@ -20,6 +15,36 @@ The Orchestrator is a high-level coordinator responsible for breaking down compl
 
 ---
 
+## ⚠️ CRITICAL BEADS REQUIREMENT ⚠️
+
+**EVERY** `bd create` command in this document MUST include a proper multi-line description.
+**NEVER** create tasks with just a title - always include working directory, task packet, and description.
+
+**Correct Format (ALWAYS USE THIS):**
+```bash
+task_id=$(bd create "Task Title
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_task-name/
+
+Detailed description of what needs to be done..." \
+  --priority high --json | jq -r '.id')
+```
+
+**Incorrect Format (NEVER DO THIS):**
+```bash
+# ❌ WRONG - Missing description
+bd create "Task Title" --priority high
+
+# ❌ WRONG - No working directory or task packet
+task_id=$(bd create "Task Title" --priority high --json | jq -r '.id')
+```
+
+**Note:** Some examples in this document may show abbreviated syntax for brevity.
+**Always expand them to include the full description format above.**
+
+---
+
 ## Primary Responsibilities
 
 ### 1. Task Creation with Beads (MANDATORY FIRST STEP)
@@ -29,15 +54,24 @@ The Orchestrator is a high-level coordinator responsible for breaking down compl
 **Mandatory Procedure:**
 ```
 FOR every non-trivial task:
-  STEP 1: MANDATORY - Create Beads task
-    task_id=$(bd create "Task description" --priority high --json | jq -r '.id')
+  STEP 1: MANDATORY - Create Beads task with working directory and task packet reference
+    # The description MUST include:
+    #   - "Working directory: <absolute-path>" for multi-project support
+    #   - "Task packet: <relative-path>" for agent discovery
+    task_id=$(bd create "Implement user authentication
+
+Working directory: /Users/yourname/Projects/your-project
+Task packet: .ai/tasks/2026-01-24_user-auth/
+
+Create login/logout endpoints with JWT tokens and session management." \
+      --priority high --json | jq -r '.id')
 
   STEP 2: Create task packet directory (.ai/tasks/YYYY-MM-DD_task-name/)
 
   STEP 3: Copy all templates from .ai-pack/templates/task-packet/
 
   STEP 4: Link Beads ID in 00-contract.md
-    echo "**Beads Task:** ${task_id}" >> 00-contract.md
+    echo "**Beads Task:** ${task_id}" >> .ai/tasks/YYYY-MM-DD_task-name/00-contract.md
 
   STEP 5: Fill out 00-contract.md with requirements
 
@@ -46,6 +80,87 @@ END FOR
 
 ENFORCEMENT: Gate blocks if task packet exists without Beads task.
 ```
+
+**Critical Format Requirements:**
+
+⚠️ **MANDATORY:** Every `bd create` command MUST include a multi-line description with:
+1. Title (first line)
+2. Blank line
+3. `Working directory: /absolute/path/to/project`
+4. `Task packet: .ai/tasks/YYYY-MM-DD_task-name/`
+5. Blank line
+6. Detailed description of the task
+
+**NEVER create tasks with just a title** - this triggers warnings and lacks context.
+
+The Beads task description MUST include these exact patterns on their own lines:
+```
+Working directory: /absolute/path/to/project
+Task packet: .ai/tasks/YYYY-MM-DD_task-name/
+```
+
+**Why Both Are Required:**
+1. **Working directory**: Tells the agent which project to execute in (critical for multi-project servers)
+2. **Task packet**: Tells the agent where to find the implementation plan (relative to working directory)
+
+Without these, agents will execute in the wrong project or fail to find the task packet.
+
+**Example Beads Task Creation:**
+```bash
+# Good - includes both working directory and task packet path
+bd create "Implement dark mode feature
+
+Working directory: /Users/yourname/Projects/my-app
+Task packet: .ai/tasks/2026-01-24_dark-mode/
+
+Add theme toggle, persist user preference, update all components to support dark theme." \
+  --priority high
+
+# Bad - missing working directory (single-project only, not recommended)
+bd create "Implement dark mode feature
+
+Task packet: .ai/tasks/2026-01-24_dark-mode/
+
+Description..." --priority high
+
+# Bad - missing both (agent won't know where to work or find files)
+bd create "Implement dark mode feature" --priority high
+```
+
+**Multi-Project Support:**
+
+With working directory specified, a single A2A server can handle agents for multiple projects:
+```bash
+# Project A task
+bd create "Feature A
+
+Working directory: /Users/yourname/Projects/project-a
+Task packet: .ai/tasks/2026-01-24_feature-a/
+
+Description..." --priority high
+
+# Project B task (different project, same server)
+bd create "Feature B
+
+Working directory: /Users/yourname/Projects/project-b
+Task packet: .ai/tasks/2026-01-24_feature-b/
+
+Description..." --priority high
+```
+
+Each agent will execute in its specified working directory.
+
+**Bi-Directional Linking:**
+
+The linking process creates two critical connections:
+1. **Contract → Beads** (STEP 4): The task packet's 00-contract.md references the Beads task ID
+2. **Beads → Task Packet** (STEP 1): The Beads task description includes "Task packet: <path>"
+
+This bi-directional linking ensures:
+- Orchestrators can navigate from task packet to Beads task status
+- Agents spawned with Beads task IDs automatically receive task packet location
+- A2A server parses task packet path from description and includes it in agent prompts
+- Full traceability between Beads tasks and implementation artifacts
 
 **Non-Trivial Definition:**
 - Requires more than 2 simple steps
@@ -105,7 +220,13 @@ STEP 1: Analyze user requirements
   - Check against batch size limits
 
 STEP 2: MANDATORY - Create Beads tasks for each subtask
-  bd create "Subtask 1 description" --priority high
+  task_id=$(bd create "Subtask 1 title
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_subtask-1/
+
+Detailed description of what this subtask should accomplish." \
+    --priority high --json | jq -r '.id')
 
 STEP 3: MANDATORY - Set dependencies
   bd dep add <child-id> <parent-id>
@@ -141,14 +262,77 @@ Decision: MUST decompose into small batches
 # STEP 2: Break down into small batches (5-14 files each)
 Orchestrator breaks down into tasks:
 
-bd create "Design authentication architecture [5 files: ADR, diagram, plan, security doc, API spec]" --priority high
-bd create "Implement user model with password hashing [7 files: model, service, repository, validation, tests, migration, seed data]" --priority high
-bd create "Create login API endpoint [6 files: controller, service, DTO, validation, tests, docs]" --priority normal
-bd create "Create registration API endpoint [6 files: controller, service, DTO, validation, tests, docs]" --priority normal
-bd create "Add session management [7 files: service, middleware, storage, config, tests, docs, examples]" --priority normal
-bd create "Implement authentication middleware [5 files: middleware, error handling, tests, docs, examples]" --priority normal
-bd create "Add comprehensive integration tests [5 files: test suites for auth flow, edge cases, security]" --priority normal
-bd create "Update documentation [3 files: README, API docs, security guide]" --priority low
+task1=$(bd create "Design authentication architecture
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_auth-architecture/
+
+Create ADR, system diagram, implementation plan, security documentation, and API specification.
+Estimated 5 files." \
+  --priority high --json | jq -r '.id')
+
+task2=$(bd create "Implement user model with password hashing
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_user-model/
+
+Create user model, service layer, repository pattern, validation rules, comprehensive tests,
+database migration, and seed data. Estimated 7 files." \
+  --priority high --json | jq -r '.id')
+
+task3=$(bd create "Create login API endpoint
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_login-endpoint/
+
+Implement login controller, service logic, DTOs, validation, tests, and API documentation.
+Estimated 6 files." \
+  --priority normal --json | jq -r '.id')
+
+task4=$(bd create "Create registration API endpoint
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_registration-endpoint/
+
+Implement registration controller, service logic, DTOs, validation, tests, and API documentation.
+Estimated 6 files." \
+  --priority normal --json | jq -r '.id')
+
+task5=$(bd create "Add session management
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_session-management/
+
+Create session service, middleware, storage layer, configuration, tests, documentation, and examples.
+Estimated 7 files." \
+  --priority normal --json | jq -r '.id')
+
+task6=$(bd create "Implement authentication middleware
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_auth-middleware/
+
+Create authentication middleware, error handling, tests, documentation, and usage examples.
+Estimated 5 files." \
+  --priority normal --json | jq -r '.id')
+
+task7=$(bd create "Add comprehensive integration tests
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_integration-tests/
+
+Create test suites for complete auth flow, edge cases, and security testing.
+Estimated 5 files." \
+  --priority normal --json | jq -r '.id')
+
+task8=$(bd create "Update documentation
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_docs-update/
+
+Update README, API documentation, and security guide with authentication information.
+Estimated 3 files." \
+  --priority low --json | jq -r '.id')
 
 # STEP 3: Set up dependencies (enforce sequential flow)
 bd dep add bd-b2c3 bd-a1b2  # User model depends on architecture
@@ -1334,7 +1518,7 @@ WHEN spawning agent:
     # Returns task ID (e.g., bd-a1b2)
 
   STEP 3: Mark as in-progress
-    bd start bd-a1b2
+    bd update --claim bd-a1b2
 
   STEP 4: Document in work log
     echo "Spawned Engineer-1 (Beads ID: bd-a1b2)" >> .ai/tasks/*/20-work-log.md
@@ -1350,17 +1534,32 @@ END WHEN
 **Examples:**
 ```bash
 # Spawning Engineer
-bd create "Agent: Engineer - Implement user profile API" \
+bd create "Agent: Engineer - Implement user profile API
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/2026-01-24_user-profile-api/
+
+Create REST endpoints for user profile CRUD operations with validation and tests." \
   --assignee "Engineer-1" \
   --priority high
 
 # Spawning Tester
-bd create "Agent: Tester - Validate authentication tests" \
+bd create "Agent: Tester - Validate authentication tests
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/2026-01-24_auth-tests/
+
+Run authentication test suite, validate coverage, and report failures." \
   --assignee "Tester-1" \
   --priority high
 
 # Spawning Reviewer
-bd create "Agent: Reviewer - Review login implementation" \
+bd create "Agent: Reviewer - Review login implementation
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/2026-01-24_login-review/
+
+Review login endpoint code for security issues, code quality, and best practices." \
   --assignee "Reviewer-1" \
   --priority normal
 ```
@@ -1383,138 +1582,504 @@ END IF
 
 ---
 
-### 2.14 A2A Background Agent Spawning
+### 2.14 Agent CLI Usage for Task Spawning
 
-**PURPOSE:** Enable Orchestrator to spawn long-running background agents via the A2A agent system.
+**PURPOSE:** Use the `agent` CLI to spawn and monitor agents via the A2A server.
 
-**WHEN TO USE A2A BACKGROUND AGENTS:**
+**WHEN TO USE AGENT CLI:**
 
-Use A2A background agents (via `agent` CLI) when:
+Use agent CLI when:
 - Task is **long-running** (>10 minutes expected)
-- You **don't need to wait** for immediate results
-- Task should **persist across sessions** (survive terminal close)
-- Running **multiple independent** long-running tasks
-- Real-time progress visibility **not critical**
+- Running **multiple independent** tasks in parallel
+- Task should **persist across sessions**
+- You want **real-time progress monitoring** via SSE streaming
 
 Use Task tool (foreground agents) when:
 - Task requires **immediate results** for next step
-- You need to **see progress in real-time**
-- Task is **short-duration** (less than 10 minutes)
-- Blocking on completion is acceptable
+- Agent needs **conversation context** from current session
+- Task is **interactive** (back-and-forth required)
+- Task is **very short** (<5 minutes)
 
-**CRITICAL: Context Requirements**
+**AGENT CLI SPAWNING PROTOCOL:**
 
-BOTH agent types (Task tool and A2A) receive context from:
-1. **Task packet** in `.ai/tasks/YYYY-MM-DD_name/` (contract, plan, requirements)
-2. **Task description** passed during spawning (role, instructions, task packet location)
-
-**NEITHER has access to conversation history** (see bug 13890).
-
-**ALWAYS ensure task packets are complete before spawning ANY agent type.**
-
-**A2A AGENT SPAWNING PROTOCOL:**
-
-```
-WHEN spawning A2A background agent:
+```bash
+WHEN spawning agent:
   PREREQUISITE: A2A server must be running
     # Check if server is running
-    curl -s http://localhost:3000/health >/dev/null || {
+    agent metrics >/dev/null 2>&1 || {
       echo "⚠️ A2A server not running. Start with:"
-      echo "   python scripts/start-server.py"
+      echo "   cd a2a-agent && ./bin/agent-server --server"
       BLOCK until server started
     }
 
-  STEP 1: Create Beads task FIRST with complete context
-    task_id=$(bd create "Act as Engineer from .ai-pack/roles/engineer.md.
-Task packet: .ai/tasks/2026-01-24_auth-api/
-Implement authentication API endpoints: /login and /logout.
-Follow TDD process. Update work log when complete." \
+  STEP 1: Create Beads task FIRST
+    task_id=$(bd create "Implement authentication API endpoints" \
       --priority high \
       --json | jq -r '.id')
 
     # Returns task ID (e.g., xasm++-e3w, bd-a1b2)
     echo "Created Beads task: $task_id"
 
-    # IMPORTANT: Task description must include:
-    # - Role to assume (Act as Engineer/Tester/etc.)
-    # - Task packet location (.ai/tasks/...)
-    # - Specific requirements
-    # - Process to follow (TDD, update logs, etc.)
+  STEP 2: Spawn agent with Beads task ID
 
-  STEP 2: Spawn A2A agent via agent CLI
+    # Option A: Fire and forget (spawns in background)
     agent engineer "$task_id"
 
-    # This will:
-    # - Open agent:// URL
-    # - Trigger protocol handler
-    # - A2A server starts agent in background
-    # - Agent reads task from Beads
-    # - Execution is async (non-blocking)
+    # Option B: Stream real-time progress (RECOMMENDED for monitoring)
+    agent engineer "$task_id" --stream
+
+    # Option C: Wait for completion (polling every 5 seconds)
+    agent engineer "$task_id" --wait
 
   STEP 3: Document in work log
-    echo "Spawned A2A Engineer (Beads task: $task_id)" >> .ai/tasks/*/20-work-log.md
+    echo "Spawned Engineer agent (Beads task: $task_id)" >> .ai/tasks/*/20-work-log.md
     echo "Task: Implement authentication API endpoints" >> .ai/tasks/*/20-work-log.md
-    echo "Status: Running in background" >> .ai/tasks/*/20-work-log.md
-
-  STEP 4: Continue with other work
-    # Don't wait - agent runs in background
-    # Monitor progress via Beads commands (see below)
+    echo "Monitoring: agent status $task_id" >> .ai/tasks/*/20-work-log.md
 END WHEN
 ```
 
-**MONITORING A2A AGENTS:**
+**HOW TASK IDS WORK:**
+
+- **You always use Beads task IDs** (e.g., `xasm++-e3w`)
+- CLI automatically converts to internal task ID
+- Never need to know about internal IDs
+- Works with all agent CLI commands
+
+**MONITORING AGENTS:**
 
 ```bash
-# Check status of all background agents
-bd list --status in_progress
+# Check agent status (use Beads task ID)
+agent status xasm++-e3w
 
-# Check specific agent's progress
-bd show xasm++-e3w
+# View agent results
+agent results xasm++-e3w
 
-# Check if agent encountered blockers
-bd list --status blocked
+# View execution logs
+agent logs xasm++-e3w
 
-# Find completed agents
-bd list --status closed
+# List all active agents
+agent list
+
+# List only running agents
+agent list --running
+
+# Show server metrics
+agent metrics
+
+# Show modified files
+agent files xasm++-e3w
+
+# Show git diff
+agent diff xasm++-e3w
+
+# Wait for completion (if not using --wait at spawn)
+agent wait xasm++-e3w
 ```
 
-**COORDINATING A2A AGENTS:**
+**STREAMING VS POLLING:**
 
+```bash
+# Streaming (RECOMMENDED for orchestrators)
+agent engineer xasm++-e3w --stream
+# - Real-time SSE updates
+# - Lower latency
+# - Better for monitoring multiple agents
+# - Shows turn-by-turn progress
+
+# Polling (simpler, less real-time)
+agent engineer xasm++-e3w --wait
+# - Checks status every 5 seconds
+# - Simpler implementation
+# - Good for simple scripts
 ```
-WHEN coordinating multiple A2A agents:
-  STEP 1: Spawn all independent agents
-    # These can run in parallel
-    agent engineer task-1  # API implementation
-    agent engineer task-2  # UI components
-    agent tester task-3    # Test suite
 
-  STEP 2: Set up dependencies for sequential work
-    # Task 4 depends on task 1 completing
-    bd dep add task-4 task-1
+**AGENT COMPLETION DETECTION (CRITICAL):**
 
-    # Task 5 depends on both task 2 and task 3
-    bd dep add task-5 task-2
-    bd dep add task-5 task-3
+**MANDATORY REQUIREMENT:** Orchestrators MUST use `--stream` (preferred) or `--wait` for agent completion detection. Never poll manually with status checks in loops.
 
-  STEP 3: Monitor and spawn dependent agents when ready
-    # Periodically check
-    bd ready  # Shows tasks ready to start
+**Why this matters:**
+- `--stream`: Immediate notification → immediate orchestrator action
+- `--wait`: Polling with delay → slower orchestration response
+- Manual polling: WRONG - defeats the purpose of the agent CLI
 
-    # When task-1 completes, spawn dependent work
-    IF "task-4" in $(bd ready) THEN
-      agent engineer task-4
-    END IF
+The agent CLI provides CLEAR, BLOCKING signals for completion. Use them.
 
-  STEP 4: Handle agent failures
-    IF bd show task-1 | grep -q "status: blocked" THEN
-      # Agent encountered blocker
-      blocker_reason=$(bd show task-1 | grep "blocked_reason")
+**How --stream Works:**
+```bash
+agent engineer <task-id> --stream
 
-      # Address blocker (may require manual intervention)
-      # Then unblock and retry
-      bd unblock task-1
-      agent engineer task-1  # Retry
-    END IF
+# The command:
+# 1. Spawns the agent on the server
+# 2. Opens SSE connection for real-time updates
+# 3. Shows progress events as they happen
+# 4. BLOCKS until agent completes or fails
+# 5. EXITS with appropriate status code
+# 6. Command returns to shell prompt ONLY when done
+
+# Exit codes:
+# - 0: Agent completed successfully
+# - 1: Agent failed or encountered error
+
+# The stream shows:
+# [timestamp] Status: in_progress (30%)
+# [timestamp] 🔄 API call starting...
+# [timestamp] ✅ API call complete
+# [timestamp] Status: in_progress (60%)
+# [timestamp] 🎉 Task completed!   <-- This is your completion signal
+#
+# Server Metrics:
+#   Active agents: 0
+#   Completed: 5
+#
+# <-- Command exits and returns control
+```
+
+**How --wait Works:**
+```bash
+agent engineer <task-id> --wait
+
+# The command:
+# 1. Spawns the agent on the server
+# 2. Polls status every 5 seconds
+# 3. BLOCKS until status is "completed" or "failed"
+# 4. EXITS with appropriate status code
+# 5. Command returns to shell prompt ONLY when done
+
+# Exit codes:
+# - 0: Agent completed successfully
+# - 1: Agent failed
+
+# Output:
+# ⏳ Waiting for completion...
+# ✅ Agent completed!   <-- This is your completion signal
+# <-- Command exits and returns control
+```
+
+**DETECTION STRATEGY FOR ORCHESTRATORS:**
+
+```bash
+# OPTION 1: Using --stream (RECOMMENDED)
+# The command blocks until complete - no polling needed!
+
+agent engineer $task_id --stream
+# When this line completes and next line runs, agent is DONE
+echo "✓ Agent finished, proceeding with next step"
+
+# Check exit code if needed
+if agent engineer $task_id --stream; then
+    echo "✓ Agent succeeded"
+    # Proceed with next steps
+else
+    echo "✗ Agent failed"
+    # Handle failure
+fi
+
+# OPTION 2: Using --wait
+# Same blocking behavior, different output format
+
+agent engineer $task_id --wait
+# When this line completes, agent is DONE
+echo "✓ Agent finished"
+
+# OPTION 3: Fire and forget, check later
+agent engineer $task_id  # Spawns in background
+
+# Later, check status programmatically:
+status=$(agent status $task_id | grep "Status:" | awk '{print $2}')
+if [ "$status" = "completed" ]; then
+    echo "✓ Agent done"
+elif [ "$status" = "failed" ]; then
+    echo "✗ Agent failed"
+else
+    echo "⏳ Still running: $status"
+fi
+
+# Or use --wait to block until complete:
+agent wait $task_id
+echo "✓ Agent finished"
+```
+
+**CRITICAL TIMING RULES:**
+
+```bash
+# ✅ CORRECT: Command blocks until agent finishes
+agent engineer $task_id --stream
+bd close $task_id  # This runs AFTER agent completes
+
+# ✅ CORRECT: Check exit code
+if agent engineer $task_id --stream; then
+    echo "Agent succeeded, safe to proceed"
+    bd close $task_id
+fi
+
+# ❌ WRONG: Don't poll manually when using --stream/--wait
+agent engineer $task_id --stream &  # Background with &
+sleep 30  # Arbitrary wait
+agent status $task_id  # May still be running!
+
+# ✅ CORRECT: If spawning in background, use explicit wait with --stream
+agent engineer $task_id  # Fire and forget
+# ... do other work ...
+agent wait $task_id --stream  # Block until complete with immediate notification
+echo "Now agent is done"
+```
+
+**VERIFICATION AFTER COMPLETION:**
+
+```bash
+# After agent CLI returns, verify with multiple sources:
+
+# 1. Check agent status (should be "completed")
+agent status $task_id
+
+# 2. Check Beads task status
+bd show $task_id
+
+# 3. View agent results
+agent results $task_id
+
+# 4. Check for expected artifacts
+test -f path/to/expected/file || echo "⚠️ Missing expected output"
+
+# 5. Verify tests passed (if applicable)
+grep -q "All tests passed" .beads/tasks/*/execution.log
+
+# Example complete verification:
+verify_agent_success() {
+    local task_id=$1
+
+    # Check agent status
+    local status=$(agent status $task_id | grep "Status:" | awk '{print $2}')
+    if [ "$status" != "completed" ]; then
+        echo "✗ Agent did not complete: $status"
+        return 1
+    fi
+
+    # Check for errors in results
+    if agent results $task_id | grep -qi "error\|failed\|❌"; then
+        echo "✗ Agent completed with errors"
+        return 1
+    fi
+
+    echo "✓ Agent completed successfully"
+    return 0
+}
+
+# Usage:
+agent engineer $task_id --stream
+if verify_agent_success $task_id; then
+    bd close $task_id
+    # Proceed with next steps
+fi
+```
+
+**COMMON PITFALLS TO AVOID:**
+
+1. **Don't assume completion without waiting:**
+   ```bash
+   # ❌ WRONG
+   agent engineer $task_id  # Fire and forget
+   bd close $task_id  # Runs immediately - agent still working!
+
+   # ✅ CORRECT
+   agent engineer $task_id --stream  # Blocks until done
+   bd close $task_id  # Now safe to close
+   ```
+
+2. **Don't background --stream unless you track the process:**
+   ```bash
+   # ❌ WRONG - loses completion signal
+   agent engineer $task_id --stream &
+
+   # ✅ CORRECT - explicit wait
+   agent engineer $task_id --stream  # Foreground, blocks
+   # OR
+   agent engineer $task_id  # Background spawn
+   agent wait $task_id  # Explicit wait
+   ```
+
+3. **Don't rely solely on file presence:**
+   ```bash
+   # ❌ WRONG - file may be partial
+   agent engineer $task_id &
+   while [ ! -f output.txt ]; do sleep 1; done
+   echo "Done!"  # Agent may still be working!
+
+   # ✅ CORRECT - wait for agent
+   agent engineer $task_id --stream
+   test -f output.txt && echo "Done!"
+   ```
+
+4. **Don't reimplement polling - use `agent wait`:**
+   ```bash
+   # ❌ WRONG - reimplementing what agent wait does
+   agent engineer $task_id
+   while true; do
+       status=$(agent status $task_id | grep Status: | awk '{print $2}')
+       [ "$status" = "completed" ] && break
+       sleep 5
+   done
+
+   # ✅ CORRECT - let agent wait handle polling
+   agent engineer $task_id
+   agent wait $task_id  # Blocks, polls internally, returns when done
+
+   # ✅ BEST - blocking from the start with streaming (PREFERRED)
+   agent engineer $task_id --stream  # Blocks with immediate progress updates
+
+   # ✅ ALSO CORRECT - blocking with polling
+   agent engineer $task_id --wait    # Blocks but polls (slight delay)
+   ```
+
+**Why --stream is preferred:** Immediate notification when agent completes or needs attention. No polling delay = faster orchestration response.
+
+**BACKGROUND TASKS WITH COMPLETION DETECTION:**
+
+**MANDATORY PATTERN:** Orchestrators MUST use `--stream` (preferred) or `--wait` to detect agent completion. Never poll manually.
+
+**Why --stream is preferred:** Immediate notification when agent completes = immediate orchestrator action. No polling delay.
+
+```bash
+# PATTERN 1: Stream from start (PREFERRED - immediate feedback)
+echo "🚀 Starting engineer agent for task $task_id"
+agent engineer $task_id --stream  # Blocks with real-time progress, immediate completion
+echo "✅ Agent completed"
+
+# Verify results and proceed immediately
+agent results $task_id
+
+# PATTERN 2: Spawn, work, then stream (when you have other work first)
+echo "🚀 Spawning engineer agent for task $task_id"
+agent engineer $task_id
+echo "✓ Agent spawned"
+
+# Do other orchestration work
+echo "📝 Creating dependent tasks..."
+dep_task=$(bd create "Integration after $task_id" --json | jq -r '.id')
+bd dep add $dep_task $task_id
+
+echo "📝 Updating work log..."
+# ... other work ...
+
+# Block with streaming for immediate completion notification
+echo "⏳ Streaming agent progress..."
+agent wait $task_id --stream  # If wait supports --stream
+# OR
+agent wait $task_id  # Falls back to polling
+echo "✅ Agent completed"
+
+# Verify results
+agent results $task_id
+
+# PATTERN 3: Multiple parallel agents (PREFERRED for parallelism)
+echo "🚀 Spawning 3 parallel agents..."
+agent engineer $task1
+agent engineer $task2
+agent tester $task3
+echo "✓ All spawned: $task1, $task2, $task3"
+
+# Do other work while they run
+echo "📝 Setting up integration task..."
+int_task=$(bd create "Integration" --json | jq -r '.id')
+bd dep add $int_task $task1
+bd dep add $int_task $task2
+bd dep add $int_task $task3
+
+# Optional: Quick status snapshot
+echo "📊 Current status:"
+agent list --running
+
+# Wait for all with --stream for immediate completion detection
+echo "⏳ Waiting for agents to complete..."
+agent wait $task1 --stream  # Immediate notification when done
+echo "  ✓ $task1 done"
+
+agent wait $task2 --stream
+echo "  ✓ $task2 done"
+
+agent wait $task3 --stream
+echo "  ✓ $task3 done"
+
+echo "✅ All agents completed"
+```
+
+**KEY PRINCIPLES:**
+
+1. **MUST use --stream or --wait** - Never poll manually. Orchestrators MUST use blocking completion detection.
+2. **Prefer --stream over --wait** - Immediate notification = immediate action. No polling delay.
+3. **Status checks are optional** - Only for user visibility, not control flow.
+4. **Keep it simple** - Spawn, work, stream/wait, proceed immediately.
+5. **No manual timers** - The agent CLI handles all timing internally.
+
+**COORDINATING MULTIPLE AGENTS:**
+
+```bash
+WHEN coordinating multiple agents:
+  STEP 1: Create Beads tasks for all work
+    task1=$(bd create "API implementation" --priority high --json | jq -r '.id')
+    task2=$(bd create "UI components" --priority high --json | jq -r '.id')
+    task3=$(bd create "Test suite" --priority normal --json | jq -r '.id')
+    task4=$(bd create "Integration" --priority normal --json | jq -r '.id')
+
+  STEP 2: Set up dependencies
+    bd dep add $task4 $task1
+    bd dep add $task4 $task2
+    bd dep add $task4 $task3
+
+  STEP 3: Spawn agents in background
+    echo "🚀 Spawning 3 parallel agents..."
+    agent engineer $task1
+    agent engineer $task2
+    agent tester $task3
+    echo "✓ Agents spawned: $task1, $task2, $task3"
+
+  STEP 4: Do other work
+    echo ""
+    echo "📝 Continuing orchestration while agents work..."
+
+    # Create follow-up tasks, update work log, etc.
+    # ...
+
+    # Optional: Quick status check for visibility
+    echo ""
+    echo "📊 Agent progress:"
+    agent list --running
+
+  STEP 5: Wait for completion (use --stream for immediate notification)
+    echo ""
+    echo "⏳ Waiting for parallel agents to complete..."
+
+    agent wait $task1 --stream
+    echo "  ✓ API implementation ($task1) complete"
+
+    agent wait $task2 --stream
+    echo "  ✓ UI components ($task2) complete"
+
+    agent wait $task3 --stream
+    echo "  ✓ Tests ($task3) complete"
+
+  STEP 6: Verify and spawn dependent work
+    echo ""
+    echo "✅ All dependencies met for integration task"
+
+    # Check if ready
+    bd ready | grep -q "$task4" || {
+        echo "⚠️ Task $task4 not ready yet"
+        exit 1
+    }
+
+    echo "🚀 Spawning integration agent..."
+    agent engineer $task4 --stream  # Stream this one for real-time feedback
+
+  STEP 7: Handle any failures
+    # Check for failed tasks
+    for tid in $task1 $task2 $task3; do
+        status=$(agent status $tid | grep "Status:" | awk '{print $2}')
+        if [ "$status" = "failed" ]; then
+            echo "❌ Agent $tid failed - reviewing logs:"
+            agent logs $tid | tail -20
+        fi
+    done
 END WHEN
 ```
 
@@ -1523,146 +2088,217 @@ END WHEN
 ```bash
 # Use case: Implement large feature with multiple components
 
-# STEP 1: Use Task tool for immediate planning
+# STEP 1: Use Task tool for immediate planning (needs conversation context)
 planner = Task(
   subagent_type="general-purpose",
-  prompt="Act as Architect from .ai-pack/roles/architect.md.
-         Task packet: .ai/tasks/2026-01-24_auth/
-         Review requirements in 00-contract.md and create detailed
-         implementation plan with component breakdown in 10-plan.md.",
+  prompt="Act as Architect. Review feature requirements and create
+         detailed implementation plan with component breakdown.",
   description="Planning feature architecture"
 )
 # Wait for planner to complete - need results immediately
 
-# STEP 2: Based on plan, create Beads tasks with complete context
-bd create "Act as Engineer. Task packet: .ai/tasks/2026-01-24_auth/
-Component A: Implement API endpoints per plan. Follow TDD." --priority high  # xasm++-a1
-
-bd create "Act as Engineer. Task packet: .ai/tasks/2026-01-24_auth/
-Component B: Implement data layer per plan. Follow TDD." --priority high  # xasm++-a2
-
-bd create "Act as Engineer. Task packet: .ai/tasks/2026-01-24_auth/
-Component C: Implement UI components per plan. Follow TDD." --priority high  # xasm++-a3
-
-bd create "Act as Tester. Task packet: .ai/tasks/2026-01-24_auth/
-Validate integration tests meet coverage requirements." --priority normal  # xasm++-a4
-
-bd create "Act as Engineer. Task packet: .ai/tasks/2026-01-24_auth/
-Update documentation with API endpoints and usage." --priority low  # xasm++-a5
+# STEP 2: Based on plan, create Beads tasks for parallel execution
+t1=$(bd create "Component A: API endpoints" --priority high --json | jq -r '.id')
+t2=$(bd create "Component B: Data layer" --priority high --json | jq -r '.id')
+t3=$(bd create "Component C: UI components" --priority high --json | jq -r '.id')
+t4=$(bd create "Integration tests" --priority normal --json | jq -r '.id')
+t5=$(bd create "Documentation" --priority low --json | jq -r '.id')
 
 # STEP 3: Set up dependencies
-bd dep add xasm++-a4 xasm++-a1  # Tests depend on API
-bd dep add xasm++-a4 xasm++-a2  # Tests depend on data layer
-bd dep add xasm++-a4 xasm++-a3  # Tests depend on UI
+bd dep add $t4 $t1  # Tests depend on API
+bd dep add $t4 $t2  # Tests depend on data layer
+bd dep add $t4 $t3  # Tests depend on UI
+bd dep add $t5 $t4  # Docs depend on tests
 
-# STEP 4: Spawn background agents for independent work
-agent engineer xasm++-a1  # Background
-agent engineer xasm++-a2  # Background
-agent engineer xasm++-a3  # Background
+# STEP 4: Spawn agents with streaming for independent work
+agent engineer $t1 --stream &
+agent engineer $t2 --stream &
+agent engineer $t3 --stream &
 
 # STEP 5: Continue with other work while they run
-# Use foreground Task tool for immediate work:
+# Use foreground Task tool for immediate work requiring context:
 Task(
   subagent_type="general-purpose",
-  prompt="Act as Engineer from .ai-pack/roles/engineer.md.
-         Task packet: .ai/tasks/2026-01-24_auth/
-         Set up CI/CD pipeline configuration per plan.",
+  prompt="Act as Engineer. Set up CI/CD pipeline configuration.",
   description="CI/CD setup"
 )
 
 # STEP 6: Monitor background agents
-bd list --status in_progress
+agent list --running
+
+# Check specific agent progress
+agent status $t1
 
 # STEP 7: When components complete, spawn tests
-IF all([xasm++-a1, xasm++-a2, xasm++-a3]) completed THEN
-  agent tester xasm++-a4  # Background
-END IF
+# Check if t4 is ready (dependencies met)
+bd ready | grep -q "$t4" && {
+  agent tester $t4 --stream
+}
 
 # STEP 8: When tests pass, spawn documentation
-IF xasm++-a4 completed THEN
-  agent engineer xasm++-a5  # Background
-END IF
+bd ready | grep -q "$t5" && {
+  agent engineer $t5 --stream
+}
 ```
 
-**AVAILABLE A2A AGENT ROLES:**
+**AVAILABLE AGENT ROLES:**
 
 ```bash
-# Check available roles
-curl -s http://localhost:3000/a2a/v1/discovery | jq '.agents[].role'
+# List available agent configurations
+ls .ai-pack/agents/
 
 # Common roles:
-- engineer    # Implementation
-- tester      # Test validation
-- reviewer    # Code review
-- architect   # Architecture design
-- product-manager # Product requirements
-- inspector   # Bug investigation
+- engineer.yml      # Implementation (TDD workflow)
+- tester.yml        # Test validation
+- reviewer.yml      # Code review
+- architect.yml     # Architecture design
+- product-manager.yml  # Product requirements
+- inspector.yml     # Bug investigation
+- archaeologist.yml # Legacy code investigation
+- spelunker.yml     # Runtime investigation
+- designer.yml      # UX design
+- strategist.yml    # Market analysis
 ```
 
-**A2A AGENT FEATURES:**
+**AGENT CLI FEATURES:**
 
-- **Async Execution**: Non-blocking, returns immediately
-- **Persistent**: Survives terminal close, session end
-- **Beads Integration**: Task state tracked automatically
-- **SSE Progress**: Real-time updates via Server-Sent Events
-- **Status Tracking**: Query anytime via `bd show`
-- **Failure Recovery**: Agent failures recorded in Beads
+- **Beads Integration**: Use Beads task IDs directly
+- **SSE Streaming**: Real-time progress with --stream
+- **Status Tracking**: Query anytime via `agent status <task-id>`
+- **Results Access**: View outputs with `agent results <task-id>`
+- **Log Access**: Debug with `agent logs <task-id>`
+- **Metrics**: Monitor server with `agent metrics`
+
+**QUICK REFERENCE: COMPLETION DETECTION**
+
+```bash
+# ✅ BLOCKING COMMANDS (return when agent finishes)
+agent engineer $task_id --stream   # Streams progress, blocks until done
+agent engineer $task_id --wait     # Polls status, blocks until done
+agent wait $task_id                # Blocks until existing agent completes
+
+# Exit codes: 0 = success, 1 = failure
+# When command completes and returns to prompt, agent is DONE
+
+# ✅ NON-BLOCKING COMMANDS (return immediately)
+agent engineer $task_id            # Spawns agent, returns immediately
+
+# Then later, check status:
+agent status $task_id              # Shows: completed, failed, in_progress
+agent wait $task_id                # Block until done
+
+# ✅ FOREGROUND WITH STREAMING (SIMPLEST)
+agent engineer $task_id --stream
+# Blocks, shows progress, returns when done
+bd close $task_id
+
+# ✅ BACKGROUND WITH FEEDBACK (ORCHESTRATORS)
+agent engineer $task_id            # Spawn in background
+echo "✓ Agent spawned, continuing work..."
+
+# Do other work for 30-60 seconds
+# ...
+
+# Check status periodically
+echo "📊 Status check:"
+agent status $task_id
+
+# When ready to wait
+echo "⏳ Waiting for completion..."
+agent wait $task_id                # Blocks until done
+echo "✅ Agent completed"
+bd close $task_id
+
+# ✅ BACKGROUND WITH OPTIONAL STATUS CHECK
+agent engineer $task_id
+# ... do other work ...
+echo "📊 Quick check:"
+agent status $task_id      # Optional visibility
+agent wait $task_id        # Blocks until done
+echo "✅ Done"
+
+# ✅ ERROR HANDLING PATTERN
+if agent engineer $task_id --stream; then
+    echo "✓ Success"
+    bd close $task_id
+else
+    echo "✗ Failed"
+    agent logs $task_id            # Debug
+fi
+
+# ❌ COMMON MISTAKES
+agent engineer $task_id &          # Background - loses completion signal
+bd close $task_id                  # Runs immediately - TOO EARLY!
+
+# ✅ CORRECT BACKGROUND PATTERN
+agent engineer $task_id            # Fire and forget
+# ... do other work ...
+agent wait $task_id                # Explicit wait
+bd close $task_id                  # Now safe
+```
+
+**STATUS VALUES:**
+
+- `in_progress`: Agent is currently executing
+- `completed`: Agent finished successfully (exit code 0)
+- `failed`: Agent encountered an error (exit code 1)
 
 **TROUBLESHOOTING:**
 
 ```bash
-# Server not running
-python scripts/start-server.py
+# Check if server is running
+agent metrics
+
+# Server not running? Start it:
+cd a2a-agent && ./bin/agent-server --server
 
 # Check server health
-curl http://localhost:3000/health
+curl http://localhost:8080/health
 
 # View server logs
-tail -f logs/agent-server.log
+agent logs <task-id>
 
 # Check agent configuration
-ls -la .ai-pack/agents/
+ls .ai-pack/agents/
 
-# Verify protocol handler registered
-# macOS: Auto-registered on first server start
-# Check: ~/Library/Application Support/ai-pack/AI-Pack Agent Handler.app
+# List all active agents
+agent list
 
-# Manual agent execution (if protocol handler issues)
-curl -X POST http://localhost:3000/a2a/v1/execute \
-  -H "Content-Type: application/json" \
-  -d '{"role": "engineer", "task": "xasm++-e3w"}'
+# Check specific agent status
+agent status <beads-task-id>
+
+# View agent execution log
+agent logs <beads-task-id>
 ```
 
 **DECISION TREE:**
 
 ```
 Is task long-running (>10 min)?
-├─ YES → Use A2A background agent (agent CLI)
+├─ YES → Use agent CLI with --stream
 └─ NO
    └─ Need immediate results for next step?
       ├─ YES → Use Task tool (foreground)
-      └─ NO → Use A2A background agent (agent CLI)
+      └─ NO → Use agent CLI
 
-Will you wait for results?
+Need conversation context?
 ├─ YES → Use Task tool (foreground)
-└─ NO → Use A2A background agent (agent CLI)
+└─ NO → Use agent CLI
 
-Need real-time progress visibility?
-├─ YES → Use Task tool (foreground)
-└─ NO → Use A2A background agent (agent CLI)
+Running multiple independent tasks?
+├─ YES → Use agent CLI (spawn multiple with --stream)
+└─ NO → Either works (agent CLI recommended for persistence)
 
-Running multiple independent long tasks?
-├─ YES → Use A2A background agents (agent CLI)
-└─ NO → Use Task tool (foreground)
-
-REMEMBER: Both agent types require complete task packets.
-Neither has access to conversation history.
+Want real-time monitoring?
+├─ YES → Use agent CLI with --stream flag
+└─ NO → Use agent CLI with --wait or fire-and-forget
 ```
 
 **REFERENCE:**
-- A2A Quick Start: `docs/A2A-SERVER-QUICKSTART.md`
-- Beads Integration: `docs/BEADS-AGENT-INTEGRATION.md`
+- Agent CLI Documentation: `a2a-agent/README.md`
+- Agent Server: `a2a-agent/cmd/agent-server/`
 - Agent Configurations: `.ai-pack/agents/*.yml`
+- Beads Integration: See Beads Enforcement Gate
 
 ---
 
@@ -1712,7 +2348,7 @@ IF blocker detected THEN
     provide guidance
   ELSE IF dependency missing THEN
     prioritize dependency
-    bd start <dependency-task-id>
+    bd update --claim <dependency-task-id>
   ELSE IF requirements unclear THEN
     consult user
     bd block <task-id> "Waiting for requirements clarification"
@@ -2037,6 +2673,258 @@ END IF
 
 ---
 
+#### 5.2 Task Completion and Cleanup
+
+**CRITICAL:** Task completion is a multi-step process. "Done" means agent finished work. "Done done" means work is validated and artifacts are cleaned up.
+
+**Definition of "Done Done":**
+```
+Task is "DONE DONE" when ALL criteria met:
+  ✓ Agent completed work
+  ✓ All acceptance criteria met
+  ✓ Tests passing (validated by Tester)
+  ✓ Code quality approved (validated by Reviewer)
+  ✓ Documentation artifacts created (as appropriate for task)
+  ✓ Code committed to repository
+  ✓ Beads task closed
+  ✓ Task packet archived (.ai/tasks/ → .ai/tasks/.archived/)
+  ✓ Execution artifacts cleaned up (.beads/tasks/)
+```
+
+**Completion and Cleanup Procedure:**
+
+```bash
+# STEP 1: Wait for agent to complete
+agent wait $task_id
+echo "✅ Agent reported completion"
+
+# STEP 2: Validate work (MANDATORY for code changes)
+# Run Tester validation
+tester_task=$(bd create "Validate tests for $task_id" --priority high --json | jq -r '.id')
+Task(
+  subagent_type="general-purpose",
+  prompt="You are the Tester role. Validate TDD compliance and test coverage for $task_id.",
+  description="Test validation for $task_id"
+)
+
+# Run Reviewer validation
+reviewer_task=$(bd create "Review code for $task_id" --priority high --json | jq -r '.id')
+Task(
+  subagent_type="general-purpose",
+  prompt="You are the Reviewer role. Review code quality and standards for $task_id.",
+  description="Code review for $task_id"
+)
+
+# Verify both approved
+tester_status=$(check validation status)
+reviewer_status=$(check validation status)
+
+IF tester_status != "APPROVED" OR reviewer_status != "APPROVED" THEN
+  echo "❌ Validation failed - task NOT done"
+  # Address findings, re-validate
+  EXIT
+END IF
+
+echo "✅ Validation passed - proceeding to completion"
+
+# STEP 3: Verify documentation artifacts
+# Agent should have created these as part of work (task-dependent):
+# - ADRs (for architectural decisions)
+# - User docs (for user-facing features)
+# - API docs, diagrams, etc. (as applicable)
+
+# Verify expected artifacts exist (examples - adjust per task)
+# test -f docs/architecture/decisions/ADR-XXX.md || echo "⚠️ Missing expected ADR"
+# test -f docs/feature-X.md || echo "⚠️ Missing expected documentation"
+
+# What matters: Agent created documentation appropriate for THIS task
+
+# STEP 4: Commit all work (code + documentation)
+git add -A
+git commit -m "Implement feature X
+
+- Implementation details
+- Tests passing (validated by tester)
+- Code reviewed (approved by reviewer)
+
+Closes: $beads_task_id
+Co-Authored-By: Agent <agent@ai-pack>"
+
+# STEP 5: Close Beads task (keeps audit trail)
+bd close $task_id --reason "Feature complete, validated, and committed"
+
+# STEP 6: Clean up and archive (SUCCESS ONLY!)
+# Only clean up on successful, validated completion
+# DO NOT clean up on failure - artifacts needed for debugging
+
+# Verify task is closed first
+status=$(bd show $task_id --json | jq -r '.status')
+if [ "$status" = "closed" ]; then
+  echo "🧹 Cleaning up and archiving artifacts..."
+
+  # 6a. Archive task packet (if exists)
+  task_packet_dir=$(find .ai/tasks -type d -name "*" -exec grep -l "$task_id" {}/00-contract.md \; 2>/dev/null | head -1 | xargs dirname)
+
+  if [ -n "$task_packet_dir" ] && [ -d "$task_packet_dir" ]; then
+    # Create archive directory if needed
+    mkdir -p .ai/tasks/.archived/$(date +%Y-%m)
+
+    # Move to archive
+    archive_dest=".ai/tasks/.archived/$(date +%Y-%m)/$(basename $task_packet_dir)"
+    mv "$task_packet_dir" "$archive_dest"
+    echo "✓ Archived task packet: $archive_dest"
+  fi
+
+  # 6b. Remove execution artifacts (logs, metadata, prompts)
+  internal_id=$(find .beads/tasks -name "00-metadata.json" -exec grep -l "$task_id" {} \; 2>/dev/null | head -1 | xargs dirname | xargs basename)
+
+  if [ -n "$internal_id" ]; then
+    rm -rf ".beads/tasks/$internal_id"
+    echo "✓ Removed execution artifacts: .beads/tasks/$internal_id"
+  fi
+
+  echo "✅ Cleanup complete"
+else
+  echo "⚠️ Task not closed - skipping cleanup"
+fi
+
+# STEP 7: (Optional) Delete from Beads if truly no longer needed
+# Keeps: Closed tasks for audit trail (default, recommended)
+# Delete: Only for abandoned/duplicate/mistake tasks
+
+# bd delete $task_id --force  # Rare - only if task should not exist
+
+echo "🎉 Task $task_id is DONE DONE"
+```
+
+**When NOT to Clean Up:**
+
+```bash
+# DO NOT clean up on failure
+agent wait $task_id --stream
+if [ $? -ne 0 ]; then
+  echo "❌ Agent failed - keeping artifacts for debugging"
+  agent logs $task_id --tail 50
+  # DO NOT mv .ai/tasks/...
+  # DO NOT rm -rf .beads/tasks/...
+  # DO NOT bd close (task still needs work)
+  exit 1
+fi
+
+# DO NOT clean up on validation failure
+tester_result = validate_tests()
+if tester_result != "APPROVED"; then
+  echo "❌ Tests inadequate - keeping artifacts"
+  # DO NOT mv .ai/tasks/...
+  # DO NOT rm -rf .beads/tasks/...
+  # DO NOT bd close (work incomplete)
+  exit 1
+fi
+```
+
+**Task Packet Archiving:**
+
+Task packets in `.ai/tasks/` should be archived (not deleted) for audit trail:
+
+```
+Archive Structure:
+.ai/
+├── tasks/                          # Active tasks only
+│   ├── 2026-01-26_feature-x/      # Current work
+│   └── 2026-01-26_bug-fix/        # Current work
+└── tasks/.archived/                # Completed tasks (organized by month)
+    ├── 2026-01/
+    │   ├── 2026-01-15_login-impl/
+    │   └── 2026-01-18_api-refactor/
+    └── 2026-02/
+        └── 2026-02-03_caching/
+
+Why archive instead of delete:
+✓ Maintains history of what was worked on
+✓ Can reference past decisions and approaches
+✓ Useful for retrospectives and learning
+✓ Helps with future similar tasks
+
+.gitignore recommendation:
+# Keep archive structure in git for audit trail
+.ai/tasks/.archived/**
+```
+
+**Documentation Artifact Guidelines:**
+
+Documentation is **part of the work**, not part of cleanup:
+
+```
+✅ CORRECT: Agent creates docs during work
+  - Engineer implements feature
+  - Engineer creates appropriate documentation (examples):
+    * ADR if making architectural decision
+    * User docs if user-facing feature
+    * API docs if creating new endpoints
+    * Diagrams if complex interactions
+  - Engineer commits: code + docs together
+  - Orchestrator validates and cleans up execution logs
+
+❌ WRONG: Orchestrator copies docs during cleanup
+  - Engineer implements feature
+  - Orchestrator extracts documentation from logs
+  - Orchestrator creates docs from agent output
+  - This means agent didn't complete the work!
+```
+
+**Artifacts That Should Exist (created by agent):**
+- ADRs in `docs/architecture/decisions/`
+- User documentation in `docs/`
+- API documentation
+- Diagrams, architecture docs
+- README updates
+
+**Artifacts to Clean Up (transient execution data):**
+- `.beads/tasks/<internal-id>/execution.log`
+- `.beads/tasks/<internal-id>/00-metadata.json`
+- `.beads/tasks/<internal-id>/agent-prompt.txt`
+- `.beads/tasks/<internal-id>/30-results.md` (transient summary)
+
+**Beads Task States:**
+
+```
+closed (default) - Task complete, kept for audit/history
+  - Use: Standard completion path
+  - Result: Can query with bd list --status closed
+  - Disk: Task data in .beads database, execution artifacts cleaned
+
+deleted - Task removed from database (tombstone created)
+  - Use: Abandoned/duplicate/mistake tasks only
+  - Result: bd list won't show it
+  - Command: bd delete $task_id --force
+```
+
+**Cleanup Verification:**
+
+```bash
+# Verify task is closed
+bd show $task_id | grep "Status: closed"
+
+# Verify artifacts cleaned
+ls .beads/tasks/task-* | grep -q $internal_id && echo "⚠️ Not cleaned" || echo "✓ Cleaned"
+
+# Verify docs committed
+git log --oneline -1 | grep -q $task_id && echo "✓ Committed" || echo "⚠️ Not committed"
+
+# Verify work is complete
+test -f docs/architecture/decisions/ADR-*.md && echo "✓ ADR exists"
+git diff --exit-code || echo "⚠️ Uncommitted changes"
+```
+
+**Summary:**
+1. Agent work completes → "Done"
+2. Orchestrator validates (tester + reviewer) → "Validated"
+3. Orchestrator commits (code + docs) → "Persisted"
+4. Orchestrator closes Beads task → "Tracked"
+5. Orchestrator cleans execution artifacts → "Done Done"
+
+---
+
 ### 6. Communication and Escalation
 
 **Responsibility:** Keep user informed and escalate when necessary.
@@ -2353,7 +3241,7 @@ Orchestrator:
 - Beads (`bd` command) for persistent task tracking
   - `bd create` - Create tasks
   - `bd ready` - Find next work
-  - `bd start/close` - Update task status
+  - `bd update --claim/close` - Update task status
   - `bd dep add` - Manage dependencies
   - `bd list` - View task status
   - `bd show` - Task details
