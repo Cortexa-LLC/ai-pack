@@ -131,6 +131,19 @@ function App() {
   const followLogsRef = useRef(followLogs);
   const followServerLogsRef = useRef(followServerLogs);
 
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
   // Panel widths (resizable) - only chat panel now
   const [chatWidth, setChatWidth] = useState(() => {
     const saved = localStorage.getItem('ai-pack-chat-width');
@@ -351,13 +364,23 @@ function App() {
     }
   };
 
-  const retryTask = async (taskID: string, taskDescription: string, event?: React.MouseEvent) => {
+  const retryTask = async (taskID: string, taskDescription: string, event?: React.MouseEvent, skipConfirm = false) => {
     // Stop propagation if called from within a clickable card
     if (event) {
       event.stopPropagation();
     }
 
-    if (!confirm(`Retry task: ${taskDescription}?`)) {
+    if (!skipConfirm) {
+      // Show confirmation modal
+      setConfirmModal({
+        show: true,
+        title: 'Retry Task',
+        message: `Are you sure you want to retry this task?\n\n${taskDescription.split('\n')[0]}`,
+        onConfirm: () => {
+          setConfirmModal({ show: false, title: '', message: '', onConfirm: () => {} });
+          retryTask(taskID, taskDescription, undefined, true);
+        },
+      });
       return;
     }
 
@@ -691,30 +714,23 @@ function App() {
                                     className="cursor-pointer"
                                     onClick={() => selectTask(task.taskID)}
                                   >
-                                    <div className="flex items-start justify-between mb-1">
-                                      <div className="text-xs font-medium text-white truncate flex-1" title={task.task}>
-                                        {isOrphaned && <span className="text-orange-400 mr-1" title="Orphaned - server restarted">⚠️</span>}
-                                        {task.task.length > 40 ? task.task.substring(0, 40) + '...' : task.task}
-                                      </div>
+                                    <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
+                                      {isOrphaned && <span className="text-orange-400 mr-1" title="Orphaned - server restarted">⚠️</span>}
+                                      {task.task.split('\n')[0]}
                                     </div>
                                     {task.beadsTaskID && (
-                                      <div className="text-xs text-gray-500 mb-1">
+                                      <div className="text-xs text-gray-500 mb-2">
                                         {task.beadsTaskID}
-                                      </div>
-                                    )}
-                                    {isOrphaned && (
-                                      <div className="text-xs text-orange-400 mb-2">
-                                        Orphaned - needs restart
                                       </div>
                                     )}
                                   </div>
                                   {isOrphaned && (
                                     <button
                                       onClick={(e) => retryTask(task.taskID, task.task, e)}
-                                      className="mt-2 w-full px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm rounded transition-colors flex items-center justify-center gap-2"
+                                      className="px-2 py-0.5 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded transition-colors"
+                                      title="Restart orphaned task"
                                     >
-                                      <span>🔄</span>
-                                      <span>Restart Task</span>
+                                      🔄 Restart
                                     </button>
                                   )}
                                 </div>
@@ -839,27 +855,49 @@ function App() {
                             .map(task => (
                               <div
                                 key={task.taskID}
-                                className="bg-gray-800 border border-gray-700 rounded-lg p-3 hover:border-red-500 transition-colors"
+                                className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-red-500 transition-colors"
                               >
                                 <div
                                   className="cursor-pointer"
                                   onClick={() => selectTask(task.taskID)}
                                 >
-                                  <div className="text-xs font-medium text-white mb-1 truncate" title={task.task}>
-                                    {task.task.length > 40 ? task.task.substring(0, 40) + '...' : task.task}
+                                  <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
+                                    {task.task.split('\n')[0]}
                                   </div>
-                                  <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                                    {task.beadsTaskID && <span>{task.beadsTaskID}</span>}
-                                    <span className="text-red-400">✗</span>
-                                  </div>
+                                  {task.beadsTaskID && (
+                                    <div className="text-xs text-gray-500 mb-2">
+                                      {task.beadsTaskID}
+                                    </div>
+                                  )}
                                 </div>
-                                <button
-                                  onClick={(e) => retryTask(task.taskID, task.task, e)}
-                                  className="mt-3 w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors flex items-center justify-center gap-2"
-                                >
-                                  <span>🔄</span>
-                                  <span>Retry Task</span>
-                                </button>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={(e) => retryTask(task.taskID, task.task, e)}
+                                    className="px-2 py-0.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                                    title="Retry task"
+                                  >
+                                    🔄 Retry
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setConfirmModal({
+                                        show: true,
+                                        title: 'Close Task',
+                                        message: `Are you sure you want to close/dismiss this task?\n\n${task.task.split('\n')[0]}`,
+                                        onConfirm: () => {
+                                          // TODO: Implement close task API call
+                                          alert('Close task functionality coming soon');
+                                          setConfirmModal({ show: false, title: '', message: '', onConfirm: () => {} });
+                                        },
+                                      });
+                                    }}
+                                    className="px-2 py-0.5 text-xs bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+                                    title="Close/dismiss task"
+                                  >
+                                    ✕ Close
+                                  </button>
+                                </div>
                               </div>
                             ))
                         )}
@@ -1618,6 +1656,30 @@ function App() {
           <ChatPanel />
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4 border border-gray-700">
+            <h3 className="text-lg font-semibold text-white mb-3">{confirmModal.title}</h3>
+            <p className="text-gray-300 text-sm mb-6 whitespace-pre-line">{confirmModal.message}</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmModal({ show: false, title: '', message: '', onConfirm: () => {} })}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmModal.onConfirm}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

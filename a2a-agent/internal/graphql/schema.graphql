@@ -197,10 +197,20 @@ type Mutation {
 
   # Retry a failed task
   retryTask(taskID: String!): RetryResult!
+
+  # Close/dismiss a task (marks as closed in Beads)
+  closeTask(taskID: String!): CloseResult!
 }
 
 # Retry task result
 type RetryResult {
+  success: Boolean!
+  taskID: String!
+  message: String
+}
+
+# Close task result
+type CloseResult {
   success: Boolean!
   taskID: String!
   message: String
