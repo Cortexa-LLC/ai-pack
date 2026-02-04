@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -1679,17 +1680,31 @@ func (s *AgentServer) handleOrphanedTasks() {
 
 				if !hasActiveTask {
 					// This is an orphaned task - it's marked in_progress but not running
+					// Mark it as "open" so it can be retried/restarted
 					monitoring.Logger.Warn("orphaned_task_detected",
 						"task_id", beadsTask.ID,
 						"title", beadsTask.Title,
 						"project", projectRoot,
+						"action", "resetting_to_open",
 					)
 
-					// TODO: Decide if we should:
-					// 1. Auto-restart the task (could be risky if it failed for a reason)
-					// 2. Mark it as failed
-					// 3. Reset it to "open" status
-					// For now, just log it - user can manually restart if needed
+					// Reset the task to "open" status in Beads
+					// This allows it to be retried without creating a new task
+					if beads.IsInstalled() {
+						// Use bd update to reset status
+						cmd := exec.Command("bd", "update", "--status", "open", beadsTask.ID)
+						cmd.Dir = projectRoot
+						if err := cmd.Run(); err != nil {
+							monitoring.Logger.Error("failed_to_reset_orphaned_task",
+								"task_id", beadsTask.ID,
+								"error", err.Error())
+						} else {
+							monitoring.Logger.Info("orphaned_task_reset",
+								"task_id", beadsTask.ID,
+								"new_status", "open")
+						}
+					}
+
 					orphanedCount++
 				}
 			}
