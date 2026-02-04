@@ -231,8 +231,14 @@ bd update --claim bd-a1b2
 
 **During Implementation:**
 ```bash
-# If you discover subtasks - MANDATORY use bd create
-bd create "Add password hashing utility" --depends-on bd-a1b2
+# If you discover subtasks - MANDATORY use bd create with full description
+subtask_id=$(bd create "Add password hashing utility
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_password-hashing/
+
+Implement bcrypt password hashing utility with salt generation and verification." \
+  --depends-on bd-a1b2 --json | jq -r '.id')
 
 # If you get blocked - MANDATORY use bd block
 bd block bd-a1b2 "Waiting for API key from DevOps"

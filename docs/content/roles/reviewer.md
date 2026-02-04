@@ -1,8 +1,3 @@
----
-sidebar_position: 8
-title: "Reviewer Role"
----
-
 # Reviewer Role
 
 **Version:** 1.0.0
@@ -39,27 +34,34 @@ bd show bd-a1b2
 # - Dependencies (if any)
 # - Current status
 # - Change history
-```text
+```
 
 **Starting Work:**
 ```bash
 # Mark review task as in-progress
-bd start bd-a1b2
+bd update --claim bd-a1b2
 
 # This signals to Orchestrator and other agents that you're reviewing this task
-```text
+```
 
 **During Review:**
 ```bash
 # If you discover critical issues that block approval
 bd block bd-a1b2 "Security vulnerabilities found - Engineer must fix"
 
-# If you need to create follow-up review tasks
-bd create "Review security fix for login timeout" --depends-on bd-a1b2
+# If you need to create follow-up review tasks - ALWAYS include full description
+follow_up=$(bd create "Review security fix for login timeout
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_security-fix-review/
+
+Review the security fixes applied to address timeout vulnerabilities in the login endpoint.
+Verify XSS prevention, CSRF tokens, and rate limiting implementation." \
+  --depends-on bd-a1b2 --json | jq -r '.id')
 
 # Check what's ready after current review
 bd ready
-```text
+```
 
 **Completing Work:**
 ```bash
@@ -68,19 +70,19 @@ bd close bd-a1b2
 
 # Find next review task
 bd ready
-```text
+```
 
 **Beads Workflow Summary:**
-```text
+```
 1. bd ready           → Find next review task
 2. bd show <id>       → Review what needs reviewing
-3. bd start <id>      → Begin review
+3. bd update --claim <id>      → Begin review
 4. [Check standards]  → Verify code quality
 5. [Check tests]      → Verify test coverage
 6. [Check security]   → Verify no vulnerabilities
 7. bd close <id>      → Mark review complete (or bd block if issues found)
 8. bd ready           → Find next task
-```text
+```
 
 **Why Use Beads:**
 - ✅ Tasks persist across AI sessions (no memory loss)
@@ -108,7 +110,7 @@ bd unblock bd-a1b2
 
 # Mark complete when finished
 bd close bd-a1b2
-```text
+```
 
 The Orchestrator monitors these Beads tasks to track review progress, so keeping them updated helps coordination.
 
@@ -121,7 +123,7 @@ The Orchestrator monitors these Beads tasks to track review progress, so keeping
 **Responsibility:** Evaluate code against established standards and best practices.
 
 **Review Dimensions:**
-```text
+```
 1. Correctness
    - Does it meet requirements?
    - Does it work as intended?
@@ -146,7 +148,7 @@ The Orchestrator monitors these Beads tasks to track review progress, so keeping
    - No vulnerabilities?
    - Input validated?
    - Sensitive data protected?
-```text
+```
 
 ---
 
@@ -155,7 +157,7 @@ The Orchestrator monitors these Beads tasks to track review progress, so keeping
 **Responsibility:** Ensure tests are comprehensive and coverage meets targets.
 
 **Coverage Analysis:**
-```text
+```
 1. Quantitative Check
    ✓ Overall coverage: 80-90%
    ✓ Critical paths: 100%
@@ -168,10 +170,10 @@ The Orchestrator monitors these Beads tasks to track review progress, so keeping
    ✓ Edge cases tested
    ✓ Error paths tested
    ✓ Integration points tested
-```text
+```
 
 **Coverage Verification Process:**
-```text
+```
 1. Run coverage tool
 2. Review coverage report
 3. Identify untested areas
@@ -180,7 +182,7 @@ The Orchestrator monitors these Beads tasks to track review progress, so keeping
      document gaps
      request additional tests
    END IF
-```text
+```
 
 ---
 
@@ -189,7 +191,7 @@ The Orchestrator monitors these Beads tasks to track review progress, so keeping
 **Responsibility:** Ensure changes align with project architecture.
 
 **Architecture Review:**
-```text
+```
 1. Pattern Consistency
    ✓ Follows established patterns
    ✓ Layer boundaries respected
@@ -209,7 +211,7 @@ The Orchestrator monitors these Beads tasks to track review progress, so keeping
    ✓ High cohesion
    ✓ No premature optimization
    ✓ YAGNI respected
-```text
+```
 
 ---
 
@@ -218,7 +220,7 @@ The Orchestrator monitors these Beads tasks to track review progress, so keeping
 **Responsibility:** Verify documentation is adequate and accurate.
 
 **Documentation Checklist:**
-```text
+```
 Code Documentation:
 ✓ Public APIs documented
 ✓ Complex logic explained
@@ -232,7 +234,7 @@ Change Documentation:
 ✓ Breaking changes documented
 ✓ Migration guide (if needed)
 ✓ User-facing docs updated
-```text
+```
 
 ---
 
@@ -240,7 +242,7 @@ Change Documentation:
 
 ### Code Quality Checklist
 
-```text
+```
 Formatting and Style:
 [ ] Consistent formatting (spaces, not tabs)
 [ ] Follows language-specific style guide
@@ -266,7 +268,7 @@ Error Handling:
 [ ] Error messages helpful
 [ ] No silent failures
 [ ] Resources cleaned up properly
-```text
+```
 
 ---
 
@@ -274,7 +276,7 @@ Error Handling:
 
 **REQUIREMENT:** All C# code MUST pass modern .NET tooling checks (2026 standard).
 
-```text
+```
 C# Modern Tooling Enforcement (ALL MANDATORY):
 
 Formatting Verification:
@@ -325,7 +327,7 @@ Code Quality:
 [ ] Pattern matching used where beneficial
 [ ] LINQ queries optimized
 [ ] Async/await patterns correct
-```text
+```
 
 **Build Verification Commands:**
 ```bash
@@ -340,10 +342,10 @@ $ dotnet build /warnaserror
 Expected: Build succeeded.
              0 Warning(s)
              0 Error(s)
-```text
+```
 
 **Critical Violations (Automatic CHANGES REQUESTED):**
-```text
+```
 ❌ Formatting check fails - MAJOR
   Action: Run dotnet csharpier . and resubmit
 
@@ -361,10 +363,10 @@ Expected: Build succeeded.
 
 ❌ Missing CSharpier or Roslynator - MAJOR
   Action: Add required NuGet packages
-```text
+```
 
 **Suppression Review:**
-```text
+```
 IF analyzer suppression found THEN
   [ ] Suppression has valid justification comment
   [ ] Alternative solutions considered
@@ -375,10 +377,10 @@ IF analyzer suppression found THEN
     Request: Remove suppression and fix violation
   END IF
 END IF
-```text
+```
 
 **Modern Stack Verification:**
-```text
+```
 ✅ CORRECT Modern Stack (2026):
 <PropertyGroup>
   <EnableNETAnalyzers>true</EnableNETAnalyzers>
@@ -395,7 +397,7 @@ END IF
 <ItemGroup>
   <PackageReference Include="StyleCop.Analyzers" Version="*" />
 </ItemGroup>
-```text
+```
 
 **Reference Documents:**
 - Full modern tooling guide: `quality/clean-code/csharp-modern-tooling.md`
@@ -420,7 +422,7 @@ fi
 ```
 
 **When to Use SonarQube:**
-```text
+```
 ✓ Reviewing complex code changes
 ✓ Security-critical components
 ✓ Performance-sensitive code
@@ -445,7 +447,7 @@ python3 scripts/query-rules.py --language <lang> --type BUG --severity CRITICAL
 ```
 
 **SonarQube Analysis Dimensions:**
-```text
+```
 1. Bugs (Correctness)
    - Logic errors
    - Null pointer risks
@@ -507,7 +509,7 @@ python3 scripts/query-rules.py --language <lang> --type BUG --severity CRITICAL
 ```
 
 **SonarQube Violation Severity Mapping:**
-```text
+```
 SonarQube BLOCKER    → Review Severity: CRITICAL (MUST FIX)
 SonarQube CRITICAL   → Review Severity: CRITICAL (MUST FIX)
 SonarQube MAJOR      → Review Severity: MAJOR (MUST FIX)
@@ -517,7 +519,7 @@ SonarQube INFO       → Review Severity: MINOR (CONSIDER)
 
 **Integration with Review Process:**
 
-```text
+```
 1. Manual Review First
    - Understand code changes
    - Review against requirements
@@ -593,7 +595,7 @@ python3 scripts/query-rules.py --language python --severity BLOCKER,CRITICAL
 ```
 
 **Benefits of SonarQube Integration:**
-```text
+```
 ✅ Automated detection of 4,131+ rule violations
 ✅ Language-specific analysis (Go, Python, JavaScript, C#, Java, etc.)
 ✅ Security vulnerability scanning (OWASP Top 10)
@@ -605,7 +607,7 @@ python3 scripts/query-rules.py --language python --severity BLOCKER,CRITICAL
 ```
 
 **Limitations to Understand:**
-```text
+```
 ⚠ May produce false positives - always verify
 ⚠ Cannot understand business logic context
 ⚠ Cannot replace manual security review
@@ -614,7 +616,7 @@ python3 scripts/query-rules.py --language python --severity BLOCKER,CRITICAL
 ```
 
 **When NOT to Use SonarQube:**
-```text
+```
 ✗ SonarQube service not running (skip gracefully)
 ✗ Configuration file (.sonarqube-config) missing
 ✗ Simple documentation changes
@@ -633,7 +635,7 @@ python3 scripts/query-rules.py --language python --severity BLOCKER,CRITICAL
 
 ### Testing Checklist
 
-```text
+```
 Test Coverage:
 [ ] Coverage meets 80-90% target
 [ ] Critical paths 100% covered
@@ -654,13 +656,13 @@ Test Organization:
 [ ] Test data/fixtures appropriate
 [ ] Mocks used appropriately
 [ ] Setup/teardown proper
-```text
+```
 
 ---
 
 ### Security Checklist
 
-```text
+```
 Input Validation:
 [ ] All inputs validated
 [ ] SQL injection prevented
@@ -681,7 +683,7 @@ Authentication/Authorization:
 [ ] Session handling secure
 [ ] Token validation proper
 [ ] Least privilege principle
-```text
+```
 
 ---
 
@@ -690,29 +692,29 @@ Authentication/Authorization:
 ### Feedback Structure
 
 **Finding Format:**
-```text
+```
 Severity: [Critical | Major | Minor]
 Location: [file:line]
 Issue: [Clear description]
 Rationale: [Why this is a problem]
 Suggestion: [How to fix]
-```text
+```
 
 **Example:**
-```text
+```
 Severity: Major
 Location: src/api/auth.js:42
 Issue: Password comparison using == instead of secure comparison
 Rationale: Timing attacks possible with standard equality
 Suggestion: Use crypto.timingSafeEqual() or bcrypt.compare()
-```text
+```
 
 ---
 
 ### Severity Levels
 
 **Critical:**
-```text
+```
 - Security vulnerabilities
 - Data corruption risks
 - System stability issues
@@ -720,10 +722,10 @@ Suggestion: Use crypto.timingSafeEqual() or bcrypt.compare()
 - Test failures
 
 Action: MUST fix before approval
-```text
+```
 
 **Major:**
-```text
+```
 - Standards violations
 - [C# ONLY] CSharpier formatting failures (dotnet csharpier . --check fails)
 - [C# ONLY] .NET Analyzer violations (dotnet build /warnaserror fails)
@@ -734,10 +736,10 @@ Action: MUST fix before approval
 - Significant code smells
 
 Action: MUST fix before approval (for C# tooling violations)
-```text
+```
 
 **Minor:**
-```text
+```
 - Style inconsistencies
 - Missing comments on complex code
 - Naming improvements
@@ -745,14 +747,14 @@ Action: MUST fix before approval (for C# tooling violations)
 - Non-critical optimizations
 
 Action: Consider for improvement
-```text
+```
 
 ---
 
 ### Constructive Feedback Principles
 
 **Effective Feedback:**
-```text
+```
 ✅ Specific and actionable
 ✅ Explains the "why"
 ✅ Provides examples
@@ -765,17 +767,17 @@ Action: Consider for improvement
 ❌ Without context
 ❌ Nitpicky without reason
 ❌ Only negative
-```text
+```
 
 **Examples:**
 
 **❌ Poor Feedback:**
-```text
+```
 "This code is bad. Rewrite it."
-```text
+```
 
 **✅ Good Feedback:**
-```text
+```
 "This function has high cyclomatic complexity (complexity: 15).
 Consider extracting the validation logic into separate functions.
 This will make it easier to test and maintain.
@@ -786,7 +788,7 @@ Example refactoring:
 - validateUserData()
 
 See: src/validation/userValidator.js for similar pattern."
-```text
+```
 
 ---
 
@@ -795,7 +797,7 @@ See: src/validation/userValidator.js for similar pattern."
 ### Approval Criteria
 
 **Approve when:**
-```text
+```
 ✓ All acceptance criteria met
 ✓ All tests passing
 ✓ Coverage meets target
@@ -805,10 +807,10 @@ See: src/validation/userValidator.js for similar pattern."
 ✓ [C# ONLY] Formatting check passes: dotnet csharpier . --check
 ✓ [C# ONLY] Build passes: dotnet build /warnaserror (zero warnings)
 ✓ Documentation adequate
-```text
+```
 
 **Approval Message:**
-```text
+```
 APPROVED
 
 Summary:
@@ -823,14 +825,14 @@ Minor observations:
 - Function getUserById could use JSDoc comment
 
 Great work on the error handling and test coverage!
-```text
+```
 
 ---
 
 ### Request Changes When
 
 **Request changes for:**
-```text
+```
 ❌ Critical findings present
 ❌ Tests failing
 ❌ Coverage below target
@@ -840,10 +842,10 @@ Great work on the error handling and test coverage!
 ❌ [C# ONLY] Obsolete tooling present (StyleCop.Analyzers)
 ❌ Security issues
 ❌ Acceptance criteria not met
-```text
+```
 
 **Change Request Message:**
-```text
+```
 CHANGES REQUESTED
 
 Critical Findings: 1
@@ -873,7 +875,7 @@ Consider (Minor):
 2. [m2] Consider extracting constants
 
 Please address critical and major findings, then request re-review.
-```text
+```
 
 ---
 
@@ -882,7 +884,7 @@ Please address critical and major findings, then request re-review.
 ### Standards Reference
 
 The Reviewer role enforces all standards from:
-```text
+```
 - quality/clean-code/00-general-rules.md
 - quality/clean-code/01-design-principles.md
 - quality/clean-code/02-solid-principles.md
@@ -891,11 +893,11 @@ The Reviewer role enforces all standards from:
 - quality/clean-code/06-code-review-checklist.md
 - quality/clean-code/lang-*.md (language-specific)
 - quality/clean-code/csharp-modern-tooling.md (C# MANDATORY - 2026 standard)
-```text
+```
 
 ### Review Process Integration
 
-```text
+```
 1. Load Review Checklist
    - quality/clean-code/06-code-review-checklist.md
 
@@ -914,7 +916,7 @@ The Reviewer role enforces all standards from:
 
 6. Document Findings
    - templates/task-packet/30-review.md
-```text
+```
 
 ---
 
@@ -960,7 +962,7 @@ Update the work log (`20-work-log.md`) with concise status:
 ### [Timestamp] - Final Report
 - Review complete
 - Writing detailed findings to 30-review.md
-```text
+```
 
 **Benefits:**
 1. **Visibility**: Orchestrator can check work log to see progress
@@ -977,7 +979,7 @@ Edit(
     old_string="## Reviewer Progress\n\n",
     new_string="## Reviewer Progress\n\n### [timestamp] - Section Complete\n- Reviewed: {what}\n- Found: {summary}\n- Next: {next-section}\n\n"
 )
-```text
+```
 
 **Anti-Pattern:**
 ❌ Don't wait until review is 100% complete to update work log
@@ -1006,7 +1008,7 @@ bd unblock <task-id>
 
 # When review complete
 bd close <task-id>
-```text
+```
 
 This helps Orchestrator monitor review progress and coordinate next steps.
 
@@ -1017,16 +1019,16 @@ This helps Orchestrator monitor review progress and coordinate next steps.
 ### Approve Despite Minor Issues
 
 **Can approve if:**
-```text
+```
 ✓ No critical or major issues
 ✓ Minor issues are truly minor
 ✓ Core functionality works
 ✓ Tests comprehensive and passing
 ✓ Standards mostly followed
-```text
+```
 
 **Include minor issues as suggestions:**
-```text
+```
 "APPROVED with suggestions:
 
 Consider these improvements for future:
@@ -1035,14 +1037,14 @@ Consider these improvements for future:
 - Consider splitting 50-line function
 
 But these don't block approval - great work!"
-```text
+```
 
 ---
 
 ### Request Changes for Significant Issues
 
 **Must request changes if:**
-```text
+```
 ❌ Security vulnerabilities
 ❌ Test failures
 ❌ Low coverage (<80%)
@@ -1052,10 +1054,10 @@ But these don't block approval - great work!"
 ❌ [C# ONLY] StyleCop.Analyzers package present (obsolete)
 ❌ Requirements not met
 ❌ Architecture violations
-```text
+```
 
 **Be clear about what must be fixed:**
-```text
+```
 "CHANGES REQUESTED
 
 Must fix before approval:
@@ -1064,7 +1066,7 @@ Must fix before approval:
 3. [Major] Fix standards violations
 
 These are blocking issues. Please address and request re-review."
-```text
+```
 
 ---
 
@@ -1078,7 +1080,7 @@ These are blocking issues. Please address and request re-review."
 - Beads (`bd` command) for task tracking and coordination
   - `bd ready` - Find next review task
   - `bd show <id>` - View task details
-  - `bd start <id>` - Begin review
+  - `bd update --claim <id>` - Begin review
   - `bd block <id> "reason"` - Report blocking issues
   - `bd unblock <id>` - Clear blocking status
   - `bd close <id>` - Mark review complete
@@ -1096,7 +1098,7 @@ These are blocking issues. Please address and request re-review."
 
 ### Example 1: Feature Implementation Review
 
-```text
+```
 Review of: Add user profile editing feature
 
 Files Reviewed:
@@ -1127,13 +1129,13 @@ Suggestion: Extract to src/validation/profileValidator.js for reusability
 Overall Assessment:
 Good implementation with comprehensive tests. Address the two major
 findings (validation and error consistency), then ready for approval.
-```text
+```
 
 ---
 
 ### Example 2: Bug Fix Review
 
-```text
+```
 Review of: Fix login timeout issue
 
 Files Reviewed:
@@ -1160,7 +1162,7 @@ APPROVED
 
 Excellent bug fix with proper root cause analysis and regression test.
 The timeout configuration suggestion is minor and doesn't block approval.
-```text
+```
 
 ---
 

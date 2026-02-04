@@ -51,8 +51,15 @@ bd update --claim bd-a1b2
 # If you discover issues that block validation
 bd block bd-a1b2 "TDD violations found - Engineer must fix"
 
-# If you need to create follow-up validation tasks
-bd create "Verify regression tests for login timeout" --depends-on bd-a1b2
+# If you need to create follow-up validation tasks - ALWAYS include full description
+follow_up=$(bd create "Verify regression tests for login timeout
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_regression-tests/
+
+Verify that regression tests properly cover the login timeout scenarios.
+Check edge cases, error handling, and test coverage metrics." \
+  --depends-on bd-a1b2 --json | jq -r '.id')
 
 # Check what's ready after current validation
 bd ready
