@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -10,7 +11,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
@@ -449,7 +453,88 @@ func main() {
 		"max_concurrent", s.GetMaxConcurrent(),
 		"model", cfg.API.AnthropicModel)
 
-	if err := http.ListenAndServe(addr, handler); err != nil {
+	// Setup HTTP server with graceful shutdown
+	httpServer := &http.Server{
+		Addr:    addr,
+		Handler: handler,
+	}
+
+	// Channel to listen for errors coming from the listener
+	serverErrors := make(chan error, 1)
+
+	// Start the server in a goroutine
+	go func() {
+		monitoring.Logger.Info("http_server_starting", "address", addr)
+		serverErrors <- httpServer.ListenAndServe()
+	}()
+
+	// Channel to listen for interrupt or terminate signals
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+
+	// Block until we receive a signal or server error
+	select {
+	case err := <-serverErrors:
 		log.Fatalf("Server failed: %v", err)
+
+	case sig := <-shutdown:
+		monitoring.Logger.Info("shutdown_signal_received", "signal", sig.String())
+		log.Printf("")
+		log.Printf("🛑 Shutdown signal received (%s)", sig)
+
+		// Check for active tasks before shutting down
+		activeCount := s.GetActiveTaskCount()
+		if activeCount > 0 {
+			log.Printf("")
+			log.Printf("⚠️  WARNING: %d active task(s) currently running:", activeCount)
+			log.Printf("")
+
+			activeTasks := s.GetActiveTaskIDs()
+			for i, task := range activeTasks {
+				log.Printf("   %d. Task: %s", i+1, task["task_id"])
+				log.Printf("      Role: %s", task["role"])
+				log.Printf("      Status: %s", task["status"])
+			}
+
+			log.Printf("")
+			log.Printf("❌ Cannot shutdown with active tasks running")
+			log.Printf("")
+			log.Printf("Options:")
+			log.Printf("  1. Wait for tasks to complete naturally")
+			log.Printf("  2. Cancel tasks first:")
+			for _, task := range activeTasks {
+				log.Printf("     agent cancel %s", task["task_id"])
+			}
+			log.Printf("  3. Force shutdown (will kill active tasks): kill -9 %d", os.Getpid())
+			log.Printf("")
+
+			// Don't shutdown - keep server running
+			monitoring.Logger.Warn("shutdown_cancelled_active_tasks", "count", activeCount)
+			log.Printf("Server still running. Press Ctrl+C again after handling tasks.")
+			log.Printf("")
+
+			// Wait for another signal
+			<-shutdown
+			log.Printf("")
+			log.Printf("🛑 Second shutdown signal received - forcing shutdown")
+			log.Printf("")
+		}
+
+		// Give active tasks a moment to finish (5 seconds max)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		log.Printf("Shutting down server gracefully...")
+		if err := httpServer.Shutdown(ctx); err != nil {
+			log.Printf("Server forced to shutdown: %v", err)
+		}
+
+		// Check final state
+		if err := s.Shutdown(ctx); err != nil {
+			log.Printf("Warning during shutdown: %v", err)
+		}
+
+		monitoring.Logger.Info("server_shutdown_complete")
+		log.Printf("✅ Server shutdown complete")
 	}
 }
