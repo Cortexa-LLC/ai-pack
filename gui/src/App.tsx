@@ -657,50 +657,69 @@ function App() {
             {tasksData && (
               <div className="flex-1 min-h-0 overflow-hidden">
                 <div className="grid grid-cols-4 gap-4 h-full">
-                    {/* Queued Lane */}
+                    {/* Queued/Orphaned Lane */}
                     <div className="flex flex-col h-full min-h-0 border-2 border-blue-600 rounded-lg bg-gray-800/50">
                       <div className="bg-blue-900 border-b-2 border-blue-600 p-3 flex-shrink-0">
                         <h3 className="font-semibold text-blue-300 flex items-center justify-between text-base">
-                          <span>⏳ Queued</span>
+                          <span>⏳ Queued / Ready</span>
                           <span className="text-sm bg-blue-800 px-2 py-1 rounded-full">
-                            {tasksData.tasks.filter(t => t.status === 'QUEUED' || t.status === 'queued').length}
+                            {tasksData.tasks.filter(t => t.status === 'QUEUED' || t.status === 'queued' || t.status === 'OPEN' || t.status === 'open').length}
                           </span>
                         </h3>
                       </div>
                       <div className="flex-1 space-y-2 overflow-auto p-3">
-                        {tasksData.tasks.filter(t => t.status === 'QUEUED' || t.status === 'queued').length === 0 ? (
+                        {tasksData.tasks.filter(t => t.status === 'QUEUED' || t.status === 'queued' || t.status === 'OPEN' || t.status === 'open').length === 0 ? (
                           <div className="text-center text-gray-500 text-sm py-8">
                             No queued tasks
                           </div>
                         ) : (
                           tasksData.tasks
-                            .filter(t => t.status === 'QUEUED' || t.status === 'queued')
+                            .filter(t => t.status === 'QUEUED' || t.status === 'queued' || t.status === 'OPEN' || t.status === 'open')
                             .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-                            .map(task => (
-                              <div
-                                key={task.taskID}
-                                className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-blue-500 cursor-pointer transition-colors"
-                                onClick={() => selectTask(task.taskID)}
-                              >
-                                <div className="flex items-start justify-between mb-1">
-                                  <div className="text-xs font-medium text-white truncate flex-1" title={task.task}>
-                                    {task.task.length > 40 ? task.task.substring(0, 40) + '...' : task.task}
-                                  </div>
-                                  <button
-                                    onClick={(e) => cancelTask(task.taskID, e)}
-                                    className="ml-2 px-2 py-0.5 text-xs bg-red-600 hover:bg-red-700 text-white rounded transition-colors flex-shrink-0"
-                                    title="Cancel task"
+                            .map(task => {
+                              const isOrphaned = task.status === 'OPEN' || task.status === 'open';
+                              return (
+                                <div
+                                  key={task.taskID}
+                                  className={`bg-gray-800 border rounded-lg p-2 transition-colors ${
+                                    isOrphaned
+                                      ? 'border-orange-500 hover:border-orange-400'
+                                      : 'border-gray-700 hover:border-blue-500'
+                                  }`}
+                                >
+                                  <div
+                                    className="cursor-pointer"
+                                    onClick={() => selectTask(task.taskID)}
                                   >
-                                    🛑 Cancel
-                                  </button>
-                                </div>
-                                {task.beadsTaskID && (
-                                  <div className="text-xs text-gray-500 mb-1">
-                                    {task.beadsTaskID}
+                                    <div className="flex items-start justify-between mb-1">
+                                      <div className="text-xs font-medium text-white truncate flex-1" title={task.task}>
+                                        {isOrphaned && <span className="text-orange-400 mr-1" title="Orphaned - server restarted">⚠️</span>}
+                                        {task.task.length > 40 ? task.task.substring(0, 40) + '...' : task.task}
+                                      </div>
+                                    </div>
+                                    {task.beadsTaskID && (
+                                      <div className="text-xs text-gray-500 mb-1">
+                                        {task.beadsTaskID}
+                                      </div>
+                                    )}
+                                    {isOrphaned && (
+                                      <div className="text-xs text-orange-400 mb-2">
+                                        Orphaned - needs restart
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                              </div>
-                            ))
+                                  {isOrphaned && (
+                                    <button
+                                      onClick={(e) => retryTask(task.taskID, task.task, e)}
+                                      className="mt-2 w-full px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm rounded transition-colors flex items-center justify-center gap-2"
+                                    >
+                                      <span>🔄</span>
+                                      <span>Restart Task</span>
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })
                         )}
                       </div>
                     </div>
