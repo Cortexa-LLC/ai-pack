@@ -49,8 +49,15 @@ bd update --claim bd-a1b2
 # If you discover critical issues that block approval
 bd block bd-a1b2 "Security vulnerabilities found - Engineer must fix"
 
-# If you need to create follow-up review tasks
-bd create "Review security fix for login timeout" --depends-on bd-a1b2
+# If you need to create follow-up review tasks - ALWAYS include full description
+follow_up=$(bd create "Review security fix for login timeout
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_security-fix-review/
+
+Review the security fixes applied to address timeout vulnerabilities in the login endpoint.
+Verify XSS prevention, CSRF tokens, and rate limiting implementation." \
+  --depends-on bd-a1b2 --json | jq -r '.id')
 
 # Check what's ready after current review
 bd ready

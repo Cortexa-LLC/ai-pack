@@ -15,6 +15,36 @@ The Orchestrator is a high-level coordinator responsible for breaking down compl
 
 ---
 
+## ⚠️ CRITICAL BEADS REQUIREMENT ⚠️
+
+**EVERY** `bd create` command in this document MUST include a proper multi-line description.
+**NEVER** create tasks with just a title - always include working directory, task packet, and description.
+
+**Correct Format (ALWAYS USE THIS):**
+```bash
+task_id=$(bd create "Task Title
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_task-name/
+
+Detailed description of what needs to be done..." \
+  --priority high --json | jq -r '.id')
+```
+
+**Incorrect Format (NEVER DO THIS):**
+```bash
+# ❌ WRONG - Missing description
+bd create "Task Title" --priority high
+
+# ❌ WRONG - No working directory or task packet
+task_id=$(bd create "Task Title" --priority high --json | jq -r '.id')
+```
+
+**Note:** Some examples in this document may show abbreviated syntax for brevity.
+**Always expand them to include the full description format above.**
+
+---
+
 ## Primary Responsibilities
 
 ### 1. Task Creation with Beads (MANDATORY FIRST STEP)
@@ -52,6 +82,16 @@ ENFORCEMENT: Gate blocks if task packet exists without Beads task.
 ```
 
 **Critical Format Requirements:**
+
+⚠️ **MANDATORY:** Every `bd create` command MUST include a multi-line description with:
+1. Title (first line)
+2. Blank line
+3. `Working directory: /absolute/path/to/project`
+4. `Task packet: .ai/tasks/YYYY-MM-DD_task-name/`
+5. Blank line
+6. Detailed description of the task
+
+**NEVER create tasks with just a title** - this triggers warnings and lacks context.
 
 The Beads task description MUST include these exact patterns on their own lines:
 ```
@@ -180,7 +220,13 @@ STEP 1: Analyze user requirements
   - Check against batch size limits
 
 STEP 2: MANDATORY - Create Beads tasks for each subtask
-  bd create "Subtask 1 description" --priority high
+  task_id=$(bd create "Subtask 1 title
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_subtask-1/
+
+Detailed description of what this subtask should accomplish." \
+    --priority high --json | jq -r '.id')
 
 STEP 3: MANDATORY - Set dependencies
   bd dep add <child-id> <parent-id>
@@ -216,14 +262,77 @@ Decision: MUST decompose into small batches
 # STEP 2: Break down into small batches (5-14 files each)
 Orchestrator breaks down into tasks:
 
-bd create "Design authentication architecture [5 files: ADR, diagram, plan, security doc, API spec]" --priority high
-bd create "Implement user model with password hashing [7 files: model, service, repository, validation, tests, migration, seed data]" --priority high
-bd create "Create login API endpoint [6 files: controller, service, DTO, validation, tests, docs]" --priority normal
-bd create "Create registration API endpoint [6 files: controller, service, DTO, validation, tests, docs]" --priority normal
-bd create "Add session management [7 files: service, middleware, storage, config, tests, docs, examples]" --priority normal
-bd create "Implement authentication middleware [5 files: middleware, error handling, tests, docs, examples]" --priority normal
-bd create "Add comprehensive integration tests [5 files: test suites for auth flow, edge cases, security]" --priority normal
-bd create "Update documentation [3 files: README, API docs, security guide]" --priority low
+task1=$(bd create "Design authentication architecture
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_auth-architecture/
+
+Create ADR, system diagram, implementation plan, security documentation, and API specification.
+Estimated 5 files." \
+  --priority high --json | jq -r '.id')
+
+task2=$(bd create "Implement user model with password hashing
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_user-model/
+
+Create user model, service layer, repository pattern, validation rules, comprehensive tests,
+database migration, and seed data. Estimated 7 files." \
+  --priority high --json | jq -r '.id')
+
+task3=$(bd create "Create login API endpoint
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_login-endpoint/
+
+Implement login controller, service logic, DTOs, validation, tests, and API documentation.
+Estimated 6 files." \
+  --priority normal --json | jq -r '.id')
+
+task4=$(bd create "Create registration API endpoint
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_registration-endpoint/
+
+Implement registration controller, service logic, DTOs, validation, tests, and API documentation.
+Estimated 6 files." \
+  --priority normal --json | jq -r '.id')
+
+task5=$(bd create "Add session management
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_session-management/
+
+Create session service, middleware, storage layer, configuration, tests, documentation, and examples.
+Estimated 7 files." \
+  --priority normal --json | jq -r '.id')
+
+task6=$(bd create "Implement authentication middleware
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_auth-middleware/
+
+Create authentication middleware, error handling, tests, documentation, and usage examples.
+Estimated 5 files." \
+  --priority normal --json | jq -r '.id')
+
+task7=$(bd create "Add comprehensive integration tests
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_integration-tests/
+
+Create test suites for complete auth flow, edge cases, and security testing.
+Estimated 5 files." \
+  --priority normal --json | jq -r '.id')
+
+task8=$(bd create "Update documentation
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_docs-update/
+
+Update README, API documentation, and security guide with authentication information.
+Estimated 3 files." \
+  --priority low --json | jq -r '.id')
 
 # STEP 3: Set up dependencies (enforce sequential flow)
 bd dep add bd-b2c3 bd-a1b2  # User model depends on architecture
@@ -1425,17 +1534,32 @@ END WHEN
 **Examples:**
 ```bash
 # Spawning Engineer
-bd create "Agent: Engineer - Implement user profile API" \
+bd create "Agent: Engineer - Implement user profile API
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/2026-01-24_user-profile-api/
+
+Create REST endpoints for user profile CRUD operations with validation and tests." \
   --assignee "Engineer-1" \
   --priority high
 
 # Spawning Tester
-bd create "Agent: Tester - Validate authentication tests" \
+bd create "Agent: Tester - Validate authentication tests
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/2026-01-24_auth-tests/
+
+Run authentication test suite, validate coverage, and report failures." \
   --assignee "Tester-1" \
   --priority high
 
 # Spawning Reviewer
-bd create "Agent: Reviewer - Review login implementation" \
+bd create "Agent: Reviewer - Review login implementation
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/2026-01-24_login-review/
+
+Review login endpoint code for security issues, code quality, and best practices." \
   --assignee "Reviewer-1" \
   --priority normal
 ```

@@ -92,14 +92,47 @@ bd dep add <child-id> <parent-id>  # Add dependency
 bd show <task-id>          # View full task info
 ```
 
+### ⚠️ CRITICAL: Beads Task Description Requirement
+
+**EVERY `bd create` command MUST include a multi-line description.**
+
+**Required Format:**
+```bash
+bd create "Title
+
+Working directory: /absolute/path/to/project
+Task packet: .ai/tasks/YYYY-MM-DD_task-name/
+
+Detailed description..." --priority high
+```
+
+**NEVER create tasks with just a title** - this causes warnings:
+```bash
+# ❌ WRONG - Missing description
+bd create "Task title" --priority high
+
+# ⚠️ Creates issue without description.
+#    Issues without descriptions lack context for future work.
+```
+
+---
+
 ### Orchestrator MUST Use Beads
 
 As Orchestrator (your default role), you MUST:
 
 1. **Create Beads tasks BEFORE task packets**
    ```bash
-   # Step 1: Create Beads task
-   task_id=$(bd create "Implement user authentication" --priority high --json | jq -r '.id')
+   # Step 1: Create Beads task with FULL description (MANDATORY)
+   # ⚠️ ALWAYS include Working directory, Task packet, and detailed description
+   task_id=$(bd create "Implement user authentication
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_user-auth/
+
+Create login/logout endpoints with JWT token validation and session management.
+Include password hashing, email verification, and account lockout after failed attempts." \
+     --priority high --json | jq -r '.id')
 
    # Step 2: THEN create task packet
    /ai-pack task-init user-authentication
@@ -110,8 +143,14 @@ As Orchestrator (your default role), you MUST:
 
 2. **Track all spawned agents with Beads**
    ```bash
-   # When spawning Engineer agent
-   bd create "Agent: Engineer - Implement login API" --assignee "Engineer-1"
+   # When spawning Engineer agent - ALWAYS include full description
+   bd create "Agent: Engineer - Implement login API
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/2026-01-24_login-api/
+
+Create RESTful login endpoint with JWT generation, password validation, and rate limiting." \
+     --assignee "Engineer-1" --priority high
    ```
 
 3. **Monitor progress with Beads**

@@ -1,8 +1,3 @@
----
-sidebar_position: 11
-title: "Tester Role"
----
-
 # Tester Role
 
 **Version:** 1.0.0
@@ -41,27 +36,34 @@ bd show bd-a1b2
 # - Dependencies (if any)
 # - Current status
 # - Change history
-```text
+```
 
 **Starting Work:**
 ```bash
 # Mark validation task as in-progress
-bd start bd-a1b2
+bd update --claim bd-a1b2
 
 # This signals to Orchestrator and other agents that you're validating this task
-```text
+```
 
 **During Validation:**
 ```bash
 # If you discover issues that block validation
 bd block bd-a1b2 "TDD violations found - Engineer must fix"
 
-# If you need to create follow-up validation tasks
-bd create "Verify regression tests for login timeout" --depends-on bd-a1b2
+# If you need to create follow-up validation tasks - ALWAYS include full description
+follow_up=$(bd create "Verify regression tests for login timeout
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/$(date +%Y-%m-%d)_regression-tests/
+
+Verify that regression tests properly cover the login timeout scenarios.
+Check edge cases, error handling, and test coverage metrics." \
+  --depends-on bd-a1b2 --json | jq -r '.id')
 
 # Check what's ready after current validation
 bd ready
-```text
+```
 
 **Completing Work:**
 ```bash
@@ -70,19 +72,19 @@ bd close bd-a1b2
 
 # Find next validation task
 bd ready
-```text
+```
 
 **Beads Workflow Summary:**
-```text
+```
 1. bd ready           → Find next validation task
 2. bd show <id>       → Review what needs validation
-3. bd start <id>      → Begin validation
+3. bd update --claim <id>      → Begin validation
 4. [Check TDD]        → Verify test-first approach
 5. [Check coverage]   → Verify test sufficiency
 6. [Check quality]    → Verify test quality
 7. bd close <id>      → Mark validation complete (or bd block if issues found)
 8. bd ready           → Find next task
-```text
+```
 
 **Why Use Beads:**
 - ✅ Tasks persist across AI sessions (no memory loss)
@@ -110,7 +112,7 @@ bd unblock bd-a1b2
 
 # Mark complete when finished
 bd close bd-a1b2
-```text
+```
 
 The Orchestrator monitors these Beads tasks to track validation progress, so keeping them updated helps coordination.
 
@@ -125,7 +127,7 @@ The Orchestrator monitors these Beads tasks to track validation progress, so kee
 **CRITICAL:** This is a BLOCKING gate. See [TDD Enforcement Gate](../gates/05-tdd-enforcement.md).
 
 **TDD Verification (MANDATORY):**
-```text
+```
 1. Red-Green-Refactor Cycle Evidence (BLOCKING)
    ✓ Tests written BEFORE implementation? (MANDATORY)
    ✓ Tests initially failed (RED)? (MANDATORY)
@@ -141,10 +143,10 @@ The Orchestrator monitors these Beads tasks to track validation progress, so kee
    ✓ Test files created/modified BEFORE implementation files? (MANDATORY)
    ✓ Tests define expected behavior? (MANDATORY)
    ✓ Implementation satisfies test expectations? (MANDATORY)
-```text
+```
 
 **TDD Compliance Check (BLOCKING):**
-```text
+```
 FOR each implemented feature or bug fix:
   STEP 1: Review git history for test-first pattern
     - Check commit timestamps
@@ -203,7 +205,7 @@ FOR each implemented feature or bug fix:
     Continue to Step 2 (Coverage Verification)
   END ELSE
 END FOR
-```text
+```
 
 **NO EXCEPTIONS** - TDD is MANDATORY per [TDD Enforcement Gate](../gates/05-tdd-enforcement.md)
 
@@ -214,7 +216,7 @@ END FOR
 **Responsibility:** Ensure test coverage and test scenarios are comprehensive.
 
 **Coverage Requirements:**
-```text
+```
 Quantitative Targets:
 ✓ Overall coverage: 80-90% (MANDATORY)
 ✓ Critical business logic: 95%+ (MANDATORY)
@@ -226,10 +228,10 @@ Acceptable Exceptions:
 ⚠ UI-only components (testing library dependent)
 ⚠ Generated code (must be documented)
 ⚠ Third-party wrapper code (with justification)
-```text
+```
 
 **Scenario Coverage:**
-```text
+```
 Required Test Scenarios:
 ✓ Happy path (primary use case)
 ✓ Edge cases (boundary conditions)
@@ -239,10 +241,10 @@ Required Test Scenarios:
 ✓ Performance edge cases (if applicable)
 ✓ Security scenarios (auth, validation)
 ✓ Integration scenarios (API, DB, external services)
-```text
+```
 
 **Coverage Verification Procedure:**
-```text
+```
 STEP 1: Run coverage tool and generate report
   npm test -- --coverage
   pytest --cov=src tests/
@@ -269,7 +271,7 @@ STEP 4: Assess gap severity
   END IF
 
 STEP 5: Document findings in 30-review.md
-```text
+```
 
 **CRITICAL: Progress Reporting**
 
@@ -305,7 +307,7 @@ When running as a spawned agent, update work log regularly with progress:
 ### [Timestamp] - Final Report
 - Validation complete
 - Writing findings to 30-review.md
-```text
+```
 
 **Update frequency**: After each major phase (TDD check, coverage run, quality analysis)
 
@@ -325,7 +327,7 @@ bd unblock <task-id>
 
 # When validation complete
 bd close <task-id>
-```text
+```
 
 This helps Orchestrator track validation progress.
 
@@ -336,7 +338,7 @@ This helps Orchestrator track validation progress.
 **Responsibility:** Verify tests are meaningful, maintainable, and follow best practices.
 
 **Test Quality Dimensions:**
-```text
+```
 1. Test Clarity
    ✓ Test names descriptive (what/when/expected)?
    ✓ Test intent clear from reading?
@@ -366,10 +368,10 @@ This helps Orchestrator track validation progress.
    ✓ Tests black-box where possible?
    ✓ Tests resilient to refactoring?
    ✓ Tests document intended behavior?
-```text
+```
 
 **Test Quality Checklist:**
-```text
+```
 Naming and Organization:
 [ ] Tests follow naming convention (test_*, *_test.*, *Test)
 [ ] Test names describe scenario clearly
@@ -399,7 +401,7 @@ Assertions:
 [ ] Error messages helpful
 [ ] Appropriate assertion methods used
 [ ] No commented-out assertions
-```text
+```
 
 ---
 
@@ -408,7 +410,7 @@ Assertions:
 **Responsibility:** Ensure appropriate mix of test types.
 
 **Test Pyramid Validation:**
-```text
+```
 Required Test Types:
 
 1. Unit Tests (Base - 70% of tests)
@@ -444,7 +446,7 @@ IF no e2e tests for critical workflows THEN
   MAJOR: E2E coverage insufficient
   Risk: User-facing bugs
 END IF
-```text
+```
 
 ---
 
@@ -453,7 +455,7 @@ END IF
 **Responsibility:** Verify tests execute correctly and integrate with CI/CD.
 
 **Test Execution Checks:**
-```text
+```
 Local Execution:
 ✓ All tests pass locally (100%)
 ✓ Test suite runs in reasonable time
@@ -466,7 +468,7 @@ CI/CD Integration:
 ✓ Coverage thresholds enforced
 ✓ Failed tests block merge
 ✓ Flaky tests identified and documented
-```text
+```
 
 ---
 
@@ -474,7 +476,7 @@ CI/CD Integration:
 
 ### TDD Compliance Checklist
 
-```text
+```
 Process Adherence:
 [ ] Git history shows test-first pattern
 [ ] Tests committed before implementation
@@ -493,13 +495,13 @@ TDD Violations (BLOCKERS):
 [ ] Tests added after implementation as afterthought
 [ ] Tests only cover happy path
 [ ] No evidence of RED-GREEN-REFACTOR cycle
-```text
+```
 
 ---
 
 ### Coverage Completeness Checklist
 
-```text
+```
 Coverage Metrics (MANDATORY):
 [ ] Overall coverage ≥ 80%
 [ ] Critical business logic ≥ 95%
@@ -521,13 +523,13 @@ Path Coverage:
 [ ] Conditional branches covered
 [ ] Loop edge cases covered
 [ ] Exception paths covered
-```text
+```
 
 ---
 
 ### Test Quality Checklist
 
-```text
+```
 Test Design:
 [ ] Tests follow AAA/Given-When-Then pattern
 [ ] Test names descriptive and clear
@@ -551,7 +553,7 @@ Test Maintainability:
 [ ] Appropriate use of helpers/fixtures
 [ ] No test code duplication
 [ ] Tests document behavior
-```text
+```
 
 ---
 
@@ -560,17 +562,17 @@ Test Maintainability:
 ### Finding Format
 
 **Test Issue Report:**
-```text
+```
 Type: [TDD Violation | Coverage Gap | Quality Issue | Performance Issue]
 Severity: [Critical | Major | Minor]
 Location: [test file:line or coverage report reference]
 Issue: [Clear description]
 Impact: [Risk or consequence]
 Recommendation: [How to fix]
-```text
+```
 
 **Example 1 - TDD Violation:**
-```text
+```
 Type: TDD Violation
 Severity: Critical
 Location: Git history shows src/auth/login.js committed before tests
@@ -581,10 +583,10 @@ Recommendation:
   2. Write failing tests first
   3. Implement minimal code to pass tests
   4. Refactor with tests green
-```text
+```
 
 **Example 2 - Coverage Gap:**
-```text
+```
 Type: Coverage Gap
 Severity: Major
 Location: src/payment/processor.js - Lines 45-67 uncovered
@@ -595,10 +597,10 @@ Recommendation: Add tests for:
   - Declined card handling
   - Insufficient funds scenario
   - Payment gateway error responses
-```text
+```
 
 **Example 3 - Test Quality:**
-```text
+```
 Type: Quality Issue
 Severity: Minor
 Location: tests/api/users.test.js:89-120
@@ -606,14 +608,14 @@ Issue: Test suite uses sleeps/waits for async operations
 Impact: Flaky tests; slow test execution (3s per test)
 Recommendation: Use proper async/await patterns or test library utilities
   Example: await waitFor(() => expect(...)) instead of setTimeout()
-```text
+```
 
 ---
 
 ### Severity Levels
 
 **Critical (BLOCKS APPROVAL):**
-```text
+```
 - TDD process not followed (tests after implementation)
 - Overall coverage < 80%
 - Critical business logic untested
@@ -622,10 +624,10 @@ Recommendation: Use proper async/await patterns or test library utilities
 - Security scenarios untested
 
 Action: MUST fix before approval, request re-test
-```text
+```
 
 **Major (SHOULD FIX):**
-```text
+```
 - Coverage gaps in important code paths
 - Error handling not tested
 - Edge cases missing
@@ -634,10 +636,10 @@ Action: MUST fix before approval, request re-test
 - Missing integration tests
 
 Action: SHOULD fix before approval
-```text
+```
 
 **Minor (CONSIDER):**
-```text
+```
 - Test naming improvements
 - Test refactoring opportunities
 - Additional edge cases
@@ -645,7 +647,7 @@ Action: SHOULD fix before approval
 - Performance optimizations
 
 Action: Consider for improvement, doesn't block
-```text
+```
 
 ---
 
@@ -654,7 +656,7 @@ Action: Consider for improvement, doesn't block
 ### Approval Criteria
 
 **Approve when:**
-```text
+```
 ✓ TDD process followed (evidence in git history)
 ✓ All tests passing (100%)
 ✓ Coverage ≥ 80% overall
@@ -664,10 +666,10 @@ Action: Consider for improvement, doesn't block
 ✓ Test quality high (clear, independent, fast)
 ✓ Appropriate test pyramid (unit > integration > e2e)
 ✓ No critical or major findings
-```text
+```
 
 **Approval Message:**
-```text
+```
 TEST VALIDATION: APPROVED
 
 TDD Compliance: ✓ PASS
@@ -698,14 +700,14 @@ Minor Suggestions:
 - Tests in auth.test.js could use more descriptive names
 
 Excellent TDD discipline and comprehensive test coverage!
-```text
+```
 
 ---
 
 ### Request Changes When
 
 **Request changes for:**
-```text
+```
 ❌ TDD not followed (implementation before tests)
 ❌ Tests failing
 ❌ Coverage < 80%
@@ -714,10 +716,10 @@ Excellent TDD discipline and comprehensive test coverage!
 ❌ Integration points untested
 ❌ Tests flaky or unreliable
 ❌ Major test quality issues
-```text
+```
 
 **Change Request Message:**
-```text
+```
 TEST VALIDATION: CHANGES REQUIRED
 
 Critical Issues: 2
@@ -784,7 +786,7 @@ MINOR (CONSIDER):
 Suggestion: Extract payment test fixtures to fixtures/payment.js
 
 Please address critical and major findings, then request re-validation.
-```text
+```
 
 ---
 
@@ -793,16 +795,16 @@ Please address critical and major findings, then request re-validation.
 ### Standards Reference
 
 The Tester role enforces testing standards from:
-```text
+```
 - quality/clean-code/04-testing.md
 - quality/engineering-standards.md (TDD sections)
 - gates/00-global-gates.md (Gate 7: Test-Driven Development)
 - gates/30-verification.md (Test coverage requirements)
-```text
+```
 
 ### TDD Principles Enforced
 
-```text
+```
 1. Test First
    - Tests written before implementation
    - Tests define expected behavior
@@ -822,7 +824,7 @@ The Tester role enforces testing standards from:
    - Tests run quickly
    - Immediate failure detection
    - Continuous validation
-```text
+```
 
 ---
 
@@ -830,7 +832,7 @@ The Tester role enforces testing standards from:
 
 ### Block Approval When:
 
-```text
+```
 ❌ BLOCKING CONDITIONS (Any one blocks approval):
 
 1. TDD Violations
@@ -879,11 +881,11 @@ The Tester role enforces testing standards from:
    - Auth/authorization untested
    - Input validation untested
    - Security scenarios missing
-```text
+```
 
 ### Approve Despite Minor Issues:
 
-```text
+```
 ✅ CAN APPROVE when:
 
 Minor issues present BUT:
@@ -902,7 +904,7 @@ Consider these improvements:
 - Consider additional edge case tests
 
 These don't block approval - excellent test discipline!"
-```text
+```
 
 ---
 
@@ -916,7 +918,7 @@ These don't block approval - excellent test discipline!"
 - Beads (`bd` command) for task tracking and coordination
   - `bd ready` - Find next validation task
   - `bd show <id>` - View task details
-  - `bd start <id>` - Begin validation
+  - `bd update --claim <id>` - Begin validation
   - `bd block <id> "reason"` - Report blocking issues
   - `bd unblock <id>` - Clear blocking status
   - `bd close <id>` - Mark validation complete
@@ -945,7 +947,7 @@ go tool cover -html=coverage.out
 # Java
 mvn test
 mvn test jacoco:report
-```text
+```
 
 ### Reference Materials
 - [Testing Standards](../quality/clean-code/04-testing.md)
