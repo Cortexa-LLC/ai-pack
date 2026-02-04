@@ -28,6 +28,12 @@ import (
 const (
 	Version = "2.1.0"
 
+	// Token limits and thresholds
+	MaxContextTokens      = 200000 // Claude API limit
+	SafeTokenThreshold    = 180000 // Start aggressive truncation at 90%
+	EmergencyThreshold    = 190000 // Emergency summarization at 95%
+	TokensPerChar         = 0.25   // Rough estimate: 4 chars per token
+
 	// Content block types
 	ContentTypeText    = "text"
 	ContentTypeToolUse = "tool_use"
@@ -775,6 +781,32 @@ func convertToToolUnionParams(tools []anthropic.ToolParam) []anthropic.ToolUnion
 	return result
 }
 
+// estimateTokenCount provides a rough estimate of token count for context management
+// Uses character-based estimation (roughly 4 chars per token for English text)
+func estimateTokenCount(text string) int {
+	return int(float64(len(text)) * TokensPerChar)
+}
+
+// estimateMessagesTokenCount estimates total tokens for a slice of messages
+func estimateMessagesTokenCount(messages []anthropic.MessageParam, systemPrompt []anthropic.TextBlockParam) int {
+	total := 0
+
+	// Count system prompt
+	for _, block := range systemPrompt {
+		total += estimateTokenCount(block.Text)
+	}
+
+	// Count messages
+	for _, msg := range messages {
+		// Estimate based on message content
+		// Note: This is a rough estimate; actual tokens may vary
+		msgJSON, _ := json.Marshal(msg)
+		total += estimateTokenCount(string(msgJSON))
+	}
+
+	return total
+}
+
 // executeAgenticLoop runs the agentic loop with tool support
 func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, initialPrompt string, roleContext string, workingDir string, config *AgentConfig, logMsg func(string)) (string, error) {
 	// Define tools (matches Claude Code's exact tool names)
@@ -788,8 +820,17 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 		anthropic.NewUserMessage(anthropic.NewTextBlock(initialPrompt)),
 	}
 
+	// Estimate initial context size and warn if large
+	initialTokens := estimateMessagesTokenCount(messages, systemPrompt)
 	logMsg(fmt.Sprintf("🔄 Starting agentic loop (max_inactive: %d, caching: enabled, extended_thinking: %v)",
 		s.maxInactiveTurns, config.ExtendedThinking))
+	logMsg(fmt.Sprintf("   Initial context: ~%d tokens (limit: %d)", initialTokens, MaxContextTokens))
+
+	if initialTokens > SafeTokenThreshold {
+		logMsg(fmt.Sprintf("   ⚠️  WARNING: Initial context is large (%d tokens > %d threshold)",
+			initialTokens, SafeTokenThreshold))
+		logMsg("   💡 Consider using a more concise role context or task description")
+	}
 
 	var finalResult strings.Builder
 	totalInputTokens := int64(0)
@@ -804,12 +845,30 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 	for {
 		logMsg(fmt.Sprintf("   Turn %d (inactive: %d)...", turn, inactiveTurns))
 
-		// Truncate conversation history to prevent quadratic token growth
-		// Keep first message (initial prompt) + last N turns
-		// With prompt caching enabled, we can afford more history (cached tokens are 10x cheaper)
-		const maxHistoryTurns = 25
+		// Estimate current token count to prevent API failures
+		estimatedTokens := estimateMessagesTokenCount(messages, systemPrompt)
+
+		// Determine truncation strategy based on token count
+		var maxHistoryTurns int
 		const messagesPerTurn = 2 // Each turn: assistant message + user tool results
 
+		if estimatedTokens > EmergencyThreshold {
+			// EMERGENCY: Very aggressive truncation - keep only last 5 turns
+			maxHistoryTurns = 5
+			logMsg(fmt.Sprintf("      ⚠️  EMERGENCY: Estimated %d tokens (>%d) - aggressive truncation to last %d turns",
+				estimatedTokens, EmergencyThreshold, maxHistoryTurns))
+		} else if estimatedTokens > SafeTokenThreshold {
+			// WARNING: Moderate truncation - keep last 10 turns
+			maxHistoryTurns = 10
+			logMsg(fmt.Sprintf("      ⚠️  WARNING: Estimated %d tokens (>%d) - reducing history to last %d turns",
+				estimatedTokens, SafeTokenThreshold, maxHistoryTurns))
+		} else {
+			// NORMAL: Standard truncation - keep last 25 turns
+			maxHistoryTurns = 25
+		}
+
+		// Truncate conversation history to prevent token overflow
+		// Keep first message (initial prompt) + last N turns based on token count
 		truncatedMessages := messages
 		if len(messages) > 1+maxHistoryTurns*messagesPerTurn {
 			firstMsg := messages[0] // Keep initial prompt with task context
@@ -817,10 +876,19 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 			truncatedMessages = append([]anthropic.MessageParam{firstMsg}, recentMsgs...)
 
 			// Log truncation for visibility
-			if turn%10 == 0 { // Log every 10 turns to avoid spam
-				logMsg(fmt.Sprintf("      📉 Truncated history: %d → %d messages (keeping last %d turns)",
-					len(messages), len(truncatedMessages), maxHistoryTurns))
+			if turn%10 == 0 || estimatedTokens > SafeTokenThreshold { // Log more frequently when near limit
+				logMsg(fmt.Sprintf("      📉 Truncated history: %d → %d messages (keeping last %d turns, est. %d tokens)",
+					len(messages), len(truncatedMessages), maxHistoryTurns, estimatedTokens))
 			}
+		}
+
+		// Final safety check: If still over limit after truncation, fail fast with clear error
+		finalEstimate := estimateMessagesTokenCount(truncatedMessages, systemPrompt)
+		if finalEstimate > MaxContextTokens {
+			errMsg := fmt.Sprintf("context too large: estimated %d tokens exceeds %d token limit even after aggressive truncation. This task requires more summarization or breaking into smaller subtasks.",
+				finalEstimate, MaxContextTokens)
+			logMsg(fmt.Sprintf("❌ %s", errMsg))
+			return "", fmt.Errorf(errMsg)
 		}
 
 		// Prepare API params with system prompt (SDK v1.19+ uses direct values, not F() wrappers)
@@ -876,6 +944,19 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 		}
 
 		if err := stream.Err(); err != nil {
+			errMsg := err.Error()
+
+			// Check for token limit errors and provide actionable guidance
+			if strings.Contains(errMsg, "prompt is too long") || strings.Contains(errMsg, "maximum") {
+				logMsg(fmt.Sprintf("❌ Context size exceeded API limit on turn %d", turn))
+				logMsg(fmt.Sprintf("   Estimated tokens before call: %d", finalEstimate))
+				logMsg(fmt.Sprintf("   💡 Recommendation: Break this task into smaller subtasks"))
+
+				return "", fmt.Errorf("API token limit exceeded on turn %d (estimated %d tokens). "+
+					"This task is too complex for a single agent execution. "+
+					"Please break it into smaller subtasks: %w", turn, finalEstimate, err)
+			}
+
 			return "", fmt.Errorf("API call failed on turn %d: %w", turn, err)
 		}
 
@@ -883,7 +964,17 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 		totalInputTokens += message.Usage.InputTokens
 		totalOutputTokens += message.Usage.OutputTokens
 
-		logMsg(fmt.Sprintf("      API: %dms | in:%d out:%d (streaming)", apiDuration, message.Usage.InputTokens, message.Usage.OutputTokens))
+		// Log token usage with percentage of limit
+		tokenUsagePercent := float64(totalInputTokens+totalOutputTokens) / float64(MaxContextTokens) * 100
+		logMsg(fmt.Sprintf("      API: %dms | in:%d out:%d | total:%d (%.1f%% of limit)",
+			apiDuration, message.Usage.InputTokens, message.Usage.OutputTokens,
+			totalInputTokens+totalOutputTokens, tokenUsagePercent))
+
+		// Warn if cumulative usage is high
+		if totalInputTokens+totalOutputTokens > SafeTokenThreshold && turn%5 == 0 {
+			logMsg(fmt.Sprintf("      ⚠️  High cumulative token usage: %d tokens (%.1f%% of limit)",
+				totalInputTokens+totalOutputTokens, tokenUsagePercent))
+		}
 
 		// Record per-turn token metrics
 		monitoring.GlobalMetrics.RecordTurnTokens(taskID, turn, int64(message.Usage.InputTokens), int64(message.Usage.OutputTokens), apiDuration)
@@ -1773,5 +1864,56 @@ func (s *AgentServer) archiveTask(projectRoot string, task *beads.Task) error {
 		"title", task.Title,
 		"archive_path", destDir)
 
+	return nil
+}
+
+// GetActiveTaskCount returns the number of currently running tasks
+func (s *AgentServer) GetActiveTaskCount() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.activeTasks)
+}
+
+// GetActiveTaskIDs returns a list of active task IDs and their roles
+func (s *AgentServer) GetActiveTaskIDs() []map[string]string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	tasks := make([]map[string]string, 0, len(s.activeTasks))
+	for taskID, execution := range s.activeTasks {
+		tasks = append(tasks, map[string]string{
+			"task_id": taskID,
+			"role":    execution.Role,
+			"status":  execution.Status,
+		})
+	}
+	return tasks
+}
+
+// Shutdown performs graceful shutdown of the server
+// Returns true if shutdown should proceed, false if user cancelled
+func (s *AgentServer) Shutdown(ctx context.Context) error {
+	monitoring.Logger.Info("shutdown_initiated")
+
+	// Check for active tasks
+	activeCount := s.GetActiveTaskCount()
+	if activeCount > 0 {
+		activeTasks := s.GetActiveTaskIDs()
+		monitoring.Logger.Warn("shutdown_with_active_tasks",
+			"count", activeCount,
+			"tasks", activeTasks)
+
+		// Log details about active tasks
+		for _, task := range activeTasks {
+			monitoring.Logger.Warn("active_task_during_shutdown",
+				"task_id", task["task_id"],
+				"role", task["role"],
+				"status", task["status"])
+		}
+
+		return fmt.Errorf("cannot shutdown: %d active task(s) running. Wait for completion or cancel tasks first", activeCount)
+	}
+
+	monitoring.Logger.Info("shutdown_complete", "active_tasks", 0)
 	return nil
 }
