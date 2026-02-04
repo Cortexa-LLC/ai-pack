@@ -61,8 +61,22 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 		// Convert beads tasks to TaskInfo
 		for _, beadsTask := range beadsTasks {
 			taskID := beadsTask.ID
-			// Skip if already in tasks map (active tasks take precedence)
+
+			// Skip if already in tasks map by task ID
 			if _, exists := tasks[taskID]; exists {
+				continue
+			}
+
+			// Also skip if an active task already has this beads task ID
+			// This prevents duplicates when an active agent task was spawned from this beads task
+			alreadyExists := false
+			for _, existingTask := range tasks {
+				if existingTask.BeadsTaskID != nil && *existingTask.BeadsTaskID == taskID {
+					alreadyExists = true
+					break
+				}
+			}
+			if alreadyExists {
 				continue
 			}
 
@@ -237,10 +251,21 @@ func (a *GraphQLAdapter) GetMetrics() *graphql.MetricsInfo {
 	// Get metrics snapshot
 	snapshot := monitoring.GlobalMetrics.GetSnapshot()
 
-	// Count active tasks
-	a.server.mu.RLock()
-	activeCount := len(a.server.activeTasks)
-	a.server.mu.RUnlock()
+	// Count active tasks by querying actual state from Beads (not just in-memory map)
+	// This ensures consistency with swimlane counts
+	activeCount := 0
+	projectRoots := a.server.GetProjectRoots()
+	for _, projectRoot := range projectRoots {
+		beadsTasks, err := a.server.beadsClient.ListAllTasksFromDir(projectRoot)
+		if err != nil {
+			continue
+		}
+		for _, task := range beadsTasks {
+			if task.Status == "in_progress" {
+				activeCount++
+			}
+		}
+	}
 
 	// Calculate total tokens
 	totalTokens := snapshot.TotalInputTokens + snapshot.TotalOutputTokens

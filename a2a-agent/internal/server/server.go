@@ -1560,13 +1560,17 @@ func (s *AgentServer) cleanupInactiveProjects() {
 
 // handleOrphanedTasks checks for beads tasks that are in_progress but have no active execution
 // This happens when the server restarts while tasks were running
+// Also cleans up stale entries in activeTasks map where Beads shows task as completed/failed
 func (s *AgentServer) handleOrphanedTasks() {
 	// Wait a bit for server to fully initialize
 	time.Sleep(2 * time.Second)
 
 	projectRoots := s.GetProjectRoots()
 	orphanedCount := 0
+	staleCount := 0
 
+	// Build a map of all Beads tasks by ID for quick lookup
+	beadsTasksByID := make(map[string]*beads.Task)
 	for _, projectRoot := range projectRoots {
 		beadsTasks, err := s.beadsClient.ListAllTasksFromDir(projectRoot)
 		if err != nil {
@@ -1574,37 +1578,66 @@ func (s *AgentServer) handleOrphanedTasks() {
 		}
 
 		for _, beadsTask := range beadsTasks {
-			// Only check tasks that are marked as in_progress in beads
-			if beadsTask.Status != "in_progress" {
-				continue
-			}
+			beadsTasksByID[beadsTask.ID] = &beadsTask
 
-			// Check if there's an active execution for this task
-			s.mu.RLock()
-			_, hasActiveTask := s.activeTasks[beadsTask.ID]
-			s.mu.RUnlock()
+			// Check for orphaned tasks (marked in_progress in Beads but not running)
+			if beadsTask.Status == "in_progress" {
+				s.mu.RLock()
+				_, hasActiveTask := s.activeTasks[beadsTask.ID]
+				s.mu.RUnlock()
 
-			if !hasActiveTask {
-				// This is an orphaned task - it's marked in_progress but not running
-				// Mark it as open (queued) so it can be picked up again
-				monitoring.Logger.Warn("orphaned_task_detected",
-					"task_id", beadsTask.ID,
-					"title", beadsTask.Title,
-					"project", projectRoot,
-				)
+				if !hasActiveTask {
+					// This is an orphaned task - it's marked in_progress but not running
+					monitoring.Logger.Warn("orphaned_task_detected",
+						"task_id", beadsTask.ID,
+						"title", beadsTask.Title,
+						"project", projectRoot,
+					)
 
-				// TODO: Decide if we should:
-				// 1. Auto-restart the task (could be risky if it failed for a reason)
-				// 2. Mark it as failed
-				// 3. Reset it to "open" status
-				// For now, just log it - user can manually restart if needed
-				orphanedCount++
+					// TODO: Decide if we should:
+					// 1. Auto-restart the task (could be risky if it failed for a reason)
+					// 2. Mark it as failed
+					// 3. Reset it to "open" status
+					// For now, just log it - user can manually restart if needed
+					orphanedCount++
+				}
 			}
 		}
 	}
 
-	if orphanedCount > 0 {
-		monitoring.Logger.Info("orphaned_tasks_summary", "count", orphanedCount)
+	// Check for stale entries in activeTasks - tasks that are no longer in_progress in Beads
+	s.mu.Lock()
+	for taskID, execution := range s.activeTasks {
+		beadsTask, exists := beadsTasksByID[taskID]
+
+		// If task doesn't exist in Beads or is no longer in_progress, remove from activeTasks
+		if !exists || (beadsTask.Status != "in_progress") {
+			monitoring.Logger.Warn("stale_active_task_removed",
+				"task_id", taskID,
+				"beads_exists", exists,
+				"beads_status", func() string {
+					if beadsTask != nil {
+						return beadsTask.Status
+					}
+					return "not_found"
+				}(),
+			)
+			delete(s.activeTasks, taskID)
+
+			// Close the stream if it exists
+			if execution.streamChan != nil {
+				s.closeStream(execution)
+			}
+			staleCount++
+		}
+	}
+	s.mu.Unlock()
+
+	if orphanedCount > 0 || staleCount > 0 {
+		monitoring.Logger.Info("task_cleanup_summary",
+			"orphaned", orphanedCount,
+			"stale_removed", staleCount,
+		)
 	}
 }
 

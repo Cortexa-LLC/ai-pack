@@ -31,6 +31,53 @@ function formatNumber(num: number): string {
 }
 
 /**
+ * Filter and clean log lines - removes JSON structured logs and formats escaped newlines
+ */
+function filterLogLines(lines: string[]): string[] {
+  const filtered: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Filter out empty lines
+    if (!trimmed) continue;
+
+    // Filter out JSON structured log lines (start with { and contain typical log fields)
+    if (trimmed.startsWith('{') && (trimmed.includes('"time"') || trimmed.includes('"level"') || trimmed.includes('"msg"'))) {
+      continue;
+    }
+
+    // Check if line contains many escaped newlines (likely serialized output)
+    // If it has more than 10 \n sequences, it's probably a large text block that should be split
+    const escapedNewlineCount = (trimmed.match(/\\n/g) || []).length;
+    if (escapedNewlineCount > 10) {
+      // Split on \n and add each part as a separate line, filtering out JSON artifacts
+      const parts = trimmed.split('\\n')
+        .map((p: string) => p.trim())
+        .filter((p: string) => {
+          // Filter out empty parts
+          if (!p) return false;
+          // Filter out parts that are only JSON delimiters
+          // Be aggressive: remove anything that looks like JSON wrapper
+          if (p.match(/^["']*[}{\]]+["']*$/)) {
+            return false;
+          }
+          return true;
+        });
+      filtered.push(...parts);
+    } else {
+      // Normal line, just add it (but still filter JSON wrapper artifacts)
+      if (trimmed.match(/^["']*[}{\]]+["']*$/)) {
+        continue;
+      }
+      filtered.push(line);
+    }
+  }
+
+  return filtered;
+}
+
+/**
  * Main application component for AI-Pack monitoring dashboard
  */
 function App() {
@@ -260,6 +307,8 @@ function App() {
   const selectTask = (taskId: string) => {
     setSelectedTask(taskId);
     setActiveTab('task-logs');
+    // Push to browser history so back button works
+    window.history.pushState({ taskId, tab: 'task-logs' }, '', `#task/${taskId}`);
   };
 
   const cancelTask = async (taskID: string, event?: React.MouseEvent) => {
@@ -366,6 +415,10 @@ function App() {
     // Clear logs immediately when switching tasks to avoid showing stale logs
     setLogs([]);
 
+    // Check if task is active (only check once, don't refetch when tasksData updates)
+    const task = tasksData?.tasks.find(t => t.taskID === selectedTask);
+    const isActiveTask = task?.status === 'IN_PROGRESS' || task?.status === 'in_progress';
+
     // Fetch initial logs
     fetch(`http://localhost:8080/a2a/tasks/${selectedTask}/logs`)
       .then(res => {
@@ -379,8 +432,9 @@ function App() {
           setLogs(['No logs available for this task']);
           return;
         }
-        const logLines = text.split('\n').filter(line => line.trim());
-        setLogs(logLines.length > 0 ? logLines : ['No logs available']);
+        const allLines = text.split('\n');
+        const filteredLines = filterLogLines(allLines);
+        setLogs(filteredLines.length > 0 ? filteredLines : ['No logs available']);
       })
       .catch(err => {
         console.error('Error fetching logs:', err);
@@ -397,10 +451,6 @@ function App() {
       });
 
     // Set up SSE for log streaming (only for active tasks)
-    // Find the task to check if it's still running
-    const task = tasksData?.tasks.find(t => t.taskID === selectedTask);
-    const isActiveTask = task?.status === 'IN_PROGRESS' || task?.status === 'in_progress';
-
     if (isActiveTask) {
       try {
         const eventSource = new EventSource(`http://localhost:8080/a2a/tasks/${selectedTask}/logs?stream=true`);
@@ -416,7 +466,37 @@ function App() {
           try {
             const logData = JSON.parse(event.data);
             if (logData.line && logData.line.trim()) {
-              setLogs(prev => [...prev, logData.line]);
+              const line = logData.line;
+              const trimmed = line.trim();
+
+              // Filter out JSON structured logs
+              if (trimmed.startsWith('{') && (trimmed.includes('"time"') || trimmed.includes('"level"') || trimmed.includes('"msg"'))) {
+                return; // Skip JSON log lines
+              }
+
+              // Check if line contains many escaped newlines (likely serialized output)
+              const escapedNewlineCount = (trimmed.match(/\\n/g) || []).length;
+              if (escapedNewlineCount > 10) {
+                // Split on \n and add each part as a separate line, filtering out JSON artifacts
+                const parts = trimmed.split('\\n')
+                  .map((p: string) => p.trim())
+                  .filter((p: string) => {
+                    // Filter out empty parts
+                    if (!p) return false;
+                    // Filter out parts that are only JSON delimiters - be aggressive
+                    if (p.match(/^["']*[}{\]]+["']*$/)) {
+                      return false;
+                    }
+                    return true;
+                  });
+                setLogs(prev => [...prev, ...parts]);
+              } else {
+                // Normal line - filter JSON wrapper artifacts aggressively
+                if (trimmed.match(/^["']*[}{\]]+["']*$/)) {
+                  return; // Skip JSON wrapper characters
+                }
+                setLogs(prev => [...prev, line]);
+              }
             }
           } catch (err) {
             console.error('Failed to parse log data:', err);
@@ -441,7 +521,34 @@ function App() {
         console.error('Failed to set up SSE:', err);
       }
     }
-  }, [selectedTask, tasksData, activeTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTask, activeTab]);
+
+  // Handle browser back button
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      // If user presses back, return to tasks view
+      if (event.state?.taskId) {
+        // Going back from a task, but history has task state - do nothing
+        return;
+      } else if (selectedTask) {
+        // Going back from task logs to tasks view
+        setSelectedTask(null);
+        setActiveTab('tasks');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    // Set initial state if needed
+    if (!window.history.state) {
+      window.history.replaceState({ tab: 'tasks' }, '', '#tasks');
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [selectedTask]);
 
   return (
     <div className="h-screen flex flex-col bg-gray-900 text-white">
@@ -508,8 +615,8 @@ function App() {
                   )}
                   <button
                     onClick={() => {
-                      setSelectedTask(null);
-                      setActiveTab('tasks');
+                      // Use browser back to maintain history
+                      window.history.back();
                     }}
                     className="text-gray-400 hover:text-white text-sm px-2"
                   >
@@ -916,7 +1023,7 @@ function App() {
                   ) : (
                     <div className="space-y-1">
                       {logs.map((log, idx) => (
-                        <div key={idx} className="text-gray-300 whitespace-pre-wrap break-words">
+                        <div key={`${selectedTask}-${idx}-${log.substring(0, 20)}`} className="text-gray-300 whitespace-pre-wrap break-words">
                           {log}
                         </div>
                       ))}
