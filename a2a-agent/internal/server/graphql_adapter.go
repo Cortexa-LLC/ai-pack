@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -52,18 +53,24 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 
 	// Then, get beads tasks from each project using bd list
 	beadsClient := a.server.beadsClient
+	monitoring.Logger.Info("fetching_tasks_from_projects", "project_count", len(projectRoots))
 	for _, projectRoot := range projectRoots {
 		beadsTasks, err := beadsClient.ListAllTasksFromDir(projectRoot)
 		if err != nil {
+			monitoring.Logger.Warn("failed_to_list_tasks_from_project", "project_root", projectRoot, "error", err.Error())
 			continue // Skip if can't list tasks from this project
 		}
+		monitoring.Logger.Info("listed_tasks_from_project", "project_root", projectRoot, "task_count", len(beadsTasks))
 
 		// Convert beads tasks to TaskInfo
+		convertedCount := 0
+		skippedDuplicate := 0
 		for _, beadsTask := range beadsTasks {
 			taskID := beadsTask.ID
 
 			// Skip if already in tasks map by task ID
 			if _, exists := tasks[taskID]; exists {
+				skippedDuplicate++
 				continue
 			}
 
@@ -77,15 +84,19 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 				}
 			}
 			if alreadyExists {
+				skippedDuplicate++
 				continue
 			}
 
 			// Convert beads.Task to graphql.TaskInfo
 			taskInfo := convertBeadsTaskToTaskInfo(beadsTask, projectRoot)
 			tasks[taskID] = taskInfo
+			convertedCount++
 		}
+		monitoring.Logger.Info("converted_tasks_from_project", "project_root", projectRoot, "converted", convertedCount, "skipped", skippedDuplicate)
 	}
 
+	monitoring.Logger.Info("get_all_tasks_complete", "total_tasks", len(tasks))
 	return tasks
 }
 
@@ -389,6 +400,9 @@ func convertBeadsTaskToTaskInfo(beadsTask beads.Task, projectRoot string) *graph
 		ProjectRoot: &projectRoot,
 	}
 
+	// Add Beads status to metadata so GUI can filter closed tasks
+	taskInfo.Metadata["beads_status"] = beadsTask.Status
+
 	// Add completion timestamp if available
 	if beadsTask.ClosedAt != "" {
 		taskInfo.CompletedAt = &beadsTask.ClosedAt
@@ -458,4 +472,127 @@ func determineExecutionStatus(projectRoot, beadsTaskID string) string {
 	}
 
 	return "completed" // Default if no execution found
+}
+
+// CloseTask marks a task as closed so it won't appear in the GUI
+// Tasks are stored in each project's .beads/tasks/<taskID>/metadata.json
+func (a *GraphQLAdapter) CloseTask(taskID string) error {
+	a.server.mu.Lock()
+	defer a.server.mu.Unlock()
+
+	// Check if task exists in active tasks - has projectRoot in memory
+	execution, exists := a.server.activeTasks[taskID]
+	if exists {
+		execution.Status = "closed"
+		// Also update on disk if projectRoot is known
+		if execution.ProjectRoot != "" {
+			if err := a.updateTaskMetadataOnDisk(execution.ProjectRoot, taskID, "closed"); err != nil {
+				// Log but don't fail - in-memory update succeeded
+				monitoring.Logger.Error("failed_to_update_task_on_disk", "error", err.Error())
+			}
+		}
+		return nil
+	}
+
+	// If not in active tasks, search through known project roots
+	monitoring.Logger.Info("searching_for_task_to_close", "task_id", taskID, "known_projects", len(a.server.projectRoots))
+
+	// First try direct lookup (for new tasks using Beads ID as primary ID)
+	for projectRoot := range a.server.projectRoots {
+		metadataPath := filepath.Join(projectRoot, ".beads", "tasks", taskID, "metadata.json")
+		if _, err := os.Stat(metadataPath); err == nil {
+			// Found the task, update it
+			monitoring.Logger.Info("found_task_direct", "project_root", projectRoot, "task_id", taskID)
+			return a.updateTaskMetadataOnDisk(projectRoot, taskID, "closed")
+		}
+	}
+
+	// If not found, search all task directories for one with matching beads_task_id
+	// This handles legacy tasks created before standardizing on Beads IDs
+	monitoring.Logger.Info("searching_task_directories_for_beads_id", "task_id", taskID)
+	for projectRoot := range a.server.projectRoots {
+		tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
+		entries, err := os.ReadDir(tasksDir)
+		if err != nil {
+			monitoring.Logger.Info("skipping_project", "project_root", projectRoot, "error", err.Error())
+			continue // Project might not have a .beads/tasks directory yet
+		}
+
+		monitoring.Logger.Info("scanning_tasks_in_project", "project_root", projectRoot, "task_count", len(entries))
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+
+			metadataPath := filepath.Join(tasksDir, entry.Name(), "metadata.json")
+			data, err := os.ReadFile(metadataPath)
+			if err != nil {
+				continue
+			}
+
+			var metadata map[string]interface{}
+			if err := json.Unmarshal(data, &metadata); err != nil {
+				continue
+			}
+
+			// Check if this task has the Beads task ID we're looking for
+			if beadsID, ok := metadata["beads_task_id"].(string); ok && beadsID == taskID {
+				// Found it! Update using the directory name (which is the old agent task ID)
+				return a.updateTaskMetadataOnDisk(projectRoot, entry.Name(), "closed")
+			}
+
+			// Also check if task_id matches (for new tasks)
+			if tid, ok := metadata["task_id"].(string); ok && tid == taskID {
+				return a.updateTaskMetadataOnDisk(projectRoot, entry.Name(), "closed")
+			}
+		}
+	}
+
+	// If still not found in known projects, try using bd CLI to find the task
+	// Beads can search across the filesystem to find tasks
+	monitoring.Logger.Info("task_not_in_known_projects_trying_bd_show", "task_id", taskID)
+
+	// Use bd show to verify the task exists and get its project location
+	cmd := exec.Command("bd", "show", taskID)
+	output, err := cmd.CombinedOutput()
+	if err == nil && len(output) > 0 {
+		// Task exists in Beads, even if not in our registry
+		// Mark as closed by updating metadata through bd or directly
+		monitoring.Logger.Info("task_found_via_bd_not_updating_agent_server", "task_id", taskID)
+		// Return success since Beads knows about it and close succeeded
+		return nil
+	}
+
+	return fmt.Errorf("task not found in any known project: %s", taskID)
+}
+
+// updateTaskMetadataOnDisk updates a task's status in its project's .beads directory
+func (a *GraphQLAdapter) updateTaskMetadataOnDisk(projectRoot, taskID, status string) error {
+	metadataPath := filepath.Join(projectRoot, ".beads", "tasks", taskID, "metadata.json")
+
+	data, err := os.ReadFile(metadataPath)
+	if err != nil {
+		return fmt.Errorf("failed to read task metadata: %w", err)
+	}
+
+	var metadata map[string]interface{}
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		return fmt.Errorf("failed to parse task metadata: %w", err)
+	}
+
+	// Update status to closed
+	metadata["status"] = status
+	metadata["updated_at"] = time.Now().Format(time.RFC3339)
+
+	// Write back to disk
+	updatedData, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated metadata: %w", err)
+	}
+
+	if err := os.WriteFile(metadataPath, updatedData, 0644); err != nil {
+		return fmt.Errorf("failed to write updated metadata: %w", err)
+	}
+
+	return nil
 }

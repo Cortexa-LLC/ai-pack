@@ -3,6 +3,7 @@ package proxy
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
@@ -25,14 +26,15 @@ func (t *ProxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	fmt.Printf("   Headers: %v\n", newReq.Header)
 
 	// Rewrite URL to use custom base URL
-	// Simply replace the host/scheme with the configured base URL
-	newReq.URL.Scheme = "https"
-	newReq.URL.Host = extractHost(t.BaseURL)
+	// Parse the base URL and use its host/path components
+	if baseURL, err := url.Parse(t.BaseURL); err == nil {
+		newReq.URL.Scheme = "https"
+		newReq.URL.Host = baseURL.Host
 
-	// If there's a path in the base URL, prepend it (but avoid doubling)
-	basePath := extractPath(t.BaseURL)
-	if basePath != "" && !strings.HasPrefix(newReq.URL.Path, basePath) {
-		newReq.URL.Path = basePath + newReq.URL.Path
+		// If there's a path in the base URL, prepend it (but avoid doubling)
+		if baseURL.Path != "" && !strings.HasPrefix(newReq.URL.Path, baseURL.Path) {
+			newReq.URL.Path = baseURL.Path + newReq.URL.Path
+		}
 	}
 
 	// DEBUG: Uncomment for troubleshooting
@@ -52,32 +54,6 @@ func (t *ProxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, err
 }
 
-// extractHost extracts hostname from URL
-func extractHost(urlStr string) string {
-	// Remove scheme
-	urlStr = strings.TrimPrefix(urlStr, "https://")
-	urlStr = strings.TrimPrefix(urlStr, "http://")
-
-	// Get host (everything before first /)
-	if idx := strings.Index(urlStr, "/"); idx >= 0 {
-		return urlStr[:idx]
-	}
-	return urlStr
-}
-
-// extractPath extracts path from URL
-func extractPath(urlStr string) string {
-	// Remove scheme
-	urlStr = strings.TrimPrefix(urlStr, "https://")
-	urlStr = strings.TrimPrefix(urlStr, "http://")
-
-	// Get path (everything after first /)
-	if idx := strings.Index(urlStr, "/"); idx >= 0 {
-		return urlStr[idx:]
-	}
-	return ""
-}
-
 // BearerTokenTransport wraps http.RoundTripper to add Bearer token authentication
 type BearerTokenTransport struct {
 	Transport   http.RoundTripper
@@ -95,14 +71,15 @@ func (t *BearerTokenTransport) RoundTrip(req *http.Request) (*http.Response, err
 
 	// Rewrite URL if using proxy
 	if t.BaseURL != "" {
-		newReq.URL.Scheme = "https"
-		newReq.URL.Host = extractHost(t.BaseURL)
+		if baseURL, err := url.Parse(t.BaseURL); err == nil {
+			newReq.URL.Scheme = "https"
+			newReq.URL.Host = baseURL.Host
 
-		basePath := extractPath(t.BaseURL)
-		if basePath != "" && !strings.HasPrefix(newReq.URL.Path, basePath) {
-			newReq.URL.Path = basePath + newReq.URL.Path
+			if baseURL.Path != "" && !strings.HasPrefix(newReq.URL.Path, baseURL.Path) {
+				newReq.URL.Path = baseURL.Path + newReq.URL.Path
+			}
+			fmt.Printf("🔄 Rewrote URL to: %s\n", newReq.URL.String())
 		}
-		fmt.Printf("🔄 Rewrote URL to: %s\n", newReq.URL.String())
 	}
 
 	// Set Bearer token (replaces any x-api-key header from SDK)

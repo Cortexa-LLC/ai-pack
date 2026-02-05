@@ -146,7 +146,7 @@ func resolveConfigPath(explicitPath string) string {
 
 	// 2. AGENT_SERVER_CONFIG environment variable
 	if envPath := os.Getenv("AGENT_SERVER_CONFIG"); envPath != "" {
-		if fileExists(envPath) {
+		if _, err := os.Stat(envPath); err == nil {
 			return envPath
 		}
 	}
@@ -154,24 +154,18 @@ func resolveConfigPath(explicitPath string) string {
 	// 3. ~/.claude/agent-server.json (user config - DEFAULT)
 	if homeDir, err := os.UserHomeDir(); err == nil {
 		claudePath := homeDir + "/.claude/" + defaultConfigFilename
-		if fileExists(claudePath) {
+		if _, err := os.Stat(claudePath); err == nil {
 			return claudePath
 		}
 	}
 
 	// 4. ./agent-server.json (current directory - backward compat)
-	if fileExists(defaultConfigFilename) {
+	if _, err := os.Stat(defaultConfigFilename); err == nil {
 		return defaultConfigFilename
 	}
 
 	// 5. Return empty to use built-in defaults
 	return ""
-}
-
-// fileExists checks if a file exists
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
 }
 
 func applyServerOverrides(cfg *Config) {

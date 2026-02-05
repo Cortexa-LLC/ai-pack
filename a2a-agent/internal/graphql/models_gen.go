@@ -26,6 +26,25 @@ type BeadsTask struct {
 	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
+type CloseResult struct {
+	Success bool    `json:"success"`
+	TaskID  string  `json:"taskID"`
+	Message *string `json:"message,omitempty"`
+}
+
+type ExecutionEvent struct {
+	EventType  string         `json:"eventType"`
+	TaskID     string         `json:"taskID"`
+	Role       string         `json:"role"`
+	Task       string         `json:"task"`
+	Timestamp  string         `json:"timestamp"`
+	Status     *string        `json:"status,omitempty"`
+	Error      *string        `json:"error,omitempty"`
+	DurationMs *int           `json:"durationMs,omitempty"`
+	Result     *string        `json:"result,omitempty"`
+	Metadata   map[string]any `json:"metadata,omitempty"`
+}
+
 type HealthStatus struct {
 	Status   string         `json:"status"`
 	Version  string         `json:"version"`
@@ -53,4 +72,17 @@ type RetryResult struct {
 }
 
 type Subscription struct {
+}
+
+type TaskSummary struct {
+	TaskID     string   `json:"taskID"`
+	Role       string   `json:"role"`
+	Task       string   `json:"task"`
+	Status     string   `json:"status"`
+	Created    string   `json:"created"`
+	Updated    string   `json:"updated"`
+	DurationMs int      `json:"durationMs"`
+	Error      *string  `json:"error,omitempty"`
+	Result     *string  `json:"result,omitempty"`
+	Events     []string `json:"events"`
 }
