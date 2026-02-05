@@ -8,6 +8,9 @@ package graphql
 import (
 	"context"
 	"fmt"
+	"os/exec"
+
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
 
 // SpawnAgent is the resolver for the spawnAgent field.
@@ -34,27 +37,96 @@ func (r *mutationResolver) RetryTask(ctx context.Context, taskID string) (*Retry
 	// Get the failed task info
 	taskInfo, err := r.server.GetTaskStatus(taskID)
 	if err != nil {
+		msg := "Task not found: " + err.Error()
 		return &RetryResult{
 			Success: false,
 			TaskID:  taskID,
-			Message: stringPtr("Task not found: " + err.Error()),
+			Message: &msg,
 		}, nil
 	}
 
 	// Spawn a new agent task with the same parameters
 	newTask, err := r.server.SpawnAgent(taskInfo.Role, taskInfo.Task, "")
 	if err != nil {
+		msg := "Failed to retry task: " + err.Error()
 		return &RetryResult{
 			Success: false,
 			TaskID:  taskID,
-			Message: stringPtr("Failed to retry task: " + err.Error()),
+			Message: &msg,
 		}, nil
 	}
 
+	msg := "Task retried successfully. New task ID: " + newTask.TaskID
 	return &RetryResult{
 		Success: true,
 		TaskID:  newTask.TaskID,
-		Message: stringPtr("Task retried successfully. New task ID: " + newTask.TaskID),
+		Message: &msg,
+	}, nil
+}
+
+// CloseTask is the resolver for the closeTask field.
+// Accepts Beads task ID directly for consistency
+func (r *mutationResolver) CloseTask(ctx context.Context, taskID string) (*CloseResult, error) {
+	// Use bd close command to mark task as closed in Beads
+	// taskID is expected to be a Beads task ID
+	monitoring.Logger.Info("closeTask_resolver_start", "task_id", taskID)
+
+	// Try to find project root and agent task ID from active tasks
+	allTasks := r.server.GetAllTasks()
+	projectRoot := ""
+	agentTaskID := ""
+	for _, t := range allTasks {
+		if t.BeadsTaskID != nil && *t.BeadsTaskID == taskID {
+			agentTaskID = t.TaskID
+			if t.ProjectRoot != nil {
+				projectRoot = *t.ProjectRoot
+			}
+			break
+		}
+	}
+
+	monitoring.Logger.Info("found_project_root", "task_id", taskID, "project_root", projectRoot, "agent_task_id", agentTaskID)
+
+	// Prepare bd close command
+	cmd := exec.Command("bd", "close", taskID)
+	if projectRoot != "" {
+		cmd.Dir = projectRoot
+		monitoring.Logger.Info("running_bd_close_in_project", "task_id", taskID, "project_root", projectRoot)
+	} else {
+		monitoring.Logger.Info("running_bd_close_no_project", "task_id", taskID)
+	}
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		msg := fmt.Sprintf("Failed to close task in Beads: %s (output: %s)", err.Error(), string(output))
+		monitoring.Logger.Error("bd_close_failed", "task_id", taskID, "error", msg)
+		return &CloseResult{
+			Success: false,
+			TaskID:  taskID,
+			Message: &msg,
+		}, nil
+	}
+	monitoring.Logger.Info("bd_close_succeeded", "task_id", taskID, "output", string(output))
+
+	// Mark the task as closed in agent-server if we found it
+	if agentTaskID != "" {
+		if err := r.server.CloseTask(agentTaskID); err != nil {
+			// Log but don't fail - Beads close succeeded which is what matters
+			// Agent-server status will be cleaned up by archival process
+		}
+	} else {
+		// Couldn't find the agent task - try using the taskID directly as agent task ID
+		if err := r.server.CloseTask(taskID); err != nil {
+			// This is OK - task might only exist in Beads, not in agent-server
+			// Log but still return success since Beads close succeeded
+		}
+	}
+
+	msg := "Task closed successfully"
+	return &CloseResult{
+		Success: true,
+		TaskID:  taskID,
+		Message: &msg,
 	}, nil
 }
 
@@ -66,9 +138,17 @@ func (r *queryResolver) Health(ctx context.Context) (*HealthStatus, error) {
 // Tasks is the resolver for the tasks field.
 func (r *queryResolver) Tasks(ctx context.Context) ([]*AgentTask, error) {
 	allTasks := r.server.GetAllTasks()
+	monitoring.Logger.Info("tasks_query_start", "total_fetched", len(allTasks))
 
 	tasks := make([]*AgentTask, 0, len(allTasks))
+	filteredCount := 0
 	for _, taskInfo := range allTasks {
+		// Skip closed tasks (user explicitly dismissed them)
+		if taskInfo.Status == "closed" {
+			filteredCount++
+			continue
+		}
+
 		// Convert metadata from map[string]string to map[string]any
 		metadata := make(map[string]any)
 		for k, v := range taskInfo.Metadata {
@@ -91,6 +171,7 @@ func (r *queryResolver) Tasks(ctx context.Context) ([]*AgentTask, error) {
 		})
 	}
 
+	monitoring.Logger.Info("tasks_query_complete", "returned", len(tasks), "filtered_closed", filteredCount)
 	return tasks, nil
 }
 
@@ -188,6 +269,21 @@ func (r *queryResolver) Performance(ctx context.Context) (*Performance, error) {
 // Logs is the resolver for the logs field.
 func (r *queryResolver) Logs(ctx context.Context, limit *int, level *string) ([]*LogEntry, error) {
 	panic(fmt.Errorf("not implemented: Logs - logs"))
+}
+
+// ExecutionLog is the resolver for the executionLog field.
+func (r *queryResolver) ExecutionLog(ctx context.Context, limit *int) ([]*ExecutionEvent, error) {
+	panic(fmt.Errorf("not implemented: ExecutionLog - executionLog"))
+}
+
+// TaskHistory is the resolver for the taskHistory field.
+func (r *queryResolver) TaskHistory(ctx context.Context, limit *int) ([]*TaskSummary, error) {
+	panic(fmt.Errorf("not implemented: TaskHistory - taskHistory"))
+}
+
+// ExecutionEventsByTask is the resolver for the executionEventsByTask field.
+func (r *queryResolver) ExecutionEventsByTask(ctx context.Context, taskID string) ([]*ExecutionEvent, error) {
+	panic(fmt.Errorf("not implemented: ExecutionEventsByTask - executionEventsByTask"))
 }
 
 // LogStream is the resolver for the logStream field.
