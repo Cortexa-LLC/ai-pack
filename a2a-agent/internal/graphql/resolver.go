@@ -16,6 +16,7 @@ type ServerInterface interface {
 	GetTaskStatus(taskID string) (*TaskInfo, error)
 	SpawnAgent(role, task, projectRoot string) (*TaskInfo, error)
 	CancelTask(taskID string) error
+	CloseTask(taskID string) error
 	GetMetrics() *MetricsInfo
 }
 

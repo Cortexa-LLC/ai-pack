@@ -319,8 +319,14 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		workingDir = projectRoot
 	}
 
-	// Generate internal task ID
-	taskID := fmt.Sprintf("task-%s-%s", role, time.Now().Format("20060102-150405-000000"))
+	// Use Beads task ID as primary ID when available (Beads is source of truth)
+	// Only generate internal task ID for non-Beads tasks
+	var taskID string
+	if isBeadsTask {
+		taskID = beadsTaskID
+	} else {
+		taskID = fmt.Sprintf("task-%s-%s", role, time.Now().Format("20060102-150405-000000"))
+	}
 
 	// Load agent configuration
 	config, err := s.loadAgentConfig(role)

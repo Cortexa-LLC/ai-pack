@@ -82,7 +82,7 @@ function filterLogLines(lines: string[]): string[] {
  */
 function App() {
   const { data: metricsData, isLoading: metricsLoading, isError: metricsError } = useMetrics();
-  const { data: tasksData, isLoading: tasksLoading, isError: tasksError } = useTasks();
+  const { data: tasksData, isLoading: tasksLoading, isError: tasksError, refetch: refetchTasks } = useTasks();
   const { data: detailedMetrics } = useDetailedMetrics();
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
@@ -422,6 +422,60 @@ function App() {
     }
   };
 
+  const closeTask = async (taskID: string, taskDescription: string, event?: React.MouseEvent, skipConfirm = false) => {
+    // Stop propagation if called from within a clickable card
+    if (event) {
+      event.stopPropagation();
+    }
+
+    if (!skipConfirm) {
+      // Show confirmation modal
+      setConfirmModal({
+        show: true,
+        title: 'Close Task',
+        message: `Are you sure you want to close/dismiss this task?\n\n${taskDescription.split('\n')[0]}`,
+        onConfirm: () => {
+          setConfirmModal({ show: false, title: '', message: '', onConfirm: () => {} });
+          closeTask(taskID, taskDescription, undefined, true);
+        },
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch('/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation CloseTask($taskID: String!) {
+              closeTask(taskID: $taskID) {
+                success
+                message
+                taskID
+              }
+            }
+          `,
+          variables: { taskID },
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.errors) {
+        alert(`Failed to close task: ${result.errors[0].message}`);
+      } else if (result.data?.closeTask?.success) {
+        // Refresh tasks to show updated status (small delay to ensure backend update completes)
+        setTimeout(() => refetchTasks(), 300);
+      } else {
+        alert('Failed to close task: ' + (result.data?.closeTask?.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to close task:', error);
+      alert('Failed to close task. Check console for details.');
+    }
+  };
+
   // Fetch and stream logs when a task is selected or when switching to task logs tab
   useEffect(() => {
     if (!selectedTask || activeTab !== 'task-logs') {
@@ -704,14 +758,23 @@ function App() {
                               return (
                                 <div
                                   key={task.taskID}
-                                  className={`bg-gray-800 border rounded-lg p-2 transition-colors ${
+                                  className={`bg-gray-800 border rounded-lg p-2 transition-colors relative ${
                                     isOrphaned
                                       ? 'border-orange-500 hover:border-orange-400'
                                       : 'border-gray-700 hover:border-blue-500'
                                   }`}
                                 >
+                                  {task.metadata?.beads_status !== 'closed' && (
+                                    <button
+                                      onClick={(e) => closeTask(task.beadsTaskID || task.taskID, task.task, e)}
+                                      className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors text-xs"
+                                      title="Cancel/close task"
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
                                   <div
-                                    className="cursor-pointer"
+                                    className={`cursor-pointer ${task.metadata?.beads_status !== 'closed' ? 'pr-8' : ''}`}
                                     onClick={() => selectTask(task.taskID)}
                                   >
                                     <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
@@ -727,7 +790,7 @@ function App() {
                                   {isOrphaned && (
                                     <button
                                       onClick={(e) => retryTask(task.taskID, task.task, e)}
-                                      className="px-2 py-0.5 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded transition-colors"
+                                      className="px-2 py-0.5 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded transition-colors mt-2"
                                       title="Restart orphaned task"
                                     >
                                       🔄 Restart
@@ -811,21 +874,35 @@ function App() {
                             .map(task => (
                               <div
                                 key={task.taskID}
-                                className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-green-500 cursor-pointer transition-colors"
-                                onClick={() => selectTask(task.taskID)}
+                                className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-green-500 transition-colors relative"
                               >
-                                <div className="text-xs font-medium text-white mb-1 truncate" title={task.task}>
-                                  {task.task.length > 40 ? task.task.substring(0, 40) + '...' : task.task}
-                                </div>
-                                <div className="flex items-center justify-between text-xs text-gray-500">
-                                  {task.beadsTaskID && <span>{task.beadsTaskID}</span>}
-                                  <span className="text-green-400">✓</span>
-                                </div>
-                                {task.completedAt && (
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    Completed: {new Date(task.completedAt).toLocaleTimeString()}
-                                  </div>
+                                {task.metadata?.beads_status !== 'closed' && (
+                                  <button
+                                    onClick={(e) => closeTask(task.beadsTaskID || task.taskID, task.task, e)}
+                                    className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors text-xs"
+                                    title="Close/dismiss task"
+                                  >
+                                    ✕
+                                  </button>
                                 )}
+                                <div
+                                  className={`cursor-pointer ${task.metadata?.beads_status !== 'closed' ? 'pr-8' : ''}`}
+                                  onClick={() => selectTask(task.taskID)}
+                                >
+                                  <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
+                                    {task.task.split('\n')[0]}
+                                  </div>
+                                  {task.beadsTaskID && (
+                                    <div className="text-xs text-gray-500 mb-1">
+                                      {task.beadsTaskID}
+                                    </div>
+                                  )}
+                                  {task.completedAt && (
+                                    <div className="text-xs text-gray-500">
+                                      Completed: {new Date(task.completedAt).toLocaleTimeString()}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             ))
                         )}
@@ -855,48 +932,38 @@ function App() {
                             .map(task => (
                               <div
                                 key={task.taskID}
-                                className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-red-500 transition-colors"
+                                className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-red-500 transition-colors relative"
                               >
+                                {(task.metadata?.beads_status !== 'closed' || task.metadata?.beads_status === undefined) && (
+                                  <div className="absolute top-2 right-2 flex items-center gap-1">
+                                    <button
+                                      onClick={(e) => retryTask(task.taskID, task.task, e)}
+                                      className="w-6 h-6 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors text-xs"
+                                      title="Retry task"
+                                    >
+                                      🔄
+                                    </button>
+                                    <button
+                                      onClick={(e) => closeTask(task.beadsTaskID || task.taskID, task.task, e)}
+                                      className="w-6 h-6 flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors text-xs"
+                                      title="Close/dismiss task"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                )}
                                 <div
-                                  className="cursor-pointer"
+                                  className={`cursor-pointer ${(task.metadata?.beads_status !== 'closed' || task.metadata?.beads_status === undefined) ? 'pr-16' : ''}`}
                                   onClick={() => selectTask(task.taskID)}
                                 >
                                   <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
                                     {task.task.split('\n')[0]}
                                   </div>
                                   {task.beadsTaskID && (
-                                    <div className="text-xs text-gray-500 mb-2">
+                                    <div className="text-xs text-gray-500">
                                       {task.beadsTaskID}
                                     </div>
                                   )}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={(e) => retryTask(task.taskID, task.task, e)}
-                                    className="px-2 py-0.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-                                    title="Retry task"
-                                  >
-                                    🔄 Retry
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setConfirmModal({
-                                        show: true,
-                                        title: 'Close Task',
-                                        message: `Are you sure you want to close/dismiss this task?\n\n${task.task.split('\n')[0]}`,
-                                        onConfirm: () => {
-                                          // TODO: Implement close task API call
-                                          alert('Close task functionality coming soon');
-                                          setConfirmModal({ show: false, title: '', message: '', onConfirm: () => {} });
-                                        },
-                                      });
-                                    }}
-                                    className="px-2 py-0.5 text-xs bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
-                                    title="Close/dismiss task"
-                                  >
-                                    ✕ Close
-                                  </button>
                                 </div>
                               </div>
                             ))
@@ -1043,9 +1110,9 @@ function App() {
 
                           return (
                             <tr key={idx} className="border-b border-gray-800 hover:bg-gray-800/50">
-                              <td className="p-2 text-gray-500 whitespace-nowrap font-mono text-xs">{time}</td>
-                              <td className={`p-2 font-semibold whitespace-nowrap text-xs ${levelColor}`}>{level}</td>
-                              <td className="p-2 text-gray-300 text-xs whitespace-nowrap">{msg}</td>
+                              <td className="p-2 text-gray-500 font-mono text-xs truncate">{time}</td>
+                              <td className={`p-2 font-semibold text-xs truncate ${levelColor}`}>{level}</td>
+                              <td className="p-2 text-gray-300 text-xs truncate" title={msg}>{msg}</td>
                               <td className="p-2 text-xs">
                                 {Object.entries(flattenedAttrs).map(([key, value]) => renderAttribute(key, value))}
                               </td>

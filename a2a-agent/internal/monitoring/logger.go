@@ -162,10 +162,10 @@ func InitLogger(level slog.Level) {
 		Level: level,
 	}
 
-	// Create buffered handler that writes to both stderr and buffer
-	jsonHandler := slog.NewJSONHandler(os.Stderr, opts)
+	// Use TextHandler for terminal output
+	textHandler := slog.NewTextHandler(os.Stderr, opts)
 	bufferedHandler := &BufferedHandler{
-		handler: jsonHandler,
+		handler: textHandler,
 		buffer:  globalLogBuffer,
 	}
 
