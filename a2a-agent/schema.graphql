@@ -58,7 +58,6 @@ type Features {
 
 type AgentTask {
   taskId: ID!
-  beadsTaskId: String
   status: TaskStatus!
   role: String!
   description: String!

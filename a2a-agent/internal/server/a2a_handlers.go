@@ -360,7 +360,6 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 	// Build list of all tasks
 	type TaskInfo struct {
 		TaskID        string `json:"task_id"`
-		BeadsTaskID   string `json:"beads_task_id,omitempty"`
 		Status        string `json:"status"`
 		Role          string `json:"role"`
 		Description   string `json:"description"`
@@ -380,11 +379,6 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 			Description: execution.Task, // Task field contains the description
 			Error:       execution.Error,
 			ProjectRoot: execution.ProjectRoot,
-		}
-
-		// Extract beads_task_id from execution.metadata (map[string]string)
-		if beadsID, ok := execution.metadata["beads_task_id"]; ok {
-			task.BeadsTaskID = beadsID
 		}
 
 		tasksMap[task.TaskID] = task
@@ -424,7 +418,6 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 
 			task := TaskInfo{
 				TaskID:      taskID,
-				BeadsTaskID: taskID,
 				Status:      status,
 				Role:        "beads-task",
 				Description: beadsTask.Title,

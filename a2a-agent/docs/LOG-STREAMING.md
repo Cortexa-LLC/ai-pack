@@ -16,10 +16,10 @@ event: connected
 data: {"message":"Log stream connected"}
 
 event: log
-data: {"timestamp":"2026-01-24T22:10:00Z","level":"INFO","message":"task_spawned","attrs":{"task_id":"task-123","role":"engineer"}}
+data: {"timestamp":"2026-01-24T22:10:00Z","level":"INFO","message":"task_spawned","attrs":{"task_id":"xasm++-vp5-20260206-143025","role":"engineer"}}
 
 event: log
-data: {"timestamp":"2026-01-24T22:10:01Z","level":"INFO","message":"api_call","attrs":{"task_id":"task-123","tokens":1500}}
+data: {"timestamp":"2026-01-24T22:10:01Z","level":"INFO","message":"api_call","attrs":{"task_id":"xasm++-vp5-20260206-143025","tokens":1500}}
 ```
 
 **Example (curl):**
@@ -59,7 +59,7 @@ Returns the most recent N log entries as JSON (default: 100, max: 1000).
       "level": "INFO",
       "message": "task_spawned",
       "attrs": {
-        "task_id": "task-123",
+        "task_id": "xasm++-vp5-20260206-143025",
         "role": "engineer",
         "status": "queued"
       }

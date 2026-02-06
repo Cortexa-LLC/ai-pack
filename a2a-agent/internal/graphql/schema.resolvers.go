@@ -71,13 +71,12 @@ func (r *mutationResolver) CloseTask(ctx context.Context, taskID string) (*Close
 	// taskID is expected to be a Beads task ID
 	monitoring.Logger.Info("closeTask_resolver_start", "task_id", taskID)
 
-	// Try to find project root and agent task ID from active tasks
+	// Try to find project root from active tasks
 	allTasks := r.server.GetAllTasks()
 	projectRoot := ""
-	agentTaskID := ""
+	agentTaskID := taskID
 	for _, t := range allTasks {
-		if t.BeadsTaskID != nil && *t.BeadsTaskID == taskID {
-			agentTaskID = t.TaskID
+		if t.TaskID == taskID {
 			if t.ProjectRoot != nil {
 				projectRoot = *t.ProjectRoot
 			}
@@ -85,7 +84,7 @@ func (r *mutationResolver) CloseTask(ctx context.Context, taskID string) (*Close
 		}
 	}
 
-	monitoring.Logger.Info("found_project_root", "task_id", taskID, "project_root", projectRoot, "agent_task_id", agentTaskID)
+	monitoring.Logger.Info("found_project_root", "task_id", taskID, "project_root", projectRoot)
 
 	// Prepare bd close command
 	cmd := exec.Command("bd", "close", taskID)
@@ -166,7 +165,6 @@ func (r *queryResolver) Tasks(ctx context.Context) ([]*AgentTask, error) {
 			Result:      taskInfo.Result,
 			Error:       taskInfo.Error,
 			Metadata:    metadata,
-			BeadsTaskID: taskInfo.BeadsTaskID,
 			ProjectRoot: taskInfo.ProjectRoot,
 		})
 	}
