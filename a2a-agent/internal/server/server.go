@@ -31,7 +31,7 @@ const (
 
 	// Token limits and thresholds
 	MaxContextTokens      = 200000 // Claude API limit
-	SafeTokenThreshold    = 180000 // Start aggressive truncation at 90%
+	SafeTokenThreshold    = 160000 // Start aggressive truncation at 80%
 	EmergencyThreshold    = 190000 // Emergency summarization at 95%
 	TokensPerChar         = 0.25   // Rough estimate: 4 chars per token
 
@@ -275,40 +275,38 @@ func (s *AgentServer) worker() {
 }
 
 func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string) (*protocol.ExecuteTaskResponse, error) {
-	// Validate and get task description
-	var beadsTaskID string
-	var isBeadsTask bool
+	// Validate Beads is installed
+	if !beads.IsInstalled() {
+		return nil, fmt.Errorf("Beads is not installed. All tasks must be Beads tasks. Install with: brew install beads")
+	}
+
+	// Validate taskInput is a Beads task ID
+	if !beads.IsBeadsTaskID(taskInput) {
+		return nil, fmt.Errorf("invalid task ID format. All tasks must be Beads tasks. Create with: bd create '<description>'")
+	}
 
 	// If no project root specified, use server's root directory
 	if projectRoot == "" {
 		projectRoot = s.rootDir
 	}
 
-	// Check if it looks like a Beads task ID
-	if beads.IsBeadsTaskID(taskInput) {
-		// Validate the task exists in Beads (use project root for bd commands)
-		if err := s.beadsClient.ValidateTaskIDFromDir(taskInput, projectRoot); err != nil {
-			return nil, fmt.Errorf("invalid Beads task: %w", err)
-		}
-
-		beadsTaskID = taskInput
-		isBeadsTask = true
-		monitoring.Logger.Info("spawning_with_beads_task", "task_id", beadsTaskID, "project_root", projectRoot)
-
-		// Check dependencies
-		if beads.IsInstalled() {
-			depsOK, unmetDeps, err := s.beadsClient.CheckDependenciesFromDir(beadsTaskID, projectRoot)
-			if err != nil {
-				monitoring.Logger.Warn("dependency_check_failed", "error", err.Error())
-			} else if !depsOK {
-				return nil, fmt.Errorf("task %s has unmet dependencies: %v\nPlease complete these tasks first", beadsTaskID, unmetDeps)
-			}
-		}
-	} else {
-		monitoring.Logger.Info("spawning_with_free_form_description", "description", taskInput)
+	// Validate the task exists in Beads (use project root for bd commands)
+	if err := s.beadsClient.ValidateTaskIDFromDir(taskInput, projectRoot); err != nil {
+		return nil, fmt.Errorf("invalid Beads task: %w", err)
 	}
 
-	// Get task description, task packet path, and working directory (from Beads or use free-form input)
+	beadsTaskID := taskInput
+	monitoring.Logger.Info("spawning_with_beads_task", "task_id", beadsTaskID, "project_root", projectRoot)
+
+	// Check dependencies
+	depsOK, unmetDeps, err := s.beadsClient.CheckDependenciesFromDir(beadsTaskID, projectRoot)
+	if err != nil {
+		monitoring.Logger.Warn("dependency_check_failed", "error", err.Error())
+	} else if !depsOK {
+		return nil, fmt.Errorf("task %s has unmet dependencies: %v\nPlease complete these tasks first", beadsTaskID, unmetDeps)
+	}
+
+	// Get task description, task packet path, and working directory
 	taskDescription, taskPacketPath, workingDir, _, err := s.beadsClient.GetTaskDescriptionFromDir(taskInput, projectRoot)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get task description: %w", err)
@@ -319,14 +317,10 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		workingDir = projectRoot
 	}
 
-	// Use Beads task ID as primary ID when available (Beads is source of truth)
-	// Only generate internal task ID for non-Beads tasks
-	var taskID string
-	if isBeadsTask {
-		taskID = beadsTaskID
-	} else {
-		taskID = fmt.Sprintf("task-%s-%s", role, time.Now().Format("20060102-150405-000000"))
-	}
+	// Use Beads task ID with timestamp as the task ID (single source of truth)
+	// Format: {beads-id}-{YYYYMMDD}-{HHMMSS}
+	timestamp := time.Now().Format("20060102-150405")
+	taskID := fmt.Sprintf("%s-%s", beadsTaskID, timestamp)
 
 	// Load agent configuration
 	config, err := s.loadAgentConfig(role)
@@ -341,9 +335,6 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 
 	// Store task packet path, working directory, and project root in metadata if available
 	metadata := map[string]string{}
-	if beadsTaskID != "" {
-		metadata["beads_task_id"] = beadsTaskID
-	}
 	if taskPacketPath != "" {
 		metadata["task_packet_path"] = taskPacketPath
 	}
@@ -354,13 +345,11 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		metadata["project_root"] = projectRoot
 	}
 
-	// If Beads task, mark as started
-	if isBeadsTask && beads.IsInstalled() {
-		if err := s.beadsClient.StartTaskFromDir(beadsTaskID, projectRoot); err != nil {
-			monitoring.Logger.Warn("failed_to_start_beads_task", "error", err.Error())
-		} else {
-			monitoring.Logger.Info("beads_task_started", "task_id", beadsTaskID)
-		}
+	// Mark Beads task as started
+	if err := s.beadsClient.StartTaskFromDir(beadsTaskID, projectRoot); err != nil {
+		monitoring.Logger.Warn("failed_to_start_beads_task", "error", err.Error())
+	} else {
+		monitoring.Logger.Info("beads_task_started", "task_id", beadsTaskID)
 	}
 
 	// Create task execution
@@ -380,6 +369,24 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 	// Update task packet metadata with Beads task ID and project root
 	if err := s.updateTaskPacketMetadataInProject(taskID, metadata, projectRoot); err != nil {
 		monitoring.Logger.Warn("failed_to_update_task_metadata", "error", err.Error())
+	}
+
+	// Check for legacy folders before registering new project root
+	if projectRoot != "" && projectRoot != s.rootDir {
+		s.mu.RLock()
+		_, alreadyRegistered := s.projectRoots[projectRoot]
+		s.mu.RUnlock()
+
+		if !alreadyRegistered {
+			// New project - check for legacy folders
+			hasLegacy, legacyFolders := DetectLegacyTaskFoldersInProject(projectRoot)
+			if hasLegacy {
+				monitoring.Logger.Error("legacy_folders_detected_in_new_project",
+					"project_root", projectRoot,
+					"legacy_count", len(legacyFolders))
+				return nil, fmt.Errorf("project %s has %d legacy task folders that must be migrated first. Run: agent-server --migrate-tasks", projectRoot, len(legacyFolders))
+			}
+		}
 	}
 
 	// Register task and project root
@@ -971,17 +978,10 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 		totalInputTokens += message.Usage.InputTokens
 		totalOutputTokens += message.Usage.OutputTokens
 
-		// Log token usage with percentage of limit
-		tokenUsagePercent := float64(totalInputTokens+totalOutputTokens) / float64(MaxContextTokens) * 100
-		logMsg(fmt.Sprintf("      API: %dms | in:%d out:%d | total:%d (%.1f%% of limit)",
+		// Log token usage (cumulative total is informational, not a limit)
+		logMsg(fmt.Sprintf("      API: %dms | in:%d out:%d | cumulative:%d",
 			apiDuration, message.Usage.InputTokens, message.Usage.OutputTokens,
-			totalInputTokens+totalOutputTokens, tokenUsagePercent))
-
-		// Warn if cumulative usage is high
-		if totalInputTokens+totalOutputTokens > SafeTokenThreshold && turn%5 == 0 {
-			logMsg(fmt.Sprintf("      ⚠️  High cumulative token usage: %d tokens (%.1f%% of limit)",
-				totalInputTokens+totalOutputTokens, tokenUsagePercent))
-		}
+			totalInputTokens+totalOutputTokens))
 
 		// Record per-turn token metrics
 		monitoring.GlobalMetrics.RecordTurnTokens(taskID, turn, int64(message.Usage.InputTokens), int64(message.Usage.OutputTokens), apiDuration)
@@ -1037,12 +1037,8 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 				logMsg(fmt.Sprintf("         ❌ Tool execution failed: %v", err))
 				result = fmt.Sprintf("Error: %v", err)
 			} else {
-				// Truncate long results for logging
-				displayResult := result
-				if len(displayResult) > 100 {
-					displayResult = displayResult[:100] + "..."
-				}
-				logMsg(fmt.Sprintf("         ✓ %s", displayResult))
+				// Log full tool result without truncation
+				logMsg(fmt.Sprintf("         ✓ %s", result))
 			}
 
 			// Add tool result to blocks
@@ -1372,10 +1368,9 @@ func (s *AgentServer) updateTaskCompletion(execution *TaskExecution, result stri
 	s.mu.Lock()
 	execution.Status = "completed"
 	execution.Result = result
-	beadsTaskID := ""
+	beadsTaskID := execution.TaskID // TaskID is the Beads task ID
 	projectRoot := ""
 	if execution.metadata != nil {
-		beadsTaskID = execution.metadata["beads_task_id"]
 		projectRoot = execution.metadata["project_root"]
 	}
 	// Remove from active tasks map since task is now completed

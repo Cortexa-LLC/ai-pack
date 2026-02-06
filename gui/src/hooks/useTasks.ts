@@ -16,7 +16,6 @@ const TASKS_QUERY = `
       result
       error
       metadata
-      beadsTaskID
       projectRoot
     }
   }
@@ -36,7 +35,6 @@ export interface AgentTask {
   result: string | null;
   error: string | null;
   metadata: Record<string, any> | null;
-  beadsTaskID: string | null;
   projectRoot: string | null;
 }
 

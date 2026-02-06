@@ -282,28 +282,29 @@ func printUsage() {
 	fmt.Println("")
 }
 
-func parseCommandLine() (configPath *string, maxConcurrent *int, port *int, serverMode *bool, args []string) {
+func parseCommandLine() (configPath *string, maxConcurrent *int, port *int, serverMode *bool, migrateTasks *bool, args []string) {
 	configPath = flag.String("config", "agent-server.json", "Path to configuration file")
 	maxConcurrent = flag.Int("max-concurrent", 0, "Override max concurrent agents (0 = use config)")
 	port = flag.Int("port", 0, "Override server port (0 = use config)")
 	serverMode = flag.Bool("server", false, "Run in server mode (HTTP/A2A protocol). Default: protocol handler mode")
+	migrateTasks = flag.Bool("migrate-tasks", false, "Migrate legacy task-* folders to beads-id-timestamp format")
 	flag.Parse()
 	args = flag.Args()
 	return
 }
 
 func main() {
-	configPath, maxConcurrent, port, serverMode, args := parseCommandLine()
+	configPath, maxConcurrent, port, serverMode, migrateTasks, args := parseCommandLine()
 
 	// Check if we have a non-flag argument (agent:// URL)
-	if len(args) > 0 && !*serverMode {
+	if len(args) > 0 && !*serverMode && !*migrateTasks {
 		// Protocol handler mode: handle agent:// URL directly
 		handleProtocolURL(args[0], *configPath)
 		return
 	}
 
 	// If -server flag not set and no URL provided, show usage
-	if !*serverMode && len(args) == 0 {
+	if !*serverMode && !*migrateTasks && len(args) == 0 {
 		printUsage()
 		os.Exit(1)
 	}
@@ -361,6 +362,62 @@ func main() {
 	)
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
+	}
+
+	// Handle migration mode
+	if *migrateTasks {
+		fmt.Println("🔄 Running task folder migration...")
+		fmt.Println()
+
+		renamed, archived, skipped, err := s.MigrateTaskFolders()
+		if err != nil {
+			log.Fatalf("❌ Migration failed: %v", err)
+		}
+
+		fmt.Println("✅ Migration complete!")
+		fmt.Printf("   Renamed: %d folders\n", renamed)
+		fmt.Printf("   Archived: %d folders (free-form tasks)\n", archived)
+		if skipped > 0 {
+			fmt.Printf("   Skipped: %d folders (errors)\n", skipped)
+		}
+		fmt.Println()
+		fmt.Println("You can now start the server with: agent-server --server")
+		return
+	}
+
+	// Check for legacy task folders before starting server
+	hasLegacy, legacyFolders := s.DetectLegacyTaskFolders()
+	if hasLegacy {
+		fmt.Println()
+		fmt.Println("⚠️  MIGRATION REQUIRED")
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println()
+		fmt.Printf("Found %d legacy task folder(s) that need migration:\n", len(legacyFolders))
+		fmt.Println()
+
+		// Show first few examples
+		maxShow := 5
+		for i, folder := range legacyFolders {
+			if i >= maxShow {
+				fmt.Printf("   ... and %d more\n", len(legacyFolders)-maxShow)
+				break
+			}
+			fmt.Printf("   %s\n", folder)
+		}
+
+		fmt.Println()
+		fmt.Println("Legacy task folders use the format: task-{role}-{timestamp}")
+		fmt.Println("They must be migrated to: {beads-id}-{timestamp}")
+		fmt.Println()
+		fmt.Println("To migrate:")
+		fmt.Println("   agent-server --migrate-tasks")
+		fmt.Println()
+		fmt.Println("This will:")
+		fmt.Println("   • Rename folders with Beads IDs to new format")
+		fmt.Println("   • Archive folders with free-form descriptions")
+		fmt.Println("   • Preserve all task data and history")
+		fmt.Println()
+		os.Exit(1)
 	}
 
 	// Setup routes with logging middleware

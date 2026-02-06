@@ -55,9 +55,9 @@ function TaskList({ tasks }: TaskListProps) {
                 <span className={`inline-block px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(task.status)}`}>
                   {task.status}
                 </span>
-                {task.beadsTaskID && (
+                {task.taskID && (
                   <span className="text-xs text-gray-500">
-                    {task.beadsTaskID}
+                    {task.taskID}
                   </span>
                 )}
               </div>

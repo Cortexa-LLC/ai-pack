@@ -84,9 +84,7 @@ func TestHandleTasksListWithActiveTasks(t *testing.T) {
 		Task:        "Test task 1",
 		Status:      "in_progress",
 		ProjectRoot: "/test/project",
-		metadata: map[string]string{
-			"beads_task_id": "test-123",
-		},
+		metadata:    map[string]string{},
 	}
 	server.activeTasks["task-2"] = &TaskExecution{
 		TaskID: "task-2",
