@@ -242,7 +242,6 @@ func TestPerformanceQuery(t *testing.T) {
 func TestConvertTaskInfoToGraphQL(t *testing.T) {
 	// Setup
 	now := time.Now().Format(time.RFC3339)
-	beadsID := "bd-123"
 	errorMsg := "Test error"
 	taskInfo := &TaskInfo{
 		TaskID:      "task-1",
@@ -252,7 +251,6 @@ func TestConvertTaskInfoToGraphQL(t *testing.T) {
 		Progress:    1.0,
 		CreatedAt:   now,
 		UpdatedAt:   now,
-		BeadsTaskID: &beadsID,
 		Error:       &errorMsg,
 		Metadata: map[string]string{
 			"project_root": "/test/path",
@@ -268,8 +266,6 @@ func TestConvertTaskInfoToGraphQL(t *testing.T) {
 	assert.Equal(t, "Test task", graphqlTask.Description)
 	assert.Equal(t, TaskStatusCompleted, graphqlTask.Status)
 	assert.Equal(t, 1.0, graphqlTask.Progress)
-	assert.NotNil(t, graphqlTask.BeadsTaskID)
-	assert.Equal(t, "bd-123", *graphqlTask.BeadsTaskID)
 	assert.NotNil(t, graphqlTask.Error)
 	assert.Equal(t, "Test error", *graphqlTask.Error)
 	assert.NotNil(t, graphqlTask.ProjectRoot)

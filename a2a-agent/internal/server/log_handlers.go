@@ -122,20 +122,9 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Try to find the task execution (internal task ID lookup)
+	// Try to find the task execution
 	s.mu.RLock()
 	execution, exists := s.activeTasks[taskID]
-
-	// If not found by internal ID, try to find by Beads ID
-	if !exists {
-		for _, exec := range s.activeTasks {
-			if beadsID, ok := exec.metadata["beads_task_id"]; ok && beadsID == taskID {
-				execution = exec
-				exists = true
-				break
-			}
-		}
-	}
 	s.mu.RUnlock()
 
 	// Determine the project root and log file path
@@ -428,22 +417,8 @@ func (s *AgentServer) findBeadsTaskExecutionLog(projectRoot, beadsTaskID string)
 			continue
 		}
 
-		// Read metadata to check for beads_task_id
-		metadataPath := filepath.Join(tasksDir, entry.Name(), "00-metadata.json")
-		data, err := os.ReadFile(metadataPath)
-		if err != nil {
-			continue
-		}
-
-		var metadata struct {
-			Metadata map[string]string `json:"metadata"`
-		}
-		if err := json.Unmarshal(data, &metadata); err != nil {
-			continue
-		}
-
-		// Check if this execution matches the beads task ID
-		if metadata.Metadata["beads_task_id"] == beadsTaskID {
+		// Check if directory name matches the beads task ID
+		if entry.Name() == beadsTaskID {
 			logPath := filepath.Join(tasksDir, entry.Name(), "execution.log")
 			if _, err := os.Stat(logPath); err == nil {
 				return logPath

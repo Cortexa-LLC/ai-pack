@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // Task represents a Beads task
@@ -206,8 +207,12 @@ func (c *Client) ListAllTasks() ([]Task, error) {
 
 // ListAllTasksFromDir returns all beads tasks from a specific working directory
 func (c *Client) ListAllTasksFromDir(workingDir string) ([]Task, error) {
-	// Run: bd list --all --json
-	cmd := exec.Command("bd", "list", "--all", "--json")
+	// Fetch tasks created in the last 90 days to avoid loading thousands of old tasks
+	// Format: YYYY-MM-DD
+	createdAfter := time.Now().AddDate(0, 0, -90).Format("2006-01-02")
+
+	// Run: bd list --all --json --limit 0 --created-after YYYY-MM-DD
+	cmd := exec.Command("bd", "list", "--all", "--json", "--limit", "0", "--created-after", createdAfter)
 	if workingDir != "" {
 		cmd.Dir = workingDir
 	}

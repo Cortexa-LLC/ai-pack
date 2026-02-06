@@ -32,7 +32,6 @@ type TaskInfo struct {
 	Result      *string
 	Error       *string
 	Metadata    map[string]string
-	BeadsTaskID *string
 	ProjectRoot *string
 }
 

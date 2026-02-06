@@ -69,21 +69,8 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 			taskID := beadsTask.ID
 
 			// Skip if already in tasks map by task ID
-			if _, exists := tasks[taskID]; exists {
-				skippedDuplicate++
-				continue
-			}
-
-			// Also skip if an active task already has this beads task ID
 			// This prevents duplicates when an active agent task was spawned from this beads task
-			alreadyExists := false
-			for _, existingTask := range tasks {
-				if existingTask.BeadsTaskID != nil && *existingTask.BeadsTaskID == taskID {
-					alreadyExists = true
-					break
-				}
-			}
-			if alreadyExists {
+			if _, exists := tasks[taskID]; exists {
 				skippedDuplicate++
 				continue
 			}
@@ -185,9 +172,6 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 	}
 	if status.Error != "" {
 		taskInfo.Error = &status.Error
-	}
-	if beadsID, ok := status.Metadata["beads_task_id"]; ok {
-		taskInfo.BeadsTaskID = &beadsID
 	}
 
 	return taskInfo, nil
@@ -361,10 +345,6 @@ func convertToTaskInfo(execution *TaskExecution) *graphql.TaskInfo {
 		taskInfo.Error = &execution.Error
 	}
 
-	if beadsID, ok := execution.metadata["beads_task_id"]; ok {
-		taskInfo.BeadsTaskID = &beadsID
-	}
-
 	if execution.ProjectRoot != "" {
 		taskInfo.ProjectRoot = &execution.ProjectRoot
 	}
@@ -396,7 +376,6 @@ func convertBeadsTaskToTaskInfo(beadsTask beads.Task, projectRoot string) *graph
 		CreatedAt:   beadsTask.CreatedAt,
 		UpdatedAt:   beadsTask.UpdatedAt,
 		Metadata:    make(map[string]string),
-		BeadsTaskID: &beadsTask.ID,
 		ProjectRoot: &projectRoot,
 	}
 
@@ -430,21 +409,8 @@ func determineExecutionStatus(projectRoot, beadsTaskID string) string {
 			continue
 		}
 
-		// Check metadata for matching beads_task_id
-		metadataPath := filepath.Join(tasksDir, entry.Name(), "00-metadata.json")
-		data, err := os.ReadFile(metadataPath)
-		if err != nil {
-			continue
-		}
-
-		var metadata struct {
-			Metadata map[string]string `json:"metadata"`
-		}
-		if err := json.Unmarshal(data, &metadata); err != nil {
-			continue
-		}
-
-		if metadata.Metadata["beads_task_id"] != beadsTaskID {
+		// Check if directory name matches the beads task ID
+		if entry.Name() != beadsTaskID {
 			continue
 		}
 
@@ -524,25 +490,8 @@ func (a *GraphQLAdapter) CloseTask(taskID string) error {
 				continue
 			}
 
-			metadataPath := filepath.Join(tasksDir, entry.Name(), "metadata.json")
-			data, err := os.ReadFile(metadataPath)
-			if err != nil {
-				continue
-			}
-
-			var metadata map[string]interface{}
-			if err := json.Unmarshal(data, &metadata); err != nil {
-				continue
-			}
-
-			// Check if this task has the Beads task ID we're looking for
-			if beadsID, ok := metadata["beads_task_id"].(string); ok && beadsID == taskID {
-				// Found it! Update using the directory name (which is the old agent task ID)
-				return a.updateTaskMetadataOnDisk(projectRoot, entry.Name(), "closed")
-			}
-
-			// Also check if task_id matches (for new tasks)
-			if tid, ok := metadata["task_id"].(string); ok && tid == taskID {
+			// Check if directory name matches the task ID (taskID is Beads ID)
+			if entry.Name() == taskID {
 				return a.updateTaskMetadataOnDisk(projectRoot, entry.Name(), "closed")
 			}
 		}

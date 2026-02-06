@@ -89,16 +89,48 @@ function App() {
   const [activeTab, setActiveTab] = useState<'tasks' | 'server-logs' | 'task-logs'>('tasks');
   const [logs, setLogs] = useState<string[]>([]);
   const [serverLogs, setServerLogs] = useState<any[]>([]);
-  const [taskDateFilter, setTaskDateFilter] = useState<'7d' | '30d' | 'all'>('30d');
+  const [taskDateFilter, setTaskDateFilter] = useState<'today' | '3d' | '5d' | '7d' | '10d' | '30d' | 'all'>(() => {
+    const saved = localStorage.getItem('ai-pack-task-date-filter');
+    return (saved as any) || '30d';
+  });
   const [followLogs, setFollowLogs] = useState(true);
   const [followServerLogs, setFollowServerLogs] = useState(true);
+
+  // Save date filter preference to localStorage
+  useEffect(() => {
+    localStorage.setItem('ai-pack-task-date-filter', taskDateFilter);
+  }, [taskDateFilter]);
 
   // Filter tasks by date
   const filterTasksByDate = (tasks: any[]) => {
     if (taskDateFilter === 'all') return tasks;
 
     const now = new Date();
-    const cutoffDays = taskDateFilter === '7d' ? 7 : 30;
+    let cutoffDays: number;
+
+    switch (taskDateFilter) {
+      case 'today':
+        cutoffDays = 1;
+        break;
+      case '3d':
+        cutoffDays = 3;
+        break;
+      case '5d':
+        cutoffDays = 5;
+        break;
+      case '7d':
+        cutoffDays = 7;
+        break;
+      case '10d':
+        cutoffDays = 10;
+        break;
+      case '30d':
+        cutoffDays = 30;
+        break;
+      default:
+        cutoffDays = 30;
+    }
+
     const cutoffDate = new Date(now.getTime() - cutoffDays * 24 * 60 * 60 * 1000);
 
     return tasks.filter(task => {
@@ -324,18 +356,29 @@ function App() {
     window.history.pushState({ taskId, tab: 'task-logs' }, '', `#task/${taskId}`);
   };
 
-  const cancelTask = async (taskID: string, event?: React.MouseEvent) => {
+  const cancelTask = async (taskID: string, event?: React.MouseEvent, skipConfirm = false) => {
     // Stop propagation if called from within a clickable card
     if (event) {
       event.stopPropagation();
     }
 
-    if (!confirm('Are you sure you want to cancel this task?')) {
+    if (!skipConfirm) {
+      // Show confirmation modal
+      setConfirmModal({
+        show: true,
+        title: 'Cancel Task',
+        message: `Are you sure you want to cancel this task?\n\nTask ID: ${taskID}`,
+        onConfirm: () => {
+          setConfirmModal({ show: false, title: '', message: '', onConfirm: () => {} });
+          cancelTask(taskID, undefined, true);
+        },
+      });
       return;
     }
 
     try {
-      const response = await fetch('/graphql', {
+      // First, cancel the running agent
+      const cancelResponse = await fetch('/graphql', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -350,13 +393,40 @@ function App() {
         }),
       });
 
-      const result = await response.json();
+      const cancelResult = await cancelResponse.json();
 
-      if (result.errors) {
-        alert(`Failed to cancel task: ${result.errors[0].message}`);
-      } else if (result.data.cancelAgent) {
-        // Task cancelled successfully - the UI will update via the tasks query refresh
-        console.log('Task cancelled:', taskID);
+      if (cancelResult.errors) {
+        alert(`Failed to cancel task: ${cancelResult.errors[0].message}`);
+        return;
+      }
+
+      // Then, close the task in Beads
+      const closeResponse = await fetch('/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation CloseTask($taskID: String!) {
+              closeTask(taskID: $taskID) {
+                success
+                message
+                taskID
+              }
+            }
+          `,
+          variables: { taskID },
+        }),
+      });
+
+      const closeResult = await closeResponse.json();
+
+      if (closeResult.errors) {
+        alert(`Task cancelled but failed to close: ${closeResult.errors[0].message}`);
+      } else if (closeResult.data?.closeTask?.success) {
+        // Refresh tasks to show updated status
+        setTimeout(() => refetchTasks(), 300);
+      } else {
+        alert('Task cancelled but failed to close: ' + (closeResult.data?.closeTask?.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Failed to cancel task:', error);
@@ -712,10 +782,14 @@ function App() {
               <label className="text-sm text-gray-400">Show tasks from:</label>
               <select
                 value={taskDateFilter}
-                onChange={(e) => setTaskDateFilter(e.target.value as '7d' | '30d' | 'all')}
+                onChange={(e) => setTaskDateFilter(e.target.value as 'today' | '3d' | '5d' | '7d' | '10d' | '30d' | 'all')}
                 className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-gray-300 focus:outline-none focus:border-blue-500"
               >
+                <option value="today">Today</option>
+                <option value="3d">Last 3 days</option>
+                <option value="5d">Last 5 days</option>
                 <option value="7d">Last 7 days</option>
+                <option value="10d">Last 10 days</option>
                 <option value="30d">Last 30 days</option>
                 <option value="all">All time</option>
               </select>
@@ -766,7 +840,7 @@ function App() {
                                 >
                                   {task.metadata?.beads_status !== 'closed' && (
                                     <button
-                                      onClick={(e) => closeTask(task.beadsTaskID || task.taskID, task.task, e)}
+                                      onClick={(e) => closeTask(task.taskID, task.task, e)}
                                       className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors text-xs"
                                       title="Cancel/close task"
                                     >
@@ -781,9 +855,12 @@ function App() {
                                       {isOrphaned && <span className="text-orange-400 mr-1" title="Orphaned - server restarted">⚠️</span>}
                                       {task.task.split('\n')[0]}
                                     </div>
-                                    {task.beadsTaskID && (
-                                      <div className="text-xs text-gray-500 mb-2">
-                                        {task.beadsTaskID}
+                                    <div className="text-xs text-gray-500 mb-1">
+                                      {task.taskID}
+                                    </div>
+                                    {task.createdAt && (
+                                      <div className="text-xs text-gray-500">
+                                        Created: {new Date(task.createdAt).toLocaleString()}
                                       </div>
                                     )}
                                   </div>
@@ -840,9 +917,12 @@ function App() {
                                     🛑 Cancel
                                   </button>
                                 </div>
-                                {task.beadsTaskID && (
-                                  <div className="text-xs text-gray-500 mb-1">
-                                    {task.beadsTaskID}
+                                <div className="text-xs text-gray-500 mb-1">
+                                  {task.taskID}
+                                </div>
+                                {task.createdAt && (
+                                  <div className="text-xs text-gray-500">
+                                    Created: {new Date(task.createdAt).toLocaleString()}
                                   </div>
                                 )}
                               </div>
@@ -878,7 +958,7 @@ function App() {
                               >
                                 {task.metadata?.beads_status !== 'closed' && (
                                   <button
-                                    onClick={(e) => closeTask(task.beadsTaskID || task.taskID, task.task, e)}
+                                    onClick={(e) => closeTask(task.taskID, task.task, e)}
                                     className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors text-xs"
                                     title="Close/dismiss task"
                                   >
@@ -892,14 +972,12 @@ function App() {
                                   <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
                                     {task.task.split('\n')[0]}
                                   </div>
-                                  {task.beadsTaskID && (
-                                    <div className="text-xs text-gray-500 mb-1">
-                                      {task.beadsTaskID}
-                                    </div>
-                                  )}
+                                  <div className="text-xs text-gray-500 mb-1">
+                                    {task.taskID}
+                                  </div>
                                   {task.completedAt && (
                                     <div className="text-xs text-gray-500">
-                                      Completed: {new Date(task.completedAt).toLocaleTimeString()}
+                                      Completed: {new Date(task.completedAt).toLocaleString()}
                                     </div>
                                   )}
                                 </div>
@@ -944,7 +1022,7 @@ function App() {
                                       🔄
                                     </button>
                                     <button
-                                      onClick={(e) => closeTask(task.beadsTaskID || task.taskID, task.task, e)}
+                                      onClick={(e) => closeTask(task.taskID, task.task, e)}
                                       className="w-6 h-6 flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors text-xs"
                                       title="Close/dismiss task"
                                     >
@@ -959,9 +1037,12 @@ function App() {
                                   <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
                                     {task.task.split('\n')[0]}
                                   </div>
-                                  {task.beadsTaskID && (
+                                  <div className="text-xs text-gray-500 mb-1">
+                                    {task.taskID}
+                                  </div>
+                                  {(task.completedAt || task.updatedAt) && (
                                     <div className="text-xs text-gray-500">
-                                      {task.beadsTaskID}
+                                      Failed: {new Date(task.completedAt || task.updatedAt).toLocaleString()}
                                     </div>
                                   )}
                                 </div>
@@ -1133,12 +1214,7 @@ function App() {
                 <div className="p-4 bg-gray-800 border-b border-gray-700">
                   <div className="flex-1">
                     <h3 className="text-md font-semibold mb-1">Task Logs</h3>
-                    {tasksData?.tasks.find(t => t.taskID === selectedTask)?.beadsTaskID && (
-                      <div className="text-xs text-gray-500">
-                        Beads: {tasksData.tasks.find(t => t.taskID === selectedTask)?.beadsTaskID}
-                      </div>
-                    )}
-                    <div className="text-xs text-gray-500">Agent: {selectedTask}</div>
+                    <div className="text-xs text-gray-500">Task ID: {selectedTask}</div>
                   </div>
                 </div>
                 <div className="flex-1 overflow-auto p-4 bg-gray-900 font-mono text-xs">
@@ -1146,11 +1222,74 @@ function App() {
                     <div className="text-gray-500">Loading logs...</div>
                   ) : (
                     <div className="space-y-1">
-                      {logs.map((log, idx) => (
-                        <div key={`${selectedTask}-${idx}-${log.substring(0, 20)}`} className="text-gray-300 whitespace-pre-wrap break-words">
-                          {log}
-                        </div>
-                      ))}
+                      {logs.map((log, idx) => {
+                        // Check if this is a JSON line (StreamEvent)
+                        if (log.trim().startsWith('{')) {
+                          try {
+                            const event = JSON.parse(log);
+                            // Format JSON events nicely
+                            if (event.type && event.task_id) {
+                              // Check if error contains embedded JSON
+                              let errorText = event.data?.error || '';
+                              let embeddedJson = null;
+
+                              // Try to extract embedded JSON from error message
+                              // Find the first { and try to parse from there to the end
+                              const jsonStart = errorText.indexOf('{');
+                              if (jsonStart !== -1) {
+                                try {
+                                  const jsonStr = errorText.substring(jsonStart);
+                                  embeddedJson = JSON.parse(jsonStr);
+                                  // Remove embedded JSON from error text
+                                  errorText = errorText.substring(0, jsonStart).trim();
+                                } catch (e) {
+                                  // Ignore parse errors
+                                }
+                              }
+
+                              return (
+                                <div key={`${selectedTask}-${idx}`} className="text-xs bg-gray-800 border border-gray-700 rounded p-2 my-1">
+                                  <div className="flex items-start gap-2 mb-2">
+                                    <span className="text-blue-400 font-mono font-semibold">{event.type}</span>
+                                    <span className="text-gray-500 text-xs">
+                                      {new Date(event.timestamp).toLocaleTimeString()}
+                                    </span>
+                                  </div>
+                                  {errorText && (
+                                    <div className="text-red-400 mb-2">{errorText}</div>
+                                  )}
+                                  {embeddedJson && (
+                                    <div className="bg-gray-900 border border-gray-600 rounded p-2 text-xs">
+                                      <div className="text-orange-400 font-mono mb-1">API Error:</div>
+                                      <div className="text-gray-300">
+                                        <span className="text-gray-500">Type:</span> {embeddedJson.error?.type || 'unknown'}
+                                      </div>
+                                      {embeddedJson.error?.message && (
+                                        <div className="text-gray-300 mt-1">
+                                          <span className="text-gray-500">Message:</span> {embeddedJson.error.message}
+                                        </div>
+                                      )}
+                                      {embeddedJson.request_id && (
+                                        <div className="text-gray-500 mt-1 text-xs">
+                                          Request ID: {embeddedJson.request_id}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+                          } catch (e) {
+                            // Not valid JSON, display as-is
+                          }
+                        }
+                        // Regular log line
+                        return (
+                          <div key={`${selectedTask}-${idx}-${log.substring(0, 20)}`} className="text-gray-300 whitespace-pre-wrap break-words">
+                            {log}
+                          </div>
+                        );
+                      })}
                       <div ref={logsEndRef} />
                     </div>
                   )}

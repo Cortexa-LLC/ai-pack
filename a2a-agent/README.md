@@ -48,8 +48,30 @@ a2a-agent/
 ### Prerequisites
 
 - **Go 1.21+** installed
+- **Beads** task management system (`brew install beads`)
 - **Make** (optional, for build convenience)
 - **ANTHROPIC_API_KEY** environment variable or Claude Code authentication
+
+### ⚠️ Migration Required
+
+If you have legacy task folders (format: `task-{role}-{timestamp}`), you must migrate before starting the server:
+
+```bash
+# The server will detect legacy folders and refuse to start
+./bin/agent-server --server
+# Output: ⚠️  MIGRATION REQUIRED - Found X legacy task folder(s)
+
+# Run migration
+./bin/agent-server --migrate-tasks
+
+# Migration will:
+# - Rename folders with Beads IDs to: {beads-id}-{timestamp}
+# - Archive free-form task folders to: .beads/tasks/.archive/legacy/
+# - Preserve all task data and execution history
+
+# Now start the server
+./bin/agent-server --server
+```
 
 ### Building
 
@@ -144,23 +166,25 @@ agent wait <beads-task-id>
 
 ### How Task IDs Work
 
-**You use Beads task IDs everywhere.** The CLI handles internal task ID conversion automatically:
+**All tasks must be Beads tasks.** The system uses Beads task IDs as the single source of truth:
 
-1. You provide Beads task ID (e.g., `xasm++-vp5`)
-2. CLI finds corresponding internal task ID (e.g., `task-engineer-20260125-150405`)
-3. CLI uses internal ID for API calls
-4. You never need to know about internal IDs
+1. Create a Beads task first: `bd create "Task description"`
+2. Beads returns a task ID (e.g., `xasm++-vp5`)
+3. Spawn an agent with that ID: `agent engineer xasm++-vp5`
+4. Task folder is created with format: `{beads-id}-{timestamp}`
 
-**Task metadata location:**
+**Task folder structure:**
 ```
-.beads/tasks/task-engineer-20260125-150405/
-├── 00-metadata.json      # Task metadata (includes beads_task_id)
-├── 10-plan.md           # Agent's plan
+.beads/tasks/xasm++-vp5-20260206-143025/
+├── 00-metadata.json      # Task configuration
+├── 10-plan.md           # Agent's implementation plan
 ├── 20-work-log.md       # Progress tracking
 ├── 30-results.md        # Final results
 ├── agent-prompt.txt     # Prompt sent to agent
 └── execution.log        # Execution log
 ```
+
+**Each execution gets a unique timestamped folder** even if retrying the same Beads task. This preserves complete execution history.
 
 ### Streaming vs Polling
 
@@ -278,7 +302,7 @@ query {
 
 # Get specific task by ID
 query {
-  task(taskId: "task-engineer-20260131-123456") {
+  task(taskId: "xasm++-vp5-20260206-143025") {
     taskId
     role
     status
@@ -318,11 +342,11 @@ query {
 **Available Mutations:**
 
 ```graphql
-# Spawn a new agent
+# Spawn a new agent (requires Beads task ID)
 mutation {
   spawnAgent(
     role: "engineer"
-    task: "Implement user authentication"
+    task: "xasm++-vp5"  # Must be a valid Beads task ID
     projectRoot: "/path/to/project"
   ) {
     taskId
