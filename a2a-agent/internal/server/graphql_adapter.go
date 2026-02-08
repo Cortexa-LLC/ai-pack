@@ -191,6 +191,7 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 		TaskID      string            `json:"task_id"`
 		Role        string            `json:"role"`
 		Task        string            `json:"task"`
+		Description string            `json:"description"`
 		Status      string            `json:"status"`
 		CreatedAt   time.Time         `json:"created_at"`
 		UpdatedAt   time.Time         `json:"updated_at"`
@@ -205,10 +206,16 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 	}
 
 	// Convert to TaskInfo
+	// Use description field if task field is empty
+	taskDescription := status.Task
+	if taskDescription == "" {
+		taskDescription = status.Description
+	}
+
 	taskInfo := &graphql.TaskInfo{
 		TaskID:    status.TaskID,
 		Role:      status.Role,
-		Task:      status.Task,
+		Task:      taskDescription,
 		Status:    status.Status,
 		CreatedAt: status.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: status.UpdatedAt.Format(time.RFC3339),
