@@ -189,6 +189,139 @@ END IF
 
 ---
 
+## ⚠️ CRITICAL: Pre-Delegation Verification
+
+**MANDATORY BEFORE SPAWNING ANY AGENT FOR NON-TRIVIAL WORK**
+
+Before delegating work to **any agent** (Engineer, Product Manager, Architect, Designer, Inspector, Reviewer, Strategist, etc.), you **MUST** verify the task packet exists.
+
+### Pre-Delegation Checklist
+
+```
+BEFORE spawning ANY agent for non-trivial work:
+
+  STEP 1: Verify task type
+    IF task is trivial (quick search, simple query, < 5 min work) THEN
+      OK to spawn without task packet
+      Examples: Explore for quick grep, Inspector for initial triage
+    ELSE
+      Task is non-trivial - CONTINUE TO STEP 2
+    END IF
+
+  STEP 2: Verify prerequisites exist
+    CHECK: Beads task created (`bd list` shows task ID)
+    CHECK: Task packet directory exists (`.ai/tasks/YYYY-MM-DD_name/`)
+    CHECK: 00-contract.md exists with requirements filled out
+    CHECK: Task packet path in Beads description
+    CHECK: Working directory in Beads description
+
+  STEP 3: If ANY check fails
+    IF prerequisites missing THEN
+      DO NOT spawn agent yet
+      EXECUTE: Create task packet first (Section 1, Steps 1-5)
+      THEN: Verify checklist again
+      ONLY THEN: Spawn agent
+    END IF
+
+  STEP 4: Spawn agent with Beads task ID
+    agent spawn <role> <beads-task-id>
+END BEFORE
+```
+
+### Enforcement
+
+**VIOLATION DETECTION:**
+- Agent stops immediately upon discovering missing task packet
+- Agent requests task packet creation in results
+- Agent execution completes but task shows as "completed with warning"
+- Beads task update fails (agent can't mark task complete)
+
+**ROOT CAUSE:** Orchestrator spawned agent before creating task packet
+
+**CONSEQUENCE:**
+- ⚠️ **ORCHESTRATOR FAILURE** (not agent failure)
+- Wasted agent turns and tokens
+- Wasted time (agent execution + orchestrator retry)
+- Task remains incomplete despite agent completion
+
+**PREVENTION:**
+- **ALWAYS** execute Pre-Delegation Checklist before spawning
+- **NEVER** assume task packet exists because Beads task exists
+- **VERIFY** explicitly - don't skip checks for "simple" tasks
+
+### Examples
+
+**✅ CORRECT - Task packet created before delegation:**
+```bash
+# STEP 1: Create Beads task
+task_id=$(bd create "Implement user authentication
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/2026-02-08_user-auth/
+
+Create login/logout endpoints with JWT." --priority high --json | jq -r '.id')
+
+# STEP 2-5: Create task packet infrastructure
+mkdir -p .ai/tasks/2026-02-08_user-auth/
+cp -r .ai-pack/templates/task-packet/* .ai/tasks/2026-02-08_user-auth/
+echo "**Beads Task:** ${task_id}" >> .ai/tasks/2026-02-08_user-auth/00-contract.md
+# ... fill out contract ...
+
+# STEP 6: Verify checklist
+# ✓ Beads task exists
+# ✓ Task packet directory exists
+# ✓ 00-contract.md filled out
+# ✓ Task packet path in description
+# ✓ Working directory in description
+
+# STEP 7: NOW spawn engineer
+agent spawn engineer ${task_id}
+```
+
+**❌ INCORRECT - Spawning without task packet:**
+```bash
+# STEP 1: Create Beads task
+task_id=$(bd create "Implement user authentication
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/2026-02-08_user-auth/
+
+Create login/logout endpoints with JWT." --priority high --json | jq -r '.id')
+
+# ❌ WRONG - Spawning immediately without creating task packet
+agent spawn engineer ${task_id}
+
+# RESULT: Engineer stops, requests task packet, marks as completed with error:
+# "Warning: beads update failed: Task packet missing at .ai/tasks/2026-02-08_user-auth/"
+```
+
+**✅ CORRECT - Trivial task without packet:**
+```bash
+# Quick search - no task packet needed
+agent spawn explore "find all TODO comments in src/"
+```
+
+### Applies To All Agent Types
+
+This checklist applies to **every agent role**:
+
+| Agent Role | Requires Task Packet? | Notes |
+|------------|----------------------|-------|
+| **Engineer** | ✅ YES (non-trivial) | Always needs task packet for implementation work |
+| **Product Manager** | ✅ YES | Needs task packet for PRD/requirements work |
+| **Architect** | ✅ YES | Needs task packet for design/ADR work |
+| **Designer** | ✅ YES | Needs task packet for UX/design work |
+| **Inspector** | ⚠️ DEPENDS | Initial triage: NO, Full investigation: YES |
+| **Spelunker** | ⚠️ DEPENDS | Quick exploration: NO, Deep investigation: YES |
+| **Reviewer** | ✅ YES | Needs task packet for review criteria |
+| **Strategist** | ✅ YES | Needs task packet for market analysis |
+| **Explore** | ❌ NO (usually) | Quick searches don't need packets |
+| **Worker** | ✅ YES (non-trivial) | Generic worker for non-trivial tasks |
+
+**Rule of thumb:** If the agent will write files, create documentation, or work for >5 minutes, it needs a task packet.
+
+---
+
 ### 2. Task Decomposition and Work Breakdown (WITH BEADS)
 
 **Responsibility:** Break complex tasks into manageable subtasks using Beads and Lean Flow principles.
@@ -656,6 +789,8 @@ BEFORE proceeding to delegation:
 
 **RESPONSIBILITY:** Determine whether to delegate bug to Inspector or directly to Engineer.
 
+**⚠️ MANDATORY:** Execute **Pre-Delegation Checklist** (Section 1.1) before spawning any agent.
+
 **Decision Criteria:**
 ```
 WHEN bug reported:
@@ -664,13 +799,19 @@ WHEN bug reported:
   IF bug is complex OR root cause unclear THEN
     RECOMMENDED: Delegate to Inspector
     Pattern:
+      # Inspector for investigation (may not need packet for quick triage)
       inspector = Task(inspector_role, "Investigate [BUG-ID]")
       wait_for_rca()
+
+      # MANDATORY: Verify task packet exists before spawning engineer
+      VERIFY_TASK_PACKET_EXISTS()  # See Pre-Delegation Checklist
       engineer = Task(engineer_role, "Fix [BUG-ID] per task packet")
 
   ELSE IF bug is simple OR root cause obvious THEN
     ACCEPTABLE: Delegate directly to Engineer
     Pattern:
+      # MANDATORY: Verify task packet exists before spawning
+      VERIFY_TASK_PACKET_EXISTS()  # See Pre-Delegation Checklist
       engineer = Task(engineer_role, "Fix [BUG-ID] following bugfix workflow")
   END IF
 ```
@@ -869,6 +1010,8 @@ END IF
 
 **RESPONSIBILITY:** Determine whether to delegate feature to Product Manager or directly to Engineer.
 
+**⚠️ MANDATORY:** Execute **Pre-Delegation Checklist** (Section 1.1) before spawning any agent.
+
 **Decision Criteria:**
 ```
 WHEN large feature requested:
@@ -880,11 +1023,16 @@ WHEN large feature requested:
       pm = Task(pm_role, "Define requirements for [FEATURE]")
       wait_for_prd()
       [Optional] architect = Task(architect_role, "Design [FEATURE]")
+
+      # MANDATORY: Verify task packet exists before spawning engineer
+      VERIFY_TASK_PACKET_EXISTS()  # See Pre-Delegation Checklist
       engineer = Task(engineer_role, "Implement [USER-STORY]")
 
   ELSE IF feature is small AND requirements clear THEN
     ACCEPTABLE: Delegate directly to Engineer
     Pattern:
+      # MANDATORY: Verify task packet exists before spawning
+      VERIFY_TASK_PACKET_EXISTS()  # See Pre-Delegation Checklist
       engineer = Task(engineer_role, "Implement [FEATURE] following feature workflow")
   END IF
 ```
