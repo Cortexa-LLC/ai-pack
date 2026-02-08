@@ -1316,13 +1316,17 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 	beadsTaskID, projectRoot := s.updateTaskCompletion(execution, result)
 
 	// Complete Beads task if applicable
+	var beadsError string
 	if beadsTaskID != "" {
-		s.completeBeadsTask(beadsTaskID, projectRoot, logMsg)
+		if err := s.completeBeadsTask(beadsTaskID, projectRoot, logMsg); err != nil {
+			beadsError = fmt.Sprintf("Warning: %v", err)
+			monitoring.Logger.Warn("beads_update_failed_but_task_completed", "task_id", execution.TaskID, "error", err.Error())
+		}
 	}
 
 	// Finalize task
 	durationMs := time.Since(startTime).Milliseconds()
-	s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "completed", "")
+	s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "completed", beadsError)
 	s.sendStreamEvent(execution, "completed", map[string]interface{}{
 		"result": result,
 	})
@@ -1381,19 +1385,22 @@ func (s *AgentServer) updateTaskCompletion(execution *TaskExecution, result stri
 }
 
 // completeBeadsTask marks the corresponding Beads task as complete
-func (s *AgentServer) completeBeadsTask(beadsTaskID string, projectRoot string, logMsg func(string)) {
+// Returns error if the Beads update failed
+func (s *AgentServer) completeBeadsTask(beadsTaskID string, projectRoot string, logMsg func(string)) error {
 	if !beads.IsInstalled() {
-		return
+		return nil
 	}
 
 	logMsg(fmt.Sprintf("🔗 Marking Beads task complete: %s", beadsTaskID))
 	if err := s.beadsClient.CompleteTaskFromDir(beadsTaskID, projectRoot); err != nil {
 		monitoring.Logger.Warn("failed_to_complete_beads_task", "task_id", beadsTaskID, "error", err.Error())
 		logMsg(fmt.Sprintf("⚠️  Failed to complete Beads task: %v", err))
-	} else {
-		monitoring.Logger.Info("beads_task_completed", "task_id", beadsTaskID)
-		logMsg("✅ Beads task marked complete")
+		return fmt.Errorf("beads update failed: %w", err)
 	}
+
+	monitoring.Logger.Info("beads_task_completed", "task_id", beadsTaskID)
+	logMsg("✅ Beads task marked complete")
+	return nil
 }
 
 func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
