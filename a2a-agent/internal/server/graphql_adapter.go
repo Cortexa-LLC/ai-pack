@@ -66,18 +66,36 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 		convertedCount := 0
 		skippedDuplicate := 0
 		for _, beadsTask := range beadsTasks {
-			taskID := beadsTask.ID
+			beadsID := beadsTask.ID
 
-			// Skip if already in tasks map by task ID
-			// This prevents duplicates when an active agent task was spawned from this beads task
-			if _, exists := tasks[taskID]; exists {
+			// Skip if an active task with this Beads ID exists
+			// Check for both exact match and timestamped format: {beads-id}-{timestamp}
+			alreadyActive := false
+			for activeTaskID := range tasks {
+				// Check if active task matches this Beads ID exactly or starts with it
+				if activeTaskID == beadsID || strings.HasPrefix(activeTaskID, beadsID+"-") {
+					alreadyActive = true
+					break
+				}
+			}
+			if alreadyActive {
 				skippedDuplicate++
 				continue
 			}
 
-			// Convert beads.Task to graphql.TaskInfo
+			// Check if there's a recent execution on disk (failed or completed)
+			// If so, show that execution instead of the Beads task
+			recentExecution := a.findMostRecentExecution(projectRoot, beadsID)
+			if recentExecution != nil {
+				// Use the execution's actual status (could be "failed", "completed", etc.)
+				tasks[recentExecution.TaskID] = recentExecution
+				convertedCount++
+				continue
+			}
+
+			// No recent execution found, show the Beads task as-is
 			taskInfo := convertBeadsTaskToTaskInfo(beadsTask, projectRoot)
-			tasks[taskID] = taskInfo
+			tasks[beadsID] = taskInfo
 			convertedCount++
 		}
 		monitoring.Logger.Info("converted_tasks_from_project", "project_root", projectRoot, "converted", convertedCount, "skipped", skippedDuplicate)
@@ -85,6 +103,53 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 
 	monitoring.Logger.Info("get_all_tasks_complete", "total_tasks", len(tasks))
 	return tasks
+}
+
+// findMostRecentExecution finds the most recent execution for a Beads task ID in a project root
+// Returns nil if no execution found, otherwise returns the TaskInfo for the most recent execution
+func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, beadsID string) *graphql.TaskInfo {
+	tasksDir := filepath.Join(projectRoot, BeadsDir, "tasks")
+	entries, err := os.ReadDir(tasksDir)
+	if err != nil {
+		return nil
+	}
+
+	var mostRecentFolder string
+	var mostRecentTime time.Time
+
+	// Find all folders matching {beads-id}-{timestamp} pattern
+	prefix := beadsID + "-"
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		folderName := entry.Name()
+		// Check if folder matches pattern: {beads-id}-{timestamp}
+		if strings.HasPrefix(folderName, prefix) {
+			// Get folder modification time as a proxy for execution time
+			info, err := entry.Info()
+			if err != nil {
+				continue
+			}
+			if mostRecentFolder == "" || info.ModTime().After(mostRecentTime) {
+				mostRecentFolder = folderName
+				mostRecentTime = info.ModTime()
+			}
+		}
+	}
+
+	if mostRecentFolder == "" {
+		return nil // No execution found
+	}
+
+	// Load the task info from the most recent execution
+	taskInfo, err := a.loadTaskFromProject(projectRoot, mostRecentFolder)
+	if err != nil {
+		return nil
+	}
+
+	return taskInfo
 }
 
 // scanProjectTasks scans a single project root for tasks
