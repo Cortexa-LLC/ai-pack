@@ -318,21 +318,11 @@ func (a *GraphQLAdapter) GetMetrics() *graphql.MetricsInfo {
 	// Get metrics snapshot
 	snapshot := monitoring.GlobalMetrics.GetSnapshot()
 
-	// Count active tasks by querying actual state from Beads (not just in-memory map)
-	// This ensures consistency with swimlane counts
-	activeCount := 0
-	projectRoots := a.server.GetProjectRoots()
-	for _, projectRoot := range projectRoots {
-		beadsTasks, err := a.server.beadsClient.ListAllTasksFromDir(projectRoot)
-		if err != nil {
-			continue
-		}
-		for _, task := range beadsTasks {
-			if task.Status == "in_progress" {
-				activeCount++
-			}
-		}
-	}
+	// Count active tasks from server's activeTasks map
+	// This is the source of truth for tasks currently executing
+	a.server.mu.RLock()
+	activeCount := len(a.server.activeTasks)
+	a.server.mu.RUnlock()
 
 	// Calculate total tokens
 	totalTokens := snapshot.TotalInputTokens + snapshot.TotalOutputTokens
