@@ -439,6 +439,8 @@ func main() {
 	mux.HandleFunc("/api/chat", s.HandleChat)              // Chat with Claude (SSE streaming)
 	mux.HandleFunc("/api/chat/options", s.HandleChatOptions) // CORS preflight
 	mux.HandleFunc("/api/browse-directories", s.HandleBrowseDirectories) // Directory autocomplete
+	mux.HandleFunc("/api/search", s.HandleSearch)          // Codebase search
+	mux.HandleFunc("/api/search/options", s.HandleSearchOptions) // CORS preflight
 
 	// Setup GraphQL endpoints
 	s.SetupGraphQLHandlers(mux)
