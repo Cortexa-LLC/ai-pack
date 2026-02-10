@@ -587,7 +587,8 @@ function App() {
 
       if (result.success) {
         const newTaskID = result.task_id;
-        alert(`Agent started! Task ID: ${newTaskID}`);
+        // Use server message which indicates if orchestrator was spawned
+        alert(result.message || `Agent started! Task ID: ${newTaskID}`);
         // Switch to the new task and show its logs
         selectTask(newTaskID);
       } else {
