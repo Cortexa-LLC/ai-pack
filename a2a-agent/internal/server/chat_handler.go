@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os/exec"
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -81,8 +82,41 @@ func (s *AgentServer) handleAgentMode(w http.ResponseWriter, r *http.Request, re
 		projectRoot = s.rootDir
 	}
 
-	// Spawn agent task
-	response, err := s.spawnAgentTask(role, req.Message, projectRoot)
+	// Create a Beads task from the message first using bd create command
+	cmd := exec.Command("bd", "create", req.Message)
+	cmd.Dir = projectRoot
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to create Beads task: %v (output: %s)", err, string(output)), http.StatusInternalServerError)
+		return
+	}
+
+	// Parse task ID from output - look for "Created issue: <task-id>"
+	outputStr := string(output)
+	beadsTaskID := ""
+	for _, line := range strings.Split(outputStr, "\n") {
+		if strings.Contains(line, "Created issue:") {
+			// Extract task ID from line like "✓ Created issue: xasm++-h0y2"
+			parts := strings.Fields(line)
+			for i, part := range parts {
+				if part == "issue:" && i+1 < len(parts) {
+					beadsTaskID = parts[i+1]
+					break
+				}
+			}
+			break
+		}
+	}
+
+	if beadsTaskID == "" {
+		http.Error(w, fmt.Sprintf("Failed to parse Beads task ID from output: %s", outputStr), http.StatusInternalServerError)
+		return
+	}
+
+	monitoring.Logger.Info("chat_agent_mode_task_created", "task_id", beadsTaskID, "role", role)
+
+	// Spawn agent task with the Beads task ID
+	response, err := s.spawnAgentTask(role, beadsTaskID, projectRoot)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to spawn agent: %v", err), http.StatusInternalServerError)
 		return
@@ -94,7 +128,8 @@ func (s *AgentServer) handleAgentMode(w http.ResponseWriter, r *http.Request, re
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":  "agent_spawned",
 		"task_id": response.TaskID,
-		"message": fmt.Sprintf("Agent task spawned with ID: %s", response.TaskID),
+		"beads_task_id": beadsTaskID,
+		"message": fmt.Sprintf("Agent task spawned with ID: %s (Beads task: %s)", response.TaskID, beadsTaskID),
 	})
 }
 
