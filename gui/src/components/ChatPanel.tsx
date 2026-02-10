@@ -75,8 +75,8 @@ export default function ChatPanel() {
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
-  const [selectedRole, setSelectedRole] = useState('');
-  const [mode, setMode] = useState<'chat' | 'agent'>('chat');
+  const [selectedRole, setSelectedRole] = useState('orchestrator');
+  const [mode] = useState<'chat' | 'agent'>('chat'); // Always chat mode with orchestrator
   const [chatId, setChatId] = useState<string>('');
   const [promptHistory, setPromptHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -102,6 +102,9 @@ export default function ChatPanel() {
   const [suggestion, setSuggestion] = useState('');
   const [useProjectContext, setUseProjectContext] = useState(true);
   const [contextLoadedFile, setContextLoadedFile] = useState('');
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const [orchestratorMonitoring, setOrchestratorMonitoring] = useState(false);
+  const orchestratorEventSourceRef = useRef<EventSource | null>(null);
 
   // Helper functions for project-based chat management
   const loadProjectChats = (projectPath: string): ChatSession[] => {
@@ -190,29 +193,24 @@ export default function ChatPanel() {
   };
 
   const slashCommands = [
-    { name: '/commit', description: 'Create a git commit', action: () => { setInput('Create a git commit with the recent changes'); setMode('agent'); setSelectedRole('engineer'); } },
-    { name: '/test', description: 'Run tests', action: () => { setInput('Run the test suite'); setMode('agent'); setSelectedRole('engineer'); } },
-    { name: '/review', description: 'Review code changes', action: () => { setInput('Review the recent code changes'); setMode('agent'); setSelectedRole('reviewer'); } },
+    { name: '/commit', description: 'Create a git commit', action: () => { setInput('Spawn an engineer to create a git commit with the recent changes'); } },
+    { name: '/test', description: 'Run tests', action: () => { setInput('Spawn an engineer to run the test suite'); } },
+    { name: '/review', description: 'Review code changes', action: () => { setInput('Spawn a reviewer to review the recent code changes'); } },
     { name: '/search', description: 'Search codebase', action: async () => {
       const query = prompt('Enter search query:');
       if (!query) return;
       await performCodebaseSearch(query);
     } },
-    { name: '/fix', description: 'Fix an issue', action: () => { setInput('Fix the following issue: '); setMode('agent'); setSelectedRole('engineer'); } },
-    { name: '/refactor', description: 'Refactor code', action: () => { setInput('Refactor the following code: '); setMode('agent'); setSelectedRole('engineer'); } },
+    { name: '/fix', description: 'Fix an issue', action: () => { setInput('Spawn an engineer to fix the following issue: '); } },
+    { name: '/refactor', description: 'Refactor code', action: () => { setInput('Spawn an engineer to refactor the following code: '); } },
     { name: '/explain', description: 'Explain code', action: () => { setInput('Explain how this works: '); } },
-    { name: '/docs', description: 'Generate documentation', action: () => { setInput('Generate documentation for: '); setMode('agent'); setSelectedRole('engineer'); } },
+    { name: '/docs', description: 'Generate documentation', action: () => { setInput('Spawn an engineer to generate documentation for: '); } },
+    { name: '/status', description: 'Check system status', action: () => { setInput('What is the current status of all tasks and agents?'); } },
   ];
 
-  // Auto-switch mode when role changes
+  // Handle role changes (always in chat mode with orchestrator as default)
   const handleRoleChange = (role: string) => {
     setSelectedRole(role);
-    // Auto-select agent mode for specific roles, chat for general
-    if (role === '') {
-      setMode('chat');
-    } else {
-      setMode('agent');
-    }
   };
   const [projectRoot, setProjectRoot] = useState('');
   const [projectRoots, setProjectRoots] = useState<string[]>([]);
@@ -402,6 +400,28 @@ export default function ChatPanel() {
     return () => window.removeEventListener('paste', handlePaste);
   }, []);
 
+  // Handle ESC key to cancel streaming
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isStreaming) {
+        e.preventDefault();
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+          setIsStreaming(false);
+          setStreamingMessage('');
+          // Add cancelled message
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: '⚠️ Response cancelled by user',
+          }]);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isStreaming]);
+
   // Watch for project changes and load appropriate chats
   useEffect(() => {
     if (!projectRoot) return;
@@ -448,6 +468,60 @@ export default function ChatPanel() {
       setCurrentChatForProject(projectRoot, newChat.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectRoot]);
+
+  // Connect to orchestrator SSE stream when project is selected
+  useEffect(() => {
+    if (!projectRoot) {
+      // Disconnect if no project
+      if (orchestratorEventSourceRef.current) {
+        orchestratorEventSourceRef.current.close();
+        orchestratorEventSourceRef.current = null;
+        setOrchestratorMonitoring(false);
+      }
+      return;
+    }
+
+    // Connect to orchestrator SSE
+    const eventSource = new EventSource(
+      `/api/orchestrator/stream?project_root=${encodeURIComponent(projectRoot)}`
+    );
+
+    eventSource.onopen = () => {
+      console.log('[Orchestrator] SSE connected');
+      setOrchestratorMonitoring(true);
+    };
+
+    eventSource.addEventListener('connected', (e) => {
+      const data = JSON.parse(e.data);
+      console.log('[Orchestrator] Session connected:', data.session_id);
+    });
+
+    eventSource.addEventListener('update', (e) => {
+      const update = JSON.parse(e.data);
+      console.log('[Orchestrator] Update:', update);
+
+      // Add orchestrator update as assistant message
+      const orchestratorMessage: Message = {
+        role: 'assistant',
+        content: `🤖 ${update.message}`,
+      };
+      setMessages(prev => [...prev, orchestratorMessage]);
+    });
+
+    eventSource.onerror = (err) => {
+      console.error('[Orchestrator] SSE error:', err);
+      setOrchestratorMonitoring(false);
+      // Will automatically reconnect
+    };
+
+    orchestratorEventSourceRef.current = eventSource;
+
+    // Cleanup on unmount or project change
+    return () => {
+      eventSource.close();
+      setOrchestratorMonitoring(false);
+    };
   }, [projectRoot]);
 
   // Save project root to history
@@ -566,12 +640,6 @@ export default function ChatPanel() {
       return;
     }
 
-    // Validate agent mode requirements
-    if (mode === 'agent' && !projectRoot) {
-      alert('Agent mode requires a project root. Please select a project directory first.');
-      return;
-    }
-
     // Build message content with attached files and images
     let messageContent = input;
     if (attachedFiles.length > 0) {
@@ -628,6 +696,10 @@ export default function ChatPanel() {
       payload: requestPayload
     });
 
+    // Create AbortController for cancellation
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     try {
       // Fetch with streaming response
       console.log('[ChatPanel] Calling fetch...');
@@ -637,6 +709,7 @@ export default function ChatPanel() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestPayload),
+        signal: abortController.signal,
       });
 
       console.log('[ChatPanel] Fetch response received', {
@@ -651,7 +724,13 @@ export default function ChatPanel() {
           status: response.status,
           statusText: response.statusText
         });
-        throw new Error(`HTTP ${response.status}`);
+        // Try to parse JSON error message
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        } catch (parseError) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
       }
 
       // Handle agent mode response (JSON, not streaming)
@@ -659,6 +738,7 @@ export default function ChatPanel() {
         console.log('[ChatPanel] Agent mode - reading JSON response');
         const data = await response.json();
         console.log('[ChatPanel] Agent response data:', data);
+
         if (data.status === 'agent_spawned') {
           const projectDisplay = data.project_name || data.project_root || 'Unknown';
           const assistantMessage: Message = {
@@ -668,6 +748,10 @@ export default function ChatPanel() {
           setMessages(prev => [...prev, assistantMessage]);
           setIsStreaming(false);
           return;
+        } else if (data.status === 'error') {
+          throw new Error(data.message || 'Agent task failed');
+        } else {
+          throw new Error(`Unexpected agent response status: ${data.status}`);
         }
       }
 
@@ -744,6 +828,12 @@ export default function ChatPanel() {
       console.log('[ChatPanel] Stream ended, setting isStreaming to false');
       setIsStreaming(false);
     } catch (err) {
+      // Ignore abort errors (user cancelled with ESC)
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log('[ChatPanel] Request aborted by user');
+        return;
+      }
+
       console.error('[ChatPanel] Error in sendMessage:', err);
       console.error('[ChatPanel] Error stack:', err instanceof Error ? err.stack : 'No stack');
       setMessages(prev => [
@@ -754,6 +844,8 @@ export default function ChatPanel() {
         },
       ]);
       setIsStreaming(false);
+    } finally {
+      abortControllerRef.current = null;
     }
   };
 
@@ -1104,16 +1196,22 @@ export default function ChatPanel() {
       <div className="p-3 border-b border-gray-700 bg-gray-900">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-400"></div>
+            <div
+              className={`w-2 h-2 rounded-full ${orchestratorMonitoring ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`}
+              title={orchestratorMonitoring ? 'Orchestrator monitoring active' : 'Orchestrator idle'}
+            ></div>
             <h3 className="font-semibold text-sm">
               {projectRoot ? (
                 <>
-                  📁 {projectRoot.split('/').pop()} › 💬 {currentChatName}
+                  📁 {projectRoot.split('/').pop()} › 🤖 {currentChatName}
                 </>
               ) : (
-                'Claude Assistant'
+                '🤖 Orchestrator'
               )}
             </h3>
+            {orchestratorMonitoring && (
+              <span className="text-xs text-green-400 ml-2">monitoring</span>
+            )}
           </div>
           <div className="flex gap-1">
             <button
@@ -1196,30 +1294,6 @@ export default function ChatPanel() {
             </span>
           </div>
         )}
-
-        {/* Mode Toggle */}
-        <div className="flex gap-2 mb-2">
-          <button
-            onClick={() => setMode('chat')}
-            className={`flex-1 px-3 py-1.5 text-xs rounded transition-colors ${
-              mode === 'chat'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            💬 Chat
-          </button>
-          <button
-            onClick={() => setMode('agent')}
-            className={`flex-1 px-3 py-1.5 text-xs rounded transition-colors ${
-              mode === 'agent'
-                ? 'bg-purple-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            🤖 Agent
-          </button>
-        </div>
 
         {/* Role Selector */}
         <div className="relative mb-2">
@@ -1438,8 +1512,9 @@ export default function ChatPanel() {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
           <div className="text-center text-gray-500 mt-8">
-            <p className="text-lg mb-2">👋 Hi! I'm Claude.</p>
-            <p className="text-sm">Ask me anything about your agents, code, or anything else!</p>
+            <p className="text-lg mb-2">🤖 Orchestrator Active</p>
+            <p className="text-sm mb-1">I monitor your agent system and coordinate task execution.</p>
+            <p className="text-xs text-gray-600">Ask me to spawn agents, check task status, or discuss the project.</p>
           </div>
         )}
 
@@ -1743,7 +1818,13 @@ export default function ChatPanel() {
               />
             </div>
           </div>
-          <p className="text-xs text-gray-500">Press Enter to send, Shift+Enter for new line, ↑↓ for history</p>
+          <p className="text-xs text-gray-500">
+            {isStreaming ? (
+              <span className="text-yellow-400 font-semibold">Press ESC to cancel</span>
+            ) : (
+              'Press Enter to send, Shift+Enter for new line, ↑↓ for history'
+            )}
+          </p>
         </div>
       </div>
     </div>
