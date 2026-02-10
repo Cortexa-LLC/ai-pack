@@ -471,6 +471,44 @@ export default function ChatPanel() {
     setMentionedFiles(mentionedFiles.filter(f => f !== filename));
   };
 
+  // Generate follow-up suggestions based on response content
+  const generateSuggestions = (content: string): string[] => {
+    const suggestions: string[] = [];
+    const lowerContent = content.toLowerCase();
+
+    // Code-related suggestions
+    if (lowerContent.includes('function') || lowerContent.includes('class') || lowerContent.includes('```')) {
+      suggestions.push('Can you add tests for this code?');
+      suggestions.push('How can I optimize this?');
+      suggestions.push('What are potential edge cases?');
+    }
+
+    // Error/bug related
+    if (lowerContent.includes('error') || lowerContent.includes('bug') || lowerContent.includes('fix')) {
+      suggestions.push('How can I debug this issue?');
+      suggestions.push('What logging should I add?');
+    }
+
+    // Implementation suggestions
+    if (lowerContent.includes('implement') || lowerContent.includes('create') || lowerContent.includes('add')) {
+      suggestions.push('What are the best practices?');
+      suggestions.push('Should I consider performance?');
+    }
+
+    // Documentation
+    if (lowerContent.includes('document') || lowerContent.includes('comment')) {
+      suggestions.push('Can you generate API docs?');
+    }
+
+    // General suggestions (always include some)
+    suggestions.push('Can you explain this in more detail?');
+    suggestions.push('Show me an example');
+    suggestions.push('What are the alternatives?');
+
+    // Return unique suggestions (max 5)
+    return [...new Set(suggestions)].slice(0, 5);
+  };
+
   const executeCommand = (command: typeof slashCommands[0]) => {
     command.action();
     setShowCommandMenu(false);
@@ -932,39 +970,61 @@ export default function ChatPanel() {
               }`}
             >
               {msg.role === 'assistant' ? (
-                <div className="prose prose-invert prose-sm max-w-none">
-                  <ReactMarkdown
-                    components={{
-                      code({ inline, className, children, ...props }: any) {
-                        const match = /language-(\w+)/.exec(className || '');
-                        const language = match ? match[1] : '';
+                <>
+                  <div className="prose prose-invert prose-sm max-w-none">
+                    <ReactMarkdown
+                      components={{
+                        code({ inline, className, children, ...props }: any) {
+                          const match = /language-(\w+)/.exec(className || '');
+                          const language = match ? match[1] : '';
 
-                        // Handle mermaid diagrams
-                        if (!inline && language === 'mermaid') {
-                          return <MermaidDiagram chart={String(children)} />;
-                        }
+                          // Handle mermaid diagrams
+                          if (!inline && language === 'mermaid') {
+                            return <MermaidDiagram chart={String(children)} />;
+                          }
 
-                        // Handle regular code blocks
-                        return !inline && match ? (
-                          <SyntaxHighlighter
-                            style={vscDarkPlus as any}
-                            language={language}
-                            PreTag="div"
-                            {...props}
+                          // Handle regular code blocks
+                          return !inline && match ? (
+                            <SyntaxHighlighter
+                              style={vscDarkPlus as any}
+                              language={language}
+                              PreTag="div"
+                              {...props}
+                            >
+                              {String(children).replace(/\n$/, '')}
+                            </SyntaxHighlighter>
+                          ) : (
+                            <code className={className} {...props}>
+                              {children}
+                            </code>
+                          );
+                        },
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  </div>
+                  {/* Follow-up suggestions - only show on last assistant message */}
+                  {idx === messages.length - 1 && !isStreaming && (
+                    <div className="mt-3 pt-3 border-t border-gray-600">
+                      <div className="text-xs text-gray-400 mb-2">💡 Suggested follow-ups:</div>
+                      <div className="flex flex-wrap gap-2">
+                        {generateSuggestions(msg.content).map((suggestion, sidx) => (
+                          <button
+                            key={sidx}
+                            onClick={() => {
+                              setInput(suggestion);
+                              setHistoryIndex(-1);
+                            }}
+                            className="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-500 text-gray-200 rounded transition-colors"
                           >
-                            {String(children).replace(/\n$/, '')}
-                          </SyntaxHighlighter>
-                        ) : (
-                          <code className={className} {...props}>
-                            {children}
-                          </code>
-                        );
-                      },
-                    }}
-                  >
-                    {msg.content}
-                  </ReactMarkdown>
-                </div>
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="flex items-start gap-2">
                   <p className="whitespace-pre-wrap flex-1">{msg.content}</p>
@@ -1071,7 +1131,8 @@ export default function ChatPanel() {
             ))}
           </div>
         )}
-        <div className="flex gap-1 mb-2">
+        <div className="flex gap-1 mb-2 flex-wrap">
+          <div className="text-xs text-gray-500 flex items-center mr-2">Code:</div>
           <button
             onClick={() => insertCodeBlock()}
             className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
@@ -1115,6 +1176,51 @@ export default function ChatPanel() {
             className="hidden"
             accept=".txt,.md,.json,.js,.ts,.tsx,.jsx,.go,.py,.java,.c,.cpp,.h,.hpp,.css,.html,.xml,.yaml,.yml,.toml,.ini,.sh,.bash"
           />
+          <div className="text-xs text-gray-500 flex items-center ml-2 mr-2">Quick Actions:</div>
+          <button
+            onClick={() => {
+              setInput('Run the test suite');
+              setMode('agent');
+              setSelectedRole('engineer');
+            }}
+            className="text-xs px-2 py-1 bg-blue-700 hover:bg-blue-600 text-white rounded transition-colors"
+            title="Run tests"
+          >
+            🧪 Test
+          </button>
+          <button
+            onClick={() => {
+              setInput('Create a git commit with the recent changes');
+              setMode('agent');
+              setSelectedRole('engineer');
+            }}
+            className="text-xs px-2 py-1 bg-green-700 hover:bg-green-600 text-white rounded transition-colors"
+            title="Commit changes"
+          >
+            💾 Commit
+          </button>
+          <button
+            onClick={() => {
+              setInput('Generate documentation for the recent changes');
+              setMode('agent');
+              setSelectedRole('engineer');
+            }}
+            className="text-xs px-2 py-1 bg-purple-700 hover:bg-purple-600 text-white rounded transition-colors"
+            title="Generate documentation"
+          >
+            📚 Docs
+          </button>
+          <button
+            onClick={() => {
+              setInput('Review the code changes for best practices and potential issues');
+              setMode('agent');
+              setSelectedRole('reviewer');
+            }}
+            className="text-xs px-2 py-1 bg-yellow-700 hover:bg-yellow-600 text-white rounded transition-colors"
+            title="Review code"
+          >
+            👀 Review
+          </button>
         </div>
         <div className="flex gap-2">
           <div className="flex-1 relative">
