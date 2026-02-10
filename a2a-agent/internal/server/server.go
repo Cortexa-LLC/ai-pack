@@ -738,19 +738,20 @@ Execute the task according to your role definition.`,
 	return prompt
 }
 
-func (s *AgentServer) updateTaskStatus(taskID, projectRoot, status, errorMsg string) {
+func (s *AgentServer) updateTaskStatus(taskID, projectRoot, status, errorMsg string) error {
 	metadataPath := filepath.Join(projectRoot, BeadsDir, "tasks", taskID, MetadataFileName)
+	monitoring.Logger.Info("updating_task_status", "task_id", taskID, "status", status, "path", metadataPath)
 
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {
-		monitoring.Logger.Error("metadata_read_error", "task_id", taskID, "error", err)
-		return
+		monitoring.Logger.Error("metadata_read_error", "task_id", taskID, "path", metadataPath, "error", err)
+		return fmt.Errorf("failed to read metadata: %w", err)
 	}
 
 	var metadata map[string]interface{}
 	if err := json.Unmarshal(data, &metadata); err != nil {
 		monitoring.Logger.Error("metadata_unmarshal_error", "task_id", taskID, "error", err)
-		return
+		return fmt.Errorf("failed to parse metadata: %w", err)
 	}
 
 	metadata["status"] = status
@@ -762,12 +763,16 @@ func (s *AgentServer) updateTaskStatus(taskID, projectRoot, status, errorMsg str
 	updatedData, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
 		monitoring.Logger.Error("metadata_marshal_error", "task_id", taskID, "error", err)
-		return
+		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
 	if err := os.WriteFile(metadataPath, updatedData, 0644); err != nil {
-		monitoring.Logger.Error("metadata_write_error", "task_id", taskID, "error", err)
+		monitoring.Logger.Error("metadata_write_error", "task_id", taskID, "path", metadataPath, "error", err)
+		return fmt.Errorf("failed to write metadata: %w", err)
 	}
+
+	monitoring.Logger.Info("task_status_updated", "task_id", taskID, "status", status)
+	return nil
 }
 
 // buildSystemPrompt creates system messages with prompt caching for role context
@@ -1153,8 +1158,11 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	monitoring.LogTaskStarted(ctx, taskID, execution.Role)
 	monitoring.GlobalMetrics.IncrementTasksSpawned()
 
-	// Initialize task execution
-	s.initializeTaskExecution(execution, logMsg)
+	// Initialize task execution (sets status to in_progress)
+	if err := s.initializeTaskExecution(execution, logMsg); err != nil {
+		s.failTask(execution, fmt.Sprintf("Failed to initialize: %v", err))
+		return
+	}
 
 	// Load role context
 	roleContext, err := s.loadAndLogRoleContext(execution, logMsg)
@@ -1207,12 +1215,15 @@ func (s *AgentServer) setupExecutionLogger(execution *TaskExecution) func(string
 }
 
 // initializeTaskExecution sets initial status and progress
-func (s *AgentServer) initializeTaskExecution(execution *TaskExecution, logMsg func(string)) {
+func (s *AgentServer) initializeTaskExecution(execution *TaskExecution, logMsg func(string)) error {
 	s.mu.Lock()
 	execution.Status = "in_progress"
 	s.mu.Unlock()
 
-	s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "in_progress", "")
+	if err := s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "in_progress", ""); err != nil {
+		logMsg(fmt.Sprintf("❌ Failed to update status: %v", err))
+		return fmt.Errorf("failed to update task status: %w", err)
+	}
 	logMsg("📝 Status updated: in_progress")
 
 	s.sendStreamEvent(execution, "status_update", map[string]interface{}{
@@ -1225,6 +1236,8 @@ func (s *AgentServer) initializeTaskExecution(execution *TaskExecution, logMsg f
 			monitoring.Logger.Warn("failed_to_log_started_event", "error", err.Error())
 		}
 	}
+
+	return nil
 }
 
 // loadAndLogRoleContext loads role context with logging and error handling
@@ -1312,28 +1325,54 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 	// Save results
 	s.saveTaskResults(execution, result, logMsg)
 
+	// Detect if the agent stopped due to blockers (missing task packets, etc.)
+	// Check for common blocker patterns in the result text
+	resultLower := strings.ToLower(result)
+	isBlocked := strings.Contains(resultLower, "task packet missing") ||
+		strings.Contains(resultLower, "blocking issue") ||
+		strings.Contains(resultLower, "stop - task packet") ||
+		strings.Contains(resultLower, "cannot proceed") ||
+		strings.Contains(resultLower, "stopping - task packet required")
+
+	var finalStatus string
+	var statusMessage string
+
+	if isBlocked {
+		finalStatus = "blocked"
+		statusMessage = "Task blocked: Agent stopped due to missing prerequisites (task packet)"
+		logMsg("⚠️  Task marked as BLOCKED - agent identified missing prerequisites")
+	} else {
+		finalStatus = "completed"
+		statusMessage = ""
+	}
+
 	// Update task status
 	beadsTaskID, projectRoot := s.updateTaskCompletion(execution, result)
 
-	// Complete Beads task if applicable
-	var beadsError string
-	if beadsTaskID != "" {
+	// Complete Beads task only if truly completed (not blocked)
+	var errorMsg string
+	if beadsTaskID != "" && !isBlocked {
 		if err := s.completeBeadsTask(beadsTaskID, projectRoot, logMsg); err != nil {
-			beadsError = fmt.Sprintf("Warning: %v", err)
+			errorMsg = fmt.Sprintf("Warning: %v", err)
 			monitoring.Logger.Warn("beads_update_failed_but_task_completed", "task_id", execution.TaskID, "error", err.Error())
 		}
+	} else if isBlocked {
+		errorMsg = statusMessage
 	}
 
 	// Finalize task
 	durationMs := time.Since(startTime).Milliseconds()
-	s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "completed", beadsError)
-	s.sendStreamEvent(execution, "completed", map[string]interface{}{
+	if err := s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, finalStatus, errorMsg); err != nil {
+		monitoring.Logger.Error("failed_to_update_status", "task_id", execution.TaskID, "status", finalStatus, "error", err)
+		logMsg(fmt.Sprintf("⚠️  Warning: Failed to update status: %v", err))
+	}
+	s.sendStreamEvent(execution, finalStatus, map[string]interface{}{
 		"result": result,
 	})
 
 	s.closeStream(execution)
 
-	// Log completed event
+	// Log completion event
 	if s.executionLog != nil {
 		resultSummary := result
 		if len(resultSummary) > 500 {
@@ -1344,11 +1383,16 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 		}
 	}
 
-	logMsg(fmt.Sprintf("🎉 Task completed successfully (duration: %dms)", durationMs))
+	// Log appropriate message based on final status
+	if finalStatus == "blocked" {
+		logMsg(fmt.Sprintf("⚠️  Task blocked - prerequisites missing (duration: %dms)", durationMs))
+		monitoring.Logger.Warn("task_blocked", "task_id", execution.TaskID, "duration_ms", durationMs)
+	} else {
+		logMsg(fmt.Sprintf("🎉 Task completed successfully (duration: %dms)", durationMs))
+		monitoring.LogTaskCompleted(ctx, execution.TaskID, execution.Role, durationMs)
+		monitoring.GlobalMetrics.IncrementTasksCompleted(durationMs)
+	}
 	logMsg("=" + strings.Repeat("=", 70))
-
-	monitoring.LogTaskCompleted(ctx, execution.TaskID, execution.Role, durationMs)
-	monitoring.GlobalMetrics.IncrementTasksCompleted(durationMs)
 }
 
 // saveTaskResults saves the task results to disk
@@ -1425,7 +1469,9 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	delete(s.activeTasks, execution.TaskID)
 	s.mu.Unlock()
 
-	s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "failed", errorMsg)
+	if err := s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "failed", errorMsg); err != nil {
+		monitoring.Logger.Error("failed_to_update_failed_status", "task_id", execution.TaskID, "error", err)
+	}
 	s.sendStreamEvent(execution, "failed", map[string]interface{}{
 		"error": errorMsg,
 	})
@@ -1490,7 +1536,9 @@ func (s *AgentServer) cancelTaskExecution(execution *TaskExecution, message stri
 	delete(s.activeTasks, execution.TaskID)
 	s.mu.Unlock()
 
-	s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "cancelled", message)
+	if err := s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "cancelled", message); err != nil {
+		monitoring.Logger.Error("failed_to_update_cancelled_status", "task_id", execution.TaskID, "error", err)
+	}
 	s.sendStreamEvent(execution, "cancelled", map[string]interface{}{
 		"message": message,
 	})

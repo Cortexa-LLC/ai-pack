@@ -548,7 +548,12 @@ func (s *AgentServer) HandleStartTask(w http.ResponseWriter, r *http.Request) {
 		// Check for exact match or timestamped variant
 		if activeTaskID == taskID || strings.HasPrefix(activeTaskID, taskID+"-") {
 			s.mu.RUnlock()
-			http.Error(w, fmt.Sprintf("Task %s already has an active agent", taskID), http.StatusConflict)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": false,
+				"message": fmt.Sprintf("Task %s already has an active agent", taskID),
+			})
 			return
 		}
 	}
@@ -557,7 +562,12 @@ func (s *AgentServer) HandleStartTask(w http.ResponseWriter, r *http.Request) {
 	// Check if task packet exists
 	_, taskPacketPath, _, _, err := s.beadsClient.GetTaskDescriptionFromDir(taskID, req.ProjectRoot)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get task info: %v", err), http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": fmt.Sprintf("Failed to get task info: %v", err),
+		})
 		return
 	}
 
@@ -574,7 +584,12 @@ func (s *AgentServer) HandleStartTask(w http.ResponseWriter, r *http.Request) {
 	// Spawn agent for this Beads task
 	response, err := s.spawnAgentTask(roleToSpawn, taskID, req.ProjectRoot)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to start agent: %v", err), http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": fmt.Sprintf("Failed to start agent: %v", err),
+		})
 		return
 	}
 

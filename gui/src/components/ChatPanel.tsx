@@ -100,6 +100,8 @@ export default function ChatPanel() {
   const [showChatList, setShowChatList] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [suggestion, setSuggestion] = useState('');
+  const [useProjectContext, setUseProjectContext] = useState(true);
+  const [contextLoadedFile, setContextLoadedFile] = useState('');
 
   // Helper functions for project-based chat management
   const loadProjectChats = (projectPath: string): ChatSession[] => {
@@ -287,6 +289,12 @@ export default function ChatPanel() {
   useEffect(() => {
     // Migrate old chat data if exists
     migrateOldChatToProject();
+
+    // Load use project context preference
+    const savedUseContext = localStorage.getItem('ai-pack-use-project-context');
+    if (savedUseContext !== null) {
+      setUseProjectContext(savedUseContext === 'true');
+    }
 
     // Load project roots
     const savedRoots = localStorage.getItem('ai-pack-project-roots');
@@ -558,6 +566,12 @@ export default function ChatPanel() {
       return;
     }
 
+    // Validate agent mode requirements
+    if (mode === 'agent' && !projectRoot) {
+      alert('Agent mode requires a project root. Please select a project directory first.');
+      return;
+    }
+
     // Build message content with attached files and images
     let messageContent = input;
     if (attachedFiles.length > 0) {
@@ -606,6 +620,7 @@ export default function ChatPanel() {
       role: selectedRole,
       mode: mode,
       project_root: projectRoot,
+      use_project_context: useProjectContext,
     };
 
     console.log('[ChatPanel] Preparing to fetch /api/chat', {
@@ -645,9 +660,10 @@ export default function ChatPanel() {
         const data = await response.json();
         console.log('[ChatPanel] Agent response data:', data);
         if (data.status === 'agent_spawned') {
+          const projectDisplay = data.project_name || data.project_root || 'Unknown';
           const assistantMessage: Message = {
             role: 'assistant',
-            content: `✅ Agent task spawned!\n\n**Task ID:** ${data.task_id}\n\n${data.message}\n\nYou can track this task in the Kanban board.`,
+            content: `✅ Agent task spawned!\n\n**Project:** ${projectDisplay}\n**Role:** ${data.role || selectedRole}\n**Task ID:** ${data.task_id}\n**Beads ID:** ${data.beads_task_id || 'N/A'}\n\nThe ${data.role || selectedRole} agent is now working on this task in the project directory. You can track progress in the Kanban board or task logs.`,
           };
           setMessages(prev => [...prev, assistantMessage]);
           setIsStreaming(false);
@@ -705,6 +721,10 @@ export default function ChatPanel() {
                 // Set suggestion from backend if provided
                 if (parsed.suggestion && input === '') {
                   setSuggestion(parsed.suggestion);
+                }
+                // Set context loaded info if provided
+                if (parsed.context_loaded) {
+                  setContextLoadedFile(parsed.context_loaded);
                 }
                 return;
               } else if (parsed.text) {
@@ -1329,6 +1349,30 @@ export default function ChatPanel() {
             </div>
           )}
         </div>
+
+        {/* Project Context Toggle */}
+        {projectRoot && (
+          <div className="mt-2 flex items-center gap-2">
+            <label className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useProjectContext}
+                onChange={(e) => {
+                  const newValue = e.target.checked;
+                  setUseProjectContext(newValue);
+                  localStorage.setItem('ai-pack-use-project-context', String(newValue));
+                }}
+                className="w-3 h-3 rounded"
+              />
+              <span>Load project context</span>
+            </label>
+            {contextLoadedFile && (
+              <span className="text-xs text-green-400" title={`Loaded ${contextLoadedFile}`}>
+                💡 {contextLoadedFile}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Chat List Selector */}
         {projectRoot && projectChats.length > 0 && (
