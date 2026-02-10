@@ -7,6 +7,24 @@ import mermaid from 'mermaid';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  replyTo?: number; // Index of the message being replied to
+  id?: number; // Unique ID for this message
+}
+
+interface ChatSession {
+  id: string;
+  name: string;
+  messages: Message[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface ProjectChats {
+  [projectPath: string]: ChatSession[];
+}
+
+interface CurrentChatPerProject {
+  [projectPath: string]: string; // chatId
 }
 
 // Initialize mermaid
@@ -69,6 +87,7 @@ export default function ChatPanel() {
   const [commandFilter, setCommandFilter] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [detectedFiles, setDetectedFiles] = useState<string[]>([]);
+  const [replyingTo, setReplyingTo] = useState<number | null>(null);
   const [mentionedFiles, setMentionedFiles] = useState<string[]>([]);
   const [showFileMentions, setShowFileMentions] = useState(false);
   const [_fileMentionQuery, setFileMentionQuery] = useState('');
@@ -76,6 +95,96 @@ export default function ChatPanel() {
   const [attachedImages, setAttachedImages] = useState<Array<{ name: string; dataUrl: string; size: number }>>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [currentChatName, setCurrentChatName] = useState('New Chat');
+  const [projectChats, setProjectChats] = useState<ChatSession[]>([]);
+  const [showChatList, setShowChatList] = useState(false);
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+
+  // Helper functions for project-based chat management
+  const loadProjectChats = (projectPath: string): ChatSession[] => {
+    try {
+      const allChats = localStorage.getItem('ai-pack-project-chats');
+      if (!allChats) return [];
+      const parsed: ProjectChats = JSON.parse(allChats);
+      return parsed[projectPath] || [];
+    } catch (err) {
+      console.error('Failed to load project chats:', err);
+      return [];
+    }
+  };
+
+  const saveProjectChats = (projectPath: string, chats: ChatSession[]) => {
+    try {
+      const allChats = localStorage.getItem('ai-pack-project-chats');
+      const parsed: ProjectChats = allChats ? JSON.parse(allChats) : {};
+      parsed[projectPath] = chats;
+      localStorage.setItem('ai-pack-project-chats', JSON.stringify(parsed));
+    } catch (err) {
+      console.error('Failed to save project chats:', err);
+    }
+  };
+
+  const getCurrentChatForProject = (projectPath: string): string | null => {
+    try {
+      const currentChats = localStorage.getItem('ai-pack-current-chat-per-project');
+      if (!currentChats) return null;
+      const parsed: CurrentChatPerProject = JSON.parse(currentChats);
+      return parsed[projectPath] || null;
+    } catch (err) {
+      console.error('Failed to get current chat for project:', err);
+      return null;
+    }
+  };
+
+  const setCurrentChatForProject = (projectPath: string, chatId: string) => {
+    try {
+      const currentChats = localStorage.getItem('ai-pack-current-chat-per-project');
+      const parsed: CurrentChatPerProject = currentChats ? JSON.parse(currentChats) : {};
+      parsed[projectPath] = chatId;
+      localStorage.setItem('ai-pack-current-chat-per-project', JSON.stringify(parsed));
+    } catch (err) {
+      console.error('Failed to set current chat for project:', err);
+    }
+  };
+
+  const generateChatName = (firstMessage: string): string => {
+    const cleaned = firstMessage.trim().replace(/\n/g, ' ');
+    if (cleaned.length === 0) {
+      return `New Chat ${new Date().toLocaleDateString()}`;
+    }
+    return cleaned.substring(0, 50) + (cleaned.length > 50 ? '...' : '');
+  };
+
+  const migrateOldChatToProject = () => {
+    const oldChatId = localStorage.getItem('ai-pack-current-chat-id');
+    if (!oldChatId) return;
+
+    const oldMessages = localStorage.getItem(`ai-pack-chat-${oldChatId}`);
+    if (!oldMessages) return;
+
+    try {
+      const msgs = JSON.parse(oldMessages);
+      const defaultProject = '/default';
+      const migratedChat: ChatSession = {
+        id: oldChatId,
+        name: 'Migrated Chat',
+        messages: msgs,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+
+      saveProjectChats(defaultProject, [migratedChat]);
+      setCurrentChatForProject(defaultProject, oldChatId);
+
+      // Clean up old keys
+      localStorage.removeItem('ai-pack-current-chat-id');
+      localStorage.removeItem(`ai-pack-chat-${oldChatId}`);
+
+      console.log('Successfully migrated old chat to default project');
+    } catch (err) {
+      console.error('Failed to migrate old chat:', err);
+    }
+  };
 
   const slashCommands = [
     { name: '/commit', description: 'Create a git commit', action: () => { setInput('Create a git commit with the recent changes'); setMode('agent'); setSelectedRole('engineer'); } },
@@ -109,52 +218,146 @@ export default function ChatPanel() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const autocompleteTimerRef = useRef<number | null>(null);
+  const lastProjectRef = useRef<string>('');
+
+  // Chat management functions
+  const createNewChatInProject = (project: string) => {
+    if (!project) {
+      alert('Please select a project first');
+      return;
+    }
+
+    const newChat: ChatSession = {
+      id: Date.now().toString(),
+      name: 'New Chat',
+      messages: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+
+    const updatedChats = [newChat, ...projectChats];
+    setProjectChats(updatedChats);
+    saveProjectChats(project, updatedChats);
+    switchToChat(newChat);
+    setCurrentChatForProject(project, newChat.id);
+  };
+
+  const switchToChat = (chat: ChatSession) => {
+    setChatId(chat.id);
+    setMessages(chat.messages);
+    setCurrentChatName(chat.name);
+    setShowChatList(false);
+  };
+
+  const deleteChat = (chatIdToDelete: string) => {
+    if (!projectRoot) return;
+
+    const updatedChats = projectChats.filter(c => c.id !== chatIdToDelete);
+    setProjectChats(updatedChats);
+    saveProjectChats(projectRoot, updatedChats);
+
+    // If deleting current chat, switch to first available
+    if (chatIdToDelete === chatId && updatedChats.length > 0) {
+      switchToChat(updatedChats[0]);
+      setCurrentChatForProject(projectRoot, updatedChats[0].id);
+    } else if (updatedChats.length === 0) {
+      // Create new chat if none left
+      createNewChatInProject(projectRoot);
+    }
+  };
+
+  const updateChatName = (chatIdToUpdate: string, firstMessage: string) => {
+    if (!projectRoot) return;
+
+    const chatToUpdate = projectChats.find(c => c.id === chatIdToUpdate);
+    if (!chatToUpdate || chatToUpdate.messages.length > 0) return; // Only update on first message
+
+    const newName = generateChatName(firstMessage);
+    const updatedChats = projectChats.map(c =>
+      c.id === chatIdToUpdate ? { ...c, name: newName, updatedAt: Date.now() } : c
+    );
+
+    setProjectChats(updatedChats);
+    setCurrentChatName(newName);
+    saveProjectChats(projectRoot, updatedChats);
+  };
 
   // Load project roots and chat history from localStorage on mount
   useEffect(() => {
+    // Migrate old chat data if exists
+    migrateOldChatToProject();
+
     // Load project roots
     const savedRoots = localStorage.getItem('ai-pack-project-roots');
     if (savedRoots) {
       try {
         const roots = JSON.parse(savedRoots);
         setProjectRoots(roots);
-        if (roots.length > 0) {
-          setProjectRoot(roots[0]); // Default to most recent
-        }
       } catch (err) {
         console.error('Failed to load project roots:', err);
       }
     }
 
-    // Load or create chat session
-    const savedChatId = localStorage.getItem('ai-pack-current-chat-id');
-    if (savedChatId) {
-      setChatId(savedChatId);
-      const savedMessages = localStorage.getItem(`ai-pack-chat-${savedChatId}`);
-      if (savedMessages) {
-        try {
-          const msgs = JSON.parse(savedMessages);
-          setMessages(msgs);
-        } catch (err) {
-          console.error('Failed to load chat history:', err);
-        }
+    // Load current project
+    const currentProj = localStorage.getItem('ai-pack-current-project');
+    if (currentProj) {
+      setProjectRoot(currentProj);
+
+      // Load chats for this project
+      const chats = loadProjectChats(currentProj);
+      setProjectChats(chats);
+
+      // Load current chat for this project
+      const currentChatId = getCurrentChatForProject(currentProj);
+
+      if (currentChatId && chats.find(c => c.id === currentChatId)) {
+        // Load existing chat
+        const chat = chats.find(c => c.id === currentChatId)!;
+        setChatId(chat.id);
+        setMessages(chat.messages);
+        setCurrentChatName(chat.name);
+      } else if (chats.length > 0) {
+        // Load first chat
+        const chat = chats[0];
+        setChatId(chat.id);
+        setMessages(chat.messages);
+        setCurrentChatName(chat.name);
+        setCurrentChatForProject(currentProj, chat.id);
+      } else {
+        // Create first chat for this project
+        const newChat: ChatSession = {
+          id: Date.now().toString(),
+          name: 'New Chat',
+          messages: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+        setChatId(newChat.id);
+        setMessages([]);
+        setCurrentChatName(newChat.name);
+        setProjectChats([newChat]);
+        saveProjectChats(currentProj, [newChat]);
+        setCurrentChatForProject(currentProj, newChat.id);
       }
 
-      // Load prompt history
-      const savedHistory = localStorage.getItem(`ai-pack-prompt-history-${savedChatId}`);
-      if (savedHistory) {
-        try {
-          const history = JSON.parse(savedHistory);
-          setPromptHistory(history);
-        } catch (err) {
-          console.error('Failed to load prompt history:', err);
+      // Load prompt history for this chat
+      if (currentChatId) {
+        const savedHistory = localStorage.getItem(`ai-pack-prompt-history-${currentChatId}`);
+        if (savedHistory) {
+          try {
+            const history = JSON.parse(savedHistory);
+            setPromptHistory(history);
+          } catch (err) {
+            console.error('Failed to load prompt history:', err);
+          }
         }
       }
     } else {
-      // Create new chat session
+      // No project selected - create default empty state
       const newChatId = Date.now().toString();
       setChatId(newChatId);
-      localStorage.setItem('ai-pack-current-chat-id', newChatId);
+      setMessages([]);
+      setCurrentChatName('New Chat');
     }
   }, []);
 
@@ -189,6 +392,54 @@ export default function ChatPanel() {
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
   }, []);
+
+  // Watch for project changes and load appropriate chats
+  useEffect(() => {
+    if (!projectRoot) return;
+
+    // Prevent running if project hasn't actually changed
+    if (lastProjectRef.current === projectRoot) return;
+    lastProjectRef.current = projectRoot;
+
+    // Save current project
+    localStorage.setItem('ai-pack-current-project', projectRoot);
+
+    // Load chats for new project
+    const chats = loadProjectChats(projectRoot);
+    setProjectChats(chats);
+
+    // Load last active chat for this project
+    const currentChatId = getCurrentChatForProject(projectRoot);
+
+    if (currentChatId && chats.find(c => c.id === currentChatId)) {
+      const chat = chats.find(c => c.id === currentChatId)!;
+      setChatId(chat.id);
+      setMessages(chat.messages);
+      setCurrentChatName(chat.name);
+    } else if (chats.length > 0) {
+      const chat = chats[0];
+      setChatId(chat.id);
+      setMessages(chat.messages);
+      setCurrentChatName(chat.name);
+      setCurrentChatForProject(projectRoot, chat.id);
+    } else {
+      // Create first chat
+      const newChat: ChatSession = {
+        id: Date.now().toString(),
+        name: 'New Chat',
+        messages: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      setChatId(newChat.id);
+      setMessages([]);
+      setCurrentChatName(newChat.name);
+      setProjectChats([newChat]);
+      saveProjectChats(projectRoot, [newChat]);
+      setCurrentChatForProject(projectRoot, newChat.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectRoot]);
 
   // Save project root to history
   const saveProjectRoot = (root: string) => {
@@ -250,10 +501,39 @@ export default function ChatPanel() {
 
   // Save chat messages to localStorage whenever they change
   useEffect(() => {
-    if (chatId && messages.length > 0) {
-      localStorage.setItem(`ai-pack-chat-${chatId}`, JSON.stringify(messages));
+    if (!chatId || !projectRoot || messages.length === 0) return;
+
+    // Load current chats from localStorage to avoid stale state
+    const currentChats = loadProjectChats(projectRoot);
+    if (currentChats.length === 0) return;
+
+    // Check if this is the first user message for auto-naming
+    const shouldAutoName = messages.length === 1 && messages[0].role === 'user';
+    const existingChat = currentChats.find(c => c.id === chatId);
+
+    if (shouldAutoName && existingChat && existingChat.messages.length === 0) {
+      // Auto-name on first message
+      const newName = generateChatName(messages[0].content);
+      const updatedChats = currentChats.map(c =>
+        c.id === chatId
+          ? { ...c, name: newName, messages, updatedAt: Date.now() }
+          : c
+      );
+      saveProjectChats(projectRoot, updatedChats);
+      setProjectChats(updatedChats);
+      setCurrentChatName(newName);
+    } else {
+      // Just update messages
+      const updatedChats = currentChats.map(c =>
+        c.id === chatId
+          ? { ...c, messages, updatedAt: Date.now() }
+          : c
+      );
+      saveProjectChats(projectRoot, updatedChats);
+      setProjectChats(updatedChats);
     }
-  }, [messages, chatId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, chatId, projectRoot]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -261,7 +541,20 @@ export default function ChatPanel() {
   }, [messages, streamingMessage]);
 
   const sendMessage = async () => {
-    if (!input.trim() || isStreaming) return;
+    console.log('[ChatPanel] sendMessage called', {
+      inputLength: input.length,
+      isStreaming,
+      projectRoot,
+      chatId,
+      mode,
+      selectedRole,
+      messagesCount: messages.length
+    });
+
+    if (!input.trim() || isStreaming) {
+      console.log('[ChatPanel] sendMessage aborted - input empty or already streaming');
+      return;
+    }
 
     // Build message content with attached files and images
     let messageContent = input;
@@ -281,9 +574,13 @@ export default function ChatPanel() {
     const userMessage: Message = {
       role: 'user',
       content: messageContent,
+      replyTo: replyingTo !== null ? replyingTo : undefined,
+      id: Date.now(),
     };
 
+    console.log('[ChatPanel] Adding user message to state');
     setMessages(prev => [...prev, userMessage]);
+    setReplyingTo(null); // Clear reply state after sending
     const currentInput = input;
 
     // Add to prompt history
@@ -301,29 +598,50 @@ export default function ChatPanel() {
     setIsStreaming(true);
     setStreamingMessage('');
 
+    const requestPayload = {
+      message: messageContent,
+      messages: messages,
+      role: selectedRole,
+      mode: mode,
+      project_root: projectRoot,
+    };
+
+    console.log('[ChatPanel] Preparing to fetch /api/chat', {
+      url: '/api/chat',
+      payload: requestPayload
+    });
+
     try {
       // Fetch with streaming response
+      console.log('[ChatPanel] Calling fetch...');
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message: messageContent,
-          messages: messages,
-          role: selectedRole,
-          mode: mode,
-          project_root: projectRoot,
-        }),
+        body: JSON.stringify(requestPayload),
+      });
+
+      console.log('[ChatPanel] Fetch response received', {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
       });
 
       if (!response.ok) {
+        console.error('[ChatPanel] Response not OK', {
+          status: response.status,
+          statusText: response.statusText
+        });
         throw new Error(`HTTP ${response.status}`);
       }
 
       // Handle agent mode response (JSON, not streaming)
       if (mode === 'agent') {
+        console.log('[ChatPanel] Agent mode - reading JSON response');
         const data = await response.json();
+        console.log('[ChatPanel] Agent response data:', data);
         if (data.status === 'agent_spawned') {
           const assistantMessage: Message = {
             role: 'assistant',
@@ -336,17 +654,23 @@ export default function ChatPanel() {
       }
 
       // Read SSE stream from response body (chat mode)
+      console.log('[ChatPanel] Chat mode - reading SSE stream');
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
 
       if (!reader) {
+        console.error('[ChatPanel] No response body reader available');
         throw new Error('No response body');
       }
 
+      console.log('[ChatPanel] Starting stream read loop');
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          console.log('[ChatPanel] Stream reading complete');
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
@@ -362,10 +686,12 @@ export default function ChatPanel() {
             const data = line.substring(5).trim();
             try {
               const parsed = JSON.parse(data);
+              console.log('[ChatPanel] SSE event:', parsed);
 
               if (parsed.status === 'connected') {
-                console.log('Chat stream connected');
+                console.log('[ChatPanel] Chat stream connected');
               } else if (parsed.status === 'complete') {
+                console.log('[ChatPanel] Stream complete');
                 // Completion event - check this BEFORE parsed.text
                 const assistantMessage: Message = {
                   role: 'assistant',
@@ -379,18 +705,21 @@ export default function ChatPanel() {
                 // For delta events
                 setStreamingMessage(prev => prev + parsed.text.replace(/\\n/g, '\n').replace(/\\"/g, '"'));
               } else if (parsed.error) {
+                console.error('[ChatPanel] SSE error event:', parsed.error);
                 throw new Error(parsed.error);
               }
             } catch (err) {
-              console.error('Failed to parse SSE data:', err);
+              console.error('[ChatPanel] Failed to parse SSE data:', err, 'Line:', line);
             }
           }
         }
       }
 
+      console.log('[ChatPanel] Stream ended, setting isStreaming to false');
       setIsStreaming(false);
     } catch (err) {
-      console.error('Failed to send message:', err);
+      console.error('[ChatPanel] Error in sendMessage:', err);
+      console.error('[ChatPanel] Error stack:', err instanceof Error ? err.stack : 'No stack');
       setMessages(prev => [
         ...prev,
         {
@@ -670,16 +999,12 @@ export default function ChatPanel() {
 
   const startNewChat = () => {
     if (isStreaming) return; // Don't start new chat while streaming
+    if (!projectRoot) {
+      alert('Please select a project first');
+      return;
+    }
 
-    // Create new chat session
-    const newChatId = Date.now().toString();
-    setChatId(newChatId);
-    localStorage.setItem('ai-pack-current-chat-id', newChatId);
-
-    // Clear messages
-    setMessages([]);
-    setInput('');
-    setStreamingMessage('');
+    createNewChatInProject(projectRoot);
   };
 
   const estimateTokens = (text: string): number => {
@@ -737,6 +1062,33 @@ export default function ChatPanel() {
     URL.revokeObjectURL(url);
   };
 
+  const compressOldMessages = async () => {
+    if (messages.length < 10) {
+      alert('Not enough messages to compress. Need at least 10 messages.');
+      return;
+    }
+
+    // Keep the last 5 messages and compress the rest
+    const messagesToKeep = messages.slice(-5);
+    const messagesToCompress = messages.slice(0, -5);
+
+    // Create a simple summary
+    const summary = `[Previous conversation compressed: ${messagesToCompress.length} messages removed to save context. Token estimate: ~${messagesToCompress.reduce((sum, msg) => sum + estimateTokens(msg.content), 0).toLocaleString()} tokens saved]`;
+
+    const summaryMessage: Message = {
+      role: 'assistant',
+      content: summary,
+      id: Date.now(),
+    };
+
+    setMessages([summaryMessage, ...messagesToKeep]);
+
+    // Save to localStorage
+    localStorage.setItem(`ai-pack-chat-${chatId}`, JSON.stringify([summaryMessage, ...messagesToKeep]));
+
+    alert(`Compressed ${messagesToCompress.length} old messages!`);
+  };
+
   const exportToJSON = () => {
     const timestamp = new Date().toISOString().split('T')[0];
     const filename = `chat-export-${timestamp}.json`;
@@ -779,37 +1131,45 @@ export default function ChatPanel() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-400"></div>
-            <h3 className="font-semibold">Claude Assistant</h3>
+            <h3 className="font-semibold text-sm">
+              {projectRoot ? (
+                <>
+                  📁 {projectRoot.split('/').pop()} › 💬 {currentChatName}
+                </>
+              ) : (
+                'Claude Assistant'
+              )}
+            </h3>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1">
             <button
               onClick={() => setShowSearch(!showSearch)}
               disabled={messages.length === 0}
-              className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 rounded transition-colors"
-              title="Search chat history"
+              className="w-8 h-6 text-xs bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 rounded flex items-center justify-center"
+              title="Search"
             >
-              🔍 Search
+              🔍
             </button>
             <div className="relative">
               <button
                 onClick={() => setShowExportMenu(!showExportMenu)}
                 disabled={messages.length === 0}
-                className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 rounded transition-colors"
-                title="Export chat"
+                className="w-8 h-6 text-xs bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 rounded flex items-center justify-center"
+                title="Export"
               >
-                📥 Export ▼
+                📥
               </button>
               {showExportMenu && messages.length > 0 && (
-                <div className="absolute top-full right-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10 min-w-32">
+                <div className="absolute top-full right-0 mt-1 bg-gray-800 border border-gray-700 rounded shadow-lg z-10 min-w-24">
                   <button
                     onClick={() => { exportToMarkdown(); setShowExportMenu(false); }}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 transition-colors text-white rounded-t-lg"
+                    className="w-full text-left px-2 py-1 text-xs hover:bg-gray-700 text-white"
                   >
-                    📄 Markdown
+                    📄 MD
                   </button>
                   <button
                     onClick={() => { exportToJSON(); setShowExportMenu(false); }}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 transition-colors text-white rounded-b-lg"
+                    className="w-full text-left px-2 py-1 text-xs hover:bg-gray-700 text-white"
                   >
                     📋 JSON
                   </button>
@@ -817,12 +1177,24 @@ export default function ChatPanel() {
               )}
             </div>
             <button
+              onClick={compressOldMessages}
+              disabled={messages.length < 10}
+              className={`w-8 h-6 text-xs rounded flex items-center justify-center ${
+                getTotalTokens() > 150000
+                  ? 'bg-yellow-700 hover:bg-yellow-600'
+                  : 'bg-gray-700 hover:bg-gray-600'
+              } disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300`}
+              title="Compress"
+            >
+              🗜️
+            </button>
+            <button
               onClick={startNewChat}
               disabled={isStreaming}
-              className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 rounded transition-colors"
-              title="Start new chat"
+              className="w-8 h-6 text-xs bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 rounded flex items-center justify-center"
+              title="New chat"
             >
-              + New Chat
+              +
             </button>
           </div>
         </div>
@@ -876,17 +1248,43 @@ export default function ChatPanel() {
         </div>
 
         {/* Role Selector */}
-        <select
-          value={selectedRole}
-          onChange={(e) => handleRoleChange(e.target.value)}
-          className="w-full px-3 py-1.5 bg-gray-700 text-white text-xs rounded focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
-        >
-          {ROLES.map(role => (
-            <option key={role.value} value={role.value}>
-              {role.label}
-            </option>
-          ))}
-        </select>
+        <div className="relative mb-2">
+          <div className="flex gap-1">
+            <div className="flex-1 px-3 py-1.5 bg-gray-700 text-white text-xs rounded flex items-center">
+              <span className="truncate">
+                {ROLES.find(r => r.value === selectedRole)?.label || 'No Role (General)'}
+              </span>
+            </div>
+            <button
+              onClick={() => setShowRoleDropdown(!showRoleDropdown)}
+              className="px-2 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded"
+              title="Select role"
+            >
+              ▼
+            </button>
+          </div>
+
+          {showRoleDropdown && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-gray-700 rounded shadow-lg border border-gray-600 z-10 max-h-60 overflow-y-auto">
+              {ROLES.map((role) => (
+                <button
+                  key={role.value}
+                  onClick={() => {
+                    handleRoleChange(role.value);
+                    setShowRoleDropdown(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 hover:bg-gray-600 text-xs text-white ${
+                    role.value === selectedRole ? 'bg-gray-600' : ''
+                  }`}
+                  title={role.label}
+                >
+                  {role.value === selectedRole && '✓ '}
+                  {role.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Project Selector */}
         <div className="relative">
@@ -970,13 +1368,72 @@ export default function ChatPanel() {
                     className="ml-2 px-1.5 py-0.5 text-xs text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Remove"
                   >
-                    ✕
+                    🗑️
                   </button>
                 </div>
               ))}
             </div>
           )}
         </div>
+
+        {/* Chat List Selector */}
+        {projectRoot && projectChats.length > 0 && (
+          <div className="relative mt-2">
+            <div className="flex gap-1">
+              <div className="flex-1 px-3 py-1.5 bg-gray-700 text-white text-xs rounded flex items-center">
+                <span className="truncate">💬 {currentChatName}</span>
+              </div>
+              <button
+                onClick={() => setShowChatList(!showChatList)}
+                className="px-2 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded"
+                title="Show saved chats"
+              >
+                ▼
+              </button>
+            </div>
+
+            {showChatList && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-gray-700 rounded shadow-lg border border-gray-600 z-10 max-h-60 overflow-y-auto">
+                {projectChats.map((chat) => (
+                  <div
+                    key={chat.id}
+                    className={`flex items-center justify-between px-3 py-2 hover:bg-gray-600 group ${
+                      chat.id === chatId ? 'bg-gray-600' : ''
+                    }`}
+                  >
+                    <button
+                      onClick={() => {
+                        switchToChat(chat);
+                        setCurrentChatForProject(projectRoot, chat.id);
+                        setShowChatList(false);
+                      }}
+                      className="flex-1 text-left text-xs text-white truncate"
+                      title={chat.name}
+                    >
+                      {chat.id === chatId && '✓ '}
+                      {chat.name}
+                      <span className="text-gray-400 ml-2">
+                        ({chat.messages.length} msgs)
+                      </span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Delete chat "${chat.name}"?`)) {
+                          deleteChat(chat.id);
+                        }
+                      }}
+                      className="ml-2 px-1.5 py-0.5 text-xs text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Delete chat"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Messages */}
@@ -991,15 +1448,44 @@ export default function ChatPanel() {
         {filteredMessages.map((msg, idx) => (
           <div
             key={idx}
+            data-msg-id={idx}
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[85%] rounded-lg px-4 py-2 ${
+              className={`max-w-[85%] rounded-lg px-4 py-2 relative group ${
                 msg.role === 'user'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-700 text-gray-100'
               }`}
             >
+              {/* Reply-to indicator */}
+              {msg.replyTo !== undefined && messages[msg.replyTo] && (
+                <div className="mb-2 pb-2 border-b border-gray-600 text-xs opacity-70">
+                  <div className="flex items-center gap-1">
+                    <span>↩️ Replying to:</span>
+                    <button
+                      onClick={() => {
+                        const replyEl = document.querySelector(`[data-msg-id="${msg.replyTo}"]`);
+                        replyEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }}
+                      className="hover:underline truncate max-w-xs"
+                    >
+                      {messages[msg.replyTo].content.substring(0, 50)}...
+                    </button>
+                  </div>
+                </div>
+              )}
+              {/* Reply button */}
+              <button
+                onClick={() => {
+                  setReplyingTo(idx);
+                  document.querySelector('textarea')?.focus();
+                }}
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 hover:bg-gray-600 text-white text-xs px-2 py-1 rounded"
+                title="Reply to this message"
+              >
+                ↩️ Reply
+              </button>
               {msg.role === 'assistant' ? (
                 <>
                   <div className="prose prose-invert prose-sm max-w-none">
@@ -1111,6 +1597,25 @@ export default function ChatPanel() {
             Drop files here to attach...
           </div>
         )}
+        {replyingTo !== null && messages[replyingTo] && (
+          <div className="mb-2 p-2 bg-blue-900/30 border-l-4 border-blue-500 rounded text-sm">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1">
+                <div className="text-blue-300 text-xs mb-1">↩️ Replying to:</div>
+                <div className="text-gray-300 text-xs truncate">
+                  {messages[replyingTo].content.substring(0, 100)}...
+                </div>
+              </div>
+              <button
+                onClick={() => setReplyingTo(null)}
+                className="text-gray-400 hover:text-white text-xs"
+                title="Cancel reply"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
         {mentionedFiles.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
             {mentionedFiles.map((file, idx) => (
@@ -1120,7 +1625,7 @@ export default function ChatPanel() {
                   onClick={() => removeFileMention(file)}
                   className="hover:text-gray-300"
                 >
-                  ✕
+                  🗑️
                 </button>
               </span>
             ))}
@@ -1135,7 +1640,7 @@ export default function ChatPanel() {
                   onClick={() => removeAttachedFile(idx)}
                   className="hover:text-gray-300"
                 >
-                  ✕
+                  🗑️
                 </button>
               </span>
             ))}
@@ -1155,63 +1660,17 @@ export default function ChatPanel() {
                   className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
                   title="Remove image"
                 >
-                  ✕
+                  🗑️
                 </button>
                 <div className="text-xs text-gray-400 mt-1 text-center">{Math.round(img.size / 1024)}KB</div>
               </div>
             ))}
           </div>
         )}
-        <div className="flex justify-between items-center mb-2 gap-2">
-          <div className="flex gap-1 flex-wrap">
-            <button
-              onClick={() => {
-                setInput('Run the test suite');
-                setMode('agent');
-                setSelectedRole('engineer');
-              }}
-              className="text-xs px-2 py-1 bg-blue-700 hover:bg-blue-600 text-white rounded transition-colors"
-              title="Run tests"
-            >
-              🧪 Test
-            </button>
-            <button
-              onClick={() => {
-                setInput('Create a git commit with the recent changes');
-                setMode('agent');
-                setSelectedRole('engineer');
-              }}
-              className="text-xs px-2 py-1 bg-green-700 hover:bg-green-600 text-white rounded transition-colors"
-              title="Commit changes"
-            >
-              💾 Commit
-            </button>
-            <button
-              onClick={() => {
-                setInput('Generate documentation for the recent changes');
-                setMode('agent');
-                setSelectedRole('engineer');
-              }}
-              className="text-xs px-2 py-1 bg-purple-700 hover:bg-purple-600 text-white rounded transition-colors"
-              title="Generate documentation"
-            >
-              📚 Docs
-            </button>
-            <button
-              onClick={() => {
-                setInput('Review the code changes for best practices and potential issues');
-                setMode('agent');
-                setSelectedRole('reviewer');
-              }}
-              className="text-xs px-2 py-1 bg-yellow-700 hover:bg-yellow-600 text-white rounded transition-colors"
-              title="Review code"
-            >
-              👀 Review
-            </button>
-          </div>
+        <div className="flex justify-end items-center mb-2">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors flex-shrink-0"
+            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
             title="Attach files (or drag & drop)"
           >
             📎 Attach Files
@@ -1230,8 +1689,8 @@ export default function ChatPanel() {
             💡 Detected file paths: {detectedFiles.join(', ')} - Consider attaching these files using the 📎 button
           </div>
         )}
-        <div className="flex gap-2">
-          <div className="flex-1 relative">
+        <div className="flex gap-2 items-stretch">
+          <div className="flex-1 relative flex">
             {showCommandMenu && filteredCommands.length > 0 && (
               <div className="absolute bottom-full left-0 mb-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10">
                 {filteredCommands.map((cmd, idx) => (
@@ -1259,28 +1718,46 @@ export default function ChatPanel() {
             <textarea
               value={input}
               onChange={(e) => handleInputChange(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               placeholder="Ask me anything... (type / for commands)"
               disabled={isStreaming}
-              className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full h-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
               rows={2}
             />
           </div>
           <button
             onClick={sendMessage}
             disabled={!input.trim() || isStreaming}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
+            className="px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
           >
             {isStreaming ? '...' : 'Send'}
           </button>
         </div>
-        <div className="flex items-center justify-between mt-2">
+        <div className="mt-2">
+          {/* Context Window Progress Bar */}
+          <div className="mb-2">
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="text-gray-500">Context Window</span>
+              <span className={
+                getTotalTokens() > 180000 ? 'text-red-400 font-semibold' :
+                getTotalTokens() > 150000 ? 'text-yellow-400 font-semibold' :
+                'text-gray-400'
+              }>
+                {getTotalTokens().toLocaleString()} / 200,000 tokens ({Math.round((getTotalTokens() / 200000) * 100)}%)
+              </span>
+            </div>
+            <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+              <div
+                className={`h-full transition-all duration-300 ${
+                  getTotalTokens() > 180000 ? 'bg-red-500' :
+                  getTotalTokens() > 150000 ? 'bg-yellow-500' :
+                  'bg-green-500'
+                }`}
+                style={{ width: `${Math.min((getTotalTokens() / 200000) * 100, 100)}%` }}
+              />
+            </div>
+          </div>
           <p className="text-xs text-gray-500">Press Enter to send, Shift+Enter for new line, ↑↓ for history</p>
-          <p className="text-xs text-gray-500">
-            <span className={getTotalTokens() > 180000 ? 'text-red-400' : getTotalTokens() > 150000 ? 'text-yellow-400' : ''}>
-              ~{getTotalTokens().toLocaleString()} tokens
-            </span>
-          </p>
         </div>
       </div>
     </div>
