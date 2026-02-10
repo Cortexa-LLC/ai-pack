@@ -546,6 +546,59 @@ function App() {
     }
   };
 
+  const startAgent = async (taskID: string, taskDescription: string, event?: React.MouseEvent, skipConfirm = false) => {
+    // Stop propagation if called from within a clickable card
+    if (event) {
+      event.stopPropagation();
+    }
+
+    if (!skipConfirm) {
+      // Show confirmation modal
+      setConfirmModal({
+        show: true,
+        title: 'Start Agent',
+        message: `Start an agent for this task?\n\n${taskDescription.split('\n')[0]}`,
+        onConfirm: () => {
+          setConfirmModal({ show: false, title: '', message: '', onConfirm: () => {} });
+          startAgent(taskID, taskDescription, undefined, true);
+        },
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/a2a/start/${taskID}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          role: 'engineer', // Default role
+          project_root: '', // Will use server default
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        alert(`Failed to start agent: ${result.message || response.statusText}`);
+        return;
+      }
+
+      if (result.success) {
+        const newTaskID = result.task_id;
+        alert(`Agent started! Task ID: ${newTaskID}`);
+        // Switch to the new task and show its logs
+        selectTask(newTaskID);
+      } else {
+        alert('Failed to start agent: ' + (result.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to start agent:', error);
+      alert('Failed to start agent. Check console for details.');
+    }
+  };
+
   // Fetch and stream logs when a task is selected or when switching to task logs tab
   useEffect(() => {
     if (!selectedTask || activeTab !== 'task-logs') {
@@ -828,31 +881,17 @@ function App() {
                             .filter(t => t.status === 'QUEUED' || t.status === 'queued' || t.status === 'OPEN' || t.status === 'open')
                             .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
                             .map(task => {
-                              const isOrphaned = task.status === 'OPEN' || task.status === 'open';
+                              const isOpen = task.status === 'OPEN' || task.status === 'open';
                               return (
                                 <div
                                   key={task.taskID}
-                                  className={`bg-gray-800 border rounded-lg p-2 transition-colors relative ${
-                                    isOrphaned
-                                      ? 'border-orange-500 hover:border-orange-400'
-                                      : 'border-gray-700 hover:border-blue-500'
-                                  }`}
+                                  className="bg-gray-800 border border-gray-700 hover:border-blue-500 rounded-lg p-2 transition-colors relative"
                                 >
-                                  {task.metadata?.beads_status !== 'closed' && (
-                                    <button
-                                      onClick={(e) => closeTask(task.taskID, task.task, e)}
-                                      className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors text-xs"
-                                      title="Cancel/close task"
-                                    >
-                                      ✕
-                                    </button>
-                                  )}
                                   <div
-                                    className={`cursor-pointer ${task.metadata?.beads_status !== 'closed' ? 'pr-8' : ''}`}
+                                    className="cursor-pointer pb-8"
                                     onClick={() => selectTask(task.taskID)}
                                   >
                                     <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
-                                      {isOrphaned && <span className="text-orange-400 mr-1" title="Orphaned - server restarted">⚠️</span>}
                                       {task.task.split('\n')[0]}
                                     </div>
                                     <div className="text-xs text-gray-500 mb-1">
@@ -864,15 +903,26 @@ function App() {
                                       </div>
                                     )}
                                   </div>
-                                  {isOrphaned && (
-                                    <button
-                                      onClick={(e) => retryTask(task.taskID, task.task, e)}
-                                      className="px-2 py-0.5 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded transition-colors mt-2"
-                                      title="Restart orphaned task"
-                                    >
-                                      🔄 Restart
-                                    </button>
-                                  )}
+                                  <div className="absolute bottom-2 right-2 flex gap-1">
+                                    {isOpen && (
+                                      <button
+                                        onClick={(e) => startAgent(task.taskID, task.task, e)}
+                                        className="w-6 h-6 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white rounded transition-colors text-xs"
+                                        title="Start agent for this task"
+                                      >
+                                        ▶️
+                                      </button>
+                                    )}
+                                    {task.metadata?.beads_status !== 'closed' && (
+                                      <button
+                                        onClick={(e) => closeTask(task.taskID, task.task, e)}
+                                        className="w-6 h-6 flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors text-xs"
+                                        title="Close/dismiss task"
+                                      >
+                                        ✕
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })
@@ -902,29 +952,31 @@ function App() {
                             .map(task => (
                               <div
                                 key={task.taskID}
-                                className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-yellow-500 cursor-pointer transition-colors"
+                                className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-yellow-500 cursor-pointer transition-colors relative"
                                 onClick={() => selectTask(task.taskID)}
                               >
-                                <div className="flex items-start justify-between mb-1">
-                                  <div className="text-xs font-medium text-white truncate flex-1" title={task.task}>
-                                    {task.task.length > 40 ? task.task.substring(0, 40) + '...' : task.task}
+                                <div className="pb-8">
+                                  <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
+                                    {task.task.split('\n')[0]}
                                   </div>
+                                  <div className="text-xs text-gray-500 mb-1">
+                                    {task.taskID}
+                                  </div>
+                                  {task.createdAt && (
+                                    <div className="text-xs text-gray-500">
+                                      Created: {new Date(task.createdAt).toLocaleString()}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="absolute bottom-2 right-2">
                                   <button
                                     onClick={(e) => cancelTask(task.taskID, e)}
-                                    className="ml-2 px-2 py-0.5 text-xs bg-red-600 hover:bg-red-700 text-white rounded transition-colors flex-shrink-0"
+                                    className="w-6 h-6 flex items-center justify-center bg-red-600 hover:bg-red-700 text-white rounded transition-colors text-xs"
                                     title="Cancel task"
                                   >
-                                    🛑 Cancel
+                                    🛑
                                   </button>
                                 </div>
-                                <div className="text-xs text-gray-500 mb-1">
-                                  {task.taskID}
-                                </div>
-                                {task.createdAt && (
-                                  <div className="text-xs text-gray-500">
-                                    Created: {new Date(task.createdAt).toLocaleString()}
-                                  </div>
-                                )}
                               </div>
                             ))
                         )}
@@ -956,17 +1008,8 @@ function App() {
                                 key={task.taskID}
                                 className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-green-500 transition-colors relative"
                               >
-                                {task.metadata?.beads_status !== 'closed' && (
-                                  <button
-                                    onClick={(e) => closeTask(task.taskID, task.task, e)}
-                                    className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors text-xs"
-                                    title="Close/dismiss task"
-                                  >
-                                    ✕
-                                  </button>
-                                )}
                                 <div
-                                  className={`cursor-pointer ${task.metadata?.beads_status !== 'closed' ? 'pr-8' : ''}`}
+                                  className="cursor-pointer pb-8"
                                   onClick={() => selectTask(task.taskID)}
                                 >
                                   <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
@@ -981,6 +1024,17 @@ function App() {
                                     </div>
                                   )}
                                 </div>
+                                {task.metadata?.beads_status !== 'closed' && (
+                                  <div className="absolute bottom-2 right-2">
+                                    <button
+                                      onClick={(e) => closeTask(task.taskID, task.task, e)}
+                                      className="w-6 h-6 flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors text-xs"
+                                      title="Close/dismiss task"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             ))
                         )}
@@ -1012,8 +1066,24 @@ function App() {
                                 key={task.taskID}
                                 className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-red-500 transition-colors relative"
                               >
+                                <div
+                                  className="cursor-pointer pb-8"
+                                  onClick={() => selectTask(task.taskID)}
+                                >
+                                  <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
+                                    {task.task.split('\n')[0]}
+                                  </div>
+                                  <div className="text-xs text-gray-500 mb-1">
+                                    {task.taskID}
+                                  </div>
+                                  {(task.completedAt || task.updatedAt) && (
+                                    <div className="text-xs text-gray-500">
+                                      Failed: {new Date(task.completedAt || task.updatedAt).toLocaleString()}
+                                    </div>
+                                  )}
+                                </div>
                                 {(task.metadata?.beads_status !== 'closed' || task.metadata?.beads_status === undefined) && (
-                                  <div className="absolute top-2 right-2 flex items-center gap-1">
+                                  <div className="absolute bottom-2 right-2 flex gap-1">
                                     <button
                                       onClick={(e) => retryTask(task.taskID, task.task, e)}
                                       className="w-6 h-6 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors text-xs"
@@ -1030,22 +1100,6 @@ function App() {
                                     </button>
                                   </div>
                                 )}
-                                <div
-                                  className={`cursor-pointer ${(task.metadata?.beads_status !== 'closed' || task.metadata?.beads_status === undefined) ? 'pr-16' : ''}`}
-                                  onClick={() => selectTask(task.taskID)}
-                                >
-                                  <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
-                                    {task.task.split('\n')[0]}
-                                  </div>
-                                  <div className="text-xs text-gray-500 mb-1">
-                                    {task.taskID}
-                                  </div>
-                                  {(task.completedAt || task.updatedAt) && (
-                                    <div className="text-xs text-gray-500">
-                                      Failed: {new Date(task.completedAt || task.updatedAt).toLocaleString()}
-                                    </div>
-                                  )}
-                                </div>
                               </div>
                             ))
                         )}
