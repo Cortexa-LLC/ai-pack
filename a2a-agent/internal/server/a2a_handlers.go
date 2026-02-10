@@ -506,3 +506,67 @@ func (s *AgentServer) HandleRetryTask(w http.ResponseWriter, r *http.Request) {
 		"new_task_id": newTaskResponse.TaskID,
 	})
 }
+
+// HandleStartTask starts an agent for a Beads task
+func (s *AgentServer) HandleStartTask(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract task ID from URL path: /a2a/start/{taskID}
+	taskID := strings.TrimPrefix(r.URL.Path, "/a2a/start/")
+	if taskID == "" {
+		http.Error(w, "task ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Parse request body for role and project_root (optional)
+	var req struct {
+		Role        string `json:"role"`
+		ProjectRoot string `json:"project_root"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// If no body, use defaults
+		req.Role = "engineer"
+		req.ProjectRoot = ""
+	}
+
+	// Default to engineer if no role specified
+	if req.Role == "" {
+		req.Role = "engineer"
+	}
+
+	// Use server root if no project root specified
+	if req.ProjectRoot == "" {
+		req.ProjectRoot = s.rootDir
+	}
+
+	// Check if task is already active
+	s.mu.RLock()
+	for activeTaskID := range s.activeTasks {
+		// Check for exact match or timestamped variant
+		if activeTaskID == taskID || strings.HasPrefix(activeTaskID, taskID+"-") {
+			s.mu.RUnlock()
+			http.Error(w, fmt.Sprintf("Task %s already has an active agent", taskID), http.StatusConflict)
+			return
+		}
+	}
+	s.mu.RUnlock()
+
+	// Spawn agent for this Beads task
+	response, err := s.spawnAgentTask(req.Role, taskID, req.ProjectRoot)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to start agent: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Agent started for task %s", taskID),
+		"task_id": response.TaskID,
+		"role":    req.Role,
+		"status":  response.Status,
+	})
+}
