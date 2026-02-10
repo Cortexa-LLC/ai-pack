@@ -82,14 +82,28 @@ func (s *AgentServer) handleAgentMode(w http.ResponseWriter, r *http.Request, re
 	// Require project root for agent mode - agents must work in a specific project context
 	projectRoot := req.ProjectRoot
 	if projectRoot == "" {
-		http.Error(w, "Project root is required for agent mode. Please select a project directory first.", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"status":  "error",
+			"message": "Project root is required for agent mode. Please select a project directory first.",
+		})
 		monitoring.Logger.Warn("chat_agent_mode_no_project_root")
 		return
 	}
 
 	// Validate project root exists
 	if _, err := os.Stat(projectRoot); os.IsNotExist(err) {
-		http.Error(w, fmt.Sprintf("Project root does not exist: %s", projectRoot), http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"status":  "error",
+			"message": fmt.Sprintf("Project root does not exist: %s", projectRoot),
+		})
 		monitoring.Logger.Warn("chat_agent_mode_invalid_project_root", "path", projectRoot)
 		return
 	}
@@ -99,7 +113,14 @@ func (s *AgentServer) handleAgentMode(w http.ResponseWriter, r *http.Request, re
 	cmd.Dir = projectRoot
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to create Beads task: %v (output: %s)", err, string(output)), http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"status":  "error",
+			"message": fmt.Sprintf("Failed to create Beads task: %v (output: %s)", err, string(output)),
+		})
 		return
 	}
 
@@ -121,7 +142,14 @@ func (s *AgentServer) handleAgentMode(w http.ResponseWriter, r *http.Request, re
 	}
 
 	if beadsTaskID == "" {
-		http.Error(w, fmt.Sprintf("Failed to parse Beads task ID from output: %s", outputStr), http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"status":  "error",
+			"message": fmt.Sprintf("Failed to parse Beads task ID from output: %s", outputStr),
+		})
 		return
 	}
 
@@ -130,7 +158,14 @@ func (s *AgentServer) handleAgentMode(w http.ResponseWriter, r *http.Request, re
 	// Spawn agent task with the Beads task ID
 	response, err := s.spawnAgentTask(role, beadsTaskID, projectRoot)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to spawn agent: %v", err), http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"status":  "error",
+			"message": fmt.Sprintf("Failed to spawn agent: %v", err),
+		})
 		return
 	}
 
@@ -237,6 +272,13 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 	// Add system prompt if we have role context
 	if len(systemPrompt) > 0 {
 		params.System = systemPrompt
+	}
+
+	// Add tools for orchestrator role
+	if req.Role == "orchestrator" {
+		tools := GetOrchestratorTools()
+		params.Tools = tools
+		monitoring.Logger.Info("orchestrator_tools_enabled", "count", len(tools))
 	}
 
 	stream := s.client.Messages.NewStreaming(ctx, params)
