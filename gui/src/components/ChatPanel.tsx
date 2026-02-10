@@ -1162,10 +1162,56 @@ export default function ChatPanel() {
             ))}
           </div>
         )}
-        <div className="flex gap-1 mb-2 flex-wrap">
+        <div className="flex justify-between items-center mb-2 gap-2">
+          <div className="flex gap-1 flex-wrap">
+            <button
+              onClick={() => {
+                setInput('Run the test suite');
+                setMode('agent');
+                setSelectedRole('engineer');
+              }}
+              className="text-xs px-2 py-1 bg-blue-700 hover:bg-blue-600 text-white rounded transition-colors"
+              title="Run tests"
+            >
+              🧪 Test
+            </button>
+            <button
+              onClick={() => {
+                setInput('Create a git commit with the recent changes');
+                setMode('agent');
+                setSelectedRole('engineer');
+              }}
+              className="text-xs px-2 py-1 bg-green-700 hover:bg-green-600 text-white rounded transition-colors"
+              title="Commit changes"
+            >
+              💾 Commit
+            </button>
+            <button
+              onClick={() => {
+                setInput('Generate documentation for the recent changes');
+                setMode('agent');
+                setSelectedRole('engineer');
+              }}
+              className="text-xs px-2 py-1 bg-purple-700 hover:bg-purple-600 text-white rounded transition-colors"
+              title="Generate documentation"
+            >
+              📚 Docs
+            </button>
+            <button
+              onClick={() => {
+                setInput('Review the code changes for best practices and potential issues');
+                setMode('agent');
+                setSelectedRole('reviewer');
+              }}
+              className="text-xs px-2 py-1 bg-yellow-700 hover:bg-yellow-600 text-white rounded transition-colors"
+              title="Review code"
+            >
+              👀 Review
+            </button>
+          </div>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors flex-shrink-0"
             title="Attach files (or drag & drop)"
           >
             📎 Attach Files
@@ -1178,51 +1224,6 @@ export default function ChatPanel() {
             className="hidden"
             accept=".txt,.md,.json,.js,.ts,.tsx,.jsx,.go,.py,.java,.c,.cpp,.h,.hpp,.css,.html,.xml,.yaml,.yml,.toml,.ini,.sh,.bash"
           />
-          <div className="text-xs text-gray-500 flex items-center ml-2 mr-2">Quick Actions:</div>
-          <button
-            onClick={() => {
-              setInput('Run the test suite');
-              setMode('agent');
-              setSelectedRole('engineer');
-            }}
-            className="text-xs px-2 py-1 bg-blue-700 hover:bg-blue-600 text-white rounded transition-colors"
-            title="Run tests"
-          >
-            🧪 Test
-          </button>
-          <button
-            onClick={() => {
-              setInput('Create a git commit with the recent changes');
-              setMode('agent');
-              setSelectedRole('engineer');
-            }}
-            className="text-xs px-2 py-1 bg-green-700 hover:bg-green-600 text-white rounded transition-colors"
-            title="Commit changes"
-          >
-            💾 Commit
-          </button>
-          <button
-            onClick={() => {
-              setInput('Generate documentation for the recent changes');
-              setMode('agent');
-              setSelectedRole('engineer');
-            }}
-            className="text-xs px-2 py-1 bg-purple-700 hover:bg-purple-600 text-white rounded transition-colors"
-            title="Generate documentation"
-          >
-            📚 Docs
-          </button>
-          <button
-            onClick={() => {
-              setInput('Review the code changes for best practices and potential issues');
-              setMode('agent');
-              setSelectedRole('reviewer');
-            }}
-            className="text-xs px-2 py-1 bg-yellow-700 hover:bg-yellow-600 text-white rounded transition-colors"
-            title="Review code"
-          >
-            👀 Review
-          </button>
         </div>
         {detectedFiles.length > 0 && (
           <div className="mb-2 p-2 bg-blue-900/30 border border-blue-600 rounded text-xs text-blue-300">
