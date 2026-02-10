@@ -68,6 +68,7 @@ export default function ChatPanel() {
   const [showCommandMenu, setShowCommandMenu] = useState(false);
   const [commandFilter, setCommandFilter] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [detectedFiles, setDetectedFiles] = useState<string[]>([]);
   const [mentionedFiles, setMentionedFiles] = useState<string[]>([]);
   const [showFileMentions, setShowFileMentions] = useState(false);
   const [_fileMentionQuery, setFileMentionQuery] = useState('');
@@ -465,6 +466,15 @@ export default function ChatPanel() {
         setShowFileMentions(false);
       }
     }
+
+    // Detect file paths (simple pattern: path/to/file.ext)
+    const filePattern = /[a-zA-Z0-9_\-./]+\.[a-zA-Z]{2,6}/g;
+    const matches = value.match(filePattern);
+    if (matches) {
+      setDetectedFiles(matches.filter(m => m.includes('/')));
+    } else {
+      setDetectedFiles([]);
+    }
   };
 
   const removeFileMention = (filename: string) => {
@@ -476,34 +486,60 @@ export default function ChatPanel() {
     const suggestions: string[] = [];
     const lowerContent = content.toLowerCase();
 
-    // Code-related suggestions
-    if (lowerContent.includes('function') || lowerContent.includes('class') || lowerContent.includes('```')) {
-      suggestions.push('Can you add tests for this code?');
-      suggestions.push('How can I optimize this?');
-      suggestions.push('What are potential edge cases?');
+    // Detect specific error patterns and stack traces
+    const hasStackTrace = /at .+\(.+:\d+:\d+\)/i.test(content) || /error:|exception:|traceback:/i.test(content);
+    const hasErrorCode = /error \d+|exit code \d+|status \d{3}/i.test(content);
+    const hasSyntaxError = /syntaxerror|unexpected token|parse error/i.test(content);
+    const hasTypeError = /typeerror|undefined is not|cannot read property/i.test(content);
+    const hasReferenceError = /referenceerror|is not defined/i.test(content);
+
+    // Error-specific suggestions (priority)
+    if (hasStackTrace) {
+      suggestions.push('🔍 Help me trace where this error originated');
+      suggestions.push('🛠️ What are common causes of this error?');
+    }
+    if (hasSyntaxError) {
+      suggestions.push('📝 Show me the correct syntax');
+      suggestions.push('🔍 Check for missing brackets or semicolons');
+    }
+    if (hasTypeError || hasReferenceError) {
+      suggestions.push('🐛 Help me check variable initialization');
+      suggestions.push('📋 Show me how to add proper type checking');
+    }
+    if (hasErrorCode) {
+      suggestions.push('📖 What does this error code mean?');
     }
 
-    // Error/bug related
+    // Code-related suggestions
+    if (lowerContent.includes('function') || lowerContent.includes('class') || lowerContent.includes('```')) {
+      suggestions.push('🧪 Can you add tests for this code?');
+      suggestions.push('⚡ How can I optimize this?');
+      suggestions.push('🎯 What are potential edge cases?');
+    }
+
+    // General error/bug related
     if (lowerContent.includes('error') || lowerContent.includes('bug') || lowerContent.includes('fix')) {
-      suggestions.push('How can I debug this issue?');
-      suggestions.push('What logging should I add?');
+      suggestions.push('🔧 How can I debug this issue?');
+      suggestions.push('📊 What logging should I add?');
     }
 
     // Implementation suggestions
     if (lowerContent.includes('implement') || lowerContent.includes('create') || lowerContent.includes('add')) {
-      suggestions.push('What are the best practices?');
-      suggestions.push('Should I consider performance?');
+      suggestions.push('✨ What are the best practices?');
+      suggestions.push('⚡ Should I consider performance?');
     }
 
     // Documentation
     if (lowerContent.includes('document') || lowerContent.includes('comment')) {
-      suggestions.push('Can you generate API docs?');
+      suggestions.push('📚 Can you generate API docs?');
     }
 
     // General suggestions (always include some)
-    suggestions.push('Can you explain this in more detail?');
-    suggestions.push('Show me an example');
-    suggestions.push('What are the alternatives?');
+    if (suggestions.length < 3) {
+      suggestions.push('💬 Can you explain this in more detail?');
+      suggestions.push('📋 Show me an example');
+      suggestions.push('🔄 What are the alternatives?');
+    }
 
     // Return unique suggestions (max 5)
     return [...new Set(suggestions)].slice(0, 5);
@@ -517,11 +553,6 @@ export default function ChatPanel() {
   const filteredCommands = slashCommands.filter(cmd =>
     cmd.name.toLowerCase().includes(commandFilter.toLowerCase())
   );
-
-  const insertCodeBlock = (language: string = '') => {
-    const codeBlock = `\`\`\`${language}\n\n\`\`\``;
-    setInput(input + (input ? '\n\n' : '') + codeBlock);
-  };
 
   const handleFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -1132,41 +1163,12 @@ export default function ChatPanel() {
           </div>
         )}
         <div className="flex gap-1 mb-2 flex-wrap">
-          <div className="text-xs text-gray-500 flex items-center mr-2">Code:</div>
-          <button
-            onClick={() => insertCodeBlock()}
-            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
-            title="Insert code block"
-          >
-            &lt;/&gt;
-          </button>
-          <button
-            onClick={() => insertCodeBlock('javascript')}
-            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
-            title="Insert JavaScript code block"
-          >
-            JS
-          </button>
-          <button
-            onClick={() => insertCodeBlock('python')}
-            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
-            title="Insert Python code block"
-          >
-            PY
-          </button>
-          <button
-            onClick={() => insertCodeBlock('go')}
-            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
-            title="Insert Go code block"
-          >
-            GO
-          </button>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
             title="Attach files (or drag & drop)"
           >
-            📎
+            📎 Attach Files
           </button>
           <input
             ref={fileInputRef}
@@ -1222,6 +1224,11 @@ export default function ChatPanel() {
             👀 Review
           </button>
         </div>
+        {detectedFiles.length > 0 && (
+          <div className="mb-2 p-2 bg-blue-900/30 border border-blue-600 rounded text-xs text-blue-300">
+            💡 Detected file paths: {detectedFiles.join(', ')} - Consider attaching these files using the 📎 button
+          </div>
+        )}
         <div className="flex gap-2">
           <div className="flex-1 relative">
             {showCommandMenu && filteredCommands.length > 0 && (
