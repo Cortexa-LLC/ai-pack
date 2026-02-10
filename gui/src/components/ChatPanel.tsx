@@ -2,10 +2,39 @@ import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import mermaid from 'mermaid';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+}
+
+// Initialize mermaid
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'dark',
+  securityLevel: 'loose',
+});
+
+// Mermaid diagram component
+function MermaidDiagram({ chart }: { chart: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (ref.current) {
+      try {
+        mermaid.contentLoaded();
+      } catch (err) {
+        console.error('Mermaid rendering error:', err);
+      }
+    }
+  }, [chart]);
+
+  return (
+    <div className="mermaid bg-white p-4 rounded my-2" ref={ref}>
+      {chart}
+    </div>
+  );
 }
 
 const ROLES = [
@@ -38,15 +67,24 @@ export default function ChatPanel() {
   const [showSearch, setShowSearch] = useState(false);
   const [showCommandMenu, setShowCommandMenu] = useState(false);
   const [commandFilter, setCommandFilter] = useState('');
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const [mentionedFiles, setMentionedFiles] = useState<string[]>([]);
   const [showFileMentions, setShowFileMentions] = useState(false);
   const [_fileMentionQuery, setFileMentionQuery] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState<Array<{ name: string; content: string; size: number }>>([]);
+  const [attachedImages, setAttachedImages] = useState<Array<{ name: string; dataUrl: string; size: number }>>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const slashCommands = [
     { name: '/commit', description: 'Create a git commit', action: () => { setInput('Create a git commit with the recent changes'); setMode('agent'); setSelectedRole('engineer'); } },
     { name: '/test', description: 'Run tests', action: () => { setInput('Run the test suite'); setMode('agent'); setSelectedRole('engineer'); } },
     { name: '/review', description: 'Review code changes', action: () => { setInput('Review the recent code changes'); setMode('agent'); setSelectedRole('reviewer'); } },
-    { name: '/search', description: 'Search codebase', action: () => { setInput('Search the codebase for: '); } },
+    { name: '/search', description: 'Search codebase', action: async () => {
+      const query = prompt('Enter search query:');
+      if (!query) return;
+      await performCodebaseSearch(query);
+    } },
     { name: '/fix', description: 'Fix an issue', action: () => { setInput('Fix the following issue: '); setMode('agent'); setSelectedRole('engineer'); } },
     { name: '/refactor', description: 'Refactor code', action: () => { setInput('Refactor the following code: '); setMode('agent'); setSelectedRole('engineer'); } },
     { name: '/explain', description: 'Explain code', action: () => { setInput('Explain how this works: '); } },
@@ -117,6 +155,38 @@ export default function ChatPanel() {
       setChatId(newChatId);
       localStorage.setItem('ai-pack-current-chat-id', newChatId);
     }
+  }, []);
+
+  // Handle paste events for images
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.indexOf('image') !== -1) {
+          e.preventDefault();
+          const blob = item.getAsFile();
+          if (!blob) continue;
+
+          // Convert to base64
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result as string;
+            setAttachedImages(prev => [...prev, {
+              name: `pasted-image-${Date.now()}.png`,
+              dataUrl,
+              size: blob.size
+            }]);
+          };
+          reader.readAsDataURL(blob);
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
   }, []);
 
   // Save project root to history
@@ -192,9 +262,24 @@ export default function ChatPanel() {
   const sendMessage = async () => {
     if (!input.trim() || isStreaming) return;
 
+    // Build message content with attached files and images
+    let messageContent = input;
+    if (attachedFiles.length > 0) {
+      messageContent += '\n\n---\n\n**Attached Files:**\n\n';
+      attachedFiles.forEach(file => {
+        messageContent += `\n### ${file.name}\n\`\`\`\n${file.content}\n\`\`\`\n`;
+      });
+    }
+    if (attachedImages.length > 0) {
+      messageContent += '\n\n**Attached Images:**\n\n';
+      attachedImages.forEach((img) => {
+        messageContent += `![${img.name}](${img.dataUrl})\n\n`;
+      });
+    }
+
     const userMessage: Message = {
       role: 'user',
-      content: input,
+      content: messageContent,
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -210,6 +295,8 @@ export default function ChatPanel() {
     setInput('');
     setHistoryIndex(-1);
     setTempInput('');
+    setAttachedFiles([]);
+    setAttachedImages([]);
     setIsStreaming(true);
     setStreamingMessage('');
 
@@ -221,7 +308,7 @@ export default function ChatPanel() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: currentInput,
+          message: messageContent,
           messages: messages,
           role: selectedRole,
           mode: mode,
@@ -398,6 +485,120 @@ export default function ChatPanel() {
     setInput(input + (input ? '\n\n' : '') + codeBlock);
   };
 
+  const handleFileSelect = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const newFiles: Array<{ name: string; content: string; size: number }> = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+
+      // Only handle text files (< 1MB)
+      if (file.size > 1024 * 1024) {
+        alert(`File ${file.name} is too large (max 1MB)`);
+        continue;
+      }
+
+      try {
+        const content = await file.text();
+        newFiles.push({
+          name: file.name,
+          content,
+          size: file.size
+        });
+      } catch (err) {
+        console.error(`Failed to read file ${file.name}:`, err);
+        alert(`Failed to read file ${file.name}`);
+      }
+    }
+
+    setAttachedFiles([...attachedFiles, ...newFiles]);
+  };
+
+  const removeAttachedFile = (index: number) => {
+    setAttachedFiles(attachedFiles.filter((_, i) => i !== index));
+  };
+
+  const removeAttachedImage = (index: number) => {
+    setAttachedImages(attachedImages.filter((_, i) => i !== index));
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    handleFileSelect(e.dataTransfer.files);
+  };
+
+  const performCodebaseSearch = async (query: string) => {
+    if (!query.trim()) return;
+
+    // Add user message showing search query
+    const searchMessage: Message = {
+      role: 'user',
+      content: `🔍 Searching codebase for: **${query}**`,
+    };
+    setMessages(prev => [...prev, searchMessage]);
+
+    try {
+      const response = await fetch('/api/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          project_root: projectRoot || '',
+          max_results: 50,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Format results as markdown
+      let resultsContent = `### Search Results for "${query}"\n\n`;
+
+      if (data.count === 0) {
+        resultsContent += `No matches found.`;
+      } else {
+        resultsContent += `Found ${data.count} match${data.count !== 1 ? 'es' : ''}\n\n`;
+
+        data.results.forEach((result: any, idx: number) => {
+          resultsContent += `**${idx + 1}. ${result.file}:${result.line}**\n\`\`\`\n${result.content}\n\`\`\`\n\n`;
+        });
+      }
+
+      const resultsMessage: Message = {
+        role: 'assistant',
+        content: resultsContent,
+      };
+      setMessages(prev => [...prev, resultsMessage]);
+    } catch (err) {
+      console.error('Search failed:', err);
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: `❌ Search failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    }
+  };
+
   const startNewChat = () => {
     if (isStreaming) return; // Don't start new chat while streaming
 
@@ -467,6 +668,41 @@ export default function ChatPanel() {
     URL.revokeObjectURL(url);
   };
 
+  const exportToJSON = () => {
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `chat-export-${timestamp}.json`;
+
+    const exportData = {
+      metadata: {
+        exportDate: new Date().toISOString(),
+        chatId,
+        role: selectedRole || 'General',
+        mode,
+        projectRoot: projectRoot || null,
+        messageCount: messages.length,
+        totalTokens: getTotalTokens(),
+      },
+      messages: messages.map((msg, idx) => ({
+        index: idx,
+        role: msg.role,
+        content: msg.content,
+        timestamp: new Date().toISOString(), // Would need to track actual timestamps
+      })),
+      attachments: {
+        files: attachedFiles.map(f => ({ name: f.name, size: f.size })),
+        images: attachedImages.map(i => ({ name: i.name, size: i.size })),
+      },
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="w-full h-full bg-gray-800 flex flex-col">
       {/* Header */}
@@ -485,14 +721,32 @@ export default function ChatPanel() {
             >
               🔍 Search
             </button>
-            <button
-              onClick={exportToMarkdown}
-              disabled={messages.length === 0}
-              className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 rounded transition-colors"
-              title="Export chat to markdown"
-            >
-              📥 Export
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                disabled={messages.length === 0}
+                className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 rounded transition-colors"
+                title="Export chat"
+              >
+                📥 Export ▼
+              </button>
+              {showExportMenu && messages.length > 0 && (
+                <div className="absolute top-full right-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10 min-w-32">
+                  <button
+                    onClick={() => { exportToMarkdown(); setShowExportMenu(false); }}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 transition-colors text-white rounded-t-lg"
+                  >
+                    📄 Markdown
+                  </button>
+                  <button
+                    onClick={() => { exportToJSON(); setShowExportMenu(false); }}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 transition-colors text-white rounded-b-lg"
+                  >
+                    📋 JSON
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               onClick={startNewChat}
               disabled={isStreaming}
@@ -683,10 +937,18 @@ export default function ChatPanel() {
                     components={{
                       code({ inline, className, children, ...props }: any) {
                         const match = /language-(\w+)/.exec(className || '');
+                        const language = match ? match[1] : '';
+
+                        // Handle mermaid diagrams
+                        if (!inline && language === 'mermaid') {
+                          return <MermaidDiagram chart={String(children)} />;
+                        }
+
+                        // Handle regular code blocks
                         return !inline && match ? (
                           <SyntaxHighlighter
                             style={vscDarkPlus as any}
-                            language={match[1]}
+                            language={language}
                             PreTag="div"
                             {...props}
                           >
@@ -747,7 +1009,17 @@ export default function ChatPanel() {
       </div>
 
       {/* Input */}
-      <div className="p-3 border-t border-gray-700 bg-gray-900">
+      <div
+        className={`p-3 border-t border-gray-700 bg-gray-900 ${isDragging ? 'border-blue-500 border-2 bg-gray-800' : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {isDragging && (
+          <div className="mb-2 p-4 border-2 border-dashed border-blue-500 rounded-lg text-center text-blue-400 text-sm">
+            Drop files here to attach...
+          </div>
+        )}
         {mentionedFiles.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
             {mentionedFiles.map((file, idx) => (
@@ -760,6 +1032,42 @@ export default function ChatPanel() {
                   ✕
                 </button>
               </span>
+            ))}
+          </div>
+        )}
+        {attachedFiles.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {attachedFiles.map((file, idx) => (
+              <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 bg-green-600 text-white text-xs rounded">
+                📎 {file.name} <span className="text-green-200">({Math.round(file.size / 1024)}KB)</span>
+                <button
+                  onClick={() => removeAttachedFile(idx)}
+                  className="hover:text-gray-300"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        {attachedImages.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {attachedImages.map((img, idx) => (
+              <div key={idx} className="relative inline-block group">
+                <img
+                  src={img.dataUrl}
+                  alt={img.name}
+                  className="h-20 w-auto rounded border-2 border-purple-600"
+                />
+                <button
+                  onClick={() => removeAttachedImage(idx)}
+                  className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Remove image"
+                >
+                  ✕
+                </button>
+                <div className="text-xs text-gray-400 mt-1 text-center">{Math.round(img.size / 1024)}KB</div>
+              </div>
             ))}
           </div>
         )}
@@ -792,6 +1100,21 @@ export default function ChatPanel() {
           >
             GO
           </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+            title="Attach files (or drag & drop)"
+          >
+            📎
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            onChange={(e) => handleFileSelect(e.target.files)}
+            className="hidden"
+            accept=".txt,.md,.json,.js,.ts,.tsx,.jsx,.go,.py,.java,.c,.cpp,.h,.hpp,.css,.html,.xml,.yaml,.yml,.toml,.ini,.sh,.bash"
+          />
         </div>
         <div className="flex gap-2">
           <div className="flex-1 relative">
