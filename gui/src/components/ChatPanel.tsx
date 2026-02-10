@@ -31,6 +31,27 @@ export default function ChatPanel() {
   const [selectedRole, setSelectedRole] = useState('');
   const [mode, setMode] = useState<'chat' | 'agent'>('chat');
   const [chatId, setChatId] = useState<string>('');
+  const [promptHistory, setPromptHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [tempInput, setTempInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const [showCommandMenu, setShowCommandMenu] = useState(false);
+  const [commandFilter, setCommandFilter] = useState('');
+  const [mentionedFiles, setMentionedFiles] = useState<string[]>([]);
+  const [showFileMentions, setShowFileMentions] = useState(false);
+  const [_fileMentionQuery, setFileMentionQuery] = useState('');
+
+  const slashCommands = [
+    { name: '/commit', description: 'Create a git commit', action: () => { setInput('Create a git commit with the recent changes'); setMode('agent'); setSelectedRole('engineer'); } },
+    { name: '/test', description: 'Run tests', action: () => { setInput('Run the test suite'); setMode('agent'); setSelectedRole('engineer'); } },
+    { name: '/review', description: 'Review code changes', action: () => { setInput('Review the recent code changes'); setMode('agent'); setSelectedRole('reviewer'); } },
+    { name: '/search', description: 'Search codebase', action: () => { setInput('Search the codebase for: '); } },
+    { name: '/fix', description: 'Fix an issue', action: () => { setInput('Fix the following issue: '); setMode('agent'); setSelectedRole('engineer'); } },
+    { name: '/refactor', description: 'Refactor code', action: () => { setInput('Refactor the following code: '); setMode('agent'); setSelectedRole('engineer'); } },
+    { name: '/explain', description: 'Explain code', action: () => { setInput('Explain how this works: '); } },
+    { name: '/docs', description: 'Generate documentation', action: () => { setInput('Generate documentation for: '); setMode('agent'); setSelectedRole('engineer'); } },
+  ];
 
   // Auto-switch mode when role changes
   const handleRoleChange = (role: string) => {
@@ -77,6 +98,17 @@ export default function ChatPanel() {
           setMessages(msgs);
         } catch (err) {
           console.error('Failed to load chat history:', err);
+        }
+      }
+
+      // Load prompt history
+      const savedHistory = localStorage.getItem(`ai-pack-prompt-history-${savedChatId}`);
+      if (savedHistory) {
+        try {
+          const history = JSON.parse(savedHistory);
+          setPromptHistory(history);
+        } catch (err) {
+          console.error('Failed to load prompt history:', err);
         }
       }
     } else {
@@ -167,7 +199,17 @@ export default function ChatPanel() {
 
     setMessages(prev => [...prev, userMessage]);
     const currentInput = input;
+
+    // Add to prompt history
+    setPromptHistory(prev => {
+      const updated = [currentInput, ...prev.filter(p => p !== currentInput)].slice(0, 50); // Keep last 50
+      localStorage.setItem(`ai-pack-prompt-history-${chatId}`, JSON.stringify(updated));
+      return updated;
+    });
+
     setInput('');
+    setHistoryIndex(-1);
+    setTempInput('');
     setIsStreaming(true);
     setStreamingMessage('');
 
@@ -276,7 +318,84 @@ export default function ChatPanel() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (promptHistory.length === 0) return;
+
+      // Save current input if starting to navigate history
+      if (historyIndex === -1) {
+        setTempInput(input);
+      }
+
+      const newIndex = Math.min(historyIndex + 1, promptHistory.length - 1);
+      setHistoryIndex(newIndex);
+      setInput(promptHistory[newIndex]);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (historyIndex === -1) return;
+
+      const newIndex = historyIndex - 1;
+      if (newIndex === -1) {
+        // Restore the temporary input
+        setInput(tempInput);
+        setHistoryIndex(-1);
+        setTempInput('');
+      } else {
+        setHistoryIndex(newIndex);
+        setInput(promptHistory[newIndex]);
+      }
     }
+  };
+
+  const rerunPrompt = (prompt: string) => {
+    setInput(prompt);
+    setHistoryIndex(-1);
+    setTempInput('');
+  };
+
+  const handleInputChange = (value: string) => {
+    setInput(value);
+
+    // Detect slash commands
+    if (value.startsWith('/') && !value.includes(' ')) {
+      setShowCommandMenu(true);
+      setCommandFilter(value.slice(1));
+      setShowFileMentions(false);
+    } else {
+      setShowCommandMenu(false);
+
+      // Detect @ mentions
+      const atIndex = value.lastIndexOf('@');
+      if (atIndex !== -1 && atIndex === value.lastIndexOf('@')) {
+        const afterAt = value.slice(atIndex + 1);
+        if (!afterAt.includes(' ')) {
+          setShowFileMentions(true);
+          setFileMentionQuery(afterAt);
+        } else {
+          setShowFileMentions(false);
+        }
+      } else {
+        setShowFileMentions(false);
+      }
+    }
+  };
+
+  const removeFileMention = (filename: string) => {
+    setMentionedFiles(mentionedFiles.filter(f => f !== filename));
+  };
+
+  const executeCommand = (command: typeof slashCommands[0]) => {
+    command.action();
+    setShowCommandMenu(false);
+  };
+
+  const filteredCommands = slashCommands.filter(cmd =>
+    cmd.name.toLowerCase().includes(commandFilter.toLowerCase())
+  );
+
+  const insertCodeBlock = (language: string = '') => {
+    const codeBlock = `\`\`\`${language}\n\n\`\`\``;
+    setInput(input + (input ? '\n\n' : '') + codeBlock);
   };
 
   const startNewChat = () => {
@@ -293,6 +412,61 @@ export default function ChatPanel() {
     setStreamingMessage('');
   };
 
+  const estimateTokens = (text: string): number => {
+    // Rough estimate: ~4 characters per token for English text
+    return Math.ceil(text.length / 4);
+  };
+
+  const getTotalTokens = (): number => {
+    let total = 0;
+    messages.forEach(msg => {
+      total += estimateTokens(msg.content);
+    });
+    if (streamingMessage) {
+      total += estimateTokens(streamingMessage);
+    }
+    if (input) {
+      total += estimateTokens(input);
+    }
+    return total;
+  };
+
+  const filteredMessages = searchQuery
+    ? messages.filter(msg =>
+        msg.content.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : messages;
+
+  const exportToMarkdown = () => {
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `chat-export-${timestamp}.md`;
+
+    let markdown = `# Claude Assistant Chat Export\n\n`;
+    markdown += `**Date:** ${new Date().toLocaleString()}\n`;
+    markdown += `**Role:** ${selectedRole || 'General'}\n`;
+    markdown += `**Mode:** ${mode}\n`;
+    if (projectRoot) {
+      markdown += `**Project:** ${projectRoot}\n`;
+    }
+    markdown += `\n---\n\n`;
+
+    messages.forEach((msg, idx) => {
+      markdown += `## ${msg.role === 'user' ? '👤 User' : '🤖 Assistant'}\n\n`;
+      markdown += `${msg.content}\n\n`;
+      if (idx < messages.length - 1) {
+        markdown += `---\n\n`;
+      }
+    });
+
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="w-full h-full bg-gray-800 flex flex-col">
       {/* Header */}
@@ -302,15 +476,57 @@ export default function ChatPanel() {
             <div className="w-2 h-2 rounded-full bg-green-400"></div>
             <h3 className="font-semibold">Claude Assistant</h3>
           </div>
-          <button
-            onClick={startNewChat}
-            disabled={isStreaming}
-            className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 rounded transition-colors"
-            title="Start new chat"
-          >
-            + New Chat
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowSearch(!showSearch)}
+              disabled={messages.length === 0}
+              className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 rounded transition-colors"
+              title="Search chat history"
+            >
+              🔍 Search
+            </button>
+            <button
+              onClick={exportToMarkdown}
+              disabled={messages.length === 0}
+              className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 rounded transition-colors"
+              title="Export chat to markdown"
+            >
+              📥 Export
+            </button>
+            <button
+              onClick={startNewChat}
+              disabled={isStreaming}
+              className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 rounded transition-colors"
+              title="Start new chat"
+            >
+              + New Chat
+            </button>
+          </div>
         </div>
+
+        {/* Search Bar */}
+        {showSearch && (
+          <div className="mb-2 flex items-center gap-2">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search messages..."
+              className="flex-1 bg-gray-800 text-white rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="text-xs text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            )}
+            <span className="text-xs text-gray-500">
+              {filteredMessages.length}/{messages.length}
+            </span>
+          </div>
+        )}
 
         {/* Mode Toggle */}
         <div className="flex gap-2 mb-2">
@@ -449,7 +665,7 @@ export default function ChatPanel() {
           </div>
         )}
 
-        {messages.map((msg, idx) => (
+        {filteredMessages.map((msg, idx) => (
           <div
             key={idx}
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -488,7 +704,16 @@ export default function ChatPanel() {
                   </ReactMarkdown>
                 </div>
               ) : (
-                <p className="whitespace-pre-wrap">{msg.content}</p>
+                <div className="flex items-start gap-2">
+                  <p className="whitespace-pre-wrap flex-1">{msg.content}</p>
+                  <button
+                    onClick={() => rerunPrompt(msg.content)}
+                    className="flex-shrink-0 text-xs opacity-60 hover:opacity-100 transition-opacity"
+                    title="Rerun this prompt"
+                  >
+                    🔄
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -523,16 +748,87 @@ export default function ChatPanel() {
 
       {/* Input */}
       <div className="p-3 border-t border-gray-700 bg-gray-900">
+        {mentionedFiles.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {mentionedFiles.map((file, idx) => (
+              <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-xs rounded">
+                📄 {file}
+                <button
+                  onClick={() => removeFileMention(file)}
+                  className="hover:text-gray-300"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-1 mb-2">
+          <button
+            onClick={() => insertCodeBlock()}
+            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+            title="Insert code block"
+          >
+            &lt;/&gt;
+          </button>
+          <button
+            onClick={() => insertCodeBlock('javascript')}
+            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+            title="Insert JavaScript code block"
+          >
+            JS
+          </button>
+          <button
+            onClick={() => insertCodeBlock('python')}
+            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+            title="Insert Python code block"
+          >
+            PY
+          </button>
+          <button
+            onClick={() => insertCodeBlock('go')}
+            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+            title="Insert Go code block"
+          >
+            GO
+          </button>
+        </div>
         <div className="flex gap-2">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ask me anything..."
-            disabled={isStreaming}
-            className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            rows={2}
-          />
+          <div className="flex-1 relative">
+            {showCommandMenu && filteredCommands.length > 0 && (
+              <div className="absolute bottom-full left-0 mb-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10">
+                {filteredCommands.map((cmd, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => executeCommand(cmd)}
+                    className="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="text-sm text-white">{cmd.name}</div>
+                    <div className="text-xs text-gray-400">{cmd.description}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {showFileMentions && (
+              <div className="absolute bottom-full left-0 mb-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10">
+                <div className="px-3 py-2 text-xs text-gray-400">
+                  Type filename to mention (e.g., @src/App.tsx)
+                </div>
+                <div className="px-3 py-2 text-xs text-gray-500">
+                  Tip: Use full paths for better context
+                </div>
+              </div>
+            )}
+            <textarea
+              value={input}
+              onChange={(e) => handleInputChange(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Ask me anything... (type / for commands)"
+              disabled={isStreaming}
+              className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              rows={2}
+            />
+          </div>
           <button
             onClick={sendMessage}
             disabled={!input.trim() || isStreaming}
@@ -541,7 +837,14 @@ export default function ChatPanel() {
             {isStreaming ? '...' : 'Send'}
           </button>
         </div>
-        <p className="text-xs text-gray-500 mt-2">Press Enter to send, Shift+Enter for new line</p>
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-xs text-gray-500">Press Enter to send, Shift+Enter for new line, ↑↓ for history</p>
+          <p className="text-xs text-gray-500">
+            <span className={getTotalTokens() > 180000 ? 'text-red-400' : getTotalTokens() > 150000 ? 'text-yellow-400' : ''}>
+              ~{getTotalTokens().toLocaleString()} tokens
+            </span>
+          </p>
+        </div>
       </div>
     </div>
   );

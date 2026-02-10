@@ -554,19 +554,41 @@ func (s *AgentServer) HandleStartTask(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.RUnlock()
 
+	// Check if task packet exists
+	_, taskPacketPath, _, _, err := s.beadsClient.GetTaskDescriptionFromDir(taskID, req.ProjectRoot)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get task info: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// If no task packet exists, spawn orchestrator to create it and delegate work
+	// Otherwise spawn the requested role directly
+	roleToSpawn := req.Role
+	if taskPacketPath == "" {
+		roleToSpawn = "orchestrator"
+		monitoring.Logger.Info("start_task_no_packet", "task_id", taskID, "spawning", "orchestrator")
+	} else {
+		monitoring.Logger.Info("start_task_with_packet", "task_id", taskID, "spawning", req.Role, "packet_path", taskPacketPath)
+	}
+
 	// Spawn agent for this Beads task
-	response, err := s.spawnAgentTask(req.Role, taskID, req.ProjectRoot)
+	response, err := s.spawnAgentTask(roleToSpawn, taskID, req.ProjectRoot)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to start agent: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	message := fmt.Sprintf("Agent started for task %s", taskID)
+	if roleToSpawn == "orchestrator" {
+		message = fmt.Sprintf("Orchestrator started to create task packet and delegate work for task %s", taskID)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"message": fmt.Sprintf("Agent started for task %s", taskID),
+		"message": message,
 		"task_id": response.TaskID,
-		"role":    req.Role,
+		"role":    roleToSpawn,
 		"status":  response.Status,
 	})
 }
