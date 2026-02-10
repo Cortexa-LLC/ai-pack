@@ -418,8 +418,8 @@ func convertToTaskInfo(execution *TaskExecution) *graphql.TaskInfo {
 func convertBeadsTaskToTaskInfo(beadsTask beads.Task, projectRoot string) *graphql.TaskInfo {
 	// Map beads status to agent status
 	// Beads statuses: "open", "in_progress", "closed", "done"
-	// Agent statuses: "queued", "in_progress", "completed", "failed"
-	status := "queued"
+	// Agent statuses: "open", "queued", "in_progress", "completed", "failed"
+	status := "open"
 	switch beadsTask.Status {
 	case "in_progress":
 		status = "in_progress"
@@ -427,7 +427,7 @@ func convertBeadsTaskToTaskInfo(beadsTask beads.Task, projectRoot string) *graph
 		// For closed tasks, check execution log to determine if completed or failed
 		status = determineExecutionStatus(projectRoot, beadsTask.ID)
 	case "open":
-		status = "queued"
+		status = "open" // Keep as "open" to distinguish from queued agents
 	}
 
 	taskInfo := &graphql.TaskInfo{
