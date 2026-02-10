@@ -176,6 +176,20 @@ function App() {
     onConfirm: () => {},
   });
 
+  const [alertModal, setAlertModal] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+  }>({
+    show: false,
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (title: string, message: string) => {
+    setAlertModal({ show: true, title, message });
+  };
+
   // Panel widths (resizable) - only chat panel now
   const [chatWidth, setChatWidth] = useState(() => {
     const saved = localStorage.getItem('ai-pack-chat-width');
@@ -396,7 +410,7 @@ function App() {
       const cancelResult = await cancelResponse.json();
 
       if (cancelResult.errors) {
-        alert(`Failed to cancel task: ${cancelResult.errors[0].message}`);
+        showAlert('Error', `Failed to cancel task: ${cancelResult.errors[0].message}`);
         return;
       }
 
@@ -421,16 +435,16 @@ function App() {
       const closeResult = await closeResponse.json();
 
       if (closeResult.errors) {
-        alert(`Task cancelled but failed to close: ${closeResult.errors[0].message}`);
+        showAlert('Warning', `Task cancelled but failed to close: ${closeResult.errors[0].message}`);
       } else if (closeResult.data?.closeTask?.success) {
         // Refresh tasks to show updated status
         setTimeout(() => refetchTasks(), 300);
       } else {
-        alert('Task cancelled but failed to close: ' + (closeResult.data?.closeTask?.message || 'Unknown error'));
+        showAlert('Warning', 'Task cancelled but failed to close: ' + (closeResult.data?.closeTask?.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Failed to cancel task:', error);
-      alert('Failed to cancel task. Check console for details.');
+      showAlert('Error', 'Failed to cancel task. Check console for details.');
     }
   };
 
@@ -477,18 +491,18 @@ function App() {
       const result = await response.json();
 
       if (result.errors) {
-        alert(`Failed to retry task: ${result.errors[0].message}`);
+        showAlert('Error', `Failed to retry task: ${result.errors[0].message}`);
       } else if (result.data?.retryTask?.success) {
         const newTaskID = result.data.retryTask.taskID;
-        alert(`Task retried! New task ID: ${newTaskID}`);
+        showAlert('Success', `Task retried! New task ID: ${newTaskID}`);
         // Switch to the new task and show its logs
         selectTask(newTaskID);
       } else {
-        alert('Failed to retry task: ' + (result.data?.retryTask?.message || 'Unknown error'));
+        showAlert('Error', 'Failed to retry task: ' + (result.data?.retryTask?.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Failed to retry task:', error);
-      alert('Failed to retry task. Check console for details.');
+      showAlert('Error', 'Failed to retry task. Check console for details.');
     }
   };
 
@@ -533,20 +547,20 @@ function App() {
       const result = await response.json();
 
       if (result.errors) {
-        alert(`Failed to close task: ${result.errors[0].message}`);
+        showAlert('Error', `Failed to close task: ${result.errors[0].message}`);
       } else if (result.data?.closeTask?.success) {
         // Refresh tasks to show updated status (small delay to ensure backend update completes)
         setTimeout(() => refetchTasks(), 300);
       } else {
-        alert('Failed to close task: ' + (result.data?.closeTask?.message || 'Unknown error'));
+        showAlert('Error', 'Failed to close task: ' + (result.data?.closeTask?.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Failed to close task:', error);
-      alert('Failed to close task. Check console for details.');
+      showAlert('Error', 'Failed to close task. Check console for details.');
     }
   };
 
-  const startAgent = async (taskID: string, taskDescription: string, event?: React.MouseEvent, skipConfirm = false) => {
+  const startAgent = async (taskID: string, taskDescription: string, projectRoot?: string | null, event?: React.MouseEvent, skipConfirm = false, role = 'engineer') => {
     // Stop propagation if called from within a clickable card
     if (event) {
       event.stopPropagation();
@@ -554,13 +568,14 @@ function App() {
 
     if (!skipConfirm) {
       // Show confirmation modal
+      const roleName = role === 'orchestrator' ? 'Orchestrator' : 'Engineer';
       setConfirmModal({
         show: true,
-        title: 'Start Agent',
-        message: `Start an agent for this task?\n\n${taskDescription.split('\n')[0]}`,
+        title: `Start ${roleName}`,
+        message: `Start ${roleName.toLowerCase()} for this task?\n\n${taskDescription.split('\n')[0]}`,
         onConfirm: () => {
           setConfirmModal({ show: false, title: '', message: '', onConfirm: () => {} });
-          startAgent(taskID, taskDescription, undefined, true);
+          startAgent(taskID, taskDescription, projectRoot, undefined, true, role);
         },
       });
       return;
@@ -573,30 +588,28 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          role: 'engineer', // Default role
-          project_root: '', // Will use server default
+          role: role,
+          project_root: projectRoot || '', // Use task's project root
         }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        alert(`Failed to start agent: ${result.message || response.statusText}`);
+        showAlert('Error', `Failed to start agent: ${result.message || response.statusText}`);
         return;
       }
 
       if (result.success) {
         const newTaskID = result.task_id;
-        // Use server message which indicates if orchestrator was spawned
-        alert(result.message || `Agent started! Task ID: ${newTaskID}`);
-        // Switch to the new task and show its logs
+        // Switch to the new task and show its logs (no success dialog needed)
         selectTask(newTaskID);
       } else {
-        alert('Failed to start agent: ' + (result.message || 'Unknown error'));
+        showAlert('Error', 'Failed to start agent: ' + (result.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Failed to start agent:', error);
-      alert('Failed to start agent. Check console for details.');
+      showAlert('Error', 'Failed to start agent. Check console for details.');
     }
   };
 
@@ -866,7 +879,7 @@ function App() {
 
             {tasksData && (
               <div className="flex-1 min-h-0 overflow-hidden">
-                <div className="grid grid-cols-4 gap-4 h-full">
+                <div className="grid grid-cols-5 gap-4 h-full">
                     {/* Queued/Orphaned Lane */}
                     <div className="flex flex-col h-full min-h-0 border-2 border-blue-600 rounded-lg bg-gray-800/50">
                       <div className="bg-blue-900 border-b-2 border-blue-600 p-3 flex-shrink-0">
@@ -912,7 +925,7 @@ function App() {
                                   <div className="absolute bottom-2 right-2 flex gap-1">
                                     {isOpen && (
                                       <button
-                                        onClick={(e) => startAgent(task.taskID, task.task, e)}
+                                        onClick={(e) => startAgent(task.taskID, task.task, task.projectRoot, e)}
                                         className="w-6 h-6 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white rounded transition-colors text-xs"
                                         title="Start agent for this task"
                                       >
@@ -981,6 +994,76 @@ function App() {
                                     title="Cancel task"
                                   >
                                     🛑
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Blocked Lane */}
+                    <div className="flex flex-col h-full min-h-0 border-2 border-orange-600 rounded-lg bg-gray-800/50">
+                      <div className="bg-orange-900 border-b-2 border-orange-600 p-3 flex-shrink-0">
+                        <h3 className="font-semibold text-orange-300 flex items-center justify-between text-base">
+                          <span>🚧 Blocked</span>
+                          <span className="text-sm bg-orange-800 px-2 py-1 rounded-full">
+                            {tasksData.tasks.filter(t => t.status === 'BLOCKED' || t.status === 'blocked').length}
+                          </span>
+                        </h3>
+                      </div>
+                      <div className="flex-1 space-y-2 overflow-auto p-3">
+                        {tasksData.tasks.filter(t => t.status === 'BLOCKED' || t.status === 'blocked').length === 0 ? (
+                          <div className="text-center text-gray-500 text-sm py-8">
+                            No blocked tasks
+                          </div>
+                        ) : (
+                          tasksData.tasks
+                            .filter(t => t.status === 'BLOCKED' || t.status === 'blocked')
+                            .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                            .map(task => (
+                              <div
+                                key={task.taskID}
+                                className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-orange-500 cursor-pointer transition-colors relative"
+                                onClick={() => selectTask(task.taskID)}
+                              >
+                                <div className="pb-8">
+                                  <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
+                                    {task.task.split('\n')[0]}
+                                  </div>
+                                  <div className="text-xs text-gray-500 mb-1">
+                                    {task.taskID}
+                                  </div>
+                                  {task.error && (
+                                    <div className="text-xs text-orange-400 mt-1 line-clamp-2" title={task.error}>
+                                      ⚠️ {task.error}
+                                    </div>
+                                  )}
+                                  {task.updatedAt && (
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      Blocked: {new Date(task.updatedAt).toLocaleString()}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="absolute bottom-2 right-2 flex gap-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Extract Beads task ID from agent task ID (remove timestamp suffix)
+                                      const beadsTaskId = task.taskID.replace(/-\d{8}-\d{6}$/, '');
+                                      startAgent(beadsTaskId, task.task, task.projectRoot, e, false, 'orchestrator');
+                                    }}
+                                    className="w-6 h-6 flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors text-xs"
+                                    title="Send to Orchestrator for review"
+                                  >
+                                    🤖
+                                  </button>
+                                  <button
+                                    onClick={(e) => closeTask(task.taskID, task.task, e)}
+                                    className="w-6 h-6 flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors text-xs"
+                                    title="Close/dismiss task"
+                                  >
+                                    ✕
                                   </button>
                                 </div>
                               </div>
@@ -1941,6 +2024,23 @@ function App() {
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
               >
                 Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {alertModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4 border border-gray-700">
+            <h3 className="text-lg font-semibold text-white mb-3">{alertModal.title}</h3>
+            <p className="text-gray-300 text-sm mb-6 whitespace-pre-line">{alertModal.message}</p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setAlertModal({ show: false, title: '', message: '' })}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+              >
+                OK
               </button>
             </div>
           </div>
