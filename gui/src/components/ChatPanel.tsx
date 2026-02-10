@@ -99,6 +99,7 @@ export default function ChatPanel() {
   const [projectChats, setProjectChats] = useState<ChatSession[]>([]);
   const [showChatList, setShowChatList] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+  const [suggestion, setSuggestion] = useState('');
 
   // Helper functions for project-based chat management
   const loadProjectChats = (projectPath: string): ChatSession[] => {
@@ -540,6 +541,7 @@ export default function ChatPanel() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamingMessage]);
 
+
   const sendMessage = async () => {
     console.log('[ChatPanel] sendMessage called', {
       inputLength: input.length,
@@ -700,6 +702,10 @@ export default function ChatPanel() {
                 setMessages(prev => [...prev, assistantMessage]);
                 setStreamingMessage('');
                 setIsStreaming(false);
+                // Set suggestion from backend if provided
+                if (parsed.suggestion && input === '') {
+                  setSuggestion(parsed.suggestion);
+                }
                 return;
               } else if (parsed.text) {
                 // For delta events
@@ -735,6 +741,11 @@ export default function ChatPanel() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
+    } else if (e.key === 'ArrowRight' && input === '' && suggestion) {
+      // Accept suggestion on right arrow when input is empty
+      e.preventDefault();
+      setInput(suggestion);
+      setSuggestion('');
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (promptHistory.length === 0) return;
@@ -772,6 +783,11 @@ export default function ChatPanel() {
 
   const handleInputChange = (value: string) => {
     setInput(value);
+
+    // Clear suggestion when user starts typing
+    if (value && suggestion) {
+      setSuggestion('');
+    }
 
     // Detect slash commands
     if (value.startsWith('/') && !value.includes(' ')) {
@@ -811,68 +827,6 @@ export default function ChatPanel() {
   };
 
   // Generate follow-up suggestions based on response content
-  const generateSuggestions = (content: string): string[] => {
-    const suggestions: string[] = [];
-    const lowerContent = content.toLowerCase();
-
-    // Detect specific error patterns and stack traces
-    const hasStackTrace = /at .+\(.+:\d+:\d+\)/i.test(content) || /error:|exception:|traceback:/i.test(content);
-    const hasErrorCode = /error \d+|exit code \d+|status \d{3}/i.test(content);
-    const hasSyntaxError = /syntaxerror|unexpected token|parse error/i.test(content);
-    const hasTypeError = /typeerror|undefined is not|cannot read property/i.test(content);
-    const hasReferenceError = /referenceerror|is not defined/i.test(content);
-
-    // Error-specific suggestions (priority)
-    if (hasStackTrace) {
-      suggestions.push('🔍 Help me trace where this error originated');
-      suggestions.push('🛠️ What are common causes of this error?');
-    }
-    if (hasSyntaxError) {
-      suggestions.push('📝 Show me the correct syntax');
-      suggestions.push('🔍 Check for missing brackets or semicolons');
-    }
-    if (hasTypeError || hasReferenceError) {
-      suggestions.push('🐛 Help me check variable initialization');
-      suggestions.push('📋 Show me how to add proper type checking');
-    }
-    if (hasErrorCode) {
-      suggestions.push('📖 What does this error code mean?');
-    }
-
-    // Code-related suggestions
-    if (lowerContent.includes('function') || lowerContent.includes('class') || lowerContent.includes('```')) {
-      suggestions.push('🧪 Can you add tests for this code?');
-      suggestions.push('⚡ How can I optimize this?');
-      suggestions.push('🎯 What are potential edge cases?');
-    }
-
-    // General error/bug related
-    if (lowerContent.includes('error') || lowerContent.includes('bug') || lowerContent.includes('fix')) {
-      suggestions.push('🔧 How can I debug this issue?');
-      suggestions.push('📊 What logging should I add?');
-    }
-
-    // Implementation suggestions
-    if (lowerContent.includes('implement') || lowerContent.includes('create') || lowerContent.includes('add')) {
-      suggestions.push('✨ What are the best practices?');
-      suggestions.push('⚡ Should I consider performance?');
-    }
-
-    // Documentation
-    if (lowerContent.includes('document') || lowerContent.includes('comment')) {
-      suggestions.push('📚 Can you generate API docs?');
-    }
-
-    // General suggestions (always include some)
-    if (suggestions.length < 3) {
-      suggestions.push('💬 Can you explain this in more detail?');
-      suggestions.push('📋 Show me an example');
-      suggestions.push('🔄 What are the alternatives?');
-    }
-
-    // Return unique suggestions (max 5)
-    return [...new Set(suggestions)].slice(0, 5);
-  };
 
   const executeCommand = (command: typeof slashCommands[0]) => {
     command.action();
@@ -1521,26 +1475,6 @@ export default function ChatPanel() {
                       {msg.content}
                     </ReactMarkdown>
                   </div>
-                  {/* Follow-up suggestions - only show on last assistant message */}
-                  {idx === messages.length - 1 && !isStreaming && (
-                    <div className="mt-3 pt-3 border-t border-gray-600">
-                      <div className="text-xs text-gray-400 mb-2">💡 Suggested follow-ups:</div>
-                      <div className="flex flex-wrap gap-2">
-                        {generateSuggestions(msg.content).map((suggestion, sidx) => (
-                          <button
-                            key={sidx}
-                            onClick={() => {
-                              setInput(suggestion);
-                              setHistoryIndex(-1);
-                            }}
-                            className="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-500 text-gray-200 rounded transition-colors"
-                          >
-                            {suggestion}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </>
               ) : (
                 <div className="flex items-start gap-2">
@@ -1715,15 +1649,23 @@ export default function ChatPanel() {
                 </div>
               </div>
             )}
+            {/* Suggestion overlay */}
+            {!input && suggestion && (
+              <div className="absolute top-0 left-0 right-0 px-3 py-2 text-sm text-gray-500 pointer-events-none whitespace-pre-wrap">
+                {suggestion}
+              </div>
+            )}
             <textarea
               value={input}
               onChange={(e) => handleInputChange(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder="Ask me anything... (type / for commands)"
+              placeholder={suggestion ? '' : 'Ask me anything... (type / for commands)'}
               disabled={isStreaming}
-              className="w-full h-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full h-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 relative z-10"
               rows={2}
+              style={{ background: 'transparent' }}
             />
+            <div className="absolute inset-0 bg-gray-800 rounded-lg -z-10" />
           </div>
           <button
             onClick={sendMessage}

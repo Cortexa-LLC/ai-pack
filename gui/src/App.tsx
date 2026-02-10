@@ -665,7 +665,11 @@ function App() {
         // Handle log events
         eventSource.addEventListener('log', (event) => {
           try {
-            const logData = JSON.parse(event.data);
+            // Sanitize event data to handle control characters that break JSON parsing
+            // Remove non-printable control characters (except newline, tab, carriage return which should be escaped)
+            const sanitizedData = event.data.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
+
+            const logData = JSON.parse(sanitizedData);
             if (logData.line && logData.line.trim()) {
               const line = logData.line;
               const trimmed = line.trim();
@@ -700,7 +704,8 @@ function App() {
               }
             }
           } catch (err) {
-            console.error('Failed to parse log data:', err);
+            // Silently skip malformed log lines - they're often just streaming artifacts
+            // Uncomment for debugging: console.warn('Skipped malformed log data:', err);
           }
         });
 

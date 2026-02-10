@@ -255,10 +255,14 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 		}
 	}
 
-	// Send completion event with full message
+	// Generate a follow-up suggestion from Claude
+	suggestion := s.generateFollowUpSuggestion(ctx, fullText)
+
+	// Send completion event with full message and suggestion
 	completionData, _ := json.Marshal(map[string]interface{}{
-		"status": "complete",
-		"text":   fullText,
+		"status":     "complete",
+		"text":       fullText,
+		"suggestion": suggestion,
 		"usage": map[string]int{
 			"input_tokens":  int(message.Usage.InputTokens),
 			"output_tokens": int(message.Usage.OutputTokens),
@@ -273,6 +277,41 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 	monitoring.Logger.Info("chat_completed",
 		"input_tokens", message.Usage.InputTokens,
 		"output_tokens", message.Usage.OutputTokens)
+}
+
+// generateFollowUpSuggestion asks Claude for a relevant follow-up question
+func (s *AgentServer) generateFollowUpSuggestion(ctx context.Context, assistantResponse string) string {
+	// Create a prompt asking for a single follow-up suggestion
+	prompt := fmt.Sprintf(`Based on this response I just gave:
+
+%s
+
+Suggest ONE brief, natural follow-up question the user might want to ask. Return ONLY the question text itself, no explanation, no quotes, no preamble. Keep it under 60 characters if possible.`, assistantResponse)
+
+	// Make a non-streaming request to Claude
+	params := anthropic.MessageNewParams{
+		Model:     anthropic.Model(s.model),
+		MaxTokens: 100,
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)),
+		},
+	}
+
+	response, err := s.client.Messages.New(ctx, params)
+	if err != nil {
+		monitoring.Logger.Warn("suggestion_generation_failed", "error", err)
+		return "" // Return empty string on error
+	}
+
+	// Extract suggestion text
+	if len(response.Content) > 0 && response.Content[0].Type == "text" {
+		suggestion := strings.TrimSpace(response.Content[0].Text)
+		// Remove quotes if present
+		suggestion = strings.Trim(suggestion, "\"'")
+		return suggestion
+	}
+
+	return ""
 }
 
 // HandleChatOptions handles CORS preflight for chat endpoint
