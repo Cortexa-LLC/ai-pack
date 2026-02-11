@@ -55,21 +55,6 @@ function MermaidDiagram({ chart }: { chart: string }) {
   );
 }
 
-const ROLES = [
-  { value: '', label: 'No Role (General)' },
-  { value: 'orchestrator', label: 'Orchestrator' },
-  { value: 'engineer', label: 'Engineer' },
-  { value: 'architect', label: 'Architect' },
-  { value: 'designer', label: 'Designer' },
-  { value: 'tester', label: 'Tester' },
-  { value: 'reviewer', label: 'Reviewer' },
-  { value: 'inspector', label: 'Inspector' },
-  { value: 'product-manager', label: 'Product Manager' },
-  { value: 'archaeologist', label: 'Archaeologist' },
-  { value: 'spelunker', label: 'Spelunker' },
-  { value: 'strategist', label: 'Strategist' },
-];
-
 export default function ChatPanel() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -98,7 +83,6 @@ export default function ChatPanel() {
   const [currentChatName, setCurrentChatName] = useState('New Chat');
   const [projectChats, setProjectChats] = useState<ChatSession[]>([]);
   const [showChatList, setShowChatList] = useState(false);
-  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [suggestion, setSuggestion] = useState('');
   const [useProjectContext, setUseProjectContext] = useState(true);
   const [contextLoadedFile, setContextLoadedFile] = useState('');
@@ -208,10 +192,6 @@ export default function ChatPanel() {
     { name: '/status', description: 'Check system status', action: () => { setInput('What is the current status of all tasks and agents?'); } },
   ];
 
-  // Handle role changes (always in chat mode with orchestrator as default)
-  const handleRoleChange = (role: string) => {
-    setSelectedRole(role);
-  };
   const [projectRoot, setProjectRoot] = useState('');
   const [projectRoots, setProjectRoots] = useState<string[]>([]);
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
@@ -1294,45 +1274,6 @@ export default function ChatPanel() {
             </span>
           </div>
         )}
-
-        {/* Role Selector */}
-        <div className="relative mb-2">
-          <div className="flex gap-1">
-            <div className="flex-1 px-3 py-1.5 bg-gray-700 text-white text-xs rounded flex items-center">
-              <span className="truncate">
-                {ROLES.find(r => r.value === selectedRole)?.label || 'No Role (General)'}
-              </span>
-            </div>
-            <button
-              onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-              className="px-2 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded"
-              title="Select role"
-            >
-              ▼
-            </button>
-          </div>
-
-          {showRoleDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-gray-700 rounded shadow-lg border border-gray-600 z-10 max-h-60 overflow-y-auto">
-              {ROLES.map((role) => (
-                <button
-                  key={role.value}
-                  onClick={() => {
-                    handleRoleChange(role.value);
-                    setShowRoleDropdown(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 hover:bg-gray-600 text-xs text-white ${
-                    role.value === selectedRole ? 'bg-gray-600' : ''
-                  }`}
-                  title={role.label}
-                >
-                  {role.value === selectedRole && '✓ '}
-                  {role.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
 
         {/* Project Selector */}
         <div className="relative">
