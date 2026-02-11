@@ -66,11 +66,8 @@ export default function ChatPanel() {
   const [promptHistory, setPromptHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [tempInput, setTempInput] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
   const [showCommandMenu, setShowCommandMenu] = useState(false);
   const [commandFilter, setCommandFilter] = useState('');
-  const [showExportMenu, setShowExportMenu] = useState(false);
   const [detectedFiles, setDetectedFiles] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<number | null>(null);
   const [mentionedFiles, setMentionedFiles] = useState<string[]>([]);
@@ -89,6 +86,22 @@ export default function ChatPanel() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const [orchestratorMonitoring, setOrchestratorMonitoring] = useState(false);
   const orchestratorEventSourceRef = useRef<EventSource | null>(null);
+  const [modal, setModal] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    type: 'alert' | 'confirm';
+    onConfirm?: () => void;
+  }>({ show: false, title: '', message: '', type: 'alert' });
+
+  // Helper functions for modals
+  const showAlert = (title: string, message: string) => {
+    setModal({ show: true, title, message, type: 'alert' });
+  };
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setModal({ show: true, title, message, type: 'confirm', onConfirm });
+  };
 
   // Helper functions for project-based chat management
   const loadProjectChats = (projectPath: string): ChatSession[] => {
@@ -180,11 +193,7 @@ export default function ChatPanel() {
     { name: '/commit', description: 'Create a git commit', action: () => { setInput('Spawn an engineer to create a git commit with the recent changes'); } },
     { name: '/test', description: 'Run tests', action: () => { setInput('Spawn an engineer to run the test suite'); } },
     { name: '/review', description: 'Review code changes', action: () => { setInput('Spawn a reviewer to review the recent code changes'); } },
-    { name: '/search', description: 'Search codebase', action: async () => {
-      const query = prompt('Enter search query:');
-      if (!query) return;
-      await performCodebaseSearch(query);
-    } },
+    { name: '/search', description: 'Search codebase', action: () => { setInput('Search the codebase for: '); } },
     { name: '/fix', description: 'Fix an issue', action: () => { setInput('Spawn an engineer to fix the following issue: '); } },
     { name: '/refactor', description: 'Refactor code', action: () => { setInput('Spawn an engineer to refactor the following code: '); } },
     { name: '/explain', description: 'Explain code', action: () => { setInput('Explain how this works: '); } },
@@ -204,7 +213,7 @@ export default function ChatPanel() {
   // Chat management functions
   const createNewChatInProject = (project: string) => {
     if (!project) {
-      alert('Please select a project first');
+      showAlert('Project Required', 'Please select a project first');
       return;
     }
 
@@ -939,7 +948,7 @@ export default function ChatPanel() {
 
       // Only handle text files (< 1MB)
       if (file.size > 1024 * 1024) {
-        alert(`File ${file.name} is too large (max 1MB)`);
+        showAlert('File Too Large', `File ${file.name} is too large (max 1MB)`);
         continue;
       }
 
@@ -952,7 +961,7 @@ export default function ChatPanel() {
         });
       } catch (err) {
         console.error(`Failed to read file ${file.name}:`, err);
-        alert(`Failed to read file ${file.name}`);
+        showAlert('File Read Error', `Failed to read file ${file.name}`);
       }
     }
 
@@ -1046,7 +1055,7 @@ export default function ChatPanel() {
   const startNewChat = () => {
     if (isStreaming) return; // Don't start new chat while streaming
     if (!projectRoot) {
-      alert('Please select a project first');
+      showAlert('Project Required', 'Please select a project first');
       return;
     }
 
@@ -1072,45 +1081,9 @@ export default function ChatPanel() {
     return total;
   };
 
-  const filteredMessages = searchQuery
-    ? messages.filter(msg =>
-        msg.content.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : messages;
-
-  const exportToMarkdown = () => {
-    const timestamp = new Date().toISOString().split('T')[0];
-    const filename = `chat-export-${timestamp}.md`;
-
-    let markdown = `# Claude Assistant Chat Export\n\n`;
-    markdown += `**Date:** ${new Date().toLocaleString()}\n`;
-    markdown += `**Role:** ${selectedRole || 'General'}\n`;
-    markdown += `**Mode:** ${mode}\n`;
-    if (projectRoot) {
-      markdown += `**Project:** ${projectRoot}\n`;
-    }
-    markdown += `\n---\n\n`;
-
-    messages.forEach((msg, idx) => {
-      markdown += `## ${msg.role === 'user' ? '👤 User' : '🤖 Assistant'}\n\n`;
-      markdown += `${msg.content}\n\n`;
-      if (idx < messages.length - 1) {
-        markdown += `---\n\n`;
-      }
-    });
-
-    const blob = new Blob([markdown], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const compressOldMessages = async () => {
     if (messages.length < 10) {
-      alert('Not enough messages to compress. Need at least 10 messages.');
+      showAlert('Cannot Compress', 'Not enough messages to compress. Need at least 10 messages.');
       return;
     }
 
@@ -1132,42 +1105,7 @@ export default function ChatPanel() {
     // Save to localStorage
     localStorage.setItem(`ai-pack-chat-${chatId}`, JSON.stringify([summaryMessage, ...messagesToKeep]));
 
-    alert(`Compressed ${messagesToCompress.length} old messages!`);
-  };
-
-  const exportToJSON = () => {
-    const timestamp = new Date().toISOString().split('T')[0];
-    const filename = `chat-export-${timestamp}.json`;
-
-    const exportData = {
-      metadata: {
-        exportDate: new Date().toISOString(),
-        chatId,
-        role: selectedRole || 'General',
-        mode,
-        projectRoot: projectRoot || null,
-        messageCount: messages.length,
-        totalTokens: getTotalTokens(),
-      },
-      messages: messages.map((msg, idx) => ({
-        index: idx,
-        role: msg.role,
-        content: msg.content,
-        timestamp: new Date().toISOString(), // Would need to track actual timestamps
-      })),
-      attachments: {
-        files: attachedFiles.map(f => ({ name: f.name, size: f.size })),
-        images: attachedImages.map(i => ({ name: i.name, size: i.size })),
-      },
-    };
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    showAlert('Compression Complete', `Compressed ${messagesToCompress.length} old messages!`);
   };
 
   return (
@@ -1195,40 +1133,6 @@ export default function ChatPanel() {
           </div>
           <div className="flex gap-1">
             <button
-              onClick={() => setShowSearch(!showSearch)}
-              disabled={messages.length === 0}
-              className="w-8 h-6 text-xs bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 rounded flex items-center justify-center"
-              title="Search"
-            >
-              🔍
-            </button>
-            <div className="relative">
-              <button
-                onClick={() => setShowExportMenu(!showExportMenu)}
-                disabled={messages.length === 0}
-                className="w-8 h-6 text-xs bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 rounded flex items-center justify-center"
-                title="Export"
-              >
-                📥
-              </button>
-              {showExportMenu && messages.length > 0 && (
-                <div className="absolute top-full right-0 mt-1 bg-gray-800 border border-gray-700 rounded shadow-lg z-10 min-w-24">
-                  <button
-                    onClick={() => { exportToMarkdown(); setShowExportMenu(false); }}
-                    className="w-full text-left px-2 py-1 text-xs hover:bg-gray-700 text-white"
-                  >
-                    📄 MD
-                  </button>
-                  <button
-                    onClick={() => { exportToJSON(); setShowExportMenu(false); }}
-                    className="w-full text-left px-2 py-1 text-xs hover:bg-gray-700 text-white"
-                  >
-                    📋 JSON
-                  </button>
-                </div>
-              )}
-            </div>
-            <button
               onClick={compressOldMessages}
               disabled={messages.length < 10}
               className={`w-8 h-6 text-xs rounded flex items-center justify-center ${
@@ -1250,30 +1154,6 @@ export default function ChatPanel() {
             </button>
           </div>
         </div>
-
-        {/* Search Bar */}
-        {showSearch && (
-          <div className="mb-2 flex items-center gap-2">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search messages..."
-              className="flex-1 bg-gray-800 text-white rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="text-xs text-gray-400 hover:text-white"
-              >
-                ✕
-              </button>
-            )}
-            <span className="text-xs text-gray-500">
-              {filteredMessages.length}/{messages.length}
-            </span>
-          </div>
-        )}
 
         {/* Project Selector */}
         <div className="relative">
@@ -1432,9 +1312,11 @@ export default function ChatPanel() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (confirm(`Delete chat "${chat.name}"?`)) {
-                          deleteChat(chat.id);
-                        }
+                        showConfirm(
+                          'Delete Chat',
+                          `Delete chat "${chat.name}"?`,
+                          () => deleteChat(chat.id)
+                        );
                       }}
                       className="ml-2 px-1.5 py-0.5 text-xs text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity"
                       title="Delete chat"
@@ -1459,7 +1341,7 @@ export default function ChatPanel() {
           </div>
         )}
 
-        {filteredMessages.map((msg, idx) => (
+        {messages.map((msg, idx) => (
           <div
             key={idx}
             data-msg-id={idx}
@@ -1489,19 +1371,19 @@ export default function ChatPanel() {
                   </div>
                 </div>
               )}
-              {/* Reply button */}
-              <button
-                onClick={() => {
-                  setReplyingTo(idx);
-                  document.querySelector('textarea')?.focus();
-                }}
-                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 hover:bg-gray-600 text-white text-xs px-2 py-1 rounded"
-                title="Reply to this message"
-              >
-                ↩️ Reply
-              </button>
               {msg.role === 'assistant' ? (
                 <>
+                  {/* Reply button */}
+                  <button
+                    onClick={() => {
+                      setReplyingTo(idx);
+                      document.querySelector('textarea')?.focus();
+                    }}
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 hover:bg-gray-600 text-white text-xs w-6 h-6 flex items-center justify-center rounded"
+                    title="Reply to this message"
+                  >
+                    ↩️
+                  </button>
                   <div className="prose prose-invert prose-sm max-w-none">
                     <ReactMarkdown
                       components={{
@@ -1768,6 +1650,37 @@ export default function ChatPanel() {
           </p>
         </div>
       </div>
+
+      {/* Custom Modal for Alerts and Confirms */}
+      {modal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-600 p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-white mb-3">{modal.title}</h3>
+            <p className="text-gray-300 mb-6 whitespace-pre-wrap">{modal.message}</p>
+            <div className="flex justify-end gap-3">
+              {modal.type === 'confirm' && (
+                <button
+                  onClick={() => setModal({ ...modal, show: false })}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+                >
+                  Cancel
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  if (modal.type === 'confirm' && modal.onConfirm) {
+                    modal.onConfirm();
+                  }
+                  setModal({ ...modal, show: false });
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
