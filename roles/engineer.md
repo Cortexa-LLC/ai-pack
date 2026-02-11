@@ -499,7 +499,7 @@ After complexity assessment:
 - IF complex or unclear → Request investigation/planning FIRST
 - IF architectural → Request architect guidance or refactor evaluation
 
-**Remember:** TDD is for IMPLEMENTATION when path is clear, not for EXPLORATION when path is murky. Investigation before implementation prevents thrashing.
+**Remember:** Apply TDD judiciously. It's most valuable for IMPLEMENTATION when requirements are clear, less valuable for EXPLORATION when the path is murky. Investigation before implementation prevents thrashing.
 
 ---
 
@@ -559,73 +559,81 @@ If you see nested directories like `server/server/`, `client/client/`, or `docs/
 
 ### 1. Code Implementation and Testing
 
-**Responsibility:** Write production-quality code that meets requirements using MANDATORY Test-Driven Development.
+**Responsibility:** Write production-quality code that meets requirements with comprehensive test coverage.
 
-**CRITICAL: TDD is MANDATORY and ENFORCED**
+**Test-Driven Development: Apply Judiciously**
 
-Test-Driven Development is NOT optional. It is a BLOCKING requirement enforced by the [TDD Enforcement Gate](../gates/05-tdd-enforcement.md).
+TDD is a powerful technique that should be applied where it provides the most value. Use good engineering judgment to determine the appropriate testing approach.
 
-**Implementation Cycle (MANDATORY):**
+**When TDD is Most Appropriate:**
+- ✅ **New functionality development** - Write tests first to drive clean design
+- ✅ **Complex business logic** - Tests help clarify requirements and edge cases
+- ✅ **Bug fixes** - Write failing test that reproduces the bug, then fix
+- ✅ **Public APIs** - Test-first ensures clean, usable interfaces
+
+**When TDD is Less Appropriate:**
+- ⚠️ **Refactoring with full test coverage** - Existing tests already verify behavior
+- ⚠️ **Exploratory work** - Understanding the problem space first may be more valuable
+- ⚠️ **Simple, obvious changes** - Tests can be written after when intent is clear
+
+**Implementation Cycle:**
 ```
 1. Understand requirements
 2. Read existing code (establish context)
 3. MANDATORY - Start Beads task
    bd update --claim <task-id>
    # Task must be in "in_progress" before implementing
-4. MANDATORY TDD Cycle (BLOCKING):
 
-   STEP 1: RED Phase (MANDATORY)
-   ──────────────────────────────
-   BEFORE writing ANY implementation code:
+4. Choose Testing Approach:
+
+   A. NEW FUNCTIONALITY (TDD Recommended):
+   ═══════════════════════════════════════
+   STEP 1: RED Phase
      a. Write test that fails
      b. Run tests to verify failure
      c. VERIFY test fails for right reason
 
-   IF no failing test THEN
-     STOP - Cannot proceed to implementation
-     MUST write failing test first
-   END IF
-
-   STEP 2: GREEN Phase (MANDATORY)
-   ────────────────────────────────
-   ONLY AFTER RED phase:
+   STEP 2: GREEN Phase
      a. Write MINIMAL code to make test pass
      b. Run tests to verify pass
+     c. NEVER modify test to make it pass
 
-   IF test doesn't pass THEN
-     Fix implementation
-     NEVER modify test to make it pass
-   END IF
-
-   STEP 3: REFACTOR Phase (MANDATORY)
-   ───────────────────────────────────
-   ONLY AFTER GREEN phase:
+   STEP 3: REFACTOR Phase
      a. Clean up code (remove duplication, improve design)
      b. Run tests continuously (must stay green)
 
-   IF tests turn red during refactor THEN
-     STOP refactoring
-     Fix immediately
-     Tests must stay green
-   END IF
-
    REPEAT for next requirement
 
-4. Verify against acceptance criteria
-5. Document changes
+   B. REFACTORING WITH COVERAGE (Test Maintenance):
+   ═══════════════════════════════════════════════
+   STEP 1: Verify Current Coverage
+     a. Run existing test suite
+     b. Confirm all tests pass
+     c. Check coverage is adequate (>80%)
+
+   STEP 2: Refactor with Confidence
+     a. Make structural improvements
+     b. Run tests continuously (must stay green)
+     c. Update tests if interfaces change
+
+   STEP 3: Verify Behavior Preserved
+     a. All existing tests still pass
+     b. No regression in coverage
+     c. Tests reflect new structure if needed
+
+5. Verify against acceptance criteria
+6. Document changes
 ```
 
-**⚠️ ENFORCEMENT:**
+**⚠️ QUALITY GATES:**
 ```
-IF Engineer skips TDD OR writes implementation before tests THEN
-  Tester BLOCKS approval
-  Work status = "CHANGES REQUIRED"
-  Task marked = "INCOMPLETE"
-  Engineer MUST redo with proper TDD cycle
-END IF
+Regardless of approach chosen:
+  ✓ All tests must pass before completion
+  ✓ Test coverage must be maintained or improved
+  ✓ New functionality requires tests
+  ✓ Bug fixes require regression tests
+  ✓ Refactoring must not reduce coverage
 ```
-
-**NO EXCEPTIONS** - See [TDD Enforcement Gate](../gates/05-tdd-enforcement.md) for details.
 
 **Quality Standards:**
 ```
