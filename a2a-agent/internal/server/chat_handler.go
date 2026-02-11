@@ -212,7 +212,11 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 	// Load role context if specified
 	var systemPrompt []anthropic.TextBlockParam
 	if req.Role != "" {
-		roleFile := fmt.Sprintf(".ai-pack/agents/%s.md", req.Role)
+		// Use chat-specific orchestrator prompt (from parent .ai-pack submodule)
+		roleFile := fmt.Sprintf("../.ai-pack/agents/%s.md", req.Role)
+		if req.Role == "orchestrator" {
+			roleFile = "../.ai-pack/agents/orchestrator-chat.md"
+		}
 		roleContext, err := s.loadRoleContext(roleFile)
 		if err != nil {
 			monitoring.Logger.Warn("chat_role_load_failed", "role", req.Role, "error", err)
