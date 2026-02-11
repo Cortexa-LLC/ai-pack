@@ -5,18 +5,39 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os/exec"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
 
 // GetOrchestratorTools returns the tool definitions for the orchestrator
-func GetOrchestratorTools() []anthropic.ToolParam {
-	return []anthropic.ToolParam{
-		{
-			Name:        "spawn_agent",
-			Description: "Spawn a background agent to work on a task. The agent will execute in the project directory and you can monitor its progress.",
-			InputSchema: anthropic.ToolInputSchemaParam{
+func GetOrchestratorTools() []anthropic.ToolUnionParam {
+	return []anthropic.ToolUnionParam{
+		anthropic.ToolUnionParamOfTool(
+			anthropic.ToolInputSchemaParam{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"description": map[string]interface{}{
+						"type":        "string",
+						"description": "Description of the task to create",
+					},
+					"project_root": map[string]interface{}{
+						"type":        "string",
+						"description": "The project root directory for the task",
+					},
+					"priority": map[string]interface{}{
+						"type":        "string",
+						"description": "Optional: Task priority (low/medium/high)",
+						"enum":        []string{"low", "medium", "high"},
+					},
+				},
+				Required: []string{"description", "project_root"},
+			},
+			"create_task",
+		),
+		anthropic.ToolUnionParamOfTool(
+			anthropic.ToolInputSchemaParam{
 				Type: "object",
 				Properties: map[string]interface{}{
 					"role": map[string]interface{}{
@@ -35,11 +56,10 @@ func GetOrchestratorTools() []anthropic.ToolParam {
 				},
 				Required: []string{"role", "task_id", "project_root"},
 			},
-		},
-		{
-			Name:        "query_tasks",
-			Description: "Query the task system to get current status of all tasks. Returns list of tasks with their status, title, and other metadata.",
-			InputSchema: anthropic.ToolInputSchemaParam{
+			"spawn_agent",
+		),
+		anthropic.ToolUnionParamOfTool(
+			anthropic.ToolInputSchemaParam{
 				Type: "object",
 				Properties: map[string]interface{}{
 					"status_filter": map[string]interface{}{
@@ -49,11 +69,10 @@ func GetOrchestratorTools() []anthropic.ToolParam {
 				},
 				Required: []string{},
 			},
-		},
-		{
-			Name:        "get_task_details",
-			Description: "Get detailed information about a specific task including its description, status, dependencies, and history.",
-			InputSchema: anthropic.ToolInputSchemaParam{
+			"query_tasks",
+		),
+		anthropic.ToolUnionParamOfTool(
+			anthropic.ToolInputSchemaParam{
 				Type: "object",
 				Properties: map[string]interface{}{
 					"task_id": map[string]interface{}{
@@ -63,11 +82,10 @@ func GetOrchestratorTools() []anthropic.ToolParam {
 				},
 				Required: []string{"task_id"},
 			},
-		},
-		{
-			Name:        "update_task_status",
-			Description: "Update the status of a task (e.g. mark as blocked, failed, or update priority)",
-			InputSchema: anthropic.ToolInputSchemaParam{
+			"get_task_details",
+		),
+		anthropic.ToolUnionParamOfTool(
+			anthropic.ToolInputSchemaParam{
 				Type: "object",
 				Properties: map[string]interface{}{
 					"task_id": map[string]interface{}{
@@ -86,7 +104,8 @@ func GetOrchestratorTools() []anthropic.ToolParam {
 				},
 				Required: []string{"task_id", "status"},
 			},
-		},
+			"update_task_status",
+		),
 	}
 }
 
@@ -95,6 +114,8 @@ func (s *AgentServer) ExecuteTool(toolName string, toolInput map[string]interfac
 	monitoring.Logger.Info("orchestrator_tool_execution", "tool", toolName, "input", toolInput)
 
 	switch toolName {
+	case "create_task":
+		return s.executeCreateTask(toolInput)
 	case "spawn_agent":
 		return s.executeSpawnAgent(toolInput)
 	case "query_tasks":
@@ -106,6 +127,53 @@ func (s *AgentServer) ExecuteTool(toolName string, toolInput map[string]interfac
 	default:
 		return "", fmt.Errorf("unknown tool: %s", toolName)
 	}
+}
+
+func (s *AgentServer) executeCreateTask(input map[string]interface{}) (string, error) {
+	description, _ := input["description"].(string)
+	projectRoot, _ := input["project_root"].(string)
+	priority, _ := input["priority"].(string)
+
+	if description == "" || projectRoot == "" {
+		return "", fmt.Errorf("missing required parameters: description, project_root")
+	}
+
+	// Default priority
+	if priority == "" {
+		priority = "medium"
+	}
+
+	// Create Beads task using bd create command
+	cmd := exec.Command("bd", "create", description, "--priority", priority, "--json")
+	cmd.Dir = projectRoot
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to create Beads task: %v (output: %s)", err, string(output))
+	}
+
+	// Parse task ID from JSON output
+	var createResult struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(output, &createResult); err != nil {
+		return "", fmt.Errorf("failed to parse Beads task creation output: %w", err)
+	}
+
+	if createResult.ID == "" {
+		return "", fmt.Errorf("Beads task created but no ID returned")
+	}
+
+	monitoring.Logger.Info("orchestrator_task_created", "task_id", createResult.ID, "project", projectRoot)
+
+	result := map[string]interface{}{
+		"success":  true,
+		"task_id":  createResult.ID,
+		"message":  fmt.Sprintf("Task created: %s", createResult.ID),
+		"priority": priority,
+	}
+
+	resultJSON, _ := json.Marshal(result)
+	return string(resultJSON), nil
 }
 
 func (s *AgentServer) executeSpawnAgent(input map[string]interface{}) (string, error) {
