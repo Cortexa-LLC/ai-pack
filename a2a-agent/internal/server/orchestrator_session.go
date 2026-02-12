@@ -197,7 +197,7 @@ func (s *OrchestratorSession) queryTasks() ([]TaskInfo, error) {
 	query := `
 		query {
 			tasks {
-				id
+				taskID
 				status
 				task
 				description
@@ -232,7 +232,7 @@ func (s *OrchestratorSession) queryTasks() ([]TaskInfo, error) {
 	var result struct {
 		Data struct {
 			Tasks []struct {
-				ID          string `json:"id"`
+				ID          string `json:"taskID"`
 				Status      string `json:"status"`
 				Task        string `json:"task"`
 				Description string `json:"description"`
