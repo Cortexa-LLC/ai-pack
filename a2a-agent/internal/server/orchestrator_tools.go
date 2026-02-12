@@ -5,7 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
@@ -312,18 +316,136 @@ func (s *AgentServer) executeUpdateTaskStatus(input map[string]interface{}) (str
 		return "", fmt.Errorf("task_id and status are required")
 	}
 
-	// Update via Beads
-	// For now, return a simulated success
-	// TODO: Implement actual Beads update command
+	// Find the task execution metadata and update it
+	// The taskID could be either a Beads task ID or a timestamped execution folder
+	projectRoot, executionFolder, err := s.findTaskExecutionMetadata(taskID)
+	if err != nil {
+		return "", fmt.Errorf("task not found: %w", err)
+	}
+
+	// Update the metadata file
+	if err := s.updateTaskExecutionStatus(projectRoot, executionFolder, status, reason); err != nil {
+		return "", fmt.Errorf("failed to update task status: %w", err)
+	}
+
+	monitoring.Logger.Info("orchestrator_task_status_updated",
+		"task_id", taskID,
+		"execution_folder", executionFolder,
+		"status", status,
+		"project_root", projectRoot)
 
 	result := map[string]interface{}{
-		"success": true,
-		"task_id": taskID,
-		"status":  status,
-		"message": fmt.Sprintf("Task %s status updated to %s", taskID, status),
-		"reason":  reason,
+		"success":          true,
+		"task_id":          taskID,
+		"execution_folder": executionFolder,
+		"status":           status,
+		"message":          fmt.Sprintf("Task %s status updated to %s", taskID, status),
+		"reason":           reason,
+		"project_root":     projectRoot,
 	}
 
 	resultJSON, _ := json.Marshal(result)
 	return string(resultJSON), nil
+}
+
+// findTaskExecutionMetadata finds the project root and execution folder for a task ID
+// The taskID can be either:
+// - A Beads task ID (e.g., "xasm++-8hyz")
+// - A timestamped execution folder (e.g., "xasm++-8hyz-20260211-111548")
+func (s *AgentServer) findTaskExecutionMetadata(taskID string) (projectRoot, executionFolder string, err error) {
+	// Get all registered project roots
+	projectRoots := s.GetProjectRoots()
+
+	// Try each project root
+	for _, pr := range projectRoots {
+		// Try direct path first (in case taskID is the execution folder)
+		metadataPath := filepath.Join(pr, ".beads", "tasks", taskID, "00-metadata.json")
+		if _, statErr := os.Stat(metadataPath); statErr == nil {
+			return pr, taskID, nil
+		}
+
+		// If direct path doesn't exist, try finding most recent execution
+		// This handles the case where taskID is just the Beads task ID
+		execFolder := s.findMostRecentExecutionInProject(pr, taskID)
+		if execFolder != "" {
+			metadataPath = filepath.Join(pr, ".beads", "tasks", execFolder, "00-metadata.json")
+			if _, statErr := os.Stat(metadataPath); statErr == nil {
+				return pr, execFolder, nil
+			}
+		}
+	}
+
+	return "", "", fmt.Errorf("no execution metadata found for task %s in any project", taskID)
+}
+
+// findMostRecentExecutionInProject finds the most recent timestamped execution folder for a Beads task ID
+func (s *AgentServer) findMostRecentExecutionInProject(projectRoot, beadsTaskID string) string {
+	tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
+	entries, err := os.ReadDir(tasksDir)
+	if err != nil {
+		return ""
+	}
+
+	var mostRecentFolder string
+	var mostRecentTime time.Time
+
+	// Find all folders matching {beads-id}-{timestamp} pattern
+	prefix := beadsTaskID + "-"
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		folderName := entry.Name()
+		// Check if folder matches pattern: {beads-id}-{timestamp}
+		if strings.HasPrefix(folderName, prefix) {
+			info, err := entry.Info()
+			if err != nil {
+				continue
+			}
+			if mostRecentFolder == "" || info.ModTime().After(mostRecentTime) {
+				mostRecentFolder = folderName
+				mostRecentTime = info.ModTime()
+			}
+		}
+	}
+
+	return mostRecentFolder
+}
+
+// updateTaskExecutionStatus updates the status field in a task execution metadata file
+func (s *AgentServer) updateTaskExecutionStatus(projectRoot, executionFolder, status, reason string) error {
+	metadataPath := filepath.Join(projectRoot, ".beads", "tasks", executionFolder, "00-metadata.json")
+
+	// Read current metadata
+	data, err := os.ReadFile(metadataPath)
+	if err != nil {
+		return fmt.Errorf("failed to read metadata: %w", err)
+	}
+
+	var metadata map[string]interface{}
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		return fmt.Errorf("failed to parse metadata: %w", err)
+	}
+
+	// Update status and timestamp
+	metadata["status"] = status
+	metadata["updated_at"] = time.Now().Format(time.RFC3339)
+
+	// Add reason if provided
+	if reason != "" {
+		metadata["status_reason"] = reason
+	}
+
+	// Write updated metadata
+	updatedData, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	if err := os.WriteFile(metadataPath, updatedData, 0644); err != nil {
+		return fmt.Errorf("failed to write metadata: %w", err)
+	}
+
+	return nil
 }
