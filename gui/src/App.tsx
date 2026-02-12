@@ -898,7 +898,10 @@ function App() {
                         ) : (
                           tasksData.tasks
                             .filter(t => t.status === 'QUEUED' || t.status === 'queued' || t.status === 'OPEN' || t.status === 'open')
-                            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                            .sort((a, b) => {
+                              const timeCompare = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+                              return timeCompare !== 0 ? timeCompare : a.taskID.localeCompare(b.taskID);
+                            })
                             .map(task => {
                               const isOpen = task.status === 'OPEN' || task.status === 'open';
                               return (
@@ -967,7 +970,10 @@ function App() {
                         ) : (
                           tasksData.tasks
                             .filter(t => t.status === 'IN_PROGRESS' || t.status === 'in_progress')
-                            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                            .sort((a, b) => {
+                              const timeCompare = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+                              return timeCompare !== 0 ? timeCompare : a.taskID.localeCompare(b.taskID);
+                            })
                             .map(task => (
                               <div
                                 key={task.taskID}
@@ -1020,7 +1026,10 @@ function App() {
                         ) : (
                           tasksData.tasks
                             .filter(t => t.status === 'BLOCKED' || t.status === 'blocked')
-                            .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                            .sort((a, b) => {
+                              const timeCompare = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+                              return timeCompare !== 0 ? timeCompare : a.taskID.localeCompare(b.taskID);
+                            })
                             .map(task => (
                               <div
                                 key={task.taskID}
@@ -1091,7 +1100,10 @@ function App() {
                           filterTasksByDate(
                             tasksData.tasks.filter(t => t.status === 'COMPLETED' || t.status === 'completed')
                           )
-                            .sort((a, b) => new Date(b.completedAt || b.updatedAt).getTime() - new Date(a.completedAt || a.updatedAt).getTime())
+                            .sort((a, b) => {
+                              const timeCompare = new Date(b.completedAt || b.updatedAt).getTime() - new Date(a.completedAt || a.updatedAt).getTime();
+                              return timeCompare !== 0 ? timeCompare : a.taskID.localeCompare(b.taskID);
+                            })
                             .map(task => (
                               <div
                                 key={task.taskID}
@@ -1149,7 +1161,10 @@ function App() {
                           filterTasksByDate(
                             tasksData.tasks.filter(t => t.status === 'FAILED' || t.status === 'failed')
                           )
-                            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                            .sort((a, b) => {
+                              const timeCompare = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                              return timeCompare !== 0 ? timeCompare : a.taskID.localeCompare(b.taskID);
+                            })
                             .map(task => (
                               <div
                                 key={task.taskID}
