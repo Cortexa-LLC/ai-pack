@@ -491,8 +491,21 @@ func (s *AgentServer) HandleRetryTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Spawn a new agent task with the same parameters
-	newTaskResponse, err := s.spawnAgentTask(taskInfo.Role, taskInfo.Task, "")
+	// Extract Beads task ID from metadata (this is the correct ID to use for retry)
+	// The taskID parameter might be a timestamped execution folder, but we need the Beads ID
+	beadsTaskID := taskID
+	if btid, ok := taskInfo.Metadata["beads_task_id"].(string); ok && btid != "" {
+		beadsTaskID = btid
+	}
+
+	// Extract project root from metadata
+	projectRoot := ""
+	if pr, ok := taskInfo.Metadata["project_root"].(string); ok {
+		projectRoot = pr
+	}
+
+	// Spawn a new agent task with the Beads task ID (not the timestamped execution folder)
+	newTaskResponse, err := s.spawnAgentTask(taskInfo.Role, beadsTaskID, projectRoot)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to retry task: %v", err), http.StatusInternalServerError)
 		return

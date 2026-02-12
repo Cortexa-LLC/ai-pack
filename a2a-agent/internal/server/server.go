@@ -332,6 +332,8 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 
 	// Store task packet path, working directory, and project root in metadata if available
 	metadata := map[string]string{}
+	// CRITICAL: Store the Beads task ID so retry/logs can reference it
+	metadata["beads_task_id"] = beadsTaskID
 	if taskPacketPath != "" {
 		metadata["task_packet_path"] = taskPacketPath
 	}
@@ -627,11 +629,21 @@ func (s *AgentServer) updateTaskPacketMetadataInProject(taskID string, runtimeMe
 }
 
 func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatusResponse, error) {
+	// Try direct path first
 	metadataPath := filepath.Join(s.rootDir, BeadsDir, "tasks", taskID, MetadataFileName)
 
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {
-		return nil, fmt.Errorf("task not found: %s", taskID)
+		// If direct path doesn't exist, try finding most recent execution folder
+		// This handles the case where taskID is just the Beads ID without timestamp
+		executionFolder := s.findMostRecentExecutionFolderInRoot(taskID)
+		if executionFolder != "" {
+			metadataPath = filepath.Join(s.rootDir, BeadsDir, "tasks", executionFolder, MetadataFileName)
+			data, err = os.ReadFile(metadataPath)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("task not found: %s", taskID)
+		}
 	}
 
 	var metadata map[string]interface{}
@@ -683,6 +695,43 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 	}
 
 	return response, nil
+}
+
+// findMostRecentExecutionFolderInRoot finds the most recent timestamped execution folder for a Beads task ID in the server root
+// Returns the folder name (e.g., "xasm++-syq1-20260211-080508") or empty string if not found
+func (s *AgentServer) findMostRecentExecutionFolderInRoot(beadsTaskID string) string {
+	tasksDir := filepath.Join(s.rootDir, BeadsDir, "tasks")
+	entries, err := os.ReadDir(tasksDir)
+	if err != nil {
+		return ""
+	}
+
+	var mostRecentFolder string
+	var mostRecentTime time.Time
+
+	// Find all folders matching {beads-id}-{timestamp} pattern
+	prefix := beadsTaskID + "-"
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		folderName := entry.Name()
+		// Check if folder matches pattern: {beads-id}-{timestamp}
+		if strings.HasPrefix(folderName, prefix) {
+			// Get folder modification time as a proxy for execution time
+			info, err := entry.Info()
+			if err != nil {
+				continue
+			}
+			if mostRecentFolder == "" || info.ModTime().After(mostRecentTime) {
+				mostRecentFolder = folderName
+				mostRecentTime = info.ModTime()
+			}
+		}
+	}
+
+	return mostRecentFolder
 }
 
 func (s *AgentServer) buildPrompt(role, task, roleContext string, config *AgentConfig, taskPacketPath, workingDir string) string {

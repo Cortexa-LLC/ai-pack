@@ -130,6 +130,7 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 	// Determine the project root and log file path
 	var logFile string
 	var projectRoot string
+	var executionFolder string
 
 	if exists {
 		// Active task - use execution info
@@ -137,7 +138,14 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 		if projectRoot == "" {
 			projectRoot = s.rootDir
 		}
-		logFile = filepath.Join(projectRoot, ".beads", "tasks", execution.TaskID, "execution.log")
+		// For active tasks, check metadata for the actual execution folder (timestamped)
+		if btid, ok := execution.metadata["beads_task_id"]; ok && btid != "" {
+			// execution.TaskID is the timestamped folder
+			executionFolder = execution.TaskID
+		} else {
+			executionFolder = execution.TaskID
+		}
+		logFile = filepath.Join(projectRoot, ".beads", "tasks", executionFolder, "execution.log")
 	} else {
 		// Check global execution log first for completed tasks
 		if foundRoot, _, err := s.findTaskProjectRoot(taskID); err == nil && foundRoot != "" {
@@ -153,8 +161,16 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 			projectRoot = s.rootDir // Fallback to server root
 		}
 
+		// Find the most recent execution folder for this Beads task ID
+		// taskID might be just the Beads ID (e.g., "xasm++-syq1") without timestamp
+		executionFolder = s.findMostRecentExecutionFolder(projectRoot, taskID)
+		if executionFolder == "" {
+			// No timestamped folder found, try direct path (legacy or non-execution task)
+			executionFolder = taskID
+		}
+
 		// Try direct task directory first (agent-spawned tasks)
-		logFile = filepath.Join(projectRoot, ".beads", "tasks", taskID, "execution.log")
+		logFile = filepath.Join(projectRoot, ".beads", "tasks", executionFolder, "execution.log")
 
 		// If not found, search execution directories for beads task ID
 		if _, err := os.Stat(logFile); os.IsNotExist(err) {
@@ -427,4 +443,42 @@ func (s *AgentServer) findBeadsTaskExecutionLog(projectRoot, beadsTaskID string)
 	}
 
 	return ""
+}
+
+// findMostRecentExecutionFolder finds the most recent timestamped execution folder for a Beads task ID
+// Returns the folder name (e.g., "xasm++-syq1-20260211-080508") or empty string if not found
+func (s *AgentServer) findMostRecentExecutionFolder(projectRoot, beadsTaskID string) string {
+	tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
+	entries, err := os.ReadDir(tasksDir)
+	if err != nil {
+		return ""
+	}
+
+	var mostRecentFolder string
+	var mostRecentTime time.Time
+
+	// Find all folders matching {beads-id}-{timestamp} pattern
+	prefix := beadsTaskID + "-"
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		folderName := entry.Name()
+		// Check if folder matches pattern: {beads-id}-{timestamp}
+		// or exact match (in case taskID is already the full folder name)
+		if folderName == beadsTaskID || strings.HasPrefix(folderName, prefix) {
+			// Get folder modification time as a proxy for execution time
+			info, err := entry.Info()
+			if err != nil {
+				continue
+			}
+			if mostRecentFolder == "" || info.ModTime().After(mostRecentTime) {
+				mostRecentFolder = folderName
+				mostRecentTime = info.ModTime()
+			}
+		}
+	}
+
+	return mostRecentFolder
 }
