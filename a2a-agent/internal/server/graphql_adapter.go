@@ -212,8 +212,15 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 		taskDescription = status.Description
 	}
 
+	// Use Beads task ID as the primary identifier if available
+	// This ensures retry/logs use the task ID rather than timestamped execution folder
+	primaryTaskID := status.TaskID
+	if beadsID, ok := status.Metadata["beads_task_id"]; ok && beadsID != "" {
+		primaryTaskID = beadsID
+	}
+
 	taskInfo := &graphql.TaskInfo{
-		TaskID:    status.TaskID,
+		TaskID:    primaryTaskID,
 		Role:      status.Role,
 		Task:      taskDescription,
 		Status:    status.Status,
@@ -385,8 +392,15 @@ func formatUptime(d time.Duration) string {
 
 // convertToTaskInfo converts TaskExecution to graphql.TaskInfo
 func convertToTaskInfo(execution *TaskExecution) *graphql.TaskInfo {
+	// Use Beads task ID as the primary identifier if available
+	// This ensures retry/logs use the task ID rather than timestamped execution folder
+	taskID := execution.TaskID
+	if beadsID, ok := execution.metadata["beads_task_id"]; ok && beadsID != "" {
+		taskID = beadsID
+	}
+
 	taskInfo := &graphql.TaskInfo{
-		TaskID:    execution.TaskID,
+		TaskID:    taskID,
 		Role:      execution.Role,
 		Task:      execution.Task,
 		Status:    execution.Status,
