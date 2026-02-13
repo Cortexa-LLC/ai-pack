@@ -337,12 +337,40 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 		return
 	}
 
-	// Get full text from message
+	// Get full text and check for tool use
 	fullText := ""
+	var toolResults []string
 	for _, block := range message.Content {
 		if block.Type == "text" {
 			fullText += block.Text
+		} else if block.Type == "tool_use" {
+			// Execute tool call
+			toolName := block.Name
+			var toolInput map[string]interface{}
+			if block.Input != nil {
+				// block.Input is json.RawMessage, need to unmarshal
+				if err := json.Unmarshal(block.Input, &toolInput); err != nil {
+					monitoring.Logger.Error("chat_tool_input_parse_failed", "tool", toolName, "error", err)
+					continue
+				}
+			}
+
+			monitoring.Logger.Info("chat_tool_execution", "tool", toolName, "input", toolInput)
+
+			result, err := s.ExecuteTool(toolName, toolInput)
+			if err != nil {
+				monitoring.Logger.Error("chat_tool_failed", "tool", toolName, "error", err)
+				toolResults = append(toolResults, fmt.Sprintf("❌ Tool %s failed: %v", toolName, err))
+			} else {
+				monitoring.Logger.Info("chat_tool_success", "tool", toolName, "result", result)
+				toolResults = append(toolResults, fmt.Sprintf("✅ Tool %s executed: %s", toolName, result))
+			}
 		}
+	}
+
+	// If tools were executed, append results to full text
+	if len(toolResults) > 0 {
+		fullText += "\n\n**Tool Results:**\n" + strings.Join(toolResults, "\n")
 	}
 
 	// Generate a follow-up suggestion from Claude
