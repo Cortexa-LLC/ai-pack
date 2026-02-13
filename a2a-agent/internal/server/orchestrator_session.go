@@ -200,7 +200,6 @@ func (s *OrchestratorSession) queryTasks() ([]TaskInfo, error) {
 				taskID
 				status
 				task
-				description
 			}
 		}
 	`
@@ -232,10 +231,9 @@ func (s *OrchestratorSession) queryTasks() ([]TaskInfo, error) {
 	var result struct {
 		Data struct {
 			Tasks []struct {
-				ID          string `json:"taskID"`
-				Status      string `json:"status"`
-				Task        string `json:"task"`
-				Description string `json:"description"`
+				ID     string `json:"taskID"`
+				Status string `json:"status"`
+				Task   string `json:"task"`
 			} `json:"tasks"`
 		} `json:"data"`
 	}
@@ -250,7 +248,7 @@ func (s *OrchestratorSession) queryTasks() ([]TaskInfo, error) {
 			ID:          t.ID,
 			Status:      t.Status,
 			Title:       t.Task,
-			Description: t.Description,
+			Description: t.Task, // Use task text as description
 		}
 	}
 
