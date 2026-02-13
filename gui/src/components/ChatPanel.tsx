@@ -914,10 +914,15 @@ export default function ChatPanel() {
     }
 
     // Detect file paths (simple pattern: path/to/file.ext)
+    // Exclude URLs (anything with :// or starting with //)
     const filePattern = /[a-zA-Z0-9_\-./]+\.[a-zA-Z]{2,6}/g;
     const matches = value.match(filePattern);
     if (matches) {
-      setDetectedFiles(matches.filter(m => m.includes('/')));
+      setDetectedFiles(matches.filter(m =>
+        m.includes('/') &&
+        !m.includes('://') &&
+        !m.startsWith('//')
+      ));
     } else {
       setDetectedFiles([]);
     }
