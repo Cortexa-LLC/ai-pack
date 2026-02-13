@@ -180,26 +180,29 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Determine task status (we need this before checking log file)
+	// Check if log file exists first - if it exists, serve logs regardless of Beads status
+	logExists := false
+	if _, err := os.Stat(logFile); err == nil {
+		logExists = true
+	}
+
+	// Determine task status (we need this for streaming decision)
 	var taskStatus string
 	if exists {
 		taskStatus = execution.Status
+	} else if logExists {
+		// If logs exist, task has started execution - default to completed
+		taskStatus = "completed"
 	} else {
-		// For beads tasks, get status from the project root we found
+		// For beads tasks without execution, get status from Beads
 		if beadsTask, err := s.beadsClient.GetTaskFromDir(taskID, projectRoot); err == nil {
 			taskStatus = beadsTask.Status
 		}
 	}
 
-	// For queued/open tasks, show the task contract instead of logs
-	if taskStatus == "queued" || taskStatus == "open" {
+	// For tasks without execution logs, show the task contract instead
+	if !logExists {
 		s.serveTaskContract(w, r, taskID, projectRoot)
-		return
-	}
-
-	// Check if log file exists (only for non-queued tasks)
-	if _, err := os.Stat(logFile); os.IsNotExist(err) {
-		http.Error(w, fmt.Sprintf("No logs found for task: %s", taskID), http.StatusNotFound)
 		return
 	}
 
