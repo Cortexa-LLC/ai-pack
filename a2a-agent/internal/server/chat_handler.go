@@ -229,6 +229,15 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 				},
 			}
 		}
+
+		// For orchestrator, add current project context
+		if req.Role == "orchestrator" && req.ProjectRoot != "" {
+			projectContext := fmt.Sprintf("\n\n**Current Project Context:**\n- Project Root: `%s`\n- Use this project_root when creating tasks or spawning agents\n", req.ProjectRoot)
+			systemPrompt = append(systemPrompt, anthropic.TextBlockParam{
+				Text: projectContext,
+				Type: ContentTypeText,
+			})
+		}
 	}
 
 	// Load project context if enabled and project root is provided
