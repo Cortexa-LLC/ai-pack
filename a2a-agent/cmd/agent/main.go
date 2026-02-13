@@ -756,17 +756,9 @@ func fetchAllLogs(tailLines int, jsonOutput bool) {
 	// Fetch server logs
 	fetchRecentServerLogs(tailLines, jsonOutput)
 
-	// Fetch all task logs
-	matches, _ := filepath.Glob(".beads/tasks/task-*/execution.log")
-	for _, logFile := range matches {
-		taskID := filepath.Base(filepath.Dir(logFile))
-
-		if !jsonOutput {
-			fmt.Printf("\n=== Task: %s ===\n", taskID)
-		}
-
-		displayLogFile(logFile, tailLines, jsonOutput)
-	}
+	// Note: Task logs should be fetched via API (agent logs <task-id>)
+	// Searching local .beads/tasks/ is obsolete after server changes
+	// All tasks are now tracked server-side across all projects
 }
 
 func handleListServer(running, completed, failed, all, jsonOutput, verboseOutput *bool) {
@@ -1659,50 +1651,15 @@ func findTaskIDAndProjectFromServer(beadsTaskID string) (string, string) {
 	return "", ""
 }
 
+// findInternalTaskID is now obsolete - after server changes, taskID IS the Beads task ID
+// Just return the Beads ID - the server finds it across all projects
 func findInternalTaskID(beadsTaskID string) string {
-	// First try: Search server's .beads/tasks/ directory
-	// (Server creates tasks in its own working directory)
-	serverTasksDir := "/Users/bryanw/Projects/Vibe/ai-pack/a2a-agent/.beads/tasks"
-	taskID := searchTasksDir(serverTasksDir, beadsTaskID)
-	if taskID != "" {
-		return taskID
-	}
-
-	// Fallback: Search current directory's .beads/tasks/
-	taskID = searchTasksDir(".beads/tasks", beadsTaskID)
-	return taskID
+	return beadsTaskID
 }
 
+// searchTasksDir is obsolete - kept as stub for backward compatibility
+// After server changes, taskID IS the Beads task ID, no need to search old formats
 func searchTasksDir(tasksDir string, beadsTaskID string) string {
-	matches, _ := filepath.Glob(filepath.Join(tasksDir, "task-*"))
-	for _, taskDir := range matches {
-		metaFile := filepath.Join(taskDir, "00-metadata.json")
-		data, err := os.ReadFile(metaFile)
-		if err != nil {
-			continue
-		}
-
-		var meta map[string]interface{}
-		if err := json.Unmarshal(data, &meta); err != nil {
-			continue
-		}
-
-		// Check metadata.beads_task_id (new location)
-		if metadata, ok := meta["metadata"].(map[string]interface{}); ok {
-			if btid, ok := metadata["beads_task_id"].(string); ok && btid == beadsTaskID {
-				return filepath.Base(taskDir)
-			}
-		}
-
-		// Fallback: Check config.metadata.beads_task_id (old location)
-		if config, ok := meta["config"].(map[string]interface{}); ok {
-			if configMeta, ok := config["metadata"].(map[string]interface{}); ok {
-				if btid, ok := configMeta["beads_task_id"].(string); ok && btid == beadsTaskID {
-					return filepath.Base(taskDir)
-				}
-			}
-		}
-	}
 	return ""
 }
 
