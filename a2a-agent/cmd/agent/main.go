@@ -1640,7 +1640,6 @@ func findTaskIDAndProjectFromServer(beadsTaskID string) (string, string) {
 	var result struct {
 		Tasks []struct {
 			TaskID      string `json:"task_id"`
-			BeadsTaskID string `json:"beads_task_id"`
 			ProjectRoot string `json:"project_root"`
 		} `json:"tasks"`
 	}
@@ -1649,9 +1648,10 @@ func findTaskIDAndProjectFromServer(beadsTaskID string) (string, string) {
 		return "", ""
 	}
 
-	// Find matching beads task ID
+	// After GraphQL changes, task_id IS the Beads task ID
+	// Find matching task ID (which is already the Beads ID)
 	for _, task := range result.Tasks {
-		if task.BeadsTaskID == beadsTaskID {
+		if task.TaskID == beadsTaskID {
 			return task.TaskID, task.ProjectRoot
 		}
 	}

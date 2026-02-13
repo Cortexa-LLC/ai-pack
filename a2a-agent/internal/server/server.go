@@ -629,21 +629,37 @@ func (s *AgentServer) updateTaskPacketMetadataInProject(taskID string, runtimeMe
 }
 
 func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatusResponse, error) {
-	// Try direct path first
-	metadataPath := filepath.Join(s.rootDir, BeadsDir, "tasks", taskID, MetadataFileName)
+	// Search across all registered project roots (not just server root)
+	projectRoots := s.GetProjectRoots()
 
-	data, err := os.ReadFile(metadataPath)
-	if err != nil {
-		// If direct path doesn't exist, try finding most recent execution folder
-		// This handles the case where taskID is just the Beads ID without timestamp
-		executionFolder := s.findMostRecentExecutionFolderInRoot(taskID)
-		if executionFolder != "" {
-			metadataPath = filepath.Join(s.rootDir, BeadsDir, "tasks", executionFolder, MetadataFileName)
-			data, err = os.ReadFile(metadataPath)
-		}
+	var metadataPath string
+	var data []byte
+	var err error
+	var foundProjectRoot string
+
+	for _, projectRoot := range projectRoots {
+		// Try direct path first
+		metadataPath = filepath.Join(projectRoot, BeadsDir, "tasks", taskID, MetadataFileName)
+		data, err = os.ReadFile(metadataPath)
+
 		if err != nil {
-			return nil, fmt.Errorf("task not found: %s", taskID)
+			// If direct path doesn't exist, try finding most recent execution folder
+			// This handles the case where taskID is just the Beads ID without timestamp
+			executionFolder := s.findMostRecentExecutionInProject(projectRoot, taskID)
+			if executionFolder != "" {
+				metadataPath = filepath.Join(projectRoot, BeadsDir, "tasks", executionFolder, MetadataFileName)
+				data, err = os.ReadFile(metadataPath)
+			}
 		}
+
+		if err == nil {
+			foundProjectRoot = projectRoot
+			break
+		}
+	}
+
+	if err != nil || foundProjectRoot == "" {
+		return nil, fmt.Errorf("task not found: %s", taskID)
 	}
 
 	var metadata map[string]interface{}
@@ -653,7 +669,9 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 
 	// Read results if available
 	var result string
-	resultsPath := filepath.Join(s.rootDir, BeadsDir, "tasks", taskID, "30-results.md")
+	// Extract the execution folder from the metadataPath we found
+	executionFolder := filepath.Base(filepath.Dir(metadataPath))
+	resultsPath := filepath.Join(foundProjectRoot, BeadsDir, "tasks", executionFolder, "30-results.md")
 	if resultData, err := os.ReadFile(resultsPath); err == nil {
 		result = string(resultData)
 	}
@@ -700,38 +718,7 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 // findMostRecentExecutionFolderInRoot finds the most recent timestamped execution folder for a Beads task ID in the server root
 // Returns the folder name (e.g., "xasm++-syq1-20260211-080508") or empty string if not found
 func (s *AgentServer) findMostRecentExecutionFolderInRoot(beadsTaskID string) string {
-	tasksDir := filepath.Join(s.rootDir, BeadsDir, "tasks")
-	entries, err := os.ReadDir(tasksDir)
-	if err != nil {
-		return ""
-	}
-
-	var mostRecentFolder string
-	var mostRecentTime time.Time
-
-	// Find all folders matching {beads-id}-{timestamp} pattern
-	prefix := beadsTaskID + "-"
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		folderName := entry.Name()
-		// Check if folder matches pattern: {beads-id}-{timestamp}
-		if strings.HasPrefix(folderName, prefix) {
-			// Get folder modification time as a proxy for execution time
-			info, err := entry.Info()
-			if err != nil {
-				continue
-			}
-			if mostRecentFolder == "" || info.ModTime().After(mostRecentTime) {
-				mostRecentFolder = folderName
-				mostRecentTime = info.ModTime()
-			}
-		}
-	}
-
-	return mostRecentFolder
+	return s.findMostRecentExecutionInProject(s.rootDir, beadsTaskID)
 }
 
 func (s *AgentServer) buildPrompt(role, task, roleContext string, config *AgentConfig, taskPacketPath, workingDir string) string {
