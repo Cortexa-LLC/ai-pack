@@ -504,6 +504,15 @@ func (s *AgentServer) HandleRetryTask(w http.ResponseWriter, r *http.Request) {
 		projectRoot = pr
 	}
 
+	// Mark the old execution as superseded before retrying
+	// This helps track execution chains and prevents stale status display
+	if err := s.markExecutionAsSuperseded(taskID, projectRoot, "retry"); err != nil {
+		monitoring.Logger.Warn("failed_to_mark_execution_superseded",
+			"task_id", taskID,
+			"error", err)
+		// Don't fail the retry - this is just metadata cleanup
+	}
+
 	// Spawn a new agent task with the Beads task ID (not the timestamped execution folder)
 	newTaskResponse, err := s.spawnAgentTask(taskInfo.Role, beadsTaskID, projectRoot)
 	if err != nil {
