@@ -107,6 +107,7 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 
 // findMostRecentExecution finds the most recent execution for a Beads task ID in a project root
 // Returns nil if no execution found, otherwise returns the TaskInfo for the most recent execution
+// Skips executions marked as superseded (from retries)
 func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, beadsID string) *graphql.TaskInfo {
 	tasksDir := filepath.Join(projectRoot, BeadsDir, "tasks")
 	entries, err := os.ReadDir(tasksDir)
@@ -114,8 +115,12 @@ func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, beadsID string) *g
 		return nil
 	}
 
-	var mostRecentFolder string
-	var mostRecentTime time.Time
+	// Build list of all matching executions sorted by time (most recent first)
+	type executionEntry struct {
+		folderName string
+		modTime    time.Time
+	}
+	var executions []executionEntry
 
 	// Find all folders matching {beads-id}-{timestamp} pattern
 	prefix := beadsID + "-"
@@ -127,29 +132,56 @@ func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, beadsID string) *g
 		folderName := entry.Name()
 		// Check if folder matches pattern: {beads-id}-{timestamp}
 		if strings.HasPrefix(folderName, prefix) {
-			// Get folder modification time as a proxy for execution time
 			info, err := entry.Info()
 			if err != nil {
 				continue
 			}
-			if mostRecentFolder == "" || info.ModTime().After(mostRecentTime) {
-				mostRecentFolder = folderName
-				mostRecentTime = info.ModTime()
+			executions = append(executions, executionEntry{
+				folderName: folderName,
+				modTime:    info.ModTime(),
+			})
+		}
+	}
+
+	if len(executions) == 0 {
+		return nil // No execution found
+	}
+
+	// Sort by time (most recent first)
+	for i := 0; i < len(executions); i++ {
+		for j := i + 1; j < len(executions); j++ {
+			if executions[j].modTime.After(executions[i].modTime) {
+				executions[i], executions[j] = executions[j], executions[i]
 			}
 		}
 	}
 
-	if mostRecentFolder == "" {
-		return nil // No execution found
+	// Find first non-superseded execution
+	for _, exec := range executions {
+		// Check if this execution is marked as superseded
+		metadataPath := filepath.Join(projectRoot, BeadsDir, "tasks", exec.folderName, MetadataFileName)
+		if data, err := os.ReadFile(metadataPath); err == nil {
+			var metadata map[string]interface{}
+			if json.Unmarshal(data, &metadata) == nil {
+				if superseded, ok := metadata["superseded"].(bool); ok && superseded {
+					monitoring.Logger.Debug("skipping_superseded_execution",
+						"folder", exec.folderName,
+						"beads_id", beadsID)
+					continue // Skip superseded executions
+				}
+			}
+		}
+
+		// Load the task info from this execution
+		taskInfo, err := a.loadTaskFromProject(projectRoot, exec.folderName)
+		if err != nil {
+			continue // Try next execution if this one fails to load
+		}
+
+		return taskInfo
 	}
 
-	// Load the task info from the most recent execution
-	taskInfo, err := a.loadTaskFromProject(projectRoot, mostRecentFolder)
-	if err != nil {
-		return nil
-	}
-
-	return taskInfo
+	return nil // All executions were superseded or failed to load
 }
 
 // scanProjectTasks scans a single project root for tasks

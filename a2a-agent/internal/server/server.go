@@ -697,6 +697,42 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 		description = d
 	}
 
+	// Reconcile execution metadata with Beads task status to fix stale data
+	// This handles cases where tasks were blocked/failed but later completed
+	if beadsTaskID, ok := metadata["beads_task_id"].(string); ok && beadsTaskID != "" {
+		if beadsTask, err := s.beadsClient.GetTaskFromDir(beadsTaskID, foundProjectRoot); err == nil {
+			beadsStatus := strings.ToLower(beadsTask.Status)
+
+			// If Beads shows closed/completed but execution shows blocked/failed, reconcile
+			if (beadsStatus == "closed" || beadsStatus == "completed") &&
+			   (status == "blocked" || status == "failed") {
+				monitoring.Logger.Info("reconciling_stale_execution_metadata",
+					"task_id", beadsTaskID,
+					"old_status", status,
+					"beads_status", beadsStatus,
+					"execution_folder", executionFolder)
+
+				// Update metadata
+				metadata["status"] = "completed"
+				metadata["error"] = nil
+				metadata["updated_at"] = time.Now().Format(time.RFC3339)
+				metadata["reconciled"] = true
+				metadata["reconciled_at"] = time.Now().Format(time.RFC3339)
+
+				// Write back to disk
+				if updatedData, err := json.MarshalIndent(metadata, "", "  "); err == nil {
+					if err := os.WriteFile(metadataPath, updatedData, 0644); err == nil {
+						status = "completed"
+						updatedAt = time.Now()
+						monitoring.Logger.Info("reconciled_execution_metadata",
+							"task_id", beadsTaskID,
+							"execution_folder", executionFolder)
+					}
+				}
+			}
+		}
+	}
+
 	response := &protocol.TaskStatusResponse{
 		TaskID:    taskID,
 		Role:      role,
@@ -713,6 +749,63 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 	}
 
 	return response, nil
+}
+
+// markExecutionAsSuperseded marks an execution as superseded (replaced by retry/rerun)
+// This prevents stale execution metadata from showing in the GUI after retries
+func (s *AgentServer) markExecutionAsSuperseded(taskID, projectRoot, reason string) error {
+	// Find the execution metadata file
+	var metadataPath string
+
+	if projectRoot == "" {
+		// Search all project roots
+		for _, root := range s.GetProjectRoots() {
+			path := filepath.Join(root, BeadsDir, "tasks", taskID, MetadataFileName)
+			if _, err := os.Stat(path); err == nil {
+				metadataPath = path
+				break
+			}
+		}
+	} else {
+		metadataPath = filepath.Join(projectRoot, BeadsDir, "tasks", taskID, MetadataFileName)
+	}
+
+	if metadataPath == "" {
+		return fmt.Errorf("metadata not found for task %s", taskID)
+	}
+
+	// Read existing metadata
+	data, err := os.ReadFile(metadataPath)
+	if err != nil {
+		return fmt.Errorf("failed to read metadata: %w", err)
+	}
+
+	var metadata map[string]interface{}
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		return fmt.Errorf("failed to parse metadata: %w", err)
+	}
+
+	// Mark as superseded
+	metadata["superseded"] = true
+	metadata["superseded_at"] = time.Now().Format(time.RFC3339)
+	metadata["superseded_reason"] = reason
+	metadata["updated_at"] = time.Now().Format(time.RFC3339)
+
+	// Write back
+	updatedData, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	if err := os.WriteFile(metadataPath, updatedData, 0644); err != nil {
+		return fmt.Errorf("failed to write metadata: %w", err)
+	}
+
+	monitoring.Logger.Info("marked_execution_superseded",
+		"task_id", taskID,
+		"reason", reason)
+
+	return nil
 }
 
 // findMostRecentExecutionFolderInRoot finds the most recent timestamped execution folder for a Beads task ID in the server root
