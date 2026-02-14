@@ -191,8 +191,31 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 	if exists {
 		taskStatus = execution.Status
 	} else if logExists {
-		// If logs exist, task has started execution - default to completed
-		taskStatus = "completed"
+		// Try to get status from execution metadata first
+		metadataPath := filepath.Join(projectRoot, ".beads", "tasks", executionFolder, "00-metadata.json")
+		if metadataData, err := os.ReadFile(metadataPath); err == nil {
+			var metadata map[string]interface{}
+			if json.Unmarshal(metadataData, &metadata) == nil {
+				if status, ok := metadata["status"].(string); ok {
+					taskStatus = status
+				}
+			}
+		}
+
+		// If still no status, check log content for completion markers
+		if taskStatus == "" {
+			if content, err := os.ReadFile(logFile); err == nil {
+				contentStr := string(content)
+				if strings.Contains(contentStr, "✅ Agent completed") ||
+					strings.Contains(contentStr, "🎉 Task completed successfully") ||
+					strings.Contains(contentStr, "❌ Task failed") {
+					taskStatus = "completed"
+				} else {
+					// Logs exist but no completion marker - assume still running
+					taskStatus = "in_progress"
+				}
+			}
+		}
 	} else {
 		// For beads tasks without execution, get status from Beads
 		if beadsTask, err := s.beadsClient.GetTaskFromDir(taskID, projectRoot); err == nil {
