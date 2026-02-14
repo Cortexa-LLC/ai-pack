@@ -211,6 +211,7 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 
 	// Load role context if specified
 	var systemPrompt []anthropic.TextBlockParam
+	var orchestratorProjectContext *anthropic.TextBlockParam
 	if req.Role != "" {
 		// Use chat-specific orchestrator prompt (from parent .ai-pack submodule)
 		roleFile := fmt.Sprintf("../.ai-pack/agents/%s.md", req.Role)
@@ -230,13 +231,24 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 			}
 		}
 
-		// For orchestrator, add current project context
+		// For orchestrator, prepare project context to add LAST (after other system prompts)
 		if req.Role == "orchestrator" && req.ProjectRoot != "" {
-			projectContext := fmt.Sprintf("\n\n**Current Project Context:**\n- Project Root: `%s`\n- Use this project_root when creating tasks or spawning agents\n", req.ProjectRoot)
-			systemPrompt = append(systemPrompt, anthropic.TextBlockParam{
+			projectContext := fmt.Sprintf(`
+
+CRITICAL - Current Working Directory:
+===========================================
+Project Root: %s
+
+MANDATORY INSTRUCTIONS for tool calls:
+- When calling create_task: You MUST use project_root="%s"
+- When calling spawn_agent: You MUST use project_root="%s"
+- DO NOT infer paths from URLs or conversation (e.g., /home/user, /home/xasm-plus-plus)
+- DO NOT use generic Linux paths
+- ONLY use the EXACT path above`, req.ProjectRoot, req.ProjectRoot, req.ProjectRoot)
+			orchestratorProjectContext = &anthropic.TextBlockParam{
 				Text: projectContext,
 				Type: ContentTypeText,
-			})
+			}
 		}
 	}
 
@@ -280,6 +292,11 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 		Model:     anthropic.Model(s.model),
 		MaxTokens: int64(s.maxTokens),
 		Messages:  messages,
+	}
+
+	// Add orchestrator project context LAST so it's freshest in model's context
+	if orchestratorProjectContext != nil {
+		systemPrompt = append(systemPrompt, *orchestratorProjectContext)
 	}
 
 	// Add system prompt if we have role context
