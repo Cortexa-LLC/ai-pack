@@ -23,6 +23,7 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/proxy"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/tools"
+	"github.com/sashabaranov/go-openai"
 	"gopkg.in/yaml.v3"
 )
 
@@ -67,9 +68,15 @@ type AgentServer struct {
 	executionLog     *execution_log.ExecutionLog // Persistent agent execution log
 	maxConcurrent    int              // Maximum concurrent agents (configurable)
 	maxTokens        int              // Maximum tokens per API call
-	model            string           // Anthropic model to use
+	model            string           // Default Anthropic model to use
 	maxInactiveTurns int              // Stop agent after N turns without progress
 	config           *config.Config   // Server configuration
+
+	// Multi-provider LLM support
+	openaiKey          string
+	openaiClient       *openai.Client
+	anthropicProvider  *AnthropicProvider
+	openaiProvider     *OpenAIProvider
 
 	// Concurrent execution tracking
 	mu           sync.RWMutex
@@ -105,6 +112,7 @@ type AgentConfig struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description"`
 	Tier        string `yaml:"tier"`
+	Model       string `yaml:"model"` // LLM model to use (e.g., "gpt-4o-mini", "claude-sonnet-3-5-20241022")
 	Context     struct {
 		RoleFile               string   `yaml:"role_file"`
 		Gates                  []string `yaml:"gates"`
@@ -180,6 +188,16 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 
 	client := anthropic.NewClient(clientOpts...)
 
+	// Initialize OpenAI client for multi-provider support
+	var openaiClient *openai.Client
+	openaiKey := os.Getenv("OPENAI_API_KEY")
+	if openaiKey != "" {
+		openaiClient = openai.NewClient(openaiKey)
+		monitoring.Logger.Info("openai_client_initialized", "provider", "openai")
+	} else {
+		monitoring.Logger.Warn("openai_api_key_not_set", "message", "Set OPENAI_API_KEY to enable GPT models for cost savings")
+	}
+
 	// Load Claude Code settings (global + project-specific)
 	claudeSettings, err := claude.LoadSettings(rootDir)
 	if err != nil {
@@ -203,6 +221,13 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		monitoring.Logger.Warn("failed_to_create_execution_log", "error", err.Error())
 	}
 
+	// Create LLM providers for multi-provider support
+	anthropicProvider := NewAnthropicProvider(client, model, maxTokens)
+	var openaiProvider *OpenAIProvider
+	if openaiClient != nil {
+		openaiProvider = NewOpenAIProvider(openaiClient, "gpt-4o-mini", maxTokens)
+	}
+
 	server := &AgentServer{
 		rootDir:          rootDir,
 		anthropicKey:     apiKey,
@@ -215,6 +240,13 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		model:            model,
 		maxInactiveTurns: maxInactiveTurns,
 		config:           cfg,
+
+		// Multi-provider LLM support
+		openaiKey:          openaiKey,
+		openaiClient:       openaiClient,
+		anthropicProvider:  anthropicProvider,
+		openaiProvider:     openaiProvider,
+
 		activeTasks:      make(map[string]*TaskExecution),
 		taskQueue:        make(chan *TaskExecution, 100),
 		workerPool:       make(chan struct{}, maxConcurrent),
