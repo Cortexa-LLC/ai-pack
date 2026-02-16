@@ -27,6 +27,9 @@ interface CurrentChatPerProject {
   [projectPath: string]: string; // chatId
 }
 
+// Debug flag for verbose logging
+const DEBUG_CHAT = false;
+
 // Initialize mermaid
 mermaid.initialize({
   startOnLoad: true,
@@ -614,18 +617,20 @@ export default function ChatPanel() {
 
 
   const sendMessage = async () => {
-    console.log('[ChatPanel] sendMessage called', {
-      inputLength: input.length,
-      isStreaming,
-      projectRoot,
-      chatId,
-      mode,
-      selectedRole,
-      messagesCount: messages.length
-    });
+    if (DEBUG_CHAT) {
+      console.log('[ChatPanel] sendMessage called', {
+        inputLength: input.length,
+        isStreaming,
+        projectRoot,
+        chatId,
+        mode,
+        selectedRole,
+        messagesCount: messages.length
+      });
+    }
 
     if (!input.trim() || isStreaming) {
-      console.log('[ChatPanel] sendMessage aborted - input empty or already streaming');
+      if (DEBUG_CHAT) console.log('[ChatPanel] sendMessage aborted - input empty or already streaming');
       return;
     }
 
@@ -651,7 +656,7 @@ export default function ChatPanel() {
       id: Date.now(),
     };
 
-    console.log('[ChatPanel] Adding user message to state');
+    if (DEBUG_CHAT) console.log('[ChatPanel] Adding user message to state');
     setMessages(prev => [...prev, userMessage]);
     setReplyingTo(null); // Clear reply state after sending
     const currentInput = input;
@@ -680,10 +685,12 @@ export default function ChatPanel() {
       use_project_context: useProjectContext,
     };
 
-    console.log('[ChatPanel] Preparing to fetch /api/chat', {
-      url: '/api/chat',
-      payload: requestPayload
-    });
+    if (DEBUG_CHAT) {
+      console.log('[ChatPanel] Preparing to fetch /api/chat', {
+        url: '/api/chat',
+        payload: requestPayload
+      });
+    }
 
     // Create AbortController for cancellation
     const abortController = new AbortController();
@@ -691,7 +698,7 @@ export default function ChatPanel() {
 
     try {
       // Fetch with streaming response
-      console.log('[ChatPanel] Calling fetch...');
+      if (DEBUG_CHAT) console.log('[ChatPanel] Calling fetch...');
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -701,12 +708,14 @@ export default function ChatPanel() {
         signal: abortController.signal,
       });
 
-      console.log('[ChatPanel] Fetch response received', {
-        ok: response.ok,
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
-      });
+      if (DEBUG_CHAT) {
+        console.log('[ChatPanel] Fetch response received', {
+          ok: response.ok,
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+      }
 
       if (!response.ok) {
         console.error('[ChatPanel] Response not OK', {
@@ -724,9 +733,9 @@ export default function ChatPanel() {
 
       // Handle agent mode response (JSON, not streaming)
       if (mode === 'agent') {
-        console.log('[ChatPanel] Agent mode - reading JSON response');
+        if (DEBUG_CHAT) console.log('[ChatPanel] Agent mode - reading JSON response');
         const data = await response.json();
-        console.log('[ChatPanel] Agent response data:', data);
+        if (DEBUG_CHAT) console.log('[ChatPanel] Agent response data:', data);
 
         if (data.status === 'agent_spawned') {
           const projectDisplay = data.project_name || data.project_root || 'Unknown';
@@ -745,7 +754,7 @@ export default function ChatPanel() {
       }
 
       // Read SSE stream from response body (chat mode)
-      console.log('[ChatPanel] Chat mode - reading SSE stream');
+      if (DEBUG_CHAT) console.log('[ChatPanel] Chat mode - reading SSE stream');
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -756,11 +765,11 @@ export default function ChatPanel() {
         throw new Error('No response body');
       }
 
-      console.log('[ChatPanel] Starting stream read loop');
+      if (DEBUG_CHAT) console.log('[ChatPanel] Starting stream read loop');
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
-          console.log('[ChatPanel] Stream reading complete');
+          if (DEBUG_CHAT) console.log('[ChatPanel] Stream reading complete');
           break;
         }
 
@@ -778,12 +787,12 @@ export default function ChatPanel() {
             const data = line.substring(5).trim();
             try {
               const parsed = JSON.parse(data);
-              console.log('[ChatPanel] SSE event:', parsed);
+              if (DEBUG_CHAT) console.log('[ChatPanel] SSE event:', parsed);
 
               if (parsed.status === 'connected') {
-                console.log('[ChatPanel] Chat stream connected');
+                if (DEBUG_CHAT) console.log('[ChatPanel] Chat stream connected');
               } else if (parsed.status === 'complete') {
-                console.log('[ChatPanel] Stream complete');
+                if (DEBUG_CHAT) console.log('[ChatPanel] Stream complete');
                 // Completion event - use accumulated text (not React state)
                 const assistantMessage: Message = {
                   role: 'assistant',
@@ -817,12 +826,12 @@ export default function ChatPanel() {
         }
       }
 
-      console.log('[ChatPanel] Stream ended, setting isStreaming to false');
+      if (DEBUG_CHAT) console.log('[ChatPanel] Stream ended, setting isStreaming to false');
       setIsStreaming(false);
     } catch (err) {
       // Ignore abort errors (user cancelled with ESC)
       if (err instanceof Error && err.name === 'AbortError') {
-        console.log('[ChatPanel] Request aborted by user');
+        if (DEBUG_CHAT) console.log('[ChatPanel] Request aborted by user');
         return;
       }
 
