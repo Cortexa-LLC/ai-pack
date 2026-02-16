@@ -1,0 +1,474 @@
+package monitoring
+
+import (
+	"encoding/json"
+	"fmt"
+	"math"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+)
+
+// PerformanceGrade tracks model performance per role and project
+type PerformanceGrade struct {
+	ModelID   string `json:"model_id"`   // e.g., "gpt-4o-mini"
+	RoleID    string `json:"role_id"`    // e.g., "engineer"
+	ProjectID string `json:"project_id"` // Project path hash or identifier
+
+	// Success metrics
+	TotalAttempts int `json:"total_attempts"`
+	Successes     int `json:"successes"`
+	Failures      int `json:"failures"`
+	Retries       int `json:"retries"`
+
+	// Quality indicators
+	TotalTokensUsed       int64   `json:"total_tokens_used"`       // Sum of all tokens
+	TotalExecutionTimeMs  int64   `json:"total_execution_time_ms"` // Sum of all execution times
+	AverageTokens         int     `json:"average_tokens"`          // Calculated
+	AverageExecutionTime  float64 `json:"average_execution_time"`  // Calculated in seconds
+	ErrorRate             float64 `json:"error_rate"`              // Failures / TotalAttempts
+	RetryRate             float64 `json:"retry_rate"`              // Retries / TotalAttempts
+	SuccessRate           float64 `json:"success_rate"`            // Successes / TotalAttempts
+
+	// Escalation tracking
+	EscalationCount int `json:"escalation_count"` // Times we had to escalate
+	DowngradeCount  int `json:"downgrade_count"`  // Times we successfully downgraded
+
+	// Calculated grade
+	Grade           string  `json:"grade"`            // A, B, C, D, F
+	ConfidenceScore float64 `json:"confidence_score"` // 0.0-1.0 (higher = more data)
+
+	// Time tracking
+	LastUsed  time.Time `json:"last_used"`
+	FirstUsed time.Time `json:"first_used"`
+
+	// Metadata
+	LastTaskID string `json:"last_task_id,omitempty"` // For debugging
+}
+
+// PerformanceGradeManager manages performance grades with persistent storage
+type PerformanceGradeManager struct {
+	mu         sync.RWMutex
+	grades     map[string]*PerformanceGrade // key: "model:role:project"
+	storageDir string
+}
+
+// NewPerformanceGradeManager creates a new performance grade manager
+func NewPerformanceGradeManager(storageDir string) (*PerformanceGradeManager, error) {
+	mgr := &PerformanceGradeManager{
+		grades:     make(map[string]*PerformanceGrade),
+		storageDir: storageDir,
+	}
+
+	// Create storage directory if needed
+	if err := os.MkdirAll(storageDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create grades storage directory: %w", err)
+	}
+
+	// Load existing grades
+	if err := mgr.loadGrades(); err != nil {
+		Logger.Warn("failed_to_load_existing_grades", "error", err.Error())
+		// Continue anyway - not fatal
+	}
+
+	return mgr, nil
+}
+
+// gradeKey creates a unique key for a grade
+func gradeKey(modelID, roleID, projectID string) string {
+	return fmt.Sprintf("%s:%s:%s", modelID, roleID, projectID)
+}
+
+// RecordTaskCompletion records the outcome of a task
+func (m *PerformanceGradeManager) RecordTaskCompletion(
+	taskID string,
+	modelID string,
+	roleID string,
+	projectID string,
+	success bool,
+	retries int,
+	tokensUsed int64,
+	executionTimeMs int64,
+	wasEscalated bool,
+	wasDowngraded bool,
+) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	key := gradeKey(modelID, roleID, projectID)
+	grade, exists := m.grades[key]
+
+	if !exists {
+		// Create new grade
+		grade = &PerformanceGrade{
+			ModelID:   modelID,
+			RoleID:    roleID,
+			ProjectID: projectID,
+			FirstUsed: time.Now(),
+		}
+		m.grades[key] = grade
+	}
+
+	// Update metrics
+	grade.TotalAttempts++
+	grade.LastUsed = time.Now()
+	grade.LastTaskID = taskID
+
+	if success {
+		grade.Successes++
+	} else {
+		grade.Failures++
+	}
+
+	grade.Retries += retries
+	grade.TotalTokensUsed += tokensUsed
+	grade.TotalExecutionTimeMs += executionTimeMs
+
+	if wasEscalated {
+		grade.EscalationCount++
+	}
+	if wasDowngraded {
+		grade.DowngradeCount++
+	}
+
+	// Recalculate derived metrics
+	m.recalculateGrade(grade)
+
+	// Persist to disk
+	if err := m.saveGrade(grade); err != nil {
+		return fmt.Errorf("failed to save grade: %w", err)
+	}
+
+	return nil
+}
+
+// recalculateGrade updates all calculated fields
+func (m *PerformanceGradeManager) recalculateGrade(grade *PerformanceGrade) {
+	if grade.TotalAttempts == 0 {
+		return
+	}
+
+	// Calculate rates
+	grade.SuccessRate = float64(grade.Successes) / float64(grade.TotalAttempts)
+	grade.ErrorRate = float64(grade.Failures) / float64(grade.TotalAttempts)
+	grade.RetryRate = float64(grade.Retries) / float64(grade.TotalAttempts)
+
+	// Calculate averages
+	if grade.TotalAttempts > 0 {
+		grade.AverageTokens = int(grade.TotalTokensUsed / int64(grade.TotalAttempts))
+		grade.AverageExecutionTime = float64(grade.TotalExecutionTimeMs) / float64(grade.TotalAttempts) / 1000.0
+	}
+
+	// Calculate confidence score (0.0 to 1.0)
+	// Full confidence at 20+ samples
+	grade.ConfidenceScore = math.Min(1.0, float64(grade.TotalAttempts)/20.0)
+
+	// Calculate letter grade based on success rate and retry rate
+	grade.Grade = m.calculateLetterGrade(grade.SuccessRate, grade.RetryRate)
+}
+
+// calculateLetterGrade determines letter grade from metrics
+func (m *PerformanceGradeManager) calculateLetterGrade(successRate, retryRate float64) string {
+	// Grade A (90-100%): Success rate ≥ 90%, retry rate < 5%
+	if successRate >= 0.90 && retryRate < 0.05 {
+		return "A"
+	}
+
+	// Grade B (80-89%): Success rate ≥ 80%, retry rate < 10%
+	if successRate >= 0.80 && retryRate < 0.10 {
+		return "B"
+	}
+
+	// Grade C (70-79%): Success rate ≥ 70%, retry rate < 20%
+	if successRate >= 0.70 && retryRate < 0.20 {
+		return "C"
+	}
+
+	// Grade D (60-69%): Success rate ≥ 60%, retry rate < 30%
+	if successRate >= 0.60 && retryRate < 0.30 {
+		return "D"
+	}
+
+	// Grade F: Everything else
+	return "F"
+}
+
+// GetGrade retrieves a grade for model/role/project
+func (m *PerformanceGradeManager) GetGrade(modelID, roleID, projectID string) *PerformanceGrade {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	key := gradeKey(modelID, roleID, projectID)
+	if grade, exists := m.grades[key]; exists {
+		// Return a copy to prevent external modification
+		gradeCopy := *grade
+		return &gradeCopy
+	}
+
+	return nil
+}
+
+// GetGradesByRole retrieves all grades for a specific role
+func (m *PerformanceGradeManager) GetGradesByRole(roleID string) []*PerformanceGrade {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var grades []*PerformanceGrade
+	for _, grade := range m.grades {
+		if grade.RoleID == roleID {
+			gradeCopy := *grade
+			grades = append(grades, &gradeCopy)
+		}
+	}
+
+	return grades
+}
+
+// GetGradesByProject retrieves all grades for a specific project
+func (m *PerformanceGradeManager) GetGradesByProject(projectID string) []*PerformanceGrade {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var grades []*PerformanceGrade
+	for _, grade := range m.grades {
+		if grade.ProjectID == projectID {
+			gradeCopy := *grade
+			grades = append(grades, &gradeCopy)
+		}
+	}
+
+	return grades
+}
+
+// GetAllGrades retrieves all grades
+func (m *PerformanceGradeManager) GetAllGrades() []*PerformanceGrade {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	grades := make([]*PerformanceGrade, 0, len(m.grades))
+	for _, grade := range m.grades {
+		gradeCopy := *grade
+		grades = append(grades, &gradeCopy)
+	}
+
+	return grades
+}
+
+// saveGrade persists a grade to disk
+func (m *PerformanceGradeManager) saveGrade(grade *PerformanceGrade) error {
+	filename := fmt.Sprintf("%s_%s_%s.json",
+		sanitizeFilename(grade.ModelID),
+		sanitizeFilename(grade.RoleID),
+		sanitizeFilename(grade.ProjectID))
+
+	path := filepath.Join(m.storageDir, filename)
+
+	data, err := json.MarshalIndent(grade, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal grade: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write grade file: %w", err)
+	}
+
+	return nil
+}
+
+// loadGrades loads all grades from disk
+func (m *PerformanceGradeManager) loadGrades() error {
+	files, err := os.ReadDir(m.storageDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // No grades yet
+		}
+		return fmt.Errorf("failed to read grades directory: %w", err)
+	}
+
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".json") {
+			continue
+		}
+
+		path := filepath.Join(m.storageDir, file.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			if Logger != nil {
+				Logger.Warn("failed_to_read_grade_file", "file", file.Name(), "error", err.Error())
+			}
+			continue
+		}
+
+		var grade PerformanceGrade
+		if err := json.Unmarshal(data, &grade); err != nil {
+			if Logger != nil {
+				Logger.Warn("failed_to_unmarshal_grade", "file", file.Name(), "error", err.Error())
+			}
+			continue
+		}
+
+		key := gradeKey(grade.ModelID, grade.RoleID, grade.ProjectID)
+		m.grades[key] = &grade
+	}
+
+	if Logger != nil {
+		Logger.Info("loaded_performance_grades", "count", len(m.grades))
+	}
+	return nil
+}
+
+// sanitizeFilename removes characters that aren't safe for filenames
+func sanitizeFilename(s string) string {
+	// Replace problematic characters
+	s = strings.ReplaceAll(s, "/", "_")
+	s = strings.ReplaceAll(s, "\\", "_")
+	s = strings.ReplaceAll(s, ":", "_")
+	s = strings.ReplaceAll(s, "*", "_")
+	s = strings.ReplaceAll(s, "?", "_")
+	s = strings.ReplaceAll(s, "\"", "_")
+	s = strings.ReplaceAll(s, "<", "_")
+	s = strings.ReplaceAll(s, ">", "_")
+	s = strings.ReplaceAll(s, "|", "_")
+	return s
+}
+
+// GetGradeSummary returns a summary of all grades for reporting
+type GradeSummary struct {
+	TotalGrades       int                       `json:"total_grades"`
+	GradeDistribution map[string]int            `json:"grade_distribution"` // A: 10, B: 5, etc.
+	ByRole            map[string]RoleSummary    `json:"by_role"`
+	ByModel           map[string]ModelSummary   `json:"by_model"`
+	TopPerformers     []PerformanceGrade        `json:"top_performers"`     // Best grades
+	NeedsImprovement  []PerformanceGrade        `json:"needs_improvement"`  // Worst grades
+}
+
+type RoleSummary struct {
+	TotalAttempts int            `json:"total_attempts"`
+	Successes     int            `json:"successes"`
+	Failures      int            `json:"failures"`
+	SuccessRate   float64        `json:"success_rate"`
+	Models        map[string]int `json:"models"` // Model usage count
+}
+
+type ModelSummary struct {
+	TotalAttempts int     `json:"total_attempts"`
+	Successes     int     `json:"successes"`
+	Failures      int     `json:"failures"`
+	SuccessRate   float64 `json:"success_rate"`
+	AverageGrade  string  `json:"average_grade"`
+}
+
+// GetSummary returns a comprehensive summary of all grades
+func (m *PerformanceGradeManager) GetSummary() GradeSummary {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	summary := GradeSummary{
+		TotalGrades:       len(m.grades),
+		GradeDistribution: make(map[string]int),
+		ByRole:            make(map[string]RoleSummary),
+		ByModel:           make(map[string]ModelSummary),
+	}
+
+	// Collect all grades for analysis
+	allGrades := make([]PerformanceGrade, 0, len(m.grades))
+	for _, grade := range m.grades {
+		allGrades = append(allGrades, *grade)
+
+		// Count grade distribution
+		summary.GradeDistribution[grade.Grade]++
+
+		// Aggregate by role
+		roleSum := summary.ByRole[grade.RoleID]
+		roleSum.TotalAttempts += grade.TotalAttempts
+		roleSum.Successes += grade.Successes
+		roleSum.Failures += grade.Failures
+		if roleSum.Models == nil {
+			roleSum.Models = make(map[string]int)
+		}
+		roleSum.Models[grade.ModelID] += grade.TotalAttempts
+		if roleSum.TotalAttempts > 0 {
+			roleSum.SuccessRate = float64(roleSum.Successes) / float64(roleSum.TotalAttempts)
+		}
+		summary.ByRole[grade.RoleID] = roleSum
+
+		// Aggregate by model
+		modelSum := summary.ByModel[grade.ModelID]
+		modelSum.TotalAttempts += grade.TotalAttempts
+		modelSum.Successes += grade.Successes
+		modelSum.Failures += grade.Failures
+		if modelSum.TotalAttempts > 0 {
+			modelSum.SuccessRate = float64(modelSum.Successes) / float64(modelSum.TotalAttempts)
+		}
+		summary.ByModel[grade.ModelID] = modelSum
+	}
+
+	// Find top performers (Grade A with high confidence)
+	for _, grade := range allGrades {
+		if grade.Grade == "A" && grade.ConfidenceScore >= 0.5 {
+			summary.TopPerformers = append(summary.TopPerformers, grade)
+			if len(summary.TopPerformers) >= 10 {
+				break
+			}
+		}
+	}
+
+	// Find needs improvement (Grade D/F with high confidence)
+	for _, grade := range allGrades {
+		if (grade.Grade == "D" || grade.Grade == "F") && grade.ConfidenceScore >= 0.5 {
+			summary.NeedsImprovement = append(summary.NeedsImprovement, grade)
+			if len(summary.NeedsImprovement) >= 10 {
+				break
+			}
+		}
+	}
+
+	return summary
+}
+
+// ShouldEscalate determines if we should escalate to a higher tier model
+func (m *PerformanceGradeManager) ShouldEscalate(modelID, roleID, projectID string) bool {
+	grade := m.GetGrade(modelID, roleID, projectID)
+	if grade == nil {
+		return false // No history yet
+	}
+
+	// Only escalate if we have enough confidence in the data
+	if grade.ConfidenceScore < 0.5 {
+		return false
+	}
+
+	// Escalate on Grade D or F
+	return grade.Grade == "D" || grade.Grade == "F"
+}
+
+// ShouldDowngrade determines if we can downgrade to a cheaper model
+func (m *PerformanceGradeManager) ShouldDowngrade(modelID, roleID, projectID string, consecutiveSuccesses int) bool {
+	grade := m.GetGrade(modelID, roleID, projectID)
+	if grade == nil {
+		return false
+	}
+
+	// Only downgrade if we have high confidence
+	if grade.ConfidenceScore < 0.75 {
+		return false
+	}
+
+	// Downgrade on Grade A with many consecutive successes
+	return grade.Grade == "A" && consecutiveSuccesses >= 10
+}
+
+// Global performance grade manager instance
+var GlobalGradeManager *PerformanceGradeManager
+
+// InitGradeManager initializes the global performance grade manager
+func InitGradeManager(storageDir string) error {
+	mgr, err := NewPerformanceGradeManager(storageDir)
+	if err != nil {
+		return err
+	}
+	GlobalGradeManager = mgr
+	return nil
+}

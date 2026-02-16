@@ -204,6 +204,23 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		monitoring.Logger.Info("persistent_metrics_initialized", "data_dir", rootDir)
 	}
 
+	// Initialize performance grading system
+	gradesDir := filepath.Join(rootDir, ".claude", "performance_grades")
+	if err := monitoring.InitGradeManager(gradesDir); err != nil {
+		monitoring.Logger.Warn("failed_to_init_grade_manager", "error", err.Error())
+	} else {
+		monitoring.Logger.Info("performance_grading_initialized", "grades_dir", gradesDir)
+	}
+
+	// Initialize complexity analyzer
+	monitoring.InitComplexityAnalyzer()
+
+	// Initialize model selector
+	if monitoring.GlobalGradeManager != nil && monitoring.GlobalComplexityAnalyzer != nil {
+		monitoring.InitModelSelector(monitoring.GlobalGradeManager, monitoring.GlobalComplexityAnalyzer)
+		monitoring.Logger.Info("adaptive_model_selection_enabled")
+	}
+
 	// Create LLM providers for multi-provider support
 	anthropicProvider := NewAnthropicProvider(client, model, maxTokens)
 	var openaiProvider *OpenAIProvider
@@ -1530,6 +1547,37 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 		logMsg(fmt.Sprintf("🎉 Task completed successfully (duration: %dms)", durationMs))
 		monitoring.LogTaskCompleted(ctx, execution.TaskID, execution.Role, durationMs)
 		monitoring.GlobalMetrics.IncrementTasksCompleted(durationMs)
+
+		// Record performance grade for adaptive model selection
+		if monitoring.GlobalGradeManager != nil && execution.metadata != nil {
+			modelID := s.model // Default model
+			if executionModel, ok := execution.metadata["model"]; ok {
+				modelID = executionModel
+			}
+
+			tokensUsed := int64(0)
+			if tokensStr, ok := execution.metadata["total_tokens"]; ok {
+				fmt.Sscanf(tokensStr, "%d", &tokensUsed)
+			}
+
+			// Record successful completion
+			if err := monitoring.GlobalGradeManager.RecordTaskCompletion(
+				execution.TaskID,
+				modelID,
+				execution.Role,
+				projectRoot,
+				true, // success
+				0,    // retries (we don't track this yet)
+				tokensUsed,
+				durationMs,
+				false, // wasEscalated (not tracked yet)
+				false, // wasDowngraded (not tracked yet)
+			); err != nil {
+				monitoring.Logger.Warn("failed_to_record_performance_grade", "error", err.Error())
+			} else {
+				monitoring.Logger.Debug("performance_grade_recorded", "task_id", execution.TaskID, "model", modelID, "role", execution.Role)
+			}
+		}
 	}
 	logMsg("=" + strings.Repeat("=", 70))
 }
@@ -1625,6 +1673,40 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 
 	monitoring.LogTaskFailed(ctx, execution.TaskID, execution.Role, errorMsg, durationMs)
 	monitoring.GlobalMetrics.IncrementTasksFailed(durationMs)
+
+	// Record performance grade for adaptive model selection
+	if monitoring.GlobalGradeManager != nil && execution.metadata != nil {
+		modelID := s.model // Default model
+		if executionModel, ok := execution.metadata["model"]; ok {
+			modelID = executionModel
+		}
+
+		projectRoot := ""
+		if pr, ok := execution.metadata["project_root"]; ok {
+			projectRoot = pr
+		}
+
+		tokensUsed := int64(0)
+		if tokensStr, ok := execution.metadata["total_tokens"]; ok {
+			fmt.Sscanf(tokensStr, "%d", &tokensUsed)
+		}
+
+		// Record failed completion
+		if err := monitoring.GlobalGradeManager.RecordTaskCompletion(
+			execution.TaskID,
+			modelID,
+			execution.Role,
+			projectRoot,
+			false, // success = false
+			0,     // retries (we don't track this yet)
+			tokensUsed,
+			durationMs,
+			false, // wasEscalated (not tracked yet)
+			false, // wasDowngraded (not tracked yet)
+		); err != nil {
+			monitoring.Logger.Warn("failed_to_record_performance_grade", "error", err.Error())
+		}
+	}
 }
 
 // CancelTask cancels a running task by calling its context cancel function.
