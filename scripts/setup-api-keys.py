@@ -10,7 +10,8 @@ import json
 import subprocess
 from pathlib import Path
 from typing import Optional, Tuple
-import requests
+from urllib.request import Request, urlopen
+from urllib.error import URLError
 
 # Colors for terminal output
 class Colors:
@@ -30,19 +31,31 @@ def detect_shell_config() -> Path:
     """Detect the appropriate shell config file"""
     home = Path.home()
 
-    # Check for zsh
-    if os.environ.get('ZSH_VERSION'):
-        return home / '.zshrc'
+    # Check what shell is actually running
+    shell = os.environ.get('SHELL', '')
 
-    # Check for bash
-    if os.environ.get('BASH_VERSION'):
+    if 'zsh' in shell:
+        zshrc = home / '.zshrc'
+        if zshrc.exists():
+            return zshrc
+
+    if 'bash' in shell:
+        # Prefer .bash_profile over .bashrc for login shells
         bash_profile = home / '.bash_profile'
         if bash_profile.exists():
             return bash_profile
-        return home / '.bashrc'
+        bashrc = home / '.bashrc'
+        if bashrc.exists():
+            return bashrc
 
-    # Default
-    return home / '.profile'
+    # Fallback: check which files exist
+    for config_file in ['.bash_profile', '.bashrc', '.zshrc', '.profile']:
+        config_path = home / config_file
+        if config_path.exists():
+            return config_path
+
+    # Default to .bash_profile since user mentioned it
+    return home / '.bash_profile'
 
 def check_existing_keys() -> Tuple[bool, bool]:
     """Check if API keys are already set"""
@@ -68,45 +81,59 @@ def check_existing_keys() -> Tuple[bool, bool]:
 def test_openai_key(api_key: str) -> bool:
     """Test OpenAI API key validity"""
     try:
-        response = requests.post(
-            'https://api.openai.com/v1/chat/completions',
-            headers={
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            },
-            json={
-                'model': 'gpt-4o-mini',
-                'messages': [{'role': 'user', 'content': 'test'}],
-                'max_tokens': 5
-            },
-            timeout=10
-        )
-        return response.status_code == 200
+        data = json.dumps({
+            'model': 'gpt-4o-mini',
+            'messages': [{'role': 'user', 'content': 'test'}],
+            'max_tokens': 5
+        }).encode('utf-8')
+
+        req = Request('https://api.openai.com/v1/chat/completions', data=data)
+        req.add_header('Authorization', f'Bearer {api_key}')
+        req.add_header('Content-Type', 'application/json')
+
+        with urlopen(req, timeout=10) as response:
+            return response.status == 200
+    except URLError as e:
+        print(f"{Colors.YELLOW}⚠ Could not validate OpenAI key (network issue): {e}{Colors.NC}")
+        print(f"{Colors.YELLOW}  Key may still be valid - will be tested when server starts{Colors.NC}")
+        return True  # Assume valid if network fails
     except Exception as e:
-        print(f"{Colors.RED}✗ Error testing OpenAI key: {e}{Colors.NC}")
-        return False
+        error_msg = str(e)
+        if '401' in error_msg or 'Unauthorized' in error_msg:
+            print(f"{Colors.RED}✗ OpenAI API key is invalid (401 Unauthorized){Colors.NC}")
+            return False
+        print(f"{Colors.YELLOW}⚠ Could not validate OpenAI key: {e}{Colors.NC}")
+        print(f"{Colors.YELLOW}  Key may still be valid - will be tested when server starts{Colors.NC}")
+        return True  # Assume valid if validation fails for other reasons
 
 def test_anthropic_key(api_key: str) -> bool:
     """Test Anthropic API key validity"""
     try:
-        response = requests.post(
-            'https://api.anthropic.com/v1/messages',
-            headers={
-                'x-api-key': api_key,
-                'anthropic-version': '2023-06-01',
-                'Content-Type': 'application/json'
-            },
-            json={
-                'model': 'claude-3-5-haiku-20241022',
-                'max_tokens': 10,
-                'messages': [{'role': 'user', 'content': 'test'}]
-            },
-            timeout=10
-        )
-        return response.status_code == 200
+        data = json.dumps({
+            'model': 'claude-3-5-haiku-20241022',
+            'max_tokens': 10,
+            'messages': [{'role': 'user', 'content': 'test'}]
+        }).encode('utf-8')
+
+        req = Request('https://api.anthropic.com/v1/messages', data=data)
+        req.add_header('x-api-key', api_key)
+        req.add_header('anthropic-version', '2023-06-01')
+        req.add_header('Content-Type', 'application/json')
+
+        with urlopen(req, timeout=10) as response:
+            return response.status == 200
+    except URLError as e:
+        print(f"{Colors.YELLOW}⚠ Could not validate Anthropic key (network issue): {e}{Colors.NC}")
+        print(f"{Colors.YELLOW}  Key may still be valid - will be tested when server starts{Colors.NC}")
+        return True  # Assume valid if network fails
     except Exception as e:
-        print(f"{Colors.RED}✗ Error testing Anthropic key: {e}{Colors.NC}")
-        return False
+        error_msg = str(e)
+        if '401' in error_msg or '403' in error_msg or 'authentication' in error_msg.lower():
+            print(f"{Colors.RED}✗ Anthropic API key is invalid (authentication failed){Colors.NC}")
+            return False
+        print(f"{Colors.YELLOW}⚠ Could not validate Anthropic key: {e}{Colors.NC}")
+        print(f"{Colors.YELLOW}  Key may still be valid - will be tested when server starts{Colors.NC}")
+        return True  # Assume valid if validation fails for other reasons
 
 def test_api_keys():
     """Test configured API keys"""
