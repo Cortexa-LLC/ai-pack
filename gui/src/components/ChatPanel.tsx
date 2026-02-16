@@ -749,6 +749,7 @@ export default function ChatPanel() {
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let accumulatedText = ''; // Track accumulated text synchronously
 
       if (!reader) {
         console.error('[ChatPanel] No response body reader available');
@@ -783,10 +784,10 @@ export default function ChatPanel() {
                 console.log('[ChatPanel] Chat stream connected');
               } else if (parsed.status === 'complete') {
                 console.log('[ChatPanel] Stream complete');
-                // Completion event - check this BEFORE parsed.text
+                // Completion event - use accumulated text (not React state)
                 const assistantMessage: Message = {
                   role: 'assistant',
-                  content: parsed.text || streamingMessage,
+                  content: parsed.text || accumulatedText,
                 };
                 setMessages(prev => [...prev, assistantMessage]);
                 setStreamingMessage('');
@@ -801,8 +802,10 @@ export default function ChatPanel() {
                 }
                 return;
               } else if (parsed.text) {
-                // For delta events
-                setStreamingMessage(prev => prev + parsed.text.replace(/\\n/g, '\n').replace(/\\"/g, '"'));
+                // For delta events - accumulate synchronously AND update React state
+                const cleanText = parsed.text.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+                accumulatedText += cleanText;
+                setStreamingMessage(prev => prev + cleanText);
               } else if (parsed.error) {
                 console.error('[ChatPanel] SSE error event:', parsed.error);
                 throw new Error(parsed.error);
