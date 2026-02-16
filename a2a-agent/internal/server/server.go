@@ -80,6 +80,7 @@ type AgentServer struct {
 	openaiProvider     *OpenAIProvider
 	modelSelector      *ModelSelector
 	streamingService   *streaming.Service // Clean streaming abstraction
+	persistentMetrics  *monitoring.PersistentMetrics // Persistent daily token usage tracking
 
 	// Concurrent execution tracking
 	mu           sync.RWMutex
@@ -224,6 +225,14 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		monitoring.Logger.Warn("failed_to_create_execution_log", "error", err.Error())
 	}
 
+	// Initialize persistent metrics for daily token usage tracking
+	persistentMetrics, err := monitoring.NewPersistentMetrics(rootDir)
+	if err != nil {
+		monitoring.Logger.Warn("failed_to_create_persistent_metrics", "error", err.Error())
+	} else {
+		monitoring.Logger.Info("persistent_metrics_initialized", "data_dir", rootDir)
+	}
+
 	// Create LLM providers for multi-provider support
 	anthropicProvider := NewAnthropicProvider(client, model, maxTokens)
 	var openaiProvider *OpenAIProvider
@@ -250,6 +259,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		openaiClient:       openaiClient,
 		anthropicProvider:  anthropicProvider,
 		openaiProvider:     openaiProvider,
+		persistentMetrics:  persistentMetrics,
 
 		activeTasks:      make(map[string]*TaskExecution),
 		taskQueue:        make(chan *TaskExecution, 100),
@@ -1138,6 +1148,16 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 
 		// Record per-turn token metrics
 		monitoring.GlobalMetrics.RecordTurnTokens(taskID, turn, int64(message.Usage.InputTokens), int64(message.Usage.OutputTokens), apiDuration)
+
+		// Record provider-specific usage
+		monitoring.GlobalMetrics.RecordProviderUsage("anthropic", s.model, int64(message.Usage.InputTokens), int64(message.Usage.OutputTokens))
+
+		// Record persistent daily usage
+		if s.persistentMetrics != nil {
+			if err := s.persistentMetrics.RecordUsage("anthropic", s.model, int64(message.Usage.InputTokens), int64(message.Usage.OutputTokens)); err != nil {
+				monitoring.Logger.Warn("failed_to_record_persistent_metrics", "error", err.Error())
+			}
+		}
 
 		// Process response blocks
 		var toolUses []anthropic.ToolUseBlock
