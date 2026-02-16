@@ -463,6 +463,20 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 		"model", message.Model,
 		"input_tokens", message.InputTokens,
 		"output_tokens", message.OutputTokens)
+
+	// Record provider usage
+	provider := "anthropic" // Default, will be from streaming service provider detection in future
+	if strings.Contains(strings.ToLower(message.Model), "gpt") || strings.Contains(strings.ToLower(message.Model), "openai") {
+		provider = "openai"
+	}
+	monitoring.GlobalMetrics.RecordProviderUsage(provider, message.Model, int64(message.InputTokens), int64(message.OutputTokens))
+
+	// Record persistent daily usage
+	if s.persistentMetrics != nil {
+		if err := s.persistentMetrics.RecordUsage(provider, message.Model, int64(message.InputTokens), int64(message.OutputTokens)); err != nil {
+			monitoring.Logger.Warn("failed_to_record_persistent_metrics", "error", err.Error())
+		}
+	}
 }
 
 // generateFollowUpSuggestion asks Claude for a relevant follow-up question

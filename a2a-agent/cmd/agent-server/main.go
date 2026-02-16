@@ -263,6 +263,68 @@ func handleMetrics(s *server.AgentServer) http.HandlerFunc {
 	}
 }
 
+// Daily metrics endpoint - returns today's usage
+func handleDailyMetrics(s *server.AgentServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		daily, err := s.GetDailyUsage()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to get daily usage: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", contentTypeJSON)
+		if daily == nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{})
+		} else {
+			json.NewEncoder(w).Encode(daily)
+		}
+	}
+}
+
+// Last 30 days metrics endpoint
+func handleLast30DaysMetrics(s *server.AgentServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		usage, err := s.GetLast30DaysUsage()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to get last 30 days usage: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", contentTypeJSON)
+		if usage == nil {
+			json.NewEncoder(w).Encode([]interface{}{})
+		} else {
+			json.NewEncoder(w).Encode(usage)
+		}
+	}
+}
+
+// Date range metrics endpoint
+func handleDateRangeMetrics(s *server.AgentServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		startDate := r.URL.Query().Get("start")
+		endDate := r.URL.Query().Get("end")
+
+		if startDate == "" || endDate == "" {
+			http.Error(w, "Missing required query parameters: start and end (format: YYYY-MM-DD)", http.StatusBadRequest)
+			return
+		}
+
+		usage, err := s.GetDailyUsageRange(startDate, endDate)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to get date range usage: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", contentTypeJSON)
+		if usage == nil {
+			json.NewEncoder(w).Encode([]interface{}{})
+		} else {
+			json.NewEncoder(w).Encode(usage)
+		}
+	}
+}
+
 func printUsage() {
 	fmt.Println("AI-Pack Agent Server - Usage:")
 	fmt.Println("")
@@ -422,8 +484,11 @@ func main() {
 
 	// Setup routes with logging middleware
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", handleHealth)                // Health check
-	mux.HandleFunc("/metrics", handleMetrics(s))           // Metrics endpoint
+	mux.HandleFunc("/health", handleHealth)                          // Health check
+	mux.HandleFunc("/metrics", handleMetrics(s))                     // Metrics endpoint
+	mux.HandleFunc("/metrics/daily", handleDailyMetrics(s))          // Daily usage
+	mux.HandleFunc("/metrics/daily/last30", handleLast30DaysMetrics(s)) // Last 30 days
+	mux.HandleFunc("/metrics/daily/range", handleDateRangeMetrics(s))   // Date range
 	mux.HandleFunc("/a2a/discovery", s.HandleA2ADiscovery) // A2A discovery
 	mux.HandleFunc("/a2a/execute", s.HandleA2AExecute)     // A2A execute
 	mux.HandleFunc("/a2a/status/", s.HandleA2AStatus)      // A2A status (trailing slash for subpaths)
@@ -473,9 +538,12 @@ func main() {
 	log.Printf("      - POST /api/chat           (Chat with Claude - SSE streaming)")
 	log.Printf("")
 	log.Printf("   🔧 Utility:")
-	log.Printf("      - GET  /health             (Health check)")
-	log.Printf("      - GET  /metrics            (Performance metrics)")
-	log.Printf("      - GET  /logs/recent?limit=N (Recent logs - JSON)")
+	log.Printf("      - GET  /health                            (Health check)")
+	log.Printf("      - GET  /metrics                           (Performance metrics)")
+	log.Printf("      - GET  /metrics/daily                     (Today's token usage)")
+	log.Printf("      - GET  /metrics/daily/last30              (Last 30 days usage)")
+	log.Printf("      - GET  /metrics/daily/range?start=&end=   (Date range usage)")
+	log.Printf("      - GET  /logs/recent?limit=N               (Recent logs - JSON)")
 	log.Printf("")
 	log.Printf("   🎯 Features:")
 	log.Printf("      - A2A Protocol Compliance  ✅")

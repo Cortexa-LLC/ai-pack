@@ -56,6 +56,9 @@ type Metrics struct {
 	taskTokenUsage []TaskTokenUsage
 	maxTokenUsage  int
 
+	// Provider tracking (per provider/model usage)
+	providerUsage map[string]*ProviderUsage
+
 	// Server metrics
 	startTime time.Time
 }
@@ -77,6 +80,15 @@ type TaskTokenUsage struct {
 	TurnCount    int64
 }
 
+// ProviderUsage tracks usage for a specific provider/model combination
+type ProviderUsage struct {
+	Provider     string
+	Model        string
+	Calls        int64
+	InputTokens  int64
+	OutputTokens int64
+}
+
 // Global metrics instance
 var GlobalMetrics *Metrics
 
@@ -89,6 +101,7 @@ func InitMetrics() {
 		taskTokenUsage: make([]TaskTokenUsage, 0, 100),
 		maxTurnData:    1000, // Keep last 1000 turns for per-turn analysis
 		turnTokenData:  make([]TurnTokenData, 0, 1000),
+		providerUsage:  make(map[string]*ProviderUsage),
 		startTime:      time.Now(),
 	}
 }
@@ -223,6 +236,30 @@ func (m *Metrics) RecordTokenUsage(taskID string, inputTokens, outputTokens int6
 	}
 }
 
+// RecordProviderUsage records token usage for a specific provider/model
+func (m *Metrics) RecordProviderUsage(provider, model string, inputTokens, outputTokens int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Create key for provider/model combination
+	key := provider + ":" + model
+
+	// Get or create provider usage entry
+	usage, exists := m.providerUsage[key]
+	if !exists {
+		usage = &ProviderUsage{
+			Provider: provider,
+			Model:    model,
+		}
+		m.providerUsage[key] = usage
+	}
+
+	// Update usage stats
+	atomic.AddInt64(&usage.Calls, 1)
+	atomic.AddInt64(&usage.InputTokens, inputTokens)
+	atomic.AddInt64(&usage.OutputTokens, outputTokens)
+}
+
 // GetSnapshot returns a snapshot of current metrics
 func (m *Metrics) GetSnapshot() MetricsSnapshot {
 	m.mu.RLock()
@@ -263,62 +300,77 @@ func (m *Metrics) GetSnapshot() MetricsSnapshot {
 	// Calculate uptime
 	uptime := time.Since(m.startTime)
 
+	// Copy provider breakdown
+	providerBreakdown := make([]*ProviderUsage, 0, len(m.providerUsage))
+	for _, usage := range m.providerUsage {
+		usageCopy := &ProviderUsage{
+			Provider:     usage.Provider,
+			Model:        usage.Model,
+			Calls:        atomic.LoadInt64(&usage.Calls),
+			InputTokens:  atomic.LoadInt64(&usage.InputTokens),
+			OutputTokens: atomic.LoadInt64(&usage.OutputTokens),
+		}
+		providerBreakdown = append(providerBreakdown, usageCopy)
+	}
+
 	return MetricsSnapshot{
-		TasksSpawned:        atomic.LoadInt64(&m.TasksSpawned),
-		TasksCompleted:      atomic.LoadInt64(&m.TasksCompleted),
-		TasksFailed:         atomic.LoadInt64(&m.TasksFailed),
-		TasksInProgress:     atomic.LoadInt64(&m.TasksInProgress),
-		TotalDurationMs:     atomic.LoadInt64(&m.TotalDurationMs),
-		AvgDurationMs:       atomic.LoadInt64(&m.AvgDurationMs),
-		APICallsTotal:       atomic.LoadInt64(&m.APICallsTotal),
-		APICallsSuccess:     atomic.LoadInt64(&m.APICallsSuccess),
-		APICallsFailed:      atomic.LoadInt64(&m.APICallsFailed),
-		HTTPRequestsTotal:   atomic.LoadInt64(&m.HTTPRequestsTotal),
-		HTTPErrors:          atomic.LoadInt64(&m.HTTPErrors),
-		StreamsOpened:       atomic.LoadInt64(&m.StreamsOpened),
-		StreamsClosed:       atomic.LoadInt64(&m.StreamsClosed),
-		StreamsActive:       atomic.LoadInt64(&m.StreamsActive),
-		RateLimitViolations: atomic.LoadInt64(&m.RateLimitViolations),
-		TotalInputTokens:    atomic.LoadInt64(&m.TotalInputTokens),
-		TotalOutputTokens:   atomic.LoadInt64(&m.TotalOutputTokens),
-		TaskTokenUsage:      tokenUsageCopy,
+		TasksSpawned:         atomic.LoadInt64(&m.TasksSpawned),
+		TasksCompleted:       atomic.LoadInt64(&m.TasksCompleted),
+		TasksFailed:          atomic.LoadInt64(&m.TasksFailed),
+		TasksInProgress:      atomic.LoadInt64(&m.TasksInProgress),
+		TotalDurationMs:      atomic.LoadInt64(&m.TotalDurationMs),
+		AvgDurationMs:        atomic.LoadInt64(&m.AvgDurationMs),
+		APICallsTotal:        atomic.LoadInt64(&m.APICallsTotal),
+		APICallsSuccess:      atomic.LoadInt64(&m.APICallsSuccess),
+		APICallsFailed:       atomic.LoadInt64(&m.APICallsFailed),
+		HTTPRequestsTotal:    atomic.LoadInt64(&m.HTTPRequestsTotal),
+		HTTPErrors:           atomic.LoadInt64(&m.HTTPErrors),
+		StreamsOpened:        atomic.LoadInt64(&m.StreamsOpened),
+		StreamsClosed:        atomic.LoadInt64(&m.StreamsClosed),
+		StreamsActive:        atomic.LoadInt64(&m.StreamsActive),
+		RateLimitViolations:  atomic.LoadInt64(&m.RateLimitViolations),
+		TotalInputTokens:     atomic.LoadInt64(&m.TotalInputTokens),
+		TotalOutputTokens:    atomic.LoadInt64(&m.TotalOutputTokens),
+		TaskTokenUsage:       tokenUsageCopy,
 		TotalTurns:           totalTurns,
 		AvgInputPerTurn:      avgInputPerTurn,
 		AvgOutputPerTurn:     avgOutputPerTurn,
 		AverageTokensPerTask: averageTokensPerTask,
-		Uptime:              uptime,
-		TurnTokenData:       turnDataCopy,
-		Timestamp:           time.Now(),
+		ProviderBreakdown:    providerBreakdown,
+		Uptime:               uptime,
+		TurnTokenData:        turnDataCopy,
+		Timestamp:            time.Now(),
 	}
 }
 
 // MetricsSnapshot is a point-in-time snapshot of metrics
 type MetricsSnapshot struct {
-	TasksSpawned        int64            `json:"tasks_spawned"`
-	TasksCompleted      int64            `json:"tasks_completed"`
-	TasksFailed         int64            `json:"tasks_failed"`
-	TasksInProgress     int64            `json:"tasks_in_progress"`
-	TotalDurationMs     int64            `json:"total_duration_ms"`
-	AvgDurationMs       int64            `json:"avg_duration_ms"`
-	APICallsTotal       int64            `json:"api_calls_total"`
-	APICallsSuccess     int64            `json:"api_calls_success"`
-	APICallsFailed      int64            `json:"api_calls_failed"`
-	HTTPRequestsTotal   int64            `json:"http_requests_total"`
-	HTTPErrors          int64            `json:"http_errors"`
-	StreamsOpened       int64            `json:"streams_opened"`
-	StreamsClosed       int64            `json:"streams_closed"`
-	StreamsActive       int64            `json:"streams_active"`
-	RateLimitViolations int64            `json:"rate_limit_violations"`
-	TotalInputTokens    int64            `json:"total_input_tokens"`
-	TotalOutputTokens   int64            `json:"total_output_tokens"`
-	TaskTokenUsage      []TaskTokenUsage `json:"task_token_usage,omitempty"`
-	TotalTurns           int64            `json:"total_turns"`
-	AvgInputPerTurn      int64            `json:"avg_input_per_turn"`
-	AvgOutputPerTurn     int64            `json:"avg_output_per_turn"`
-	AverageTokensPerTask int64            `json:"average_tokens_per_task"`
-	Uptime              time.Duration    `json:"uptime"`
-	TurnTokenData       []TurnTokenData  `json:"turn_token_data,omitempty"`
-	Timestamp           time.Time        `json:"timestamp"`
+	TasksSpawned         int64             `json:"tasks_spawned"`
+	TasksCompleted       int64             `json:"tasks_completed"`
+	TasksFailed          int64             `json:"tasks_failed"`
+	TasksInProgress      int64             `json:"tasks_in_progress"`
+	TotalDurationMs      int64             `json:"total_duration_ms"`
+	AvgDurationMs        int64             `json:"avg_duration_ms"`
+	APICallsTotal        int64             `json:"api_calls_total"`
+	APICallsSuccess      int64             `json:"api_calls_success"`
+	APICallsFailed       int64             `json:"api_calls_failed"`
+	HTTPRequestsTotal    int64             `json:"http_requests_total"`
+	HTTPErrors           int64             `json:"http_errors"`
+	StreamsOpened        int64             `json:"streams_opened"`
+	StreamsClosed        int64             `json:"streams_closed"`
+	StreamsActive        int64             `json:"streams_active"`
+	RateLimitViolations  int64             `json:"rate_limit_violations"`
+	TotalInputTokens     int64             `json:"total_input_tokens"`
+	TotalOutputTokens    int64             `json:"total_output_tokens"`
+	TaskTokenUsage       []TaskTokenUsage  `json:"task_token_usage,omitempty"`
+	TotalTurns           int64             `json:"total_turns"`
+	AvgInputPerTurn      int64             `json:"avg_input_per_turn"`
+	AvgOutputPerTurn     int64             `json:"avg_output_per_turn"`
+	AverageTokensPerTask int64             `json:"average_tokens_per_task"`
+	ProviderBreakdown    []*ProviderUsage  `json:"provider_breakdown,omitempty"`
+	Uptime               time.Duration     `json:"uptime"`
+	TurnTokenData        []TurnTokenData   `json:"turn_token_data,omitempty"`
+	Timestamp            time.Time         `json:"timestamp"`
 }
 
 // SuccessRate returns the task success rate as a percentage
