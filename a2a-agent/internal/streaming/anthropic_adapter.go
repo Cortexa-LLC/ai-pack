@@ -208,6 +208,26 @@ func (a *AnthropicStreamAdapter) convertEvent(event interface{}) StreamEvent {
 
 	// Handle different event types
 	switch eventType {
+	case "content_block_start":
+		// Extract tool use blocks
+		if contentBlock, ok := eventData["content_block"].(map[string]interface{}); ok {
+			if blockType, ok := contentBlock["type"].(string); ok && blockType == "tool_use" {
+				toolUse := &ToolUse{
+					Input: make(map[string]interface{}),
+				}
+				if id, ok := contentBlock["id"].(string); ok {
+					toolUse.ID = id
+				}
+				if name, ok := contentBlock["name"].(string); ok {
+					toolUse.Name = name
+				}
+				if input, ok := contentBlock["input"].(map[string]interface{}); ok {
+					toolUse.Input = input
+				}
+				genericEvent.ToolUse = toolUse
+			}
+		}
+
 	case "content_block_delta":
 		// Extract text delta
 		eventJSON, _ := json.Marshal(event)

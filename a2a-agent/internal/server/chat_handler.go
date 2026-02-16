@@ -14,6 +14,114 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/streaming"
 )
 
+// convertAnthropicToolsToStreaming converts Anthropic tool format to provider-agnostic streaming format
+func convertAnthropicToolsToStreaming(anthropicTools []anthropic.ToolUnionParam) []streaming.Tool {
+	tools := make([]streaming.Tool, 0, len(anthropicTools))
+
+	for _, toolUnion := range anthropicTools {
+		// Extract the tool from the union type
+		tool := toolUnion.OfTool
+		if tool == nil {
+			continue
+		}
+
+		// Convert to streaming.Tool format
+		streamTool := streaming.Tool{
+			Name:        tool.Name,
+			Description: *toolUnion.GetDescription(),
+			InputSchema: map[string]interface{}{
+				"type":       tool.InputSchema.Type,
+				"properties": tool.InputSchema.Properties,
+				"required":   tool.InputSchema.Required,
+			},
+		}
+		tools = append(tools, streamTool)
+	}
+
+	return tools
+}
+
+// continueWithToolResults continues the conversation with tool execution results
+func (s *AgentServer) continueWithToolResults(
+	ctx context.Context,
+	w http.ResponseWriter,
+	flusher http.Flusher,
+	req *ChatRequest,
+	previousReq streaming.StreamRequest,
+	previousMessage *streaming.CompletedMessage,
+	toolResults []streaming.ToolResult,
+) error {
+	// Build new conversation history with tool results
+	// The conversation should be:
+	// 1. Original user message
+	// 2. Assistant message with tool use
+	// 3. User message with tool results (this is how Anthropic handles it)
+
+	// Format tool results as a user message
+	toolResultsText := "Tool execution results:\n\n"
+	for _, result := range toolResults {
+		if result.IsError {
+			toolResultsText += fmt.Sprintf("❌ Tool error: %s\n\n", result.Content)
+		} else {
+			toolResultsText += fmt.Sprintf("✓ Tool result: %s\n\n", result.Content)
+		}
+	}
+
+	// Create new request with tool results
+	continuationReq := streaming.StreamRequest{
+		Messages:     append(previousReq.Messages,
+			streaming.Message{Role: "assistant", Content: previousMessage.Content},
+			streaming.Message{Role: "user", Content: toolResultsText}),
+		SystemPrompt: previousReq.SystemPrompt,
+		MaxTokens:    previousReq.MaxTokens,
+		Tools:        previousReq.Tools,
+		Model:        previousReq.Model,
+	}
+
+	// Create new stream
+	stream, err := s.streamingService.CreateStream(ctx, req.Role, continuationReq)
+	if err != nil {
+		return fmt.Errorf("failed to create continuation stream: %w", err)
+	}
+	defer stream.Close()
+
+	// Stream the continuation
+	for stream.Next() {
+		event := stream.Current()
+
+		// Send delta events
+		if event.Delta != nil && event.Delta.Text != "" {
+			textData, _ := json.Marshal(map[string]interface{}{
+				"text": event.Delta.Text,
+			})
+			fmt.Fprintf(w, "event: delta\n")
+			fmt.Fprintf(w, "data: %s\n\n", textData)
+			flusher.Flush()
+		}
+	}
+
+	// Check for errors
+	if err := stream.Err(); err != nil {
+		return fmt.Errorf("continuation stream error: %w", err)
+	}
+
+	// Get final message
+	finalMessage := stream.GetMessage()
+
+	// Send completion event
+	completeData, _ := json.Marshal(map[string]interface{}{
+		"status":        "complete",
+		"input_tokens":  finalMessage.InputTokens,
+		"output_tokens": finalMessage.OutputTokens,
+		"model":         finalMessage.Model,
+	})
+	fmt.Fprintf(w, "event: complete\n")
+	fmt.Fprintf(w, "data: %s\n\n", completeData)
+	flusher.Flush()
+
+	return nil
+}
+
 // ChatRequest represents an incoming chat message
 type ChatRequest struct {
 	Message           string          `json:"message"`
@@ -241,10 +349,12 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 			streamReq.SystemPrompt = roleContext
 		}
 
-		// TODO: Add tools for orchestrator
-		// Tools need to be defined in provider-agnostic format first
-		// For now, orchestrator will work without tools until we implement
-		// proper tool abstraction in the streaming layer
+		// Add tools for orchestrator role
+		if req.Role == "orchestrator" {
+			anthropicTools := GetOrchestratorTools()
+			streamReq.Tools = convertAnthropicToolsToStreaming(anthropicTools)
+			monitoring.Logger.Info("orchestrator_tools_enabled", "tool_count", len(streamReq.Tools))
+		}
 	}
 
 	// Create stream using the service (handles model selection automatically)
@@ -261,9 +371,18 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 	fmt.Fprintf(w, "data: {\"status\":\"connected\"}\n\n")
 	flusher.Flush()
 
-	// Stream events
+	// Stream events and handle tool calls
+	toolCalls := []streaming.ToolUse{}
+
 	for stream.Next() {
 		event := stream.Current()
+
+		// Collect tool use events
+		if event.ToolUse != nil {
+			toolCalls = append(toolCalls, *event.ToolUse)
+			monitoring.Logger.Info("tool_use_detected", "tool", event.ToolUse.Name, "id", event.ToolUse.ID)
+			continue
+		}
 
 		// Send delta events
 		if event.Delta != nil && event.Delta.Text != "" {
@@ -290,6 +409,43 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 
 	// Get final message with token usage
 	message := stream.GetMessage()
+
+	// Handle tool calls if any were detected
+	if len(toolCalls) > 0 && req.Role == "orchestrator" {
+		monitoring.Logger.Info("executing_tools", "count", len(toolCalls))
+
+		// Execute each tool and collect results
+		toolResults := []streaming.ToolResult{}
+		for _, toolCall := range toolCalls {
+			result, err := s.ExecuteTool(toolCall.Name, toolCall.Input)
+			if err != nil {
+				monitoring.Logger.Error("tool_execution_failed", "tool", toolCall.Name, "error", err)
+				toolResults = append(toolResults, streaming.ToolResult{
+					ToolUseID: toolCall.ID,
+					Content:   fmt.Sprintf("Error: %v", err),
+					IsError:   true,
+				})
+			} else {
+				toolResults = append(toolResults, streaming.ToolResult{
+					ToolUseID: toolCall.ID,
+					Content:   result,
+					IsError:   false,
+				})
+			}
+		}
+
+		// Continue conversation with tool results
+		if err := s.continueWithToolResults(ctx, w, flusher, req, streamReq, message, toolResults); err != nil {
+			monitoring.Logger.Error("tool_continuation_failed", "error", err)
+			errorData, _ := json.Marshal(map[string]interface{}{
+				"error": fmt.Sprintf("Tool continuation failed: %v", err),
+			})
+			fmt.Fprintf(w, "event: error\n")
+			fmt.Fprintf(w, "data: %s\n\n", errorData)
+			flusher.Flush()
+		}
+		return
+	}
 
 	// Send completion event
 	completeData, _ := json.Marshal(map[string]interface{}{
