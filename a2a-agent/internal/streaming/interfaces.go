@@ -4,10 +4,11 @@ import "context"
 
 // StreamEvent represents a single event in the stream
 type StreamEvent struct {
-	Type    string
-	Delta   *DeltaContent
-	Message *CompletedMessage
-	Error   error
+	Type     string
+	Delta    *DeltaContent
+	ToolUse  *ToolUse
+	Message  *CompletedMessage
+	Error    error
 }
 
 // DeltaContent represents incremental content
@@ -66,6 +67,20 @@ type Tool struct {
 	Name        string
 	Description string
 	InputSchema map[string]interface{}
+}
+
+// ToolUse represents a tool invocation request from the model
+type ToolUse struct {
+	ID    string
+	Name  string
+	Input map[string]interface{}
+}
+
+// ToolResult represents the result of executing a tool
+type ToolResult struct {
+	ToolUseID string
+	Content   string
+	IsError   bool
 }
 
 // ProviderFactory creates stream providers
