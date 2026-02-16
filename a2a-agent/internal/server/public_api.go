@@ -78,6 +78,30 @@ func (s *AgentServer) GetMetricsSnapshot() monitoring.MetricsSnapshot {
 	return monitoring.GlobalMetrics.GetSnapshot()
 }
 
+// GetDailyUsage returns today's token usage
+func (s *AgentServer) GetDailyUsage() (*monitoring.DailyUsage, error) {
+	if s.persistentMetrics == nil {
+		return nil, nil
+	}
+	return s.persistentMetrics.GetToday()
+}
+
+// GetDailyUsageRange returns token usage for a date range
+func (s *AgentServer) GetDailyUsageRange(startDate, endDate string) ([]*monitoring.DailyUsage, error) {
+	if s.persistentMetrics == nil {
+		return nil, nil
+	}
+	return s.persistentMetrics.GetDateRange(startDate, endDate)
+}
+
+// GetLast30DaysUsage returns token usage for the last 30 days
+func (s *AgentServer) GetLast30DaysUsage() ([]*monitoring.DailyUsage, error) {
+	if s.persistentMetrics == nil {
+		return nil, nil
+	}
+	return s.persistentMetrics.GetLast30Days()
+}
+
 // GetMaxConcurrent returns the maximum concurrent agents setting
 func (s *AgentServer) GetMaxConcurrent() int {
 	return s.maxConcurrent
