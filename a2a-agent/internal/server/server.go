@@ -18,6 +18,7 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/beads"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/claude"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/streaming"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/execution_log"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol"
@@ -77,6 +78,8 @@ type AgentServer struct {
 	openaiClient       *openai.Client
 	anthropicProvider  *AnthropicProvider
 	openaiProvider     *OpenAIProvider
+	modelSelector      *ModelSelector
+	streamingService   *streaming.Service // Clean streaming abstraction
 
 	// Concurrent execution tracking
 	mu           sync.RWMutex
@@ -228,6 +231,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		openaiProvider = NewOpenAIProvider(openaiClient, "gpt-4o-mini", maxTokens)
 	}
 
+	// Create server instance first (needed for model selector)
 	server := &AgentServer{
 		rootDir:          rootDir,
 		anthropicKey:     apiKey,
@@ -252,6 +256,27 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		workerPool:       make(chan struct{}, maxConcurrent),
 		projectRoots:     make(map[string]time.Time),
 	}
+
+	// Initialize model selector
+	server.modelSelector = NewModelSelector(server)
+
+	// Initialize streaming service with clean architecture
+	modelSelector := streaming.NewSimpleModelSelector(
+		model,
+		openaiClient != nil,
+		server.GetModelForRole,
+	)
+	streamingService := streaming.NewService(modelSelector, "anthropic")
+
+	// Register provider factories
+	streamingService.RegisterProvider(streaming.NewAnthropicFactory(apiKey, maxTokens, clientOpts...))
+	if openaiClient != nil {
+		streamingService.RegisterProvider(streaming.NewOpenAIFactory(openaiClient, maxTokens))
+	}
+
+	server.streamingService = streamingService
+	monitoring.Logger.Info("streaming_service_initialized",
+		"default", "anthropic")
 
 	// Start worker pool
 	go server.startWorkerPool()
