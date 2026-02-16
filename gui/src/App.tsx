@@ -4,6 +4,7 @@ import { useTasks } from './hooks/useTasks';
 import { useDetailedMetrics } from './hooks/useDetailedMetrics';
 import MetricsCard from './components/MetricsCard';
 import ChatPanel from './components/ChatPanel';
+import CostBreakdown from './components/CostBreakdown';
 
 /**
  * Format milliseconds into human-readable duration
@@ -1635,6 +1636,12 @@ function App() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Cost Breakdown by Provider/Model */}
+                  <CostBreakdown
+                    totalInputTokens={metricsData.metrics.tokenUsage.inputTokens}
+                    totalOutputTokens={metricsData.metrics.tokenUsage.outputTokens}
+                  />
 
                   {/* Per-Turn Averages */}
                   {detailedMetrics && detailedMetrics.total_turns > 0 && (

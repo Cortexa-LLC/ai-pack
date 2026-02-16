@@ -11,6 +11,7 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/streaming"
 )
 
 // ChatRequest represents an incoming chat message
@@ -67,7 +68,7 @@ func (s *AgentServer) HandleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Continue with chat mode
+	// Continue with chat mode (using clean streaming architecture)
 	s.handleChatMode(w, r, &req)
 }
 
@@ -190,9 +191,8 @@ func (s *AgentServer) handleAgentMode(w http.ResponseWriter, r *http.Request, re
 	})
 }
 
-// handleChatMode handles conversational chat with optional role context
+// handleChatMode handles conversational chat using the clean streaming architecture
 func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req *ChatRequest) {
-
 	// Set SSE headers
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -206,222 +206,107 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 		return
 	}
 
-	// Track what context was loaded
-	contextLoaded := ""
+	// Build generic streaming request
+	streamReq := streaming.StreamRequest{
+		Messages:  make([]streaming.Message, 0),
+		MaxTokens: s.maxTokens,
+		Model:     s.model, // Default model, will be overridden by role config
+	}
 
-	// Load role context if specified
-	var systemPrompt []anthropic.TextBlockParam
-	var orchestratorProjectContext *anthropic.TextBlockParam
+	// Add conversation history
+	for _, msg := range req.Messages {
+		streamReq.Messages = append(streamReq.Messages, streaming.Message{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+
+	// Add current message
+	streamReq.Messages = append(streamReq.Messages, streaming.Message{
+		Role:    "user",
+		Content: req.Message,
+	})
+
+	// Load role context as system prompt
 	if req.Role != "" {
-		// Use chat-specific orchestrator prompt (from parent .ai-pack submodule)
 		roleFile := fmt.Sprintf("../.ai-pack/agents/%s.md", req.Role)
 		if req.Role == "orchestrator" {
 			roleFile = "../.ai-pack/agents/orchestrator-chat.md"
 		}
+
 		roleContext, err := s.loadRoleContext(roleFile)
 		if err != nil {
 			monitoring.Logger.Warn("chat_role_load_failed", "role", req.Role, "error", err)
-			// Continue without role context rather than failing
 		} else {
-			systemPrompt = []anthropic.TextBlockParam{
-				{
-					Text: roleContext,
-					Type: ContentTypeText,
-				},
-			}
+			streamReq.SystemPrompt = roleContext
 		}
 
-		// For orchestrator, prepare project context to add LAST (after other system prompts)
-		if req.Role == "orchestrator" && req.ProjectRoot != "" {
-			projectContext := fmt.Sprintf(`
-
-CRITICAL - Current Working Directory:
-===========================================
-Project Root: %s
-
-MANDATORY INSTRUCTIONS for tool calls:
-- When calling create_task: You MUST use project_root="%s"
-- When calling spawn_agent: You MUST use project_root="%s"
-- DO NOT infer paths from URLs or conversation (e.g., /home/user, /home/xasm-plus-plus)
-- DO NOT use generic Linux paths
-- ONLY use the EXACT path above`, req.ProjectRoot, req.ProjectRoot, req.ProjectRoot)
-			orchestratorProjectContext = &anthropic.TextBlockParam{
-				Text: projectContext,
-				Type: ContentTypeText,
-			}
-		}
+		// TODO: Add tools for orchestrator
+		// Tools need to be defined in provider-agnostic format first
+		// For now, orchestrator will work without tools until we implement
+		// proper tool abstraction in the streaming layer
 	}
 
-	// Load project context if enabled and project root is provided
-	if req.UseProjectContext && req.ProjectRoot != "" {
-		projectContext, filename, err := s.loadProjectContext(req.ProjectRoot)
-		if err == nil && projectContext != "" {
-			contextLoaded = filename
-			// Prepend project context to system prompt
-			contextBlock := anthropic.TextBlockParam{
-				Text: fmt.Sprintf("# Project Context\n\n%s", projectContext),
-				Type: ContentTypeText,
-			}
-			if len(systemPrompt) > 0 {
-				systemPrompt = append([]anthropic.TextBlockParam{contextBlock}, systemPrompt...)
-			} else {
-				systemPrompt = []anthropic.TextBlockParam{contextBlock}
-			}
-			monitoring.Logger.Info("chat_project_context_loaded", "file", filename, "project", req.ProjectRoot)
-		}
-	}
-
-	// Build messages array for Claude
-	var messages []anthropic.MessageParam
-
-	// Add conversation history if provided
-	for _, msg := range req.Messages {
-		if msg.Role == "user" {
-			messages = append(messages, anthropic.NewUserMessage(anthropic.NewTextBlock(msg.Content)))
-		} else if msg.Role == "assistant" {
-			messages = append(messages, anthropic.NewAssistantMessage(anthropic.NewTextBlock(msg.Content)))
-		}
-	}
-
-	// Add current message
-	messages = append(messages, anthropic.NewUserMessage(anthropic.NewTextBlock(req.Message)))
-
-	// Create streaming request
+	// Create stream using the service (handles model selection automatically)
 	ctx := context.Background()
-	params := anthropic.MessageNewParams{
-		Model:     anthropic.Model(s.model),
-		MaxTokens: int64(s.maxTokens),
-		Messages:  messages,
+	stream, err := s.streamingService.CreateStream(ctx, req.Role, streamReq)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to create stream: %v", err), http.StatusInternalServerError)
+		return
 	}
-
-	// Add orchestrator project context LAST so it's freshest in model's context
-	if orchestratorProjectContext != nil {
-		systemPrompt = append(systemPrompt, *orchestratorProjectContext)
-	}
-
-	// Add system prompt if we have role context
-	if len(systemPrompt) > 0 {
-		params.System = systemPrompt
-	}
-
-	// Add tools for orchestrator role
-	if req.Role == "orchestrator" {
-		tools := GetOrchestratorTools()
-		params.Tools = tools
-		monitoring.Logger.Info("orchestrator_tools_enabled", "count", len(tools))
-	}
-
-	stream := s.client.Messages.NewStreaming(ctx, params)
+	defer stream.Close()
 
 	// Send connected event
 	fmt.Fprintf(w, "event: connected\n")
 	fmt.Fprintf(w, "data: {\"status\":\"connected\"}\n\n")
 	flusher.Flush()
 
-	// Stream deltas and accumulate the message
-	var message anthropic.Message
+	// Stream events
 	for stream.Next() {
 		event := stream.Current()
 
-		// Log event type for debugging
-		monitoring.Logger.Debug("chat_stream_event", "type", event.Type)
-
-		// Send delta events for content blocks
-		if event.Type == ContentBlockDelta {
-			// Extract text from delta
-			deltaJSON, _ := json.Marshal(event)
-			var deltaData map[string]interface{}
-			json.Unmarshal(deltaJSON, &deltaData)
-
-			monitoring.Logger.Debug("chat_delta_data", "data", deltaData)
-
-			if delta, ok := deltaData["delta"].(map[string]interface{}); ok {
-				if text, ok := delta["text"].(string); ok {
-					// Send delta to client
-					textData, _ := json.Marshal(map[string]interface{}{
-						"text": text,
-					})
-					fmt.Fprintf(w, "event: delta\n")
-					fmt.Fprintf(w, "data: %s\n\n", textData)
-					flusher.Flush()
-				}
-			}
-		}
-
-		if err := message.Accumulate(event); err != nil {
-			monitoring.Logger.Error("chat_accumulate_error", "error", err)
-			continue
+		// Send delta events
+		if event.Delta != nil && event.Delta.Text != "" {
+			textData, _ := json.Marshal(map[string]interface{}{
+				"text": event.Delta.Text,
+			})
+			fmt.Fprintf(w, "event: delta\n")
+			fmt.Fprintf(w, "data: %s\n\n", textData)
+			flusher.Flush()
 		}
 	}
 
+	// Check for errors
 	if err := stream.Err(); err != nil {
 		monitoring.Logger.Error("chat_stream_error", "error", err)
+		errorData, _ := json.Marshal(map[string]interface{}{
+			"error": err.Error(),
+		})
 		fmt.Fprintf(w, "event: error\n")
-		errMsg := strings.ReplaceAll(err.Error(), "\"", "\\\"")
-		fmt.Fprintf(w, "data: {\"error\":\"%s\"}\n\n", errMsg)
+		fmt.Fprintf(w, "data: %s\n\n", errorData)
 		flusher.Flush()
 		return
 	}
 
-	// Get full text and check for tool use
-	fullText := ""
-	var toolResults []string
-	for _, block := range message.Content {
-		if block.Type == "text" {
-			fullText += block.Text
-		} else if block.Type == "tool_use" {
-			// Execute tool call
-			toolName := block.Name
-			var toolInput map[string]interface{}
-			if block.Input != nil {
-				// block.Input is json.RawMessage, need to unmarshal
-				if err := json.Unmarshal(block.Input, &toolInput); err != nil {
-					monitoring.Logger.Error("chat_tool_input_parse_failed", "tool", toolName, "error", err)
-					continue
-				}
-			}
+	// Get final message with token usage
+	message := stream.GetMessage()
 
-			monitoring.Logger.Info("chat_tool_execution", "tool", toolName, "input", toolInput)
-
-			result, err := s.ExecuteTool(toolName, toolInput)
-			if err != nil {
-				monitoring.Logger.Error("chat_tool_failed", "tool", toolName, "error", err)
-				toolResults = append(toolResults, fmt.Sprintf("❌ Tool %s failed: %v", toolName, err))
-			} else {
-				monitoring.Logger.Info("chat_tool_success", "tool", toolName, "result", result)
-				toolResults = append(toolResults, fmt.Sprintf("✅ Tool %s executed: %s", toolName, result))
-			}
-		}
-	}
-
-	// If tools were executed, append results to full text
-	if len(toolResults) > 0 {
-		fullText += "\n\n**Tool Results:**\n" + strings.Join(toolResults, "\n")
-	}
-
-	// Generate a follow-up suggestion from Claude
-	suggestion := s.generateFollowUpSuggestion(ctx, fullText)
-
-	// Send completion event with full message, suggestion, and context info
-	completionData, _ := json.Marshal(map[string]interface{}{
-		"status":         "complete",
-		"text":           fullText,
-		"suggestion":     suggestion,
-		"context_loaded": contextLoaded,
-		"usage": map[string]int{
-			"input_tokens":  int(message.Usage.InputTokens),
-			"output_tokens": int(message.Usage.OutputTokens),
-		},
+	// Send completion event
+	completeData, _ := json.Marshal(map[string]interface{}{
+		"status":        "complete",
+		"input_tokens":  message.InputTokens,
+		"output_tokens": message.OutputTokens,
+		"model":         message.Model,
 	})
-
 	fmt.Fprintf(w, "event: complete\n")
-	fmt.Fprintf(w, "data: %s\n\n", completionData)
+	fmt.Fprintf(w, "data: %s\n\n", completeData)
 	flusher.Flush()
 
-	// Log metrics
-	monitoring.Logger.Info("chat_completed",
-		"input_tokens", message.Usage.InputTokens,
-		"output_tokens", message.Usage.OutputTokens)
+	monitoring.Logger.Info("chat_complete",
+		"role", req.Role,
+		"model", message.Model,
+		"input_tokens", message.InputTokens,
+		"output_tokens", message.OutputTokens)
 }
 
 // generateFollowUpSuggestion asks Claude for a relevant follow-up question
