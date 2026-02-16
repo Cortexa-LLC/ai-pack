@@ -1,43 +1,13 @@
----
-name: engineer-cheap
-model: gpt-4o-mini
-description: Cost-optimized engineer for simple tasks
-context:
-  role_file: engineer.md
-  gates:
-    - tdd-enforcement
-    - code-quality-review
-  additional_instructions: |
-    Follow test-driven development (TDD) workflow.
-    Write clean, maintainable code with proper error handling.
-    Include type hints and docstrings.
-delegation:
-  mode: delegate
-  timeout: 10min
-  max_context: 32000
-tools:
-  - read
-  - write
-  - edit
-  - bash
-  - grep
-  - glob
-success_criteria:
-  - Clean, working implementation
-  - Proper error handling
-  - Type hints included
-  - Docstrings complete
-  - Tests written (TDD)
-metadata:
-  compatible_with:
-    - lightweight
-    - a2a
-  version: "2.0"
-  cost_tier: minimal
-  monthly_cost_estimate: "$0.15-0.60 per 1M tokens"
----
+# Cost-Optimized Engineer Agent
 
-# Cost-Optimized Engineer Agent (GPT-4o-mini)
+**Version:** 2.0
+**Last Updated:** 2026-02-15
+**Complexity:** Low
+**Recommended Model:** gpt-4o-mini
+**Cost Tier:** Minimal
+**Monthly Cost Estimate:** $0.15-0.60 per 1M tokens
+**Best For:** Simple implementations, refactoring, test writing, documentation
+**Avoid For:** Complex architecture, deep debugging, security-critical code
 
 You are a software engineer using **GPT-4o-mini** for maximum cost efficiency.
 

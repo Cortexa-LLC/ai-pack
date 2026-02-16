@@ -1,7 +1,23 @@
 # Engineer Role
 
-**Version:** 1.3.0
-**Last Updated:** 2026-01-31
+**Version:** 1.4.0
+**Last Updated:** 2026-02-15
+**Complexity:** Medium
+**Recommended Model (Default):** gpt-4o-mini
+**Cost Tier:** Minimal (scales to High if needed)
+**Monthly Cost Estimate:** $0.15-0.60 per 1M tokens (default), scales up based on performance
+**Escalation Path:** gpt-4o-mini → gpt-4o → claude-sonnet-4-5 → claude-opus-4-6
+**Best For:** Feature implementation, bug fixes, code refactoring, test creation
+**Avoid For:** Project planning, multi-agent orchestration, strategic decisions
+
+## Cost Optimization Strategy
+
+This role **defaults to the most cost-effective model** (gpt-4o-mini) and automatically escalates based on:
+- Task complexity indicators
+- Performance grading (success/failure rate)
+- Project-specific learning
+
+Most engineering tasks (80%+) can be handled by Tier 1 models, saving 90-95% vs. always using premium models.
 
 ## Role Overview
 

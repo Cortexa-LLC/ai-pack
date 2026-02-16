@@ -13,6 +13,7 @@ type AgentTask struct {
 	Result      *string        `json:"result,omitempty"`
 	Error       *string        `json:"error,omitempty"`
 	Metadata    map[string]any `json:"metadata,omitempty"`
+	BeadsTaskID *string        `json:"beadsTaskID,omitempty"`
 	ProjectRoot *string        `json:"projectRoot,omitempty"`
 }
 

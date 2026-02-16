@@ -1,7 +1,24 @@
 # Inspector Role
 
-**Version:** 1.0.0
-**Last Updated:** 2026-01-08
+**Version:** 1.1.0
+**Last Updated:** 2026-02-15
+**Complexity:** Medium to High
+**Recommended Model (Default):** gpt-4o-mini
+**Cost Tier:** Minimal (scales to High if needed)
+**Monthly Cost Estimate:** $0.15-0.60 per 1M tokens (default), scales up for complex investigations
+**Escalation Path:** gpt-4o-mini → gpt-4o → claude-sonnet-4-5 → claude-opus-4-6
+**Best For:** Bug investigation, root cause analysis, reproduction cases, retrospectives
+**Avoid For:** Simple bug fixes, feature implementation, straightforward testing
+
+## Cost Optimization Strategy
+
+Bug investigation relies more on **pattern recognition** than raw reasoning power. Most investigations (70%+) can be handled by cost-effective models. Escalates when:
+- Complex race conditions or timing issues
+- Deep architectural analysis required
+- Multiple interconnected failures
+- Performance grading shows struggling (Grade D or F)
+
+Starting cheap allows testing multiple hypotheses cost-effectively before escalating to premium models.
 
 ## Role Overview
 

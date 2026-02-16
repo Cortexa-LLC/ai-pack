@@ -756,9 +756,17 @@ func fetchAllLogs(tailLines int, jsonOutput bool) {
 	// Fetch server logs
 	fetchRecentServerLogs(tailLines, jsonOutput)
 
-	// Note: Task logs should be fetched via API (agent logs <task-id>)
-	// Searching local .beads/tasks/ is obsolete after server changes
-	// All tasks are now tracked server-side across all projects
+	// Fetch all task logs
+	matches, _ := filepath.Glob(".beads/tasks/task-*/execution.log")
+	for _, logFile := range matches {
+		taskID := filepath.Base(filepath.Dir(logFile))
+
+		if !jsonOutput {
+			fmt.Printf("\n=== Task: %s ===\n", taskID)
+		}
+
+		displayLogFile(logFile, tailLines, jsonOutput)
+	}
 }
 
 func handleListServer(running, completed, failed, all, jsonOutput, verboseOutput *bool) {
@@ -911,12 +919,185 @@ func handleList(args []string) {
 	all := fs.Bool("all", false, "Show all agents (including completed/failed)")
 	jsonOutput := fs.Bool("json", false, descOutputAsJSON)
 	verboseOutput := fs.Bool("verbose", false, "Verbose output (show role and full details)")
+	serverQuery := fs.Bool("server", false, "Query server (default behavior, kept for backward compatibility)")
 	fs.Parse(args)
 
 	// ALWAYS query server for accurate running task status
 	// Server is the source of truth for active tasks
-	// Local filesystem metadata can be stale (orphaned tasks)
 	handleListServer(running, completed, failed, all, jsonOutput, verboseOutput)
+}
+
+// handleListLocal is deprecated - kept for reference only
+// Use handleListServer instead for accurate task status
+func handleListLocalDeprecated(args []string) {
+	// This function is no longer used - agent list always queries server
+	// Local filesystem metadata can be stale (orphaned tasks show as "in_progress")
+	// Server's activeTasks map is the source of truth
+	fmt.Println("⚠️  Local mode is deprecated. Use 'agent list' (queries server automatically)")
+	return
+
+	// Dead code below - kept for reference only
+	// Otherwise, list local .beads/tasks/* directories (project-specific)
+	// Match all task directories (new format: {beads-id}-{timestamp})
+	tasksDir := ".beads/tasks"
+	entries, err := os.ReadDir(tasksDir)
+	if err != nil {
+		if *jsonOutput {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No active agents")
+		}
+		return
+	}
+
+	var matches []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		// Skip archive and hidden directories
+		if strings.HasPrefix(name, ".") || name == "archive" {
+			continue
+		}
+		matches = append(matches, filepath.Join(tasksDir, name))
+	}
+
+	type AgentInfo struct {
+		TaskID      string `json:"task_id"`
+		BeadsTaskID string `json:"beads_task_id,omitempty"`
+		Status      string `json:"status"`
+		Role        string `json:"role"`
+		Description string `json:"description"`
+	}
+
+	var agents []AgentInfo
+
+	for _, taskDir := range matches {
+		metaFile := filepath.Join(taskDir, "00-metadata.json")
+		data, err := os.ReadFile(metaFile)
+		if err != nil {
+			continue
+		}
+
+		var meta map[string]interface{}
+		json.Unmarshal(data, &meta)
+
+		status, _ := meta["status"].(string)
+
+		// Filter by status
+		if showOnlyActive {
+			// Default: show only active work (running, queued, in_progress)
+			// Hide completed and failed
+			if status == "completed" || status == "failed" {
+				continue
+			}
+		} else {
+			// Specific filters
+			if *running && status != "in_progress" {
+				continue
+			}
+			if *completed && status != "completed" {
+				continue
+			}
+			if *failed && status != "failed" {
+				continue
+			}
+			// If --all, show everything (no filtering)
+		}
+
+		taskID := filepath.Base(taskDir)
+		role, _ := meta["role"].(string)
+		description := fmt.Sprintf("%v", meta["description"])
+		beadsTaskID := ""
+
+		// Check metadata at root level (new location)
+		if metadata, ok := meta["metadata"].(map[string]interface{}); ok {
+			if btid, ok := metadata["beads_task_id"].(string); ok {
+				beadsTaskID = btid
+			}
+		}
+
+		// Fallback: check old location for backward compatibility
+		if beadsTaskID == "" {
+			if config, ok := meta["config"].(map[string]interface{}); ok {
+				if md, ok := config["metadata"].(map[string]interface{}); ok {
+					if btid, ok := md["beads_task_id"].(string); ok {
+						beadsTaskID = btid
+					}
+				}
+			}
+		}
+
+		agents = append(agents, AgentInfo{
+			TaskID:      taskID,
+			BeadsTaskID: beadsTaskID,
+			Status:      status,
+			Role:        role,
+			Description: description,
+		})
+	}
+
+	if *jsonOutput {
+		jsonData, _ := json.MarshalIndent(agents, "", "  ")
+		fmt.Println(string(jsonData))
+	} else if *verboseOutput {
+		// Verbose format: full details with role and status
+		fmt.Println("Active Agents:")
+		fmt.Println()
+		for _, agent := range agents {
+			// Show Beads task ID as primary identifier
+			displayID := agent.BeadsTaskID
+			if displayID == "" {
+				displayID = agent.TaskID // Fallback to internal ID if no Beads task
+			}
+
+			fmt.Printf("  %s [%s]\n", displayID, agent.Status)
+			fmt.Printf("    Role: %s\n", agent.Role)
+			fmt.Printf("    Task: %s\n", agent.Description)
+			fmt.Println()
+		}
+	} else {
+		// Compact format (default): Status, Beads ID, Internal ID, and description
+		if len(agents) > 0 {
+			fmt.Println("STATUS      BEADS-ID      INTERNAL-ID                             DESCRIPTION")
+			fmt.Println("----------  ------------  --------------------------------------  -----------")
+		}
+
+		for _, agent := range agents {
+			// Format status with text
+			statusText := ""
+			switch agent.Status {
+			case "in_progress":
+				statusText = "RUNNING"
+			case "completed":
+				statusText = "COMPLETED"
+			case "failed":
+				statusText = "FAILED"
+			default:
+				statusText = agent.Status
+			}
+
+			// Truncate long descriptions
+			description := truncateDescription(agent.Description, 50)
+
+			// Show both IDs
+			beadsID := agent.BeadsTaskID
+			if beadsID == "" {
+				beadsID = "(none)"
+			}
+			internalID := agent.TaskID
+			if len(internalID) > 38 {
+				internalID = internalID[:35] + "..."
+			}
+
+			fmt.Printf("%-10s  %-12s  %-38s  %s\n", statusText, beadsID, internalID, description)
+		}
+
+		if len(agents) == 0 {
+			fmt.Println("No agents found")
+		}
+	}
 }
 
 func handleWait(args []string) {
@@ -1632,6 +1813,7 @@ func findTaskIDAndProjectFromServer(beadsTaskID string) (string, string) {
 	var result struct {
 		Tasks []struct {
 			TaskID      string `json:"task_id"`
+			BeadsTaskID string `json:"beads_task_id"`
 			ProjectRoot string `json:"project_root"`
 		} `json:"tasks"`
 	}
@@ -1640,10 +1822,9 @@ func findTaskIDAndProjectFromServer(beadsTaskID string) (string, string) {
 		return "", ""
 	}
 
-	// After GraphQL changes, task_id IS the Beads task ID
-	// Find matching task ID (which is already the Beads ID)
+	// Find matching beads task ID
 	for _, task := range result.Tasks {
-		if task.TaskID == beadsTaskID {
+		if task.BeadsTaskID == beadsTaskID {
 			return task.TaskID, task.ProjectRoot
 		}
 	}
@@ -1651,15 +1832,50 @@ func findTaskIDAndProjectFromServer(beadsTaskID string) (string, string) {
 	return "", ""
 }
 
-// findInternalTaskID is now obsolete - after server changes, taskID IS the Beads task ID
-// Just return the Beads ID - the server finds it across all projects
 func findInternalTaskID(beadsTaskID string) string {
-	return beadsTaskID
+	// First try: Search server's .beads/tasks/ directory
+	// (Server creates tasks in its own working directory)
+	serverTasksDir := "/Users/bryanw/Projects/Vibe/ai-pack/a2a-agent/.beads/tasks"
+	taskID := searchTasksDir(serverTasksDir, beadsTaskID)
+	if taskID != "" {
+		return taskID
+	}
+
+	// Fallback: Search current directory's .beads/tasks/
+	taskID = searchTasksDir(".beads/tasks", beadsTaskID)
+	return taskID
 }
 
-// searchTasksDir is obsolete - kept as stub for backward compatibility
-// After server changes, taskID IS the Beads task ID, no need to search old formats
 func searchTasksDir(tasksDir string, beadsTaskID string) string {
+	matches, _ := filepath.Glob(filepath.Join(tasksDir, "task-*"))
+	for _, taskDir := range matches {
+		metaFile := filepath.Join(taskDir, "00-metadata.json")
+		data, err := os.ReadFile(metaFile)
+		if err != nil {
+			continue
+		}
+
+		var meta map[string]interface{}
+		if err := json.Unmarshal(data, &meta); err != nil {
+			continue
+		}
+
+		// Check metadata.beads_task_id (new location)
+		if metadata, ok := meta["metadata"].(map[string]interface{}); ok {
+			if btid, ok := metadata["beads_task_id"].(string); ok && btid == beadsTaskID {
+				return filepath.Base(taskDir)
+			}
+		}
+
+		// Fallback: Check config.metadata.beads_task_id (old location)
+		if config, ok := meta["config"].(map[string]interface{}); ok {
+			if configMeta, ok := config["metadata"].(map[string]interface{}); ok {
+				if btid, ok := configMeta["beads_task_id"].(string); ok && btid == beadsTaskID {
+					return filepath.Base(taskDir)
+				}
+			}
+		}
+	}
 	return ""
 }
 

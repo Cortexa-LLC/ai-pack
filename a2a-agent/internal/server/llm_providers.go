@@ -166,7 +166,7 @@ func (p *AnthropicProvider) StreamCompletion(ctx context.Context, messages []LLM
 
 		// Extract tool calls
 		for _, block := range message.Content {
-			if block.Type == "tool_use" {
+			if block.Type == constants.ContentTypeToolUse {
 				var input map[string]interface{}
 				if block.Input != nil {
 					// block.Input is json.RawMessage

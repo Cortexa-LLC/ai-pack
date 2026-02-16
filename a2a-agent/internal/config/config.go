@@ -13,13 +13,14 @@ const (
 
 // Config holds all server configuration
 type Config struct {
-	Server      ServerConfig       `json:"server"`
-	API         APIConfig          `json:"api"`
-	Agent       AgentConfig        `json:"agent"`
-	Logging     LoggingConfig      `json:"logging"`
-	Metrics     MetricsConfig      `json:"metrics"`
-	TaskCleanup TaskCleanupConfig  `json:"task_cleanup"`
-	Projects    map[string]string  `json:"projects,omitempty"` // map[projectPath]lastAccessed
+	Server        ServerConfig       `json:"server"`
+	API           APIConfig          `json:"api"`
+	Agent         AgentConfig        `json:"agent"`
+	Logging       LoggingConfig      `json:"logging"`
+	Metrics       MetricsConfig      `json:"metrics"`
+	TaskCleanup   TaskCleanupConfig  `json:"task_cleanup"`
+	ProviderCosts ProviderCostsConfig `json:"provider_costs"`
+	Projects      map[string]string  `json:"projects,omitempty"` // map[projectPath]lastAccessed
 }
 
 // ServerConfig holds server-specific settings
@@ -67,6 +68,21 @@ type TaskCleanupConfig struct {
 	ArchiveAfterDays int  `json:"archive_after_days"` // Archive tasks older than N days
 }
 
+// ProviderCostsConfig holds pricing for LLM providers
+type ProviderCostsConfig struct {
+	Models         map[string]ModelCost `json:"models"`
+	LastUpdated    string               `json:"last_updated,omitempty"`    // ISO 8601 timestamp
+	UpdateInterval int                  `json:"update_interval,omitempty"` // Days between updates (default: 30)
+}
+
+// ModelCost holds input/output token costs per 1M tokens in USD
+type ModelCost struct {
+	Provider    string  `json:"provider"`              // Provider name (e.g., "anthropic", "openai")
+	InputCost   float64 `json:"input_cost_per_1m"`     // Cost per 1M input tokens in USD
+	OutputCost  float64 `json:"output_cost_per_1m"`    // Cost per 1M output tokens in USD
+	Description string  `json:"description,omitempty"` // Optional description
+}
+
 // DefaultConfig returns default configuration
 func DefaultConfig() *Config {
 	return &Config{
@@ -97,6 +113,10 @@ func DefaultConfig() *Config {
 		TaskCleanup: TaskCleanupConfig{
 			Enabled:          true,
 			ArchiveAfterDays: 15,
+		},
+		ProviderCosts: ProviderCostsConfig{
+			UpdateInterval: 30,                         // Update costs every 30 days
+			Models:         make(map[string]ModelCost), // Empty by default - load from config file
 		},
 		Projects: make(map[string]string),
 	}

@@ -14,6 +14,7 @@ import (
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/beads"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 )
 
 // HandleLogsStream streams logs via SSE
@@ -209,10 +210,10 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 				if strings.Contains(contentStr, "✅ Agent completed") ||
 					strings.Contains(contentStr, "🎉 Task completed successfully") ||
 					strings.Contains(contentStr, "❌ Task failed") {
-					taskStatus = "completed"
+					taskStatus = constants.StatusCompleted
 				} else {
 					// Logs exist but no completion marker - assume still running
-					taskStatus = "in_progress"
+					taskStatus = constants.StatusInProgress
 				}
 			}
 		}
@@ -230,7 +231,7 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Determine if task is still running
-	isTaskRunning := taskStatus == "in_progress"
+	isTaskRunning := taskStatus == constants.StatusInProgress
 
 	// Check if streaming is requested and task is still running
 	// Completed tasks should never stream (follow mode)

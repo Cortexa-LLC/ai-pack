@@ -32,9 +32,9 @@ func NewOpenAIFactory(client *openai.Client, maxTokens int) *OpenAIFactory {
 	}
 }
 
-// GetProviderName returns "openai"
+// GetProviderName returns the provider name
 func (f *OpenAIFactory) GetProviderName() string {
-	return "openai"
+	return ProviderOpenAI
 }
 
 // SupportsModel checks if this is a GPT model
@@ -103,8 +103,12 @@ func (f *OpenAIFactory) CreateStream(ctx context.Context, req StreamRequest) (St
 	}
 
 	return &OpenAIStreamAdapter{
-		stream:  stream,
-		message: &CompletedMessage{Model: req.Model, Role: "assistant"},
+		stream: stream,
+		message: &CompletedMessage{
+			Provider: ProviderOpenAI,
+			Model:    req.Model,
+			Role:     "assistant",
+		},
 	}, nil
 }
 

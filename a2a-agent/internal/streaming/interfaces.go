@@ -2,6 +2,12 @@ package streaming
 
 import "context"
 
+// Provider constants
+const (
+	ProviderAnthropic = "anthropic"
+	ProviderOpenAI    = "openai"
+)
+
 // StreamEvent represents a single event in the stream
 type StreamEvent struct {
 	Type     string
@@ -20,6 +26,7 @@ type DeltaContent struct {
 // CompletedMessage represents the final accumulated message
 type CompletedMessage struct {
 	ID           string
+	Provider     string // Provider name (e.g., "anthropic", "openai")
 	Model        string
 	Role         string
 	Content      string

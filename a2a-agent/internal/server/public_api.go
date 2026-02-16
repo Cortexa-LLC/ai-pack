@@ -7,6 +7,7 @@ import (
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 )
 
 // Public API methods for the server
@@ -37,14 +38,14 @@ func (s *AgentServer) ExecuteTaskSync(role, task string) (*protocol.ExecuteTaskR
 			return nil, err
 		}
 
-		if status.Status == "completed" {
-			response.Status = "completed"
+		if status.Status == constants.StatusCompleted {
+			response.Status = constants.StatusCompleted
 			response.Message = "Task completed successfully"
 			return response, nil
 		}
 
-		if status.Status == "failed" {
-			response.Status = "failed"
+		if status.Status == constants.StatusFailed {
+			response.Status = constants.StatusFailed
 			response.Message = status.Error
 			return response, nil
 		}

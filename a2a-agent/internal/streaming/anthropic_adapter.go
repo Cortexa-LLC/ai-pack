@@ -37,9 +37,9 @@ func NewAnthropicFactory(apiKey string, maxTokens int, opts ...option.RequestOpt
 	}
 }
 
-// GetProviderName returns "anthropic"
+// GetProviderName returns the provider name
 func (f *AnthropicFactory) GetProviderName() string {
-	return "anthropic"
+	return ProviderAnthropic
 }
 
 // SupportsModel checks if this is a Claude model
@@ -102,7 +102,10 @@ func (f *AnthropicFactory) CreateStream(ctx context.Context, req StreamRequest) 
 
 	return &AnthropicStreamAdapter{
 		stream:  stream,
-		message: &CompletedMessage{Model: req.Model},
+		message: &CompletedMessage{
+			Provider: ProviderAnthropic,
+			Model:    req.Model,
+		},
 	}, nil
 }
 
