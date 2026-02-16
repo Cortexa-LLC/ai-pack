@@ -1641,6 +1641,28 @@ function App() {
                   <CostBreakdown
                     totalInputTokens={metricsData.metrics.tokenUsage.inputTokens}
                     totalOutputTokens={metricsData.metrics.tokenUsage.outputTokens}
+                    providers={metricsData.metrics.providerBreakdown?.length > 0 ? metricsData.metrics.providerBreakdown.map(p => {
+                      // Calculate cost based on hardcoded pricing (TODO: fetch from config)
+                      const pricing = {
+                        'anthropic:claude-sonnet-4-5': [3.00, 15.00],
+                        'anthropic:claude-sonnet-4-5-20250929': [3.00, 15.00],
+                        'anthropic:claude-haiku-4-5': [0.25, 1.25],
+                        'openai:gpt-4o': [2.50, 10.00],
+                        'openai:gpt-4o-mini': [0.15, 0.60],
+                        'openai:gpt-5.2-mini': [0.60, 2.40],
+                      };
+                      const key = `${p.provider}:${p.model}`;
+                      const prices = pricing[key as keyof typeof pricing] || [3.00, 15.00]; // Default to Sonnet pricing
+                      const inputCost = (p.inputTokens / 1_000_000) * prices[0];
+                      const outputCost = (p.outputTokens / 1_000_000) * prices[1];
+                      const cost = inputCost + outputCost;
+
+                      return {
+                        ...p,
+                        cost,
+                        percentage: 0, // Will be calculated in CostBreakdown
+                      };
+                    }) : undefined}
                   />
 
                   {/* Per-Turn Averages */}

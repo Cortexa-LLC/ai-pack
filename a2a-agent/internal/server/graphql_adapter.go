@@ -404,6 +404,7 @@ func (a *GraphQLAdapter) GetMetrics() *graphql.MetricsInfo {
 		HTTPRequestsTotal:   snapshot.HTTPRequestsTotal,
 		HTTPErrors:          snapshot.HTTPErrors,
 		RateLimitViolations: snapshot.RateLimitViolations,
+		ProviderBreakdown:   snapshot.ProviderBreakdown,
 	}
 }
 
@@ -441,7 +442,7 @@ func convertToTaskInfo(execution *TaskExecution) *graphql.TaskInfo {
 		Metadata:  execution.metadata,
 	}
 
-	if execution.Status == "completed" || execution.Status == "failed" {
+	if execution.Status == constants.StatusCompleted || execution.Status == constants.StatusFailed {
 		completedAt := time.Now().Format(time.RFC3339)
 		taskInfo.CompletedAt = &completedAt
 	}

@@ -24,41 +24,12 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/proxy"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/tools"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 	"github.com/sashabaranov/go-openai"
-	"gopkg.in/yaml.v3"
 )
 
-const (
 	Version = "2.1.0"
 
-	// Token limits
-	MaxContextTokens = 200000 // Claude API limit (informational only - API returns actual usage)
-
-	// Content block types
-	ContentTypeText    = "text"
-	ContentTypeToolUse = "tool_use"
-
-	// Message event types
-	MessageEventStart       = "message_start"
-	MessageEventDelta       = "message_delta"
-	MessageEventStop        = "message_stop"
-	ContentBlockStart       = "content_block_start"
-	ContentBlockDelta       = "content_block_delta"
-	ContentBlockStop        = "content_block_stop"
-	MessageDeltaUsage       = "message_delta"
-	PingEvent               = "ping"
-	ErrorEvent              = "error"
-
-	// File names
-	MetadataFileName        = "00-metadata.json"
-	ProjectRegistryFileName = "project-registry.json"
-
-	// Directory names
-	BeadsDir = ".beads"
-
-	// Project cleanup threshold (days)
-	ProjectInactiveDays = 30
-)
 
 type AgentServer struct {
 	rootDir          string
@@ -425,7 +396,7 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		Task:        taskDescription,
 		Config:      config,
 		StartTime:   time.Now(),
-		Status:      "queued",
+		Status:      constants.StatusQueued,
 		ProjectRoot: projectRoot,
 		streamChan:  make(chan *protocol.StreamEvent, 100),
 		streamOpen:  true,
@@ -488,7 +459,7 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 
 	return &protocol.ExecuteTaskResponse{
 		TaskID:    taskID,
-		Status:    "queued",
+		Status:    constants.StatusQueued,
 		Message:   fmt.Sprintf("Agent %s queued for execution. Task ID: %s", role, taskID),
 		StreamURL: streamURL,
 		CreatedAt: time.Now(),
@@ -516,7 +487,7 @@ func (s *AgentServer) getTaskStatus(taskID string) (*protocol.TaskStatusResponse
 		Error:     execution.Error,
 	}
 
-	if execution.Status == "completed" || execution.Status == "failed" {
+	if execution.Status == constants.StatusCompleted || execution.Status == constants.StatusFailed {
 		completedAt := time.Now()
 		response.CompletedAt = &completedAt
 	}
@@ -633,7 +604,7 @@ func (s *AgentServer) createTaskPacketInProject(taskID, role, task string, confi
 		"tier":        config.Tier,
 		"spawned_by":  "go-agent-server-v2",
 		"spawned_at":  time.Now().Format(time.RFC3339),
-		"status":      "queued",
+		"status":      constants.StatusQueued,
 		"config":      config,
 		"updated_at":  time.Now().Format(time.RFC3339),
 	}
@@ -796,7 +767,7 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 			beadsStatus := strings.ToLower(beadsTask.Status)
 
 			// If Beads shows closed/completed but execution shows blocked/failed, reconcile
-			if (beadsStatus == "closed" || beadsStatus == "completed") &&
+			if (beadsStatus == constants.StatusClosed || beadsStatus == constants.StatusCompleted) &&
 			   (status == "blocked" || status == "failed") {
 				monitoring.Logger.Info("reconciling_stale_execution_metadata",
 					"task_id", beadsTaskID,
@@ -805,7 +776,7 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 					"execution_folder", executionFolder)
 
 				// Update metadata
-				metadata["status"] = "completed"
+				metadata["status"] = constants.StatusCompleted
 				metadata["error"] = nil
 				metadata["updated_at"] = time.Now().Format(time.RFC3339)
 				metadata["reconciled"] = true
@@ -819,7 +790,7 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 				// Write back to disk
 				if updatedData, err := json.MarshalIndent(metadata, "", "  "); err == nil {
 					if err := os.WriteFile(metadataPath, updatedData, 0644); err == nil {
-						status = "completed"
+						status = constants.StatusCompleted
 						updatedAt = time.Now()
 						monitoring.Logger.Info("reconciled_execution_metadata",
 							"task_id", beadsTaskID,
@@ -1385,17 +1356,17 @@ func (s *AgentServer) setupExecutionLogger(execution *TaskExecution) func(string
 // initializeTaskExecution sets initial status and progress
 func (s *AgentServer) initializeTaskExecution(execution *TaskExecution, logMsg func(string)) error {
 	s.mu.Lock()
-	execution.Status = "in_progress"
+	execution.Status = constants.StatusInProgress
 	s.mu.Unlock()
 
-	if err := s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "in_progress", ""); err != nil {
+	if err := s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, constants.StatusInProgress, ""); err != nil {
 		logMsg(fmt.Sprintf("❌ Failed to update status: %v", err))
 		return fmt.Errorf("failed to update task status: %w", err)
 	}
 	logMsg("📝 Status updated: in_progress")
 
 	s.sendStreamEvent(execution, "status_update", map[string]interface{}{
-		"status": "in_progress",
+		"status": constants.StatusInProgress,
 	})
 
 	// Log started event
@@ -1510,7 +1481,7 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 		statusMessage = "Task blocked: Agent stopped due to missing prerequisites (task packet)"
 		logMsg("⚠️  Task marked as BLOCKED - agent identified missing prerequisites")
 	} else {
-		finalStatus = "completed"
+		finalStatus = constants.StatusCompleted
 		statusMessage = ""
 	}
 
@@ -1582,7 +1553,7 @@ func (s *AgentServer) saveTaskResults(execution *TaskExecution, result string, l
 // updateTaskCompletion updates execution status and extracts Beads task ID and project root
 func (s *AgentServer) updateTaskCompletion(execution *TaskExecution, result string) (string, string) {
 	s.mu.Lock()
-	execution.Status = "completed"
+	execution.Status = constants.StatusCompleted
 	execution.Result = result
 	beadsTaskID := execution.TaskID // TaskID is the Beads task ID
 	projectRoot := ""
@@ -1631,16 +1602,16 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	}
 
 	s.mu.Lock()
-	execution.Status = "failed"
+	execution.Status = constants.StatusFailed
 	execution.Error = errorMsg
 	// Remove from active tasks map since task is now failed
 	delete(s.activeTasks, execution.TaskID)
 	s.mu.Unlock()
 
-	if err := s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "failed", errorMsg); err != nil {
+	if err := s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, constants.StatusFailed, errorMsg); err != nil {
 		monitoring.Logger.Error("failed_to_update_failed_status", "task_id", execution.TaskID, "error", err)
 	}
-	s.sendStreamEvent(execution, "failed", map[string]interface{}{
+	s.sendStreamEvent(execution, constants.StatusFailed, map[string]interface{}{
 		"error": errorMsg,
 	})
 	s.closeStream(execution)
@@ -1897,7 +1868,7 @@ func (s *AgentServer) handleOrphanedTasks() {
 			beadsTasksByID[beadsTask.ID] = &beadsTask
 
 			// Check for orphaned tasks (marked in_progress in Beads but not running)
-			if beadsTask.Status == "in_progress" {
+			if beadsTask.Status == constants.StatusInProgress {
 				s.mu.RLock()
 				_, hasActiveTask := s.activeTasks[beadsTask.ID]
 				s.mu.RUnlock()

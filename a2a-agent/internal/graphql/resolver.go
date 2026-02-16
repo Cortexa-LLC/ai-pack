@@ -62,6 +62,7 @@ type MetricsInfo struct {
 	HTTPRequestsTotal   int64
 	HTTPErrors          int64
 	RateLimitViolations int64
+	ProviderBreakdown   []*monitoring.ProviderUsage
 }
 
 // Resolver holds dependencies for GraphQL resolvers

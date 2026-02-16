@@ -25,9 +25,27 @@ const METRICS_QUERY = `
       performance {
         uptime
       }
+      providerBreakdown {
+        provider
+        model
+        calls
+        inputTokens
+        outputTokens
+      }
     }
   }
 `;
+
+/**
+ * Provider usage breakdown
+ */
+export interface ProviderUsage {
+  provider: string;
+  model: string;
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+}
 
 /**
  * Metrics data type
@@ -53,6 +71,7 @@ export interface Metrics {
     performance: {
       uptime: string;
     };
+    providerBreakdown: ProviderUsage[];
   };
 }
 

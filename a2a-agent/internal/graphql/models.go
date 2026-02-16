@@ -36,6 +36,7 @@ type Metrics struct {
 	Streaming            *StreamingMetrics `json:"streaming"`
 	HTTP                 *HTTPMetrics      `json:"http"`
 	RateLimiting         *RateLimiting     `json:"rateLimiting"`
+	ProviderBreakdown    []ProviderUsage   `json:"providerBreakdown"`
 }
 
 // TurnData represents token usage for a single turn
@@ -84,6 +85,15 @@ type HTTPMetrics struct {
 // RateLimiting represents rate limiting statistics
 type RateLimiting struct {
 	Violations int `json:"violations"`
+}
+
+// ProviderUsage represents token usage for a specific provider/model
+type ProviderUsage struct {
+	Provider     string `json:"provider"`
+	Model        string `json:"model"`
+	Calls        int    `json:"calls"`
+	InputTokens  int    `json:"inputTokens"`
+	OutputTokens int    `json:"outputTokens"`
 }
 
 // Package graphql provides GraphQL API types and resolvers

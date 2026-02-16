@@ -3155,6 +3155,8 @@ func (ec *executionContext) fieldContext_Mutation_spawnAgent(ctx context.Context
 				return ec.fieldContext_AgentTask_error(ctx, field)
 			case "metadata":
 				return ec.fieldContext_AgentTask_metadata(ctx, field)
+			case "beadsTaskID":
+				return ec.fieldContext_AgentTask_beadsTaskID(ctx, field)
 			case "projectRoot":
 				return ec.fieldContext_AgentTask_projectRoot(ctx, field)
 			}
@@ -3261,6 +3263,8 @@ func (ec *executionContext) fieldContext_Mutation_updateTaskStatus(ctx context.C
 				return ec.fieldContext_AgentTask_error(ctx, field)
 			case "metadata":
 				return ec.fieldContext_AgentTask_metadata(ctx, field)
+			case "beadsTaskID":
+				return ec.fieldContext_AgentTask_beadsTaskID(ctx, field)
 			case "projectRoot":
 				return ec.fieldContext_AgentTask_projectRoot(ctx, field)
 			}
@@ -3491,6 +3495,8 @@ func (ec *executionContext) fieldContext_Query_tasks(_ context.Context, field gr
 				return ec.fieldContext_AgentTask_error(ctx, field)
 			case "metadata":
 				return ec.fieldContext_AgentTask_metadata(ctx, field)
+			case "beadsTaskID":
+				return ec.fieldContext_AgentTask_beadsTaskID(ctx, field)
 			case "projectRoot":
 				return ec.fieldContext_AgentTask_projectRoot(ctx, field)
 			}
@@ -3545,6 +3551,8 @@ func (ec *executionContext) fieldContext_Query_task(ctx context.Context, field g
 				return ec.fieldContext_AgentTask_error(ctx, field)
 			case "metadata":
 				return ec.fieldContext_AgentTask_metadata(ctx, field)
+			case "beadsTaskID":
+				return ec.fieldContext_AgentTask_beadsTaskID(ctx, field)
 			case "projectRoot":
 				return ec.fieldContext_AgentTask_projectRoot(ctx, field)
 			}
@@ -4569,6 +4577,8 @@ func (ec *executionContext) fieldContext_Subscription_taskUpdated(ctx context.Co
 				return ec.fieldContext_AgentTask_error(ctx, field)
 			case "metadata":
 				return ec.fieldContext_AgentTask_metadata(ctx, field)
+			case "beadsTaskID":
+				return ec.fieldContext_AgentTask_beadsTaskID(ctx, field)
 			case "projectRoot":
 				return ec.fieldContext_AgentTask_projectRoot(ctx, field)
 			}
@@ -6850,6 +6860,8 @@ func (ec *executionContext) _AgentTask(ctx context.Context, sel ast.SelectionSet
 			out.Values[i] = ec._AgentTask_error(ctx, field, obj)
 		case "metadata":
 			out.Values[i] = ec._AgentTask_metadata(ctx, field, obj)
+		case "beadsTaskID":
+			out.Values[i] = ec._AgentTask_beadsTaskID(ctx, field, obj)
 		case "projectRoot":
 			out.Values[i] = ec._AgentTask_projectRoot(ctx, field, obj)
 		default:

@@ -8,220 +8,115 @@ package graphql
 import (
 	"context"
 	"fmt"
-	"os/exec"
-
-	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
 
 // SpawnAgent is the resolver for the spawnAgent field.
-func (r *mutationResolver) SpawnAgent(ctx context.Context, role string, task string, projectRoot *string) (*AgentTask, error) {
-	panic(fmt.Errorf("not implemented: SpawnAgent - spawnAgent"))
+func (r *mutationResolver) SpawnAgent(ctx context.Context, role string, taskID string) (*SpawnResult, error) {
+	root := ""
+	if projectRoot != nil {
+		root = *projectRoot
+	}
+
+	taskInfo, err := r.server.SpawnAgent(role, task, root)
+	if err != nil {
+		return nil, err
+	}
+
+	return convertTaskInfoToGraphQL(taskInfo), nil
 }
 
 // CancelAgent is the resolver for the cancelAgent field.
 func (r *mutationResolver) CancelAgent(ctx context.Context, taskID string) (bool, error) {
-	err := r.server.CancelTask(taskID)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
+	// Task cancellation not yet implemented in server
+	// Would require adding cancellation support to AgentServer
+	return false, nil
 }
 
 // UpdateTaskStatus is the resolver for the updateTaskStatus field.
-func (r *mutationResolver) UpdateTaskStatus(ctx context.Context, taskID string, status string) (*AgentTask, error) {
-	panic(fmt.Errorf("not implemented: UpdateTaskStatus - updateTaskStatus"))
-}
-
-// RetryTask is the resolver for the retryTask field.
-func (r *mutationResolver) RetryTask(ctx context.Context, taskID string) (*RetryResult, error) {
-	// Get the failed task info
+func (r *mutationResolver) UpdateTaskStatus(ctx context.Context, id string, status BeadsTaskStatus) (*BeadsTask, error) {
+	// Task status updates not yet implemented in server
+	// Would require adding status update support to AgentServer
 	taskInfo, err := r.server.GetTaskStatus(taskID)
 	if err != nil {
-		msg := "Task not found: " + err.Error()
-		return &RetryResult{
-			Success: false,
-			TaskID:  taskID,
-			Message: &msg,
-		}, nil
+		return nil, err
 	}
+	return convertTaskInfoToGraphQL(taskInfo), nil
+}
 
-	// Spawn a new agent task with the same parameters
-	newTask, err := r.server.SpawnAgent(taskInfo.Role, taskInfo.Task, "")
-	if err != nil {
-		msg := "Failed to retry task: " + err.Error()
-		return &RetryResult{
-			Success: false,
-			TaskID:  taskID,
-			Message: &msg,
-		}, nil
-	}
-
-	msg := "Task retried successfully. New task ID: " + newTask.TaskID
-	return &RetryResult{
-		Success: true,
-		TaskID:  newTask.TaskID,
-		Message: &msg,
-	}, nil
+// StartTask is the resolver for the startTask field.
+func (r *mutationResolver) StartTask(ctx context.Context, id string) (*BeadsTask, error) {
+	panic(fmt.Errorf("not implemented: StartTask - startTask"))
 }
 
 // CloseTask is the resolver for the closeTask field.
-// Accepts Beads task ID directly for consistency
-func (r *mutationResolver) CloseTask(ctx context.Context, taskID string) (*CloseResult, error) {
-	// Use bd close command to mark task as closed in Beads
-	// taskID is expected to be a Beads task ID
-	monitoring.Logger.Info("closeTask_resolver_start", "task_id", taskID)
-
-	// Try to find project root from active tasks
-	allTasks := r.server.GetAllTasks()
-	projectRoot := ""
-	agentTaskID := taskID
-	for _, t := range allTasks {
-		if t.TaskID == taskID {
-			if t.ProjectRoot != nil {
-				projectRoot = *t.ProjectRoot
-			}
-			break
-		}
-	}
-
-	monitoring.Logger.Info("found_project_root", "task_id", taskID, "project_root", projectRoot)
-
-	// Prepare bd close command
-	cmd := exec.Command("bd", "close", taskID)
-	if projectRoot != "" {
-		cmd.Dir = projectRoot
-		monitoring.Logger.Info("running_bd_close_in_project", "task_id", taskID, "project_root", projectRoot)
-	} else {
-		monitoring.Logger.Info("running_bd_close_no_project", "task_id", taskID)
-	}
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		msg := fmt.Sprintf("Failed to close task in Beads: %s (output: %s)", err.Error(), string(output))
-		monitoring.Logger.Error("bd_close_failed", "task_id", taskID, "error", msg)
-		return &CloseResult{
-			Success: false,
-			TaskID:  taskID,
-			Message: &msg,
-		}, nil
-	}
-	monitoring.Logger.Info("bd_close_succeeded", "task_id", taskID, "output", string(output))
-
-	// Mark the task as closed in agent-server if we found it
-	if agentTaskID != "" {
-		if err := r.server.CloseTask(agentTaskID); err != nil {
-			// Log but don't fail - Beads close succeeded which is what matters
-			// Agent-server status will be cleaned up by archival process
-		}
-	} else {
-		// Couldn't find the agent task - try using the taskID directly as agent task ID
-		if err := r.server.CloseTask(taskID); err != nil {
-			// This is OK - task might only exist in Beads, not in agent-server
-			// Log but still return success since Beads close succeeded
-		}
-	}
-
-	msg := "Task closed successfully"
-	return &CloseResult{
-		Success: true,
-		TaskID:  taskID,
-		Message: &msg,
-	}, nil
+func (r *mutationResolver) CloseTask(ctx context.Context, id string) (*BeadsTask, error) {
+	panic(fmt.Errorf("not implemented: CloseTask - closeTask"))
 }
 
 // Health is the resolver for the health field.
-func (r *queryResolver) Health(ctx context.Context) (*HealthStatus, error) {
-	panic(fmt.Errorf("not implemented: Health - health"))
+func (r *queryResolver) Health(ctx context.Context) (*ServerHealth, error) {
+	features := map[string]interface{}{
+		"graphql":       true,
+		"rest":          true,
+		"a2a_protocol":  true,
+		"sse_streaming": true,
+	}
+
+	return &HealthStatus{
+		Status:   "healthy",
+		Version:  "1.0.0",
+		Server:   "a2a-agent",
+		Features: features,
+	}, nil
 }
 
 // Tasks is the resolver for the tasks field.
-func (r *queryResolver) Tasks(ctx context.Context) ([]*AgentTask, error) {
-	allTasks := r.server.GetAllTasks()
-	monitoring.Logger.Info("tasks_query_start", "total_fetched", len(allTasks))
+func (r *queryResolver) Tasks(ctx context.Context, status *TaskStatus) ([]*AgentTask, error) {
+	tasksMap := r.server.GetActiveTasks()
+	result := make([]*AgentTask, 0, len(tasksMap))
 
-	tasks := make([]*AgentTask, 0, len(allTasks))
-	filteredCount := 0
-	for _, taskInfo := range allTasks {
-		// Skip closed tasks (user explicitly dismissed them)
-		if taskInfo.Status == "closed" {
-			filteredCount++
-			continue
-		}
-
-		// Convert metadata from map[string]string to map[string]any
-		metadata := make(map[string]any)
-		for k, v := range taskInfo.Metadata {
-			metadata[k] = v
-		}
-
-		tasks = append(tasks, &AgentTask{
-			TaskID:      taskInfo.TaskID,
-			Role:        taskInfo.Role,
-			Task:        taskInfo.Task,
-			Status:      taskInfo.Status,
-			CreatedAt:   taskInfo.CreatedAt,
-			UpdatedAt:   taskInfo.UpdatedAt,
-			CompletedAt: taskInfo.CompletedAt,
-			Result:      taskInfo.Result,
-			Error:       taskInfo.Error,
-			Metadata:    metadata,
-			ProjectRoot: taskInfo.ProjectRoot,
-		})
+	for _, taskInfo := range tasksMap {
+		gqlTask := convertTaskInfoToGraphQL(taskInfo)
+		result = append(result, gqlTask)
 	}
 
-	monitoring.Logger.Info("tasks_query_complete", "returned", len(tasks), "filtered_closed", filteredCount)
-	return tasks, nil
+	return result, nil
 }
 
 // Task is the resolver for the task field.
-func (r *queryResolver) Task(ctx context.Context, taskID string) (*AgentTask, error) {
-	panic(fmt.Errorf("not implemented: Task - task"))
-}
+func (r *queryResolver) Task(ctx context.Context, id string) (*AgentTask, error) {
+	taskInfo, err := r.server.GetTaskStatus(taskID)
+	if err != nil {
+		return nil, err
+	}
 
-// BeadsTasks is the resolver for the beadsTasks field.
-func (r *queryResolver) BeadsTasks(ctx context.Context, status *string) ([]*BeadsTask, error) {
-	panic(fmt.Errorf("not implemented: BeadsTasks - beadsTasks"))
+	return convertTaskInfoToGraphQL(taskInfo), nil
 }
 
 // BeadsTask is the resolver for the beadsTask field.
 func (r *queryResolver) BeadsTask(ctx context.Context, id string) (*BeadsTask, error) {
-	panic(fmt.Errorf("not implemented: BeadsTask - beadsTask"))
+	// Beads integration not yet implemented
+	// Would require adding Beads client to resolver
+	return nil, nil
+}
+
+// BeadsTasks is the resolver for the beadsTasks field.
+func (r *queryResolver) BeadsTasks(ctx context.Context, status *BeadsTaskStatus) ([]*BeadsTask, error) {
+	// Beads integration not yet implemented
+	// Would require adding Beads client to resolver
+	return []*BeadsTask{}, nil
 }
 
 // Metrics is the resolver for the metrics field.
 func (r *queryResolver) Metrics(ctx context.Context) (*Metrics, error) {
 	metricsInfo := r.server.GetMetrics()
 
-	// Convert recent turns
-	recentTurns := make([]TurnData, len(metricsInfo.RecentTurns))
-	for i, turn := range metricsInfo.RecentTurns {
-		recentTurns[i] = TurnData{
-			TaskID:       turn.TaskID,
-			Turn:         int(turn.Turn),
-			InputTokens:  int(turn.InputTokens),
-			OutputTokens: int(turn.OutputTokens),
-			DurationMs:   int(turn.DurationMs),
-		}
-	}
-
-	// Convert recent sessions
-	recentSessions := make([]SessionData, len(metricsInfo.RecentSessions))
-	for i, session := range metricsInfo.RecentSessions {
-		recentSessions[i] = SessionData{
-			TaskID:       session.TaskID,
-			InputTokens:  int(session.InputTokens),
-			OutputTokens: int(session.OutputTokens),
-			TurnCount:    int(session.TurnCount),
-		}
-	}
-
 	return &Metrics{
-		TasksSpawned:         metricsInfo.TasksSpawned,
-		TasksCompleted:       metricsInfo.TasksCompleted,
-		TasksFailed:          metricsInfo.TasksFailed,
-		TasksActive:          metricsInfo.TasksActive,
-		AverageDurationMs:    metricsInfo.AverageDurationMs,
-		AverageTokensPerTask: int(metricsInfo.AverageTokensPerTask),
+		TasksSpawned:      metricsInfo.TasksSpawned,
+		TasksCompleted:    metricsInfo.TasksCompleted,
+		TasksFailed:       metricsInfo.TasksFailed,
+		TasksActive:       metricsInfo.TasksActive,
+		AverageDurationMs: metricsInfo.AverageDurationMs,
 		TokenUsage: &TokenUsage{
 			TotalTokens:  int(metricsInfo.TotalTokens),
 			InputTokens:  int(metricsInfo.InputTokens),
@@ -233,70 +128,73 @@ func (r *queryResolver) Metrics(ctx context.Context) (*Metrics, error) {
 			Failed:  int(metricsInfo.APIFailed),
 		},
 		Performance: &Performance{
-			Uptime: metricsInfo.Uptime,
-		},
-		TurnMetrics: &TurnMetrics{
-			TotalTurns:       int(metricsInfo.TotalTurns),
-			AvgInputPerTurn:  int(metricsInfo.AvgInputPerTurn),
-			AvgOutputPerTurn: int(metricsInfo.AvgOutputPerTurn),
-			RecentTurns:      recentTurns,
-		},
-		SessionMetrics: &SessionMetrics{
-			RecentSessions: recentSessions,
-		},
-		Streaming: &StreamingMetrics{
-			Opened: int(metricsInfo.StreamsOpened),
-			Closed: int(metricsInfo.StreamsClosed),
-			Active: int(metricsInfo.StreamsActive),
-		},
-		HTTP: &HTTPMetrics{
-			TotalRequests: int(metricsInfo.HTTPRequestsTotal),
-			Errors:        int(metricsInfo.HTTPErrors),
-		},
-		RateLimiting: &RateLimiting{
-			Violations: int(metricsInfo.RateLimitViolations),
+			CPUUsage:      metricsInfo.CPUUsage,
+			MemoryUsageMb: metricsInfo.MemoryUsageMB,
+			Goroutines:    metricsInfo.Goroutines,
+			Uptime:        metricsInfo.Uptime,
 		},
 	}, nil
 }
 
 // Performance is the resolver for the performance field.
 func (r *queryResolver) Performance(ctx context.Context) (*Performance, error) {
-	panic(fmt.Errorf("not implemented: Performance - performance"))
+	metricsInfo := r.server.GetMetrics()
+
+	return &Performance{
+		CPUUsage:      metricsInfo.CPUUsage,
+		MemoryUsageMb: metricsInfo.MemoryUsageMB,
+		Goroutines:    metricsInfo.Goroutines,
+		Uptime:        metricsInfo.Uptime,
+	}, nil
 }
 
 // Logs is the resolver for the logs field.
-func (r *queryResolver) Logs(ctx context.Context, limit *int, level *string) ([]*LogEntry, error) {
-	panic(fmt.Errorf("not implemented: Logs - logs"))
-}
-
-// ExecutionLog is the resolver for the executionLog field.
-func (r *queryResolver) ExecutionLog(ctx context.Context, limit *int) ([]*ExecutionEvent, error) {
-	panic(fmt.Errorf("not implemented: ExecutionLog - executionLog"))
-}
-
-// TaskHistory is the resolver for the taskHistory field.
-func (r *queryResolver) TaskHistory(ctx context.Context, limit *int) ([]*TaskSummary, error) {
-	panic(fmt.Errorf("not implemented: TaskHistory - taskHistory"))
-}
-
-// ExecutionEventsByTask is the resolver for the executionEventsByTask field.
-func (r *queryResolver) ExecutionEventsByTask(ctx context.Context, taskID string) ([]*ExecutionEvent, error) {
-	panic(fmt.Errorf("not implemented: ExecutionEventsByTask - executionEventsByTask"))
-}
-
-// LogStream is the resolver for the logStream field.
-func (r *subscriptionResolver) LogStream(ctx context.Context, level *string) (<-chan *LogEntry, error) {
-	panic(fmt.Errorf("not implemented: LogStream - logStream"))
+func (r *queryResolver) Logs(ctx context.Context, taskID string, limit *int) ([]*LogEntry, error) {
+	// Log querying not yet implemented
+	// Would require adding log management to server
+	return []*LogEntry{}, nil
 }
 
 // TaskUpdated is the resolver for the taskUpdated field.
 func (r *subscriptionResolver) TaskUpdated(ctx context.Context, taskID *string) (<-chan *AgentTask, error) {
-	panic(fmt.Errorf("not implemented: TaskUpdated - taskUpdated"))
+	ch := make(chan *AgentTask, 100)
+
+	// Task subscriptions not yet implemented
+	// Would require adding task subscription support
+	go func() {
+		defer close(ch)
+		<-ctx.Done()
+	}()
+
+	return ch, nil
+}
+
+// LogStream is the resolver for the logStream field.
+func (r *subscriptionResolver) LogStream(ctx context.Context, taskID string) (<-chan *LogEntry, error) {
+	ch := make(chan *LogEntry, 100)
+
+	// Log streaming not yet implemented
+	// Would require adding log subscription support
+	go func() {
+		defer close(ch)
+		<-ctx.Done()
+	}()
+
+	return ch, nil
 }
 
 // MetricsUpdated is the resolver for the metricsUpdated field.
 func (r *subscriptionResolver) MetricsUpdated(ctx context.Context) (<-chan *Metrics, error) {
-	panic(fmt.Errorf("not implemented: MetricsUpdated - metricsUpdated"))
+	ch := make(chan *Metrics, 10)
+
+	// Metrics subscriptions not yet implemented
+	// Would require adding metrics subscription support
+	go func() {
+		defer close(ch)
+		<-ctx.Done()
+	}()
+
+	return ch, nil
 }
 
 // Mutation returns MutationResolver implementation.
@@ -311,3 +209,46 @@ func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionRes
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func convertTaskInfoToGraphQL(info *TaskInfo) *AgentTask {
+	task := &AgentTask{
+		TaskID:    info.TaskID,
+		Role:      info.Role,
+		Task:      info.Task,
+		Status:    info.Status,
+		Progress:  info.Progress,
+		CreatedAt: info.CreatedAt,
+		UpdatedAt: info.UpdatedAt,
+	}
+
+	if info.CompletedAt != nil {
+		task.CompletedAt = info.CompletedAt
+	}
+	if info.Result != nil {
+		task.Result = info.Result
+	}
+	if info.Error != nil {
+		task.Error = info.Error
+	}
+	if info.BeadsTaskID != nil {
+		task.BeadsTaskID = info.BeadsTaskID
+	}
+	if info.Metadata != nil {
+		// Convert map[string]string to map[string]any
+		metadata := make(map[string]any)
+		for k, v := range info.Metadata {
+			metadata[k] = v
+		}
+		task.Metadata = metadata
+	}
+
+	return task
+}
+*/

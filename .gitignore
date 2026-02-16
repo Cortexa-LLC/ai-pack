@@ -92,3 +92,4 @@ tests/workflow_test_workspace/
 .sonarqube-config
 .scannerwork/
 
+a2a-agent/metrics/

@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol"
 )
@@ -93,7 +94,7 @@ func (s *AgentServer) handleA2AExecute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Method != "execute" && req.Method != "a2a.execute" {
+	if req.Method != constants.MethodExecute && req.Method != constants.MethodA2AExecute {
 		response := protocol.NewJSONRPCError(req.ID, protocol.MethodNotFound, "errMethodNotFound", req.Method)
 		s.sendJSONRPCResponse(w, response)
 		return
@@ -200,7 +201,7 @@ func (s *AgentServer) getDiscoveryResponse() *protocol.DiscoveryResponse {
 				Method:      "GET or POST",
 				Description: "Get agent server capabilities and available agents",
 			},
-			"execute": {
+			constants.MethodExecute: {
 				Path:        "/a2a/execute",
 				Method:      "POST",
 				Description: "Execute a task with specified agent role (JSON-RPC 2.0)",
@@ -210,7 +211,7 @@ func (s *AgentServer) getDiscoveryResponse() *protocol.DiscoveryResponse {
 				Method:      "POST",
 				Description: "Get task execution status (JSON-RPC 2.0)",
 			},
-			"stream": {
+			constants.MethodStream: {
 				Path:        "/stream/:task_id",
 				Method:      "GET",
 				Description: "Stream real-time task execution progress (SSE)",

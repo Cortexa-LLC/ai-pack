@@ -34,20 +34,11 @@ type PersistentMetrics struct {
 	dataDir     string
 	currentDate string
 	currentDay  *DailyUsage
-}
-
-// Cost per 1M tokens (input/output)
-var providerCosts = map[string][2]float64{
-	"anthropic:claude-sonnet-4-5":      {3.00, 15.00},
-	"anthropic:claude-sonnet-4-5-20250929": {3.00, 15.00},
-	"anthropic:claude-haiku-4-5":       {0.25, 1.25},
-	"openai:gpt-4o":                    {2.50, 10.00},
-	"openai:gpt-4o-mini":               {0.15, 0.60},
-	"openai:gpt-5.2-mini":              {0.60, 2.40},
+	costs       map[string][2]float64 // Cost per 1M tokens [input, output]
 }
 
 // NewPersistentMetrics creates a new persistent metrics tracker
-func NewPersistentMetrics(dataDir string) (*PersistentMetrics, error) {
+func NewPersistentMetrics(dataDir string, costs map[string][2]float64) (*PersistentMetrics, error) {
 	// Create data directory if it doesn't exist
 	metricsDir := filepath.Join(dataDir, "metrics", "daily")
 	if err := os.MkdirAll(metricsDir, 0755); err != nil {
@@ -56,6 +47,7 @@ func NewPersistentMetrics(dataDir string) (*PersistentMetrics, error) {
 
 	pm := &PersistentMetrics{
 		dataDir: metricsDir,
+		costs:   costs,
 	}
 
 	// Load or create today's usage
@@ -134,7 +126,7 @@ func (pm *PersistentMetrics) RecordUsage(provider, model string, inputTokens, ou
 	usage.OutputTokens += outputTokens
 
 	// Calculate cost
-	if costs, ok := providerCosts[key]; ok {
+	if costs, ok := pm.costs[key]; ok {
 		inputCost := float64(inputTokens) / 1_000_000 * costs[0]
 		outputCost := float64(outputTokens) / 1_000_000 * costs[1]
 		usage.Cost = inputCost + outputCost

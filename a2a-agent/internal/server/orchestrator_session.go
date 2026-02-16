@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 )
 
 // OrchestratorSession manages a persistent orchestrator chat session
@@ -176,7 +177,7 @@ func (s *OrchestratorSession) checkForReadyTasks(tasks []TaskInfo) {
 				Type:      "task_ready",
 				Message:   fmt.Sprintf("📋 Task %s is ready to be assigned", task.ID),
 				TaskID:    task.ID,
-				Status:    "queued",
+				Status:    constants.StatusQueued,
 				Timestamp: time.Now(),
 			})
 		}
