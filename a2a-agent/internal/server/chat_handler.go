@@ -464,16 +464,15 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 		"input_tokens", message.InputTokens,
 		"output_tokens", message.OutputTokens)
 
-	// Record provider usage
-	provider := "anthropic" // Default, will be from streaming service provider detection in future
-	if strings.Contains(strings.ToLower(message.Model), "gpt") || strings.Contains(strings.ToLower(message.Model), "openai") {
-		provider = "openai"
-	}
-	monitoring.GlobalMetrics.RecordProviderUsage(provider, message.Model, int64(message.InputTokens), int64(message.OutputTokens))
+	// Record API call success
+	monitoring.GlobalMetrics.IncrementAPICallsSuccess()
+
+	// Record provider usage (provider comes from streaming layer)
+	monitoring.GlobalMetrics.RecordProviderUsage(message.Provider, message.Model, int64(message.InputTokens), int64(message.OutputTokens))
 
 	// Record persistent daily usage
 	if s.persistentMetrics != nil {
-		if err := s.persistentMetrics.RecordUsage(provider, message.Model, int64(message.InputTokens), int64(message.OutputTokens)); err != nil {
+		if err := s.persistentMetrics.RecordUsage(message.Provider, message.Model, int64(message.InputTokens), int64(message.OutputTokens)); err != nil {
 			monitoring.Logger.Warn("failed_to_record_persistent_metrics", "error", err.Error())
 		}
 	}
@@ -504,7 +503,7 @@ Suggest ONE brief, natural follow-up question the user might want to ask. Return
 	}
 
 	// Extract suggestion text
-	if len(response.Content) > 0 && response.Content[0].Type == "text" {
+	if len(response.Content) > 0 && response.Content[0].Type == constants.ContentTypeText {
 		suggestion := strings.TrimSpace(response.Content[0].Text)
 		// Remove quotes if present
 		suggestion = strings.Trim(suggestion, "\"'")

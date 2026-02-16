@@ -33,3 +33,5 @@ models:
     model: github.com/cortexa-llc/ai-pack/a2a-agent/internal/graphql.APICalls
   Performance:
     model: github.com/cortexa-llc/ai-pack/a2a-agent/internal/graphql.Performance
+  ProviderUsage:
+    model: github.com/cortexa-llc/ai-pack/a2a-agent/internal/graphql.ProviderUsage

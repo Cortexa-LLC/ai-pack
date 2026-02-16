@@ -30,18 +30,23 @@ function CostBreakdown({ totalInputTokens, totalOutputTokens, providers }: CostB
 
   const totalCost = providers?.reduce((sum, p) => sum + p.cost, 0) || calculateDefaultCost();
 
-  // Default to showing Claude if no provider data
-  const displayProviders = providers || [
-    {
-      provider: 'anthropic',
-      model: 'claude-sonnet-4-5',
-      calls: 0,
-      inputTokens: totalInputTokens,
-      outputTokens: totalOutputTokens,
-      cost: calculateDefaultCost(),
-      percentage: 100,
-    },
-  ];
+  // Calculate percentages if we have provider data
+  const displayProviders = providers
+    ? providers.map(p => ({
+        ...p,
+        percentage: totalCost > 0 ? (p.cost / totalCost) * 100 : 0,
+      }))
+    : [
+        {
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5',
+          calls: 0,
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          cost: calculateDefaultCost(),
+          percentage: 100,
+        },
+      ];
 
   const formatCost = (cost: number) => `$${cost.toFixed(4)}`;
   const formatTokens = (tokens: number) => `${(tokens / 1_000_000).toFixed(3)}M`;
@@ -92,9 +97,15 @@ function CostBreakdown({ totalInputTokens, totalOutputTokens, providers }: CostB
         ))}
       </div>
 
-      {!providers && (
+      {!providers && totalInputTokens === 0 && totalOutputTokens === 0 && (
+        <div className="mt-3 p-2 bg-blue-900/20 border border-blue-700/50 rounded text-xs text-blue-300">
+          💡 No API calls yet. Cost breakdown will appear after first request.
+        </div>
+      )}
+
+      {!providers && (totalInputTokens > 0 || totalOutputTokens > 0) && (
         <div className="mt-3 p-2 bg-yellow-900/20 border border-yellow-700/50 rounded text-xs text-yellow-300">
-          ⚠️ Multi-provider routing not yet active. All requests going to Claude Sonnet.
+          ⚠️ Provider breakdown not available. Showing estimated cost based on default model.
         </div>
       )}
 

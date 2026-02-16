@@ -58,11 +58,21 @@ type Metrics {
   streaming: StreamingMetrics!
   http: HTTPMetrics!
   rateLimiting: RateLimiting!
+  providerBreakdown: [ProviderUsage!]!
 }
 
 # Token usage statistics
 type TokenUsage {
   totalTokens: Int!
+  inputTokens: Int!
+  outputTokens: Int!
+}
+
+# Provider usage breakdown
+type ProviderUsage {
+  provider: String!
+  model: String!
+  calls: Int!
   inputTokens: Int!
   outputTokens: Int!
 }
