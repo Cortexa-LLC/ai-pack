@@ -1,0 +1,32 @@
+[Unit]
+Description=AI-Pack GUI Server
+After=network-online.target ai-pack-agent-server.service
+Wants=network-online.target
+Requires=ai-pack-agent-server.service
+
+[Service]
+Type=simple
+User={{USER}}
+WorkingDirectory={{PROJECT_ROOT}}/gui
+ExecStart={{NPM_PATH}} run dev -- --host 0.0.0.0
+
+# Environment variables
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+Environment="NODE_ENV=development"
+
+# Restart policy
+Restart=always
+RestartSec=30
+StartLimitInterval=300
+StartLimitBurst=5
+
+# Logging
+StandardOutput=append:/tmp/gui-server.log
+StandardError=append:/tmp/gui-server.log
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target
