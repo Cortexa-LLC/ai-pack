@@ -2055,19 +2055,19 @@ func (s *AgentServer) handleOrphanedTasks() {
 
 				if !hasActiveTask {
 					// This is an orphaned task - it's marked in_progress but not running
-					// Mark it as "open" so it can be retried/restarted
+					// Mark it as "queued" so it can be automatically resumed
 					monitoring.Logger.Warn("orphaned_task_detected",
 						"task_id", beadsTask.ID,
 						"title", beadsTask.Title,
 						"project", projectRoot,
-						"action", "resetting_to_open",
+						"action", "resetting_to_queued",
 					)
 
-					// Reset the task to "open" status in Beads
-					// This allows it to be retried without creating a new task
+					// Reset the task to "queued" status in Beads
+					// This allows it to be automatically picked up and resumed
 					if beads.IsInstalled() {
 						// Use bd update to reset status
-						cmd := exec.Command("bd", "update", "--status", "open", beadsTask.ID)
+						cmd := exec.Command("bd", "update", "--status", "queued", beadsTask.ID)
 						cmd.Dir = projectRoot
 						if err := cmd.Run(); err != nil {
 							monitoring.Logger.Error("failed_to_reset_orphaned_task",
@@ -2076,7 +2076,7 @@ func (s *AgentServer) handleOrphanedTasks() {
 						} else {
 							monitoring.Logger.Info("orphaned_task_reset",
 								"task_id", beadsTask.ID,
-								"new_status", "open")
+								"new_status", "queued")
 						}
 					}
 
