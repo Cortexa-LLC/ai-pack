@@ -158,9 +158,8 @@ def aggregate_grades(tasks: List[Dict]) -> Dict[str, Dict]:
                 grade['last_used'] = task['last_used']
                 grade['last_task_id'] = task['task_id']
 
-        # Estimate tokens (we don't have exact historical data)
-        # Use rough estimate: 100K tokens per task
-        grade['total_tokens_used'] += 100000
+        # Note: Token data not available in backfilled historical data
+        # Will be tracked for new tasks going forward
 
     return grades
 
@@ -176,9 +175,9 @@ def calculate_derived_metrics(grades: Dict[str, Dict]) -> None:
         grade['error_rate'] = grade['failures'] / grade['total_attempts']
         grade['retry_rate'] = grade['retries'] / grade['total_attempts']
 
-        # Calculate averages
-        grade['average_tokens'] = int(grade['total_tokens_used'] / grade['total_attempts'])
+        # Calculate averages (only for data we have)
         grade['average_execution_time'] = (grade['total_execution_time_ms'] / grade['total_attempts']) / 1000.0
+        # Note: average_tokens not included - no historical token data available
 
         # Calculate confidence score (0.0 to 1.0, full confidence at 20+ samples)
         grade['confidence_score'] = min(1.0, grade['total_attempts'] / 20.0)
