@@ -18,6 +18,7 @@ type ServerInterface interface {
 	CancelTask(taskID string) error
 	CloseTask(taskID string) error
 	GetMetrics() *MetricsInfo
+	GetProjectCostsData() ([]map[string]interface{}, error)
 }
 
 // TaskInfo represents task information from the server

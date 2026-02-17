@@ -96,4 +96,24 @@ type ProviderUsage struct {
 	OutputTokens int    `json:"outputTokens"`
 }
 
+// ProjectCost represents cost breakdown for a single project
+type ProjectCost struct {
+	ProjectRoot       string          `json:"projectRoot"`
+	ProjectName       string          `json:"projectName"`
+	TotalCost         float64         `json:"totalCost"`
+	TotalInputTokens  int             `json:"totalInputTokens"`
+	TotalOutputTokens int             `json:"totalOutputTokens"`
+	ProviderBreakdown []*ProviderCost `json:"providerBreakdown"`
+}
+
+// ProviderCost represents cost for a specific provider/model
+type ProviderCost struct {
+	Provider     string  `json:"provider"`
+	Model        string  `json:"model"`
+	Calls        int     `json:"calls"`
+	InputTokens  int     `json:"inputTokens"`
+	OutputTokens int     `json:"outputTokens"`
+	Cost         float64 `json:"cost"`
+}
+
 // Package graphql provides GraphQL API types and resolvers

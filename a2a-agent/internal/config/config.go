@@ -18,9 +18,10 @@ type Config struct {
 	Agent         AgentConfig        `json:"agent"`
 	Logging       LoggingConfig      `json:"logging"`
 	Metrics       MetricsConfig      `json:"metrics"`
-	TaskCleanup   TaskCleanupConfig  `json:"task_cleanup"`
-	ProviderCosts ProviderCostsConfig `json:"provider_costs"`
-	Projects      map[string]string  `json:"projects,omitempty"` // map[projectPath]lastAccessed
+	TaskCleanup      TaskCleanupConfig      `json:"task_cleanup"`
+	ProviderCosts    ProviderCostsConfig    `json:"provider_costs"`
+	GradingCriteria  GradingCriteriaConfig  `json:"grading_criteria"`
+	Projects         map[string]string      `json:"projects,omitempty"` // map[projectPath]lastAccessed
 }
 
 // ServerConfig holds server-specific settings
@@ -83,6 +84,20 @@ type ModelCost struct {
 	Description string  `json:"description,omitempty"` // Optional description
 }
 
+// GradingCriteriaConfig holds performance grading thresholds
+type GradingCriteriaConfig struct {
+	GradeA GradeThreshold `json:"grade_a"`
+	GradeB GradeThreshold `json:"grade_b"`
+	GradeC GradeThreshold `json:"grade_c"`
+	GradeD GradeThreshold `json:"grade_d"`
+}
+
+// GradeThreshold defines success and retry rate thresholds for a grade
+type GradeThreshold struct {
+	MinSuccessRate float64 `json:"min_success_rate"` // Minimum success rate (0.0-1.0)
+	MaxRetryRate   float64 `json:"max_retry_rate"`   // Maximum retry rate (0.0-1.0)
+}
+
 // DefaultConfig returns default configuration
 func DefaultConfig() *Config {
 	return &Config{
@@ -117,6 +132,12 @@ func DefaultConfig() *Config {
 		ProviderCosts: ProviderCostsConfig{
 			UpdateInterval: 30,                         // Update costs every 30 days
 			Models:         make(map[string]ModelCost), // Empty by default - load from config file
+		},
+		GradingCriteria: GradingCriteriaConfig{
+			GradeA: GradeThreshold{MinSuccessRate: 0.90, MaxRetryRate: 0.05},
+			GradeB: GradeThreshold{MinSuccessRate: 0.80, MaxRetryRate: 0.10},
+			GradeC: GradeThreshold{MinSuccessRate: 0.70, MaxRetryRate: 0.20},
+			GradeD: GradeThreshold{MinSuccessRate: 0.60, MaxRetryRate: 0.30},
 		},
 		Projects: make(map[string]string),
 	}

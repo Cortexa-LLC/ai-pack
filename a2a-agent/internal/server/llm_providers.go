@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 	"github.com/sashabaranov/go-openai"
 )

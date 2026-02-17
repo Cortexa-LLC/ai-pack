@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
@@ -79,28 +80,157 @@ func (s *AgentServer) GetMetricsSnapshot() monitoring.MetricsSnapshot {
 	return monitoring.GlobalMetrics.GetSnapshot()
 }
 
-// GetDailyUsage returns today's token usage
+// GetDailyUsage returns today's token usage (aggregated across all projects)
 func (s *AgentServer) GetDailyUsage() (*monitoring.DailyUsage, error) {
-	if s.persistentMetrics == nil {
-		return nil, nil
+	s.mu.RLock()
+	projectRoots := make([]string, 0, len(s.projectRoots))
+	for pr := range s.projectRoots {
+		projectRoots = append(projectRoots, pr)
 	}
-	return s.persistentMetrics.GetToday()
+	s.mu.RUnlock()
+
+	// Aggregate across all projects
+	aggregated := &monitoring.DailyUsage{
+		Date:              time.Now().Format("2006-01-02"),
+		ProviderBreakdown: make(map[string]*monitoring.ProviderDailyUsage),
+		LastUpdated:       time.Now(),
+	}
+
+	for _, projectRoot := range projectRoots {
+		pm, err := s.getOrCreateProjectMetrics(projectRoot)
+		if err != nil {
+			continue // Skip projects with errors
+		}
+
+		daily, err := pm.GetToday()
+		if err != nil {
+			continue // Skip if no data
+		}
+
+		// Aggregate totals
+		aggregated.TotalInputTokens += daily.TotalInputTokens
+		aggregated.TotalOutputTokens += daily.TotalOutputTokens
+
+		// Merge provider breakdown
+		for key, usage := range daily.ProviderBreakdown {
+			if existing, ok := aggregated.ProviderBreakdown[key]; ok {
+				// Add to existing
+				existing.Calls += usage.Calls
+				existing.InputTokens += usage.InputTokens
+				existing.OutputTokens += usage.OutputTokens
+				existing.Cost += usage.Cost
+			} else {
+				// Create new entry (copy to avoid reference issues)
+				aggregated.ProviderBreakdown[key] = &monitoring.ProviderDailyUsage{
+					Provider:     usage.Provider,
+					Model:        usage.Model,
+					Calls:        usage.Calls,
+					InputTokens:  usage.InputTokens,
+					OutputTokens: usage.OutputTokens,
+					Cost:         usage.Cost,
+				}
+			}
+		}
+	}
+
+	return aggregated, nil
 }
 
-// GetDailyUsageRange returns token usage for a date range
+// GetDailyUsageRange returns token usage for a date range (aggregated across all projects)
 func (s *AgentServer) GetDailyUsageRange(startDate, endDate string) ([]*monitoring.DailyUsage, error) {
-	if s.persistentMetrics == nil {
-		return nil, nil
+	s.mu.RLock()
+	projectRoots := make([]string, 0, len(s.projectRoots))
+	for pr := range s.projectRoots {
+		projectRoots = append(projectRoots, pr)
 	}
-	return s.persistentMetrics.GetDateRange(startDate, endDate)
+	s.mu.RUnlock()
+
+	// Collect all daily usage by date
+	byDate := make(map[string]*monitoring.DailyUsage)
+
+	for _, projectRoot := range projectRoots {
+		pm, err := s.getOrCreateProjectMetrics(projectRoot)
+		if err != nil {
+			continue
+		}
+
+		dailies, err := pm.GetDateRange(startDate, endDate)
+		if err != nil {
+			continue
+		}
+
+		// Merge into byDate map
+		for _, daily := range dailies {
+			if existing, ok := byDate[daily.Date]; ok {
+				// Aggregate
+				existing.TotalInputTokens += daily.TotalInputTokens
+				existing.TotalOutputTokens += daily.TotalOutputTokens
+
+				// Merge provider breakdown
+				for key, usage := range daily.ProviderBreakdown {
+					if existingUsage, ok := existing.ProviderBreakdown[key]; ok {
+						existingUsage.Calls += usage.Calls
+						existingUsage.InputTokens += usage.InputTokens
+						existingUsage.OutputTokens += usage.OutputTokens
+						existingUsage.Cost += usage.Cost
+					} else {
+						existing.ProviderBreakdown[key] = &monitoring.ProviderDailyUsage{
+							Provider:     usage.Provider,
+							Model:        usage.Model,
+							Calls:        usage.Calls,
+							InputTokens:  usage.InputTokens,
+							OutputTokens: usage.OutputTokens,
+							Cost:         usage.Cost,
+						}
+					}
+				}
+
+				if daily.LastUpdated.After(existing.LastUpdated) {
+					existing.LastUpdated = daily.LastUpdated
+				}
+			} else {
+				// Create new entry
+				newDaily := &monitoring.DailyUsage{
+					Date:              daily.Date,
+					TotalInputTokens:  daily.TotalInputTokens,
+					TotalOutputTokens: daily.TotalOutputTokens,
+					ProviderBreakdown: make(map[string]*monitoring.ProviderDailyUsage),
+					LastUpdated:       daily.LastUpdated,
+				}
+				for key, usage := range daily.ProviderBreakdown {
+					newDaily.ProviderBreakdown[key] = &monitoring.ProviderDailyUsage{
+						Provider:     usage.Provider,
+						Model:        usage.Model,
+						Calls:        usage.Calls,
+						InputTokens:  usage.InputTokens,
+						OutputTokens: usage.OutputTokens,
+						Cost:         usage.Cost,
+					}
+				}
+				byDate[daily.Date] = newDaily
+			}
+		}
+	}
+
+	// Convert map to sorted slice
+	result := make([]*monitoring.DailyUsage, 0, len(byDate))
+	for _, daily := range byDate {
+		result = append(result, daily)
+	}
+
+	// Sort by date
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Date < result[j].Date
+	})
+
+	return result, nil
 }
 
-// GetLast30DaysUsage returns token usage for the last 30 days
+// GetLast30DaysUsage returns token usage for the last 30 days (aggregated across all projects)
 func (s *AgentServer) GetLast30DaysUsage() ([]*monitoring.DailyUsage, error) {
-	if s.persistentMetrics == nil {
-		return nil, nil
-	}
-	return s.persistentMetrics.GetLast30Days()
+	endDate := time.Now().Format("2006-01-02")
+	startDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
+	return s.GetDailyUsageRange(startDate, endDate)
 }
 
 // GetMaxConcurrent returns the maximum concurrent agents setting
