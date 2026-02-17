@@ -38,10 +38,42 @@ python3 a2a-agent/scripts/backfill-performance-grades.py
 python3 a2a-agent/scripts/backfill-metrics.py
 ```
 
+## .claudeignore - Context Management
+
+The project uses `.claudeignore` files (similar to `.gitignore`) to prevent agents from reading files that would bloat context:
+
+### How It Works
+- Place `.claudeignore` in the project root to define global ignore patterns
+- Override patterns in subdirectories with additional `.claudeignore` files
+- Patterns use glob syntax: `*`, `**`, `!` for negation
+- Applied to Read, Glob, and Grep tools automatically
+
+### Example Patterns
+```
+# Node dependencies
+**/node_modules/
+**/package-lock.json
+
+# Build artifacts
+**/build/
+**/dist/
+
+# Task logs
+.beads/tasks/
+
+# Large files
+**/*.log
+**/*.bin
+```
+
+### Why This Matters
+Agents have limited context windows. Reading large files like `package-lock.json` (737KB) or `node_modules` can quickly exhaust context, causing agents to run out of memory and fail tasks.
+
 ## General Guidelines
 
 - ✅ DO: Read these files to understand system state
 - ✅ DO: Let the server create/update them during normal operation
+- ✅ DO: Use `.claudeignore` to exclude large/irrelevant files from agent context
 - ❌ DON'T: Delete `.claude/` directories
 - ❌ DON'T: Mark them as "transient" or "temporary" for cleanup
 - ❌ DON'T: Remove them when "cleaning up the project"
