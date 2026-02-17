@@ -51,6 +51,12 @@ type StreamProvider interface {
 
 	// GetMessage returns the final accumulated message
 	GetMessage() *CompletedMessage
+
+	// GetModel returns the model being used for this stream
+	GetModel() string
+
+	// GetProvider returns the provider name for this stream
+	GetProvider() string
 }
 
 // StreamRequest represents a provider-agnostic streaming request
