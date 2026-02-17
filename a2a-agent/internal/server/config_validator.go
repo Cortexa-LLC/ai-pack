@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
-	"gopkg.in/yaml.v3"
 )
 
 // ConfigValidator validates agent configurations and API key availability
@@ -91,25 +90,17 @@ func (cv *ConfigValidator) validateConfig(configPath string) []ValidationWarning
 		return warnings
 	}
 
-	// Extract YAML frontmatter
-	content := string(data)
-	if !strings.HasPrefix(content, "---") {
-		// No frontmatter, skip validation
-		return warnings
-	}
+	// Extract role name from filename
+	roleName := filepath.Base(configPath)
+	roleName = roleName[:len(roleName)-3] // Remove .md extension
 
-	parts := strings.SplitN(content[3:], "---", 2)
-	if len(parts) < 2 {
-		return warnings
-	}
-
-	// Parse YAML
-	var config AgentConfig
-	if err := yaml.Unmarshal([]byte(parts[0]), &config); err != nil {
+	// Parse markdown configuration
+	config, _, err := parseMarkdownConfig(data, roleName)
+	if err != nil {
 		warnings = append(warnings, ValidationWarning{
 			Type:       "parse_error",
 			ConfigFile: configPath,
-			Message:    fmt.Sprintf("Failed to parse YAML: %v", err),
+			Message:    fmt.Sprintf("Failed to parse markdown config: %v", err),
 			Severity:   "error",
 		})
 		return warnings
