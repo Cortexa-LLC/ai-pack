@@ -1,0 +1,57 @@
+# Claude Code ignore patterns
+# Prevents agents from reading files that bloat context
+
+# Node modules and package files
+**/node_modules/
+**/package-lock.json
+**/yarn.lock
+**/pnpm-lock.yaml
+
+# Build artifacts
+**/build/
+**/dist/
+**/out/
+**/.next/
+**/.nuxt/
+**/.output/
+
+# Task logs and temporary files
+.beads/tasks/
+**/*.log
+**/tmp/
+**/temp/
+
+# Documentation website (large generated files)
+docs/website/node_modules/
+docs/website/build/
+docs/website/.docusaurus/
+docs/website/package-lock.json
+
+# IDE and editor files
+**/.vscode/
+**/.idea/
+**/*.swp
+**/*.swo
+
+# OS files
+**/.DS_Store
+**/Thumbs.db
+
+# Large binary files
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.pdf
+**/*.zip
+**/*.tar.gz
+**/*.bin
+
+# Go build artifacts
+**/*.test
+**/*.out
+
+# Coverage reports
+**/coverage/
+**/.coverage
+**/htmlcov/
