@@ -340,6 +340,12 @@ func executeRead(input map[string]interface{}, workingDir string, settings *clau
 		filePath = filepath.Join(workingDir, filePath)
 	}
 
+	// Check .claudeignore (hierarchical: root + subdirectories)
+	claudeIgnore, err := LoadClaudeIgnoreForPath(workingDir, filePath)
+	if err == nil && claudeIgnore.ShouldIgnore(filePath) {
+		return fmt.Sprintf("⚠️  File ignored by .claudeignore: %s", filePath), nil
+	}
+
 	// Check if operation is allowed by Claude settings
 	if allowed, reason := settings.IsOperationAllowed("Read", filePath); !allowed {
 		return fmt.Sprintf("❌ Read blocked by Claude settings on %s: %s", filePath, reason), nil
@@ -497,6 +503,39 @@ func executeGrep(input map[string]interface{}, workingDir string, settings *clau
 		}
 	}
 
+	// Filter out results from ignored files
+	claudeIgnore, ignoreErr := LoadClaudeIgnore(workingDir)
+	if ignoreErr == nil && len(claudeIgnore.patterns) > 0 {
+		lines := strings.Split(string(output), "\n")
+		filtered := make([]string, 0, len(lines))
+
+		for _, line := range lines {
+			if line == "" {
+				continue
+			}
+
+			// Extract filename from grep output (format: "filename:line:content")
+			parts := strings.SplitN(line, ":", 2)
+			if len(parts) > 0 {
+				filename := parts[0]
+				absPath := filename
+				if !filepath.IsAbs(filename) {
+					absPath = filepath.Join(workingDir, filename)
+				}
+
+				if !claudeIgnore.ShouldIgnore(absPath) {
+					filtered = append(filtered, line)
+				}
+			}
+		}
+
+		if len(filtered) == 0 {
+			return "No matches found (after applying .claudeignore)", nil
+		}
+
+		return strings.Join(filtered, "\n"), nil
+	}
+
 	return string(output), nil
 }
 
@@ -511,6 +550,19 @@ func executeGlob(input map[string]interface{}, workingDir string, settings *clau
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err), nil
+	}
+
+	// Filter out ignored files
+	claudeIgnore, err := LoadClaudeIgnore(workingDir)
+	if err == nil && len(claudeIgnore.patterns) > 0 {
+		filtered := make([]string, 0, len(matches))
+		for _, match := range matches {
+			absMatch := filepath.Join(workingDir, match)
+			if !claudeIgnore.ShouldIgnore(absMatch) {
+				filtered = append(filtered, match)
+			}
+		}
+		matches = filtered
 	}
 
 	if len(matches) == 0 {
