@@ -13,15 +13,16 @@ const (
 
 // Config holds all server configuration
 type Config struct {
-	Server        ServerConfig       `json:"server"`
-	API           APIConfig          `json:"api"`
-	Agent         AgentConfig        `json:"agent"`
-	Logging       LoggingConfig      `json:"logging"`
-	Metrics       MetricsConfig      `json:"metrics"`
-	TaskCleanup      TaskCleanupConfig      `json:"task_cleanup"`
-	ProviderCosts    ProviderCostsConfig    `json:"provider_costs"`
-	GradingCriteria  GradingCriteriaConfig  `json:"grading_criteria"`
-	Projects         map[string]string      `json:"projects,omitempty"` // map[projectPath]lastAccessed
+	Server          ServerConfig           `json:"server"`
+	API             APIConfig              `json:"api"`
+	Agent           AgentConfig            `json:"agent"`
+	Logging         LoggingConfig          `json:"logging"`
+	Metrics         MetricsConfig          `json:"metrics"`
+	TaskCleanup     TaskCleanupConfig      `json:"task_cleanup"`
+	ProviderCosts   ProviderCostsConfig    `json:"provider_costs"`
+	GradingCriteria GradingCriteriaConfig  `json:"grading_criteria"`
+	MCP             MCPConfig              `json:"mcp"`
+	Projects        map[string]string      `json:"projects,omitempty"` // map[projectPath]lastAccessed
 }
 
 // ServerConfig holds server-specific settings
@@ -98,6 +99,20 @@ type GradeThreshold struct {
 	MaxRetryRate   float64 `json:"max_retry_rate"`   // Maximum retry rate (0.0-1.0)
 }
 
+// MCPConfig holds MCP server configuration
+type MCPConfig struct {
+	Enabled       bool                       `json:"enabled"`         // Enable MCP integration
+	Servers       map[string]MCPServerConfig `json:"servers"`         // Server configurations (can override user/project configs)
+	EnabledServers []string                   `json:"enabled_servers"` // List of enabled server names (filters available servers)
+}
+
+// MCPServerConfig defines configuration for an MCP server
+type MCPServerConfig struct {
+	Command string            `json:"command"`
+	Args    []string          `json:"args"`
+	Env     map[string]string `json:"env,omitempty"`
+}
+
 // DefaultConfig returns default configuration
 func DefaultConfig() *Config {
 	return &Config{
@@ -138,6 +153,11 @@ func DefaultConfig() *Config {
 			GradeB: GradeThreshold{MinSuccessRate: 0.80, MaxRetryRate: 0.10},
 			GradeC: GradeThreshold{MinSuccessRate: 0.70, MaxRetryRate: 0.20},
 			GradeD: GradeThreshold{MinSuccessRate: 0.60, MaxRetryRate: 0.30},
+		},
+		MCP: MCPConfig{
+			Enabled:        false,                          // Disabled by default
+			Servers:        make(map[string]MCPServerConfig), // Empty by default
+			EnabledServers: []string{},                      // Empty means all available servers enabled
 		},
 		Projects: make(map[string]string),
 	}
@@ -275,4 +295,71 @@ func SaveConfig(cfg *Config, configPath string) error {
 	}
 
 	return nil
+}
+
+// LoadMCPServers loads MCP server configurations from user and project configs
+// Priority order (highest to lowest):
+// 1. cfg.MCP.Servers (explicit server config in agent-server.json)
+// 2. Project .mcp.json (if projectRoot is provided)
+// 3. ~/.claude.json global MCP servers
+//
+// If cfg.MCP.EnabledServers is non-empty, only those servers will be loaded
+func LoadMCPServers(cfg *MCPConfig, projectRoot string) (map[string]MCPServerConfig, error) {
+	result := make(map[string]MCPServerConfig)
+
+	// Load from ~/.claude.json (global user config)
+	homeDir, err := os.UserHomeDir()
+	if err == nil {
+		claudeJSONPath := homeDir + "/.claude.json"
+		if _, err := os.Stat(claudeJSONPath); err == nil {
+			data, err := os.ReadFile(claudeJSONPath)
+			if err == nil {
+				var claudeConfig struct {
+					MCPServers map[string]MCPServerConfig `json:"mcpServers"`
+				}
+				if err := json.Unmarshal(data, &claudeConfig); err == nil {
+					for name, server := range claudeConfig.MCPServers {
+						result[name] = server
+					}
+				}
+			}
+		}
+	}
+
+	// Load from project .mcp.json (if projectRoot provided)
+	if projectRoot != "" {
+		mcpJSONPath := projectRoot + "/.mcp.json"
+		if _, err := os.Stat(mcpJSONPath); err == nil {
+			data, err := os.ReadFile(mcpJSONPath)
+			if err == nil {
+				var mcpConfig struct {
+					MCPServers map[string]MCPServerConfig `json:"mcpServers"`
+				}
+				if err := json.Unmarshal(data, &mcpConfig); err == nil {
+					// Project config overrides global config
+					for name, server := range mcpConfig.MCPServers {
+						result[name] = server
+					}
+				}
+			}
+		}
+	}
+
+	// Override with explicit server configs from agent-server.json
+	for name, server := range cfg.Servers {
+		result[name] = server
+	}
+
+	// Filter by enabled servers list (if specified)
+	if len(cfg.EnabledServers) > 0 {
+		filtered := make(map[string]MCPServerConfig)
+		for _, name := range cfg.EnabledServers {
+			if server, exists := result[name]; exists {
+				filtered[name] = server
+			}
+		}
+		result = filtered
+	}
+
+	return result, nil
 }

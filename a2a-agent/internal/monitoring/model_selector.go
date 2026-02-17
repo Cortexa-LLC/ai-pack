@@ -27,13 +27,14 @@ type ModelInfo struct {
 var ModelsByTier = map[ModelTier][]ModelInfo{
 	TierMinimal: {
 		{ID: "gpt-4o-mini", Tier: TierMinimal, Provider: "openai", CostPerMIn: 0.15, CostPerMOut: 0.60},
-		{ID: "claude-haiku-4-5", Tier: TierMinimal, Provider: "anthropic", CostPerMIn: 0.25, CostPerMOut: 1.25},
+		{ID: "claude-haiku-4-5", Tier: TierMinimal, Provider: "anthropic", CostPerMIn: 1.00, CostPerMOut: 5.00},
 	},
 	TierLow: {
 		{ID: "gpt-4o", Tier: TierLow, Provider: "openai", CostPerMIn: 2.50, CostPerMOut: 10.00},
 		{ID: "gpt-5.2-mini", Tier: TierLow, Provider: "openai", CostPerMIn: 0.60, CostPerMOut: 2.40},
 	},
 	TierMedium: {
+		{ID: "claude-sonnet-4-6", Tier: TierMedium, Provider: "anthropic", CostPerMIn: 3.00, CostPerMOut: 15.00},
 		{ID: "claude-sonnet-4-5", Tier: TierMedium, Provider: "anthropic", CostPerMIn: 3.00, CostPerMOut: 15.00},
 		{ID: "claude-sonnet-4-5-20250929", Tier: TierMedium, Provider: "anthropic", CostPerMIn: 3.00, CostPerMOut: 15.00},
 	},
@@ -77,7 +78,7 @@ func NewModelSelector(gradeManager *PerformanceGradeManager, complexityAnalyzer 
 		gradeManager:       gradeManager,
 		complexityAnalyzer: complexityAnalyzer,
 		minTier:            TierMinimal,
-		maxTier:            TierHigh,
+		maxTier:            TierMedium, // Cap at Sonnet 4.6 - Premium tier requires explicit user approval
 		enabled:            true,
 	}
 }

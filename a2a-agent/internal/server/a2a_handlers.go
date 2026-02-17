@@ -280,10 +280,8 @@ func (s *AgentServer) discoverAvailableAgents() []protocol.AgentDescription {
 			name := entry.Name()
 			var role string
 
-			if strings.HasSuffix(name, ".yml") {
-				role = strings.TrimSuffix(name, ".yml")
-			} else if strings.HasSuffix(name, ".yaml") {
-				role = strings.TrimSuffix(name, ".yaml")
+			if strings.HasSuffix(name, ".md") {
+				role = strings.TrimSuffix(name, ".md")
 			} else {
 				continue
 			}

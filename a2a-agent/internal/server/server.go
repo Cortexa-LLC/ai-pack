@@ -14,22 +14,48 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/anthropics/anthropic-sdk-go/packages/param"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/auth"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/beads"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/claude"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/streaming"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/execution_log"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/mcp"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/proxy"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/tools"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 	"github.com/sashabaranov/go-openai"
-	"gopkg.in/yaml.v3"
 )
 
 var Version = "2.1.0"
+
+// Configuration field names (for markdown header parsing)
+const (
+	configFieldAgent       = "Agent"
+	configFieldDescription = "Description"
+	configFieldModel       = "Model"
+	configFieldTier        = "Tier"
+	configFieldTimeout     = "Timeout"
+	configFieldMaxContext  = "MaxContext"
+	configFieldDelegation  = "Delegation"
+	configFieldTools       = "Tools"
+	configFieldGates       = "Gates"
+)
+
+// Configuration defaults
+const (
+	defaultTier        = "minimal"
+	defaultModel       = "gpt-4o-mini"
+	defaultDelegation  = "delegate"
+	defaultTimeout     = "10min"
+	defaultMaxContext  = 32000
+	configSeparator    = "---"
+	markdownFieldStart = "**"
+	markdownFieldEnd   = ":**"
+)
 
 type AgentServer struct {
 	rootDir          string
@@ -53,6 +79,7 @@ type AgentServer struct {
 	streamingService   *streaming.Service // Clean streaming abstraction
 	projectMetrics     map[string]*monitoring.PersistentMetrics // Per-project persistent metrics
 	providerCosts      map[string][2]float64 // Provider cost configuration
+	mcpManager         *mcp.Manager          // MCP server manager
 
 	// Concurrent execution tracking
 	mu           sync.RWMutex
@@ -91,6 +118,7 @@ type AgentConfig struct {
 	Model       string `yaml:"model"` // LLM model to use (e.g., "gpt-4o-mini", "claude-sonnet-3-5-20241022")
 	Context     struct {
 		RoleFile               string   `yaml:"role_file"`
+		RoleContent            string   `yaml:"-"` // Loaded from .md file content (not from YAML)
 		Gates                  []string `yaml:"gates"`
 		AdditionalInstructions string   `yaml:"additional_instructions"`
 	} `yaml:"context"`
@@ -364,6 +392,50 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	monitoring.Logger.Info("streaming_service_initialized",
 		"default", "anthropic")
 
+	// Initialize MCP manager if enabled
+	server.mcpManager = mcp.NewManager()
+	if cfg.MCP.Enabled {
+		// Load MCP servers from user/project configs
+		mcpServers, err := config.LoadMCPServers(&cfg.MCP, rootDir)
+		if err != nil {
+			monitoring.Logger.Warn("failed_to_load_mcp_servers", "error", err.Error())
+		} else {
+			// Start MCP servers
+			for name, serverCfg := range mcpServers {
+				mcpCfg := mcp.ServerConfig{
+					Command: serverCfg.Command,
+					Args:    serverCfg.Args,
+					Env:     serverCfg.Env,
+				}
+
+				if err := server.mcpManager.StartServer(context.Background(), name, mcpCfg); err != nil {
+					monitoring.Logger.Warn("failed_to_start_mcp_server",
+						"server", name,
+						"error", err.Error())
+				} else {
+					monitoring.Logger.Info("mcp_server_started",
+						"server", name,
+						"command", serverCfg.Command)
+				}
+			}
+
+			// Log active servers and available tools
+			activeServers := server.mcpManager.GetActiveServers()
+			if len(activeServers) > 0 {
+				toolCount := 0
+				for _, tools := range server.mcpManager.GetAllTools() {
+					toolCount += len(tools)
+				}
+				monitoring.Logger.Info("mcp_integration_enabled",
+					"active_servers", len(activeServers),
+					"total_tools", toolCount,
+					"servers", strings.Join(activeServers, ", "))
+			}
+		}
+	} else {
+		monitoring.Logger.Info("mcp_integration_disabled")
+	}
+
 	// Start worker pool
 	go server.startWorkerPool()
 
@@ -600,6 +672,123 @@ func (s *AgentServer) getTaskStatus(taskID string) (*protocol.TaskStatusResponse
 	return response, nil
 }
 
+// parseMarkdownConfig extracts configuration from structured markdown headers
+// Expected format at top of file:
+// # Role Name
+// **Agent:** engineer
+// **Description:** Implementation specialist
+// **Model:** gpt-4o-mini
+// **Tier:** minimal
+// **Timeout:** 10min
+// **Tools:** read, write, edit, bash
+// **Gates:** tdd-enforcement
+// **Delegation:** delegate
+// **MaxContext:** 32000
+// ---
+//
+// Returns: config, roleContent, error
+func parseMarkdownConfig(data []byte, roleName string) (*AgentConfig, string, error) {
+	content := string(data)
+	lines := strings.Split(content, "\n")
+
+	config := &AgentConfig{
+		Name: roleName,
+		// Apply defaults
+		Tier:  defaultTier,
+		Model: defaultModel,
+		Delegation: struct {
+			Mode       string `yaml:"mode"`
+			Timeout    string `yaml:"timeout"`
+			MaxContext int    `yaml:"max_context"`
+		}{
+			Mode:       defaultDelegation,
+			Timeout:    defaultTimeout,
+			MaxContext: defaultMaxContext,
+		},
+	}
+
+	// Find the separator (---)
+	separatorIdx := -1
+	for i, line := range lines {
+		if strings.TrimSpace(line) == configSeparator {
+			separatorIdx = i
+			break
+		}
+	}
+
+	if separatorIdx == -1 {
+		return nil, "", fmt.Errorf("missing %s separator after config header (required format: see role file documentation)", configSeparator)
+	}
+
+	// Parse header section (before ---)
+	for i := 0; i < separatorIdx; i++ {
+		line := strings.TrimSpace(lines[i])
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue // Skip empty lines and markdown headers
+		}
+
+		// Parse **Field:** value format
+		if strings.HasPrefix(line, markdownFieldStart) && strings.Contains(line, markdownFieldEnd) {
+			parts := strings.SplitN(line, markdownFieldEnd, 2)
+			if len(parts) != 2 {
+				continue
+			}
+
+			field := strings.TrimPrefix(parts[0], markdownFieldStart)
+			value := strings.TrimSpace(parts[1])
+
+			switch field {
+			case configFieldAgent:
+				config.Name = value
+			case configFieldDescription:
+				config.Description = value
+			case configFieldModel:
+				config.Model = value
+			case configFieldTier:
+				config.Tier = value
+			case configFieldTimeout:
+				config.Delegation.Timeout = value
+			case configFieldMaxContext:
+				fmt.Sscanf(value, "%d", &config.Delegation.MaxContext)
+			case configFieldDelegation:
+				config.Delegation.Mode = value
+			case configFieldTools:
+				// Parse comma-separated list
+				tools := strings.Split(value, ",")
+				for _, tool := range tools {
+					tool = strings.TrimSpace(tool)
+					if tool != "" {
+						config.Tools = append(config.Tools, tool)
+					}
+				}
+			case configFieldGates:
+				// Parse comma-separated list
+				gates := strings.Split(value, ",")
+				for _, gate := range gates {
+					gate = strings.TrimSpace(gate)
+					if gate != "" {
+						config.Context.Gates = append(config.Context.Gates, gate)
+					}
+				}
+			}
+		}
+	}
+
+	// Extract role content (after ---)
+	roleContent := strings.Join(lines[separatorIdx+1:], "\n")
+	roleContent = strings.TrimSpace(roleContent)
+
+	// Validation - required fields
+	if config.Name == "" {
+		return nil, "", fmt.Errorf("missing required field: %s%s%s", markdownFieldStart, configFieldAgent, markdownFieldEnd)
+	}
+	if config.Description == "" {
+		return nil, "", fmt.Errorf("missing required field: %s%s%s", markdownFieldStart, configFieldDescription, markdownFieldEnd)
+	}
+
+	return config, roleContent, nil
+}
+
 func (s *AgentServer) loadAgentConfig(role string, projectRoot string) (*AgentConfig, error) {
 	// Use provided projectRoot or fall back to server root
 	if projectRoot == "" {
@@ -607,18 +796,19 @@ func (s *AgentServer) loadAgentConfig(role string, projectRoot string) (*AgentCo
 	}
 
 	// Try paths in order:
-	// 1. Project override (.ai/agents/)
-	// 2. Framework (.ai-pack/agents/) - production
-	// 3. Development (../agents/) - when running from a2a-agent dir
-	// 4. Development (agents/) - when running from repo root
+	// 1. Project override (.ai/roles/)
+	// 2. Framework (.ai-pack/roles/) - production
+	// 3. Development (../roles/) - when running from a2a-agent dir
+	// 4. Development (roles/) - when running from repo root
+	// Note: Using .md files with YAML frontmatter (single source of truth)
 	candidatePaths := []struct {
 		path   string
 		source string
 	}{
-		{filepath.Join(projectRoot, ".ai", "agents", role+".yml"), "project_override"},
-		{filepath.Join(projectRoot, ".ai-pack", "agents", role+".yml"), "framework"},
-		{filepath.Join(projectRoot, "..", "agents", role+".yml"), "dev_parent"},
-		{filepath.Join(projectRoot, "agents", role+".yml"), "dev_root"},
+		{filepath.Join(projectRoot, ".ai", "roles", role+".md"), "project_override"},
+		{filepath.Join(projectRoot, ".ai-pack", "roles", role+".md"), "framework"},
+		{filepath.Join(projectRoot, "..", "roles", role+".md"), "dev_parent"},
+		{filepath.Join(projectRoot, "roles", role+".md"), "dev_root"},
 	}
 
 	var configPath string
@@ -633,7 +823,7 @@ func (s *AgentServer) loadAgentConfig(role string, projectRoot string) (*AgentCo
 	}
 
 	if configPath == "" {
-		return nil, fmt.Errorf("no config found for role %s (tried: .ai/agents, .ai-pack/agents, ../agents, agents)", role)
+		return nil, fmt.Errorf("no config found for role %s (tried: .ai/roles, .ai-pack/roles, ../roles, roles)", role)
 	}
 
 	monitoring.Logger.Info("loading_agent_config", "role", role, "source", source, "path", configPath)
@@ -643,29 +833,17 @@ func (s *AgentServer) loadAgentConfig(role string, projectRoot string) (*AgentCo
 		return nil, fmt.Errorf("failed to read config file %s: %w", configPath, err)
 	}
 
-	var config AgentConfig
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse config: %w", err)
+	// Parse pure markdown configuration
+	config, roleContent, err := parseMarkdownConfig(data, role)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse role config %s: %w (ensure file has required markdown header format)", configPath, err)
 	}
 
-	// Normalize role_file path based on config source
-	// Role file paths in configs are relative to the ai-pack root
-	if source == "dev_parent" {
-		// Config loaded from ../agents/, role files are in ../roles/
-		if !filepath.IsAbs(config.Context.RoleFile) && !strings.HasPrefix(config.Context.RoleFile, ".ai") {
-			config.Context.RoleFile = filepath.Join("..", config.Context.RoleFile)
-		}
-	} else if source == "dev_root" {
-		// Config loaded from agents/, role files are in roles/
-		// Path is already correct as-is
-	} else if source == "framework" {
-		// Config loaded from .ai-pack/agents/, role files are in .ai-pack/roles/
-		if !filepath.IsAbs(config.Context.RoleFile) && !strings.HasPrefix(config.Context.RoleFile, ".ai") {
-			config.Context.RoleFile = filepath.Join(".ai-pack", config.Context.RoleFile)
-		}
-	}
+	// Store role content and path in config for later use
+	config.Context.RoleContent = roleContent
+	config.Context.RoleFile = configPath // Store actual path for reference
 
-	return &config, nil
+	return config, nil
 }
 
 func (s *AgentServer) loadRoleContext(roleFile string, projectRoot string) (string, error) {
@@ -1113,8 +1291,8 @@ func convertToToolUnionParams(tools []anthropic.ToolParam) []anthropic.ToolUnion
 // Uses character-based estimation (roughly 4 chars per token for English text)
 // executeAgenticLoop runs the agentic loop with tool support
 func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, role string, initialPrompt string, roleContext string, workingDir string, config *AgentConfig, logMsg func(string)) (string, error) {
-	// Define tools (matches Claude Code's exact tool names)
-	toolDefs := tools.DefineTools()
+	// Define tools (native + MCP tools)
+	toolDefs := s.getAllTools()
 
 	// Build system prompt with caching for role context
 	systemPrompt := s.buildSystemPrompt(roleContext)
@@ -1173,16 +1351,24 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		}
 
 		// Convert tools to provider-agnostic format
+		// The streaming format expects InputSchema to be a complete JSON Schema object
+		// with "type", "properties", and "required" at the top level
 		streamTools := make([]streaming.Tool, 0, len(toolDefs))
 		for _, tool := range toolDefs {
+			// Build complete JSON Schema object
+			schema := map[string]interface{}{
+				"type":       tool.InputSchema.Type,
+				"properties": tool.InputSchema.Properties,
+			}
+			// Add required array if present
+			if len(tool.InputSchema.Required) > 0 {
+				schema["required"] = tool.InputSchema.Required
+			}
+
 			streamTools = append(streamTools, streaming.Tool{
 				Name:        tool.Name,
 				Description: "", // TODO: Extract from param.Opt
-				InputSchema: map[string]interface{}{
-					"type":       tool.InputSchema.Type,
-					"properties": tool.InputSchema.Properties,
-					"required":   tool.InputSchema.Required,
-				},
+				InputSchema: schema,
 			})
 		}
 
@@ -1362,8 +1548,8 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		// Execute tools and build tool results
 		var toolResultBlocks []anthropic.ContentBlockParamUnion
 		for _, toolUse := range toolUses {
-			// Execute tool with Claude settings
-			result, err := tools.ExecuteTool(toolUse.Name, toolUse.Input, workingDir, s.claudeSettings)
+			// Execute tool (native or MCP)
+			result, err := s.executeTool(ctx, toolUse.Name, toolUse.Input, workingDir)
 			if err != nil {
 				logMsg(fmt.Sprintf("         ❌ Tool execution failed: %v", err))
 				result = fmt.Sprintf("Error: %v", err)
@@ -1560,14 +1746,18 @@ func (s *AgentServer) initializeTaskExecution(execution *TaskExecution, logMsg f
 
 // loadAndLogRoleContext loads role context with logging and error handling
 func (s *AgentServer) loadAndLogRoleContext(execution *TaskExecution, logMsg func(string)) (string, error) {
-	logMsg(fmt.Sprintf("📖 Loading role context: %s", execution.Config.Context.RoleFile))
-	roleContext, err := s.loadRoleContext(execution.Config.Context.RoleFile, execution.ProjectRoot)
-	if err != nil {
-		monitoring.Logger.Error("role_context_load_error", "task_id", execution.TaskID, "error", err)
+	logMsg(fmt.Sprintf("📖 Loading role context from: %s", execution.Config.Context.RoleFile))
+
+	// Role content is already loaded in config from .md file
+	roleContext := execution.Config.Context.RoleContent
+	if roleContext == "" {
+		err := fmt.Errorf("role content is empty")
+		monitoring.Logger.Error("role_context_empty", "task_id", execution.TaskID, "file", execution.Config.Context.RoleFile)
 		logMsg(fmt.Sprintf("❌ Failed to load role context: %v", err))
 		s.failTask(execution, fmt.Sprintf("Failed to load role context: %v", err))
 		return "", err
 	}
+
 	logMsg("✅ Role context loaded")
 	return roleContext, nil
 }
@@ -2396,6 +2586,117 @@ func (s *AgentServer) GetActiveTaskIDs() []map[string]string {
 	return tasks
 }
 
+// executeTool executes a tool (native or MCP)
+func (s *AgentServer) executeTool(ctx context.Context, toolName string, toolInput map[string]interface{}, workingDir string) (string, error) {
+	// Check if this is an MCP tool
+	if s.mcpManager != nil {
+		mcpTools := s.mcpManager.GetAllTools()
+		for _, serverTools := range mcpTools {
+			for _, tool := range serverTools {
+				if tool.Name == toolName {
+					// This is an MCP tool
+					result, err := s.mcpManager.CallTool(ctx, toolName, toolInput)
+					if err != nil {
+						return "", fmt.Errorf("MCP tool error: %w", err)
+					}
+
+					// Convert MCP result to string
+					var resultText strings.Builder
+					for _, block := range result.Content {
+						if block.Type == "text" {
+							resultText.WriteString(block.Text)
+						}
+					}
+
+					return resultText.String(), nil
+				}
+			}
+		}
+	}
+
+	// Not an MCP tool, execute as native tool
+	return tools.ExecuteTool(toolName, toolInput, workingDir, s.claudeSettings)
+}
+
+// cleanSchemaProperties recursively cleans schema properties to be Anthropic-compatible
+// Removes: $schema, additionalProperties, and other non-standard fields
+func cleanSchemaProperties(properties map[string]interface{}) map[string]interface{} {
+	cleaned := make(map[string]interface{})
+
+	for key, value := range properties {
+		// Skip fields that Anthropic doesn't support
+		if key == "$schema" || key == "additionalProperties" {
+			continue
+		}
+
+		// Recursively clean nested objects
+		if valueMap, ok := value.(map[string]interface{}); ok {
+			cleaned[key] = cleanSchemaProperties(valueMap)
+		} else {
+			cleaned[key] = value
+		}
+	}
+
+	return cleaned
+}
+
+// getAllTools returns all available tools including native tools and MCP tools
+func (s *AgentServer) getAllTools() []anthropic.ToolParam {
+	// Start with native tools
+	toolList := tools.DefineTools()
+
+	// Add MCP tools if manager is initialized
+	if s.mcpManager != nil {
+		mcpTools := s.mcpManager.GetAllTools()
+
+		for serverName, serverTools := range mcpTools {
+			for _, tool := range serverTools {
+				// MCP InputSchema is already a complete JSON schema
+				// Extract properties and required fields, cleaning out unsupported fields
+				properties, _ := tool.InputSchema["properties"].(map[string]interface{})
+				if properties == nil {
+					properties = make(map[string]interface{})
+				}
+
+				// Clean properties recursively - remove $schema, additionalProperties, etc.
+				cleanedProperties := cleanSchemaProperties(properties)
+
+				required := []string{}
+				if req, ok := tool.InputSchema["required"].([]interface{}); ok {
+					for _, r := range req {
+						if rStr, ok := r.(string); ok {
+							required = append(required, rStr)
+						}
+					}
+				}
+
+				// Convert MCP tool to Anthropic ToolParam
+				anthropicTool := anthropic.ToolParam{
+					Name: tool.Name,
+					InputSchema: anthropic.ToolInputSchemaParam{
+						Type:       "object",
+						Properties: cleanedProperties,
+						Required:   required,
+					},
+				}
+
+				// Add description if available
+				if tool.Description != "" {
+					anthropicTool.Description = param.NewOpt(tool.Description)
+				}
+
+				toolList = append(toolList, anthropicTool)
+
+				monitoring.Logger.Debug("mcp_tool_registered",
+					"server", serverName,
+					"tool", tool.Name)
+			}
+		}
+	}
+
+	return toolList
+}
+
 // Shutdown performs graceful shutdown of the server
 // Returns true if shutdown should proceed, false if user cancelled
 func (s *AgentServer) Shutdown(ctx context.Context) error {
@@ -2418,6 +2719,15 @@ func (s *AgentServer) Shutdown(ctx context.Context) error {
 		}
 
 		return fmt.Errorf("cannot shutdown: %d active task(s) running. Wait for completion or cancel tasks first", activeCount)
+	}
+
+	// Shutdown MCP servers
+	if s.mcpManager != nil {
+		if err := s.mcpManager.Close(); err != nil {
+			monitoring.Logger.Warn("mcp_shutdown_error", "error", err.Error())
+		} else {
+			monitoring.Logger.Info("mcp_servers_closed")
+		}
 	}
 
 	monitoring.Logger.Info("shutdown_complete", "active_tasks", 0)
