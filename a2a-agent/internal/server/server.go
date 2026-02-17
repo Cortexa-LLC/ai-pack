@@ -1112,7 +1112,7 @@ func convertToToolUnionParams(tools []anthropic.ToolParam) []anthropic.ToolUnion
 // estimateTokenCount provides a rough estimate of token count for context management
 // Uses character-based estimation (roughly 4 chars per token for English text)
 // executeAgenticLoop runs the agentic loop with tool support
-func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, initialPrompt string, roleContext string, workingDir string, config *AgentConfig, logMsg func(string)) (string, error) {
+func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, role string, initialPrompt string, roleContext string, workingDir string, config *AgentConfig, logMsg func(string)) (string, error) {
 	// Define tools (matches Claude Code's exact tool names)
 	toolDefs := tools.DefineTools()
 
@@ -1155,30 +1155,74 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 			}
 		}
 
-		// Prepare API params with system prompt (SDK v1.19+ uses direct values, not F() wrappers)
-		params := anthropic.MessageNewParams{
-			Model:     anthropic.Model(s.model),
-			MaxTokens: int64(s.maxTokens),
-			Messages:  truncatedMessages, // Use truncated history to reduce input tokens
-			Tools:     convertToToolUnionParams(toolDefs),
-			System:    systemPrompt,
+		// Convert messages to provider-agnostic format
+		streamMessages := make([]streaming.Message, 0, len(truncatedMessages))
+		for _, msg := range truncatedMessages {
+			// Extract text from Anthropic message format
+			var content string
+			for _, block := range msg.Content {
+				if textBlock := block.OfText; textBlock != nil {
+					content += textBlock.Text
+				}
+			}
+
+			streamMessages = append(streamMessages, streaming.Message{
+				Role:    string(msg.Role),
+				Content: content,
+			})
+		}
+
+		// Convert tools to provider-agnostic format
+		streamTools := make([]streaming.Tool, 0, len(toolDefs))
+		for _, tool := range toolDefs {
+			streamTools = append(streamTools, streaming.Tool{
+				Name:        tool.Name,
+				Description: "", // TODO: Extract from param.Opt
+				InputSchema: map[string]interface{}{
+					"type":       tool.InputSchema.Type,
+					"properties": tool.InputSchema.Properties,
+					"required":   tool.InputSchema.Required,
+				},
+			})
+		}
+
+		// Build system prompt string from blocks
+		var systemPromptStr string
+		for _, block := range systemPrompt {
+			systemPromptStr += block.Text
+		}
+
+		// Prepare streaming request
+		streamReq := streaming.StreamRequest{
+			Messages:     streamMessages,
+			SystemPrompt: systemPromptStr,
+			MaxTokens:    s.maxTokens,
+			Model:        s.model, // Default model - will be overridden by role-based selection
+			Tools:        streamTools,
 		}
 
 		// Note: Extended thinking support requires newer SDK version
-		// TODO: Add when SDK updated
 		if config.ExtendedThinking {
-			logMsg("      ⚠️  Extended thinking requested but not yet supported in SDK")
+			logMsg("      ⚠️  Extended thinking requested but not yet supported")
 		}
 
-		// Make API call with streaming
+		// Make API call with streaming (uses performance-grade model selection)
 		apiStart := time.Now()
 
-		stream := s.client.Messages.NewStreaming(ctx, params)
+		stream, err := s.streamingService.CreateStream(ctx, role, streamReq)
+		if err != nil {
+			return "", fmt.Errorf("failed to create stream on turn %d: %w", turn, err)
+		}
+		defer stream.Close()
 
-		// Update task metadata with model information on first turn
+		// Update task metadata with actual model used on first turn
 		if turn == 1 {
-			// Note: Using default model directly (performance-grade selection not yet integrated for agent tasks)
-			// Extract project root from working directory by finding .beads parent
+			selectedModel := stream.GetModel()
+			selectedProvider := stream.GetProvider()
+
+			logMsg(fmt.Sprintf("   📊 Model selected: %s (%s)", selectedModel, selectedProvider))
+
+			// Extract project root from working directory
 			projectRoot := workingDir
 			for projectRoot != "" && projectRoot != "/" {
 				if _, err := os.Stat(filepath.Join(projectRoot, ".beads")); err == nil {
@@ -1188,8 +1232,17 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 			}
 
 			if projectRoot != "" && projectRoot != "/" {
-				// Update metadata with current model (no tier info since not using selector)
-				if err := s.updateTaskMetadata(projectRoot, taskID, string(params.Model), "anthropic", 3); err != nil {
+				// Determine tier from model
+				tier := 3 // Default to TierMedium (Sonnet)
+				if strings.Contains(strings.ToLower(selectedModel), "haiku") || strings.Contains(strings.ToLower(selectedModel), "mini") {
+					tier = 1 // TierMinimal
+				} else if strings.Contains(strings.ToLower(selectedModel), "gpt-4o") || strings.Contains(strings.ToLower(selectedModel), "gpt-5") {
+					tier = 2 // TierLow
+				} else if strings.Contains(strings.ToLower(selectedModel), "opus") {
+					tier = 4 // TierHigh
+				}
+
+				if err := s.updateTaskMetadata(projectRoot, taskID, selectedModel, selectedProvider, tier); err != nil {
 					monitoring.Logger.Warn("failed_to_update_task_metadata",
 						"task_id", taskID,
 						"error", err.Error())
@@ -1197,47 +1250,47 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 			}
 		}
 
-		// Use SDK's Accumulate method to build the message
-		var message anthropic.Message
+		// Accumulate response from streaming events
+		var responseText strings.Builder
+		var toolUses []streaming.ToolUse
 		eventCount := 0
+
 		for stream.Next() {
 			event := stream.Current()
 			eventCount++
-			if err := message.Accumulate(event); err != nil {
-				// Check if we hit max_tokens limit
-				stopReason := string(message.StopReason)
-				if stopReason == "max_tokens" {
-					monitoring.Logger.Warn("max_tokens_limit_reached",
-						"task_id", taskID,
-						"turn", turn,
-						"output_tokens", int(message.Usage.OutputTokens),
-					)
-					logMsg(fmt.Sprintf("      ⚠️  Max tokens reached (%d). Completing turn.", message.Usage.OutputTokens))
-					break
-				}
 
-				// Log stream error with essential context
-				monitoring.Logger.Error("stream_error",
-					"task_id", taskID,
-					"turn", turn,
-					"event", eventCount,
-					"stop_reason", stopReason,
-					"error", err.Error(),
-				)
+			// Accumulate text
+			if event.Delta != nil && event.Delta.Text != "" {
+				responseText.WriteString(event.Delta.Text)
+			}
 
-				return "", fmt.Errorf("stream error on turn %d: %w", turn, err)
+			// Collect tool uses
+			if event.ToolUse != nil {
+				toolUses = append(toolUses, *event.ToolUse)
 			}
 		}
 
+		// Get final accumulated message with stop reason and token usage
+		finalMessage := stream.GetMessage()
+		stopReason := ""
+		inputTokens := int64(0)
+		outputTokens := int64(0)
+		if finalMessage != nil {
+			stopReason = finalMessage.StopReason
+			inputTokens = int64(finalMessage.InputTokens)
+			outputTokens = int64(finalMessage.OutputTokens)
+		}
+
+		// Check for streaming errors
 		if err := stream.Err(); err != nil {
 			errMsg := err.Error()
 
 			// Check for token limit errors and provide actionable guidance
 			if strings.Contains(errMsg, "prompt is too long") || strings.Contains(errMsg, "maximum") {
 				logMsg(fmt.Sprintf("❌ Context size exceeded API limit on turn %d", turn))
-						logMsg(fmt.Sprintf("   💡 Recommendation: Break this task into smaller subtasks"))
+				logMsg(fmt.Sprintf("   💡 Recommendation: Break this task into smaller subtasks"))
 
-				return "", fmt.Errorf("API token limit exceeded on turn %d . "+
+				return "", fmt.Errorf("API token limit exceeded on turn %d. "+
 					"This task is too complex for a single agent execution. "+
 					"Please break it into smaller subtasks: %w", turn, err)
 			}
@@ -1245,51 +1298,55 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 			return "", fmt.Errorf("API call failed on turn %d: %w", turn, err)
 		}
 
+		// Check for max_tokens limit
+		if stopReason == "max_tokens" {
+			monitoring.Logger.Warn("max_tokens_limit_reached",
+				"task_id", taskID,
+				"turn", turn,
+				"output_tokens", outputTokens,
+			)
+			logMsg(fmt.Sprintf("      ⚠️  Max tokens reached (%d). Completing turn.", outputTokens))
+		}
+
 		apiDuration := time.Since(apiStart).Milliseconds()
-		totalInputTokens += message.Usage.InputTokens
-		totalOutputTokens += message.Usage.OutputTokens
+		totalInputTokens += inputTokens
+		totalOutputTokens += outputTokens
 
 		// Log token usage (cumulative total is informational, not a limit)
 		logMsg(fmt.Sprintf("      API: %dms | in:%d out:%d | cumulative:%d",
-			apiDuration, message.Usage.InputTokens, message.Usage.OutputTokens,
+			apiDuration, inputTokens, outputTokens,
 			totalInputTokens+totalOutputTokens))
 
 		// Record per-turn token metrics
-		monitoring.GlobalMetrics.RecordTurnTokens(taskID, turn, int64(message.Usage.InputTokens), int64(message.Usage.OutputTokens), apiDuration)
+		monitoring.GlobalMetrics.RecordTurnTokens(taskID, turn, inputTokens, outputTokens, apiDuration)
+
+		// Get model and provider from stream
+		selectedModel := stream.GetModel()
+		selectedProvider := stream.GetProvider()
 
 		// Record provider-specific usage
-		monitoring.GlobalMetrics.RecordProviderUsage("anthropic", s.model, int64(message.Usage.InputTokens), int64(message.Usage.OutputTokens))
+		monitoring.GlobalMetrics.RecordProviderUsage(selectedProvider, selectedModel, inputTokens, outputTokens)
 
 		// Record persistent daily usage
 		if pm, err := s.getOrCreateProjectMetrics(s.rootDir); err == nil {
-			if err := pm.RecordUsage("anthropic", s.model, int64(message.Usage.InputTokens), int64(message.Usage.OutputTokens)); err != nil {
+			if err := pm.RecordUsage(selectedProvider, selectedModel, inputTokens, outputTokens); err != nil {
 				monitoring.Logger.Warn("failed_to_record_persistent_metrics", "error", err.Error())
 			}
 		}
 
-		// Process response blocks
-		var toolUses []anthropic.ToolUseBlock
-		hasText := false
+		// Process response content
+		responseTextStr := responseText.String()
+		hasText := len(responseTextStr) > 0
 
-		for _, block := range message.Content {
-			switch block.Type {
-			case constants.ContentTypeText:
-				finalResult.WriteString(block.Text)
-				finalResult.WriteString("\n")
-				hasText = true
-				logMsg(fmt.Sprintf("      💬 Text: %d chars", len(block.Text)))
+		if hasText {
+			finalResult.WriteString(responseTextStr)
+			finalResult.WriteString("\n")
+			logMsg(fmt.Sprintf("      💬 Text: %d chars", len(responseTextStr)))
+		}
 
-			case constants.ContentTypeToolUse:
-				// Access fields directly from union instead of using AsToolUse()
-				// since we manually constructed these blocks without JSON.raw
-				toolUse := anthropic.ToolUseBlock{
-					ID:    block.ID,
-					Name:  block.Name,
-					Input: block.Input,
-				}
-				toolUses = append(toolUses, toolUse)
-				logMsg(fmt.Sprintf("      🔧 Tool: %s", toolUse.Name))
-			}
+		// Log tool uses
+		for _, toolUse := range toolUses {
+			logMsg(fmt.Sprintf("      🔧 Tool: %s", toolUse.Name))
 		}
 
 		// If no tool uses and we have text, we're done
@@ -1305,15 +1362,8 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 		// Execute tools and build tool results
 		var toolResultBlocks []anthropic.ContentBlockParamUnion
 		for _, toolUse := range toolUses {
-			// Parse tool input from JSON
-			var inputMap map[string]interface{}
-			if err := json.Unmarshal(toolUse.Input, &inputMap); err != nil {
-				logMsg(fmt.Sprintf("         ❌ Failed to parse tool input for %s: %v", toolUse.Name, err))
-				continue
-			}
-
 			// Execute tool with Claude settings
-			result, err := tools.ExecuteTool(toolUse.Name, inputMap, workingDir, s.claudeSettings)
+			result, err := tools.ExecuteTool(toolUse.Name, toolUse.Input, workingDir, s.claudeSettings)
 			if err != nil {
 				logMsg(fmt.Sprintf("         ❌ Tool execution failed: %v", err))
 				result = fmt.Sprintf("Error: %v", err)
@@ -1341,17 +1391,11 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 		var toolSignatures []string
 		for _, toolUse := range toolUses {
 			// Create a signature that includes tool name and key input parameters
-			var inputMap map[string]interface{}
-			if err := json.Unmarshal(toolUse.Input, &inputMap); err == nil {
-				// Extract a simple signature from the input (first 100 chars of JSON)
-				inputJSON := string(toolUse.Input)
-				if len(inputJSON) > 100 {
-					inputJSON = inputJSON[:100]
-				}
-				toolSignatures = append(toolSignatures, fmt.Sprintf("%s:%s", toolUse.Name, inputJSON))
-			} else {
-				toolSignatures = append(toolSignatures, toolUse.Name)
+			inputJSON, _ := json.Marshal(toolUse.Input)
+			if len(inputJSON) > 100 {
+				inputJSON = inputJSON[:100]
 			}
+			toolSignatures = append(toolSignatures, fmt.Sprintf("%s:%s", toolUse.Name, string(inputJSON)))
 		}
 		currentToolSignature := strings.Join(toolSignatures, "|")
 
@@ -1379,17 +1423,15 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 			}
 		}
 
-		// Add assistant message with tool uses (SDK v1.19+ uses Type field)
+		// Add assistant message with text and tool uses
 		var assistantContent []anthropic.ContentBlockParamUnion
-		for _, block := range message.Content {
-			switch block.Type {
-			case constants.ContentTypeText:
-				textBlock := block.AsText()
-				assistantContent = append(assistantContent, anthropic.NewTextBlock(textBlock.Text))
-			case constants.ContentTypeToolUse:
-				toolBlock := block.AsToolUse()
-				assistantContent = append(assistantContent, anthropic.NewToolUseBlock(toolBlock.ID, toolBlock.Input, toolBlock.Name))
-			}
+		if hasText {
+			assistantContent = append(assistantContent, anthropic.NewTextBlock(responseTextStr))
+		}
+		for _, toolUse := range toolUses {
+			// Convert tool input to json.RawMessage
+			inputJSON, _ := json.Marshal(toolUse.Input)
+			assistantContent = append(assistantContent, anthropic.NewToolUseBlock(toolUse.ID, json.RawMessage(inputJSON), toolUse.Name))
 		}
 		messages = append(messages, anthropic.NewAssistantMessage(assistantContent...))
 
@@ -1571,7 +1613,7 @@ func (s *AgentServer) buildAndSavePrompt(execution *TaskExecution, roleContext, 
 func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskExecution, prompt, roleContext, workingDir string, logMsg func(string)) (string, error) {
 	s.sendStreamEvent(execution, "api_call_start", map[string]interface{}{})
 
-	result, err := s.executeAgenticLoop(ctx, execution.TaskID, prompt, roleContext, workingDir, execution.Config, logMsg)
+	result, err := s.executeAgenticLoop(ctx, execution.TaskID, execution.Role, prompt, roleContext, workingDir, execution.Config, logMsg)
 	if err != nil {
 		// Check if error is due to cancellation or timeout.
 		// context.Canceled: User-initiated cancellation via CancelTask()
