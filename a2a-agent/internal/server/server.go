@@ -346,11 +346,11 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	// Initialize model selector
 	server.modelSelector = NewModelSelector(server)
 
-	// Initialize streaming service with clean architecture
-	modelSelector := streaming.NewSimpleModelSelector(
+	// Initialize streaming service with performance-grade-based model selection
+	modelSelector := streaming.NewPerformanceGradeModelSelector(
+		rootDir,
 		model,
 		openaiClient != nil,
-		server.GetModelForRole,
 	)
 	streamingService := streaming.NewService(modelSelector, "anthropic")
 
