@@ -1175,6 +1175,28 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 
 		stream := s.client.Messages.NewStreaming(ctx, params)
 
+		// Update task metadata with model information on first turn
+		if turn == 1 {
+			// Note: Using default model directly (performance-grade selection not yet integrated for agent tasks)
+			// Extract project root from working directory by finding .beads parent
+			projectRoot := workingDir
+			for projectRoot != "" && projectRoot != "/" {
+				if _, err := os.Stat(filepath.Join(projectRoot, ".beads")); err == nil {
+					break
+				}
+				projectRoot = filepath.Dir(projectRoot)
+			}
+
+			if projectRoot != "" && projectRoot != "/" {
+				// Update metadata with current model (no tier info since not using selector)
+				if err := s.updateTaskMetadata(projectRoot, taskID, string(params.Model), "anthropic", 3); err != nil {
+					monitoring.Logger.Warn("failed_to_update_task_metadata",
+						"task_id", taskID,
+						"error", err.Error())
+				}
+			}
+		}
+
 		// Use SDK's Accumulate method to build the message
 		var message anthropic.Message
 		eventCount := 0
@@ -2253,6 +2275,58 @@ func (s *AgentServer) archiveTask(projectRoot string, task *beads.Task) error {
 		"task_id", task.ID,
 		"title", task.Title,
 		"archive_path", destDir)
+
+	return nil
+}
+
+// updateTaskMetadata updates task metadata with model/provider/tier information
+func (s *AgentServer) updateTaskMetadata(projectRoot, taskID, model, provider string, tier int) error {
+	// Find task directory
+	taskDir := filepath.Join(projectRoot, ".beads", "tasks", taskID)
+	metadataPath := filepath.Join(taskDir, constants.MetadataFileName)
+
+	// Read existing metadata
+	data, err := os.ReadFile(metadataPath)
+	if err != nil {
+		return fmt.Errorf("failed to read metadata: %w", err)
+	}
+
+	// Parse metadata
+	var metadata map[string]interface{}
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		return fmt.Errorf("failed to parse metadata: %w", err)
+	}
+
+	// Update model/provider/tier fields
+	if config, ok := metadata["config"].(map[string]interface{}); ok {
+		config["Model"] = model
+		config["Provider"] = provider
+		if tier > 0 {
+			config["Tier"] = fmt.Sprintf("tier%d", tier)
+		}
+	}
+	metadata["model"] = model
+	metadata["provider"] = provider
+	if tier > 0 {
+		metadata["tier"] = fmt.Sprintf("tier%d", tier)
+	}
+	metadata["updated_at"] = time.Now().Format(time.RFC3339)
+
+	// Write back
+	metadataJSON, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	if err := os.WriteFile(metadataPath, metadataJSON, 0644); err != nil {
+		return fmt.Errorf("failed to write metadata: %w", err)
+	}
+
+	monitoring.Logger.Info("task_metadata_updated",
+		"task_id", taskID,
+		"model", model,
+		"provider", provider,
+		"tier", tier)
 
 	return nil
 }
