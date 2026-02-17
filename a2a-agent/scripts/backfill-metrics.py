@@ -128,6 +128,47 @@ def find_all_task_metadata(project_roots: List[str]) -> List[Dict]:
     return tasks
 
 
+def get_git_commits_for_day(project_root: str, date: str) -> int:
+    """Get number of git commits for a project on a specific day."""
+    import subprocess
+    try:
+        # Git log format: count commits on the given date
+        result = subprocess.run(
+            ['git', 'log', '--all', '--since', f'{date} 00:00', '--until', f'{date} 23:59', '--oneline'],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            return len(result.stdout.strip().split('\n')) if result.stdout.strip() else 0
+        return 0
+    except Exception as e:
+        print(f"Warning: Could not check git history for {project_root}: {e}", file=sys.stderr)
+        return 0
+
+
+def get_project_activity_for_day(date: str) -> Dict[str, int]:
+    """Get commit activity per project for a given day. Returns {project_root: commit_count}."""
+    activity = {}
+
+    # Check registered projects
+    for project_root in PROJECT_ROOTS:
+        if os.path.exists(os.path.join(project_root, '.git')):
+            commits = get_git_commits_for_day(project_root, date)
+            if commits > 0:
+                activity[project_root] = commits
+
+    # Also check vasm-ext if it exists
+    vasm_ext = "/Users/bryanw/Projects/Vintage/tools/vasm-ext"
+    if os.path.exists(os.path.join(vasm_ext, '.git')):
+        commits = get_git_commits_for_day(vasm_ext, date)
+        if commits > 0:
+            activity[vasm_ext] = commits
+
+    return activity
+
+
 def get_tasks_for_day(tasks: List[Dict], date_str: str) -> List[Dict]:
     """Find all tasks that ran during the given day."""
     from datetime import timezone
@@ -176,7 +217,47 @@ def distribute_daily_usage(daily_tokens: Dict, daily_costs: Dict, tasks: List[Di
         day_tasks = get_tasks_for_day(tasks, date)
 
         if not day_tasks:
-            print(f"Warning: No tasks found for {date} with model {model}", file=sys.stderr)
+            # No tasks found - use git commit history to determine project activity
+            print(f"Warning: No tasks found for {date} with model {model} - checking git history", file=sys.stderr)
+
+            # Get project activity from git commits
+            git_activity = get_project_activity_for_day(date)
+
+            if not git_activity:
+                # No git activity either - assign to most active project overall
+                project_counts = defaultdict(int)
+                for t in tasks:
+                    project_counts[t['project_root']] += 1
+
+                if not project_counts:
+                    continue  # No projects at all, skip
+
+                git_activity = {max(project_counts.items(), key=lambda x: x[1])[0]: 1}
+                print(f"  → No git commits found, assigning to primary project", file=sys.stderr)
+            else:
+                print(f"  → Found git activity: {', '.join(f'{os.path.basename(p)}({c} commits)' for p, c in git_activity.items())}", file=sys.stderr)
+
+            # Distribute proportionally by git commit count
+            total_commits = sum(git_activity.values())
+            for project, commit_count in git_activity.items():
+                proportion = commit_count / total_commits
+
+                # Assign proportional usage
+                project_input = int(input_tokens * proportion)
+                project_output = int(output_tokens * proportion)
+                project_cost = cost * proportion
+
+                project_daily[project][date]['input_tokens'] += project_input
+                project_daily[project][date]['output_tokens'] += project_output
+                project_daily[project][date]['cost'] += project_cost
+                project_daily[project][date]['calls'] += max(1, int(10 * proportion))
+
+                # Add to model breakdown
+                project_daily[project][date]['models'][model]['input_tokens'] += project_input
+                project_daily[project][date]['models'][model]['output_tokens'] += project_output
+                project_daily[project][date]['models'][model]['cost'] += project_cost
+                project_daily[project][date]['models'][model]['calls'] += max(1, int(10 * proportion))
+
             continue
 
         # Calculate total duration for proportional split

@@ -7,13 +7,31 @@ interface PerformanceDashboardProps {
 
 const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ apiUrl }) => {
   const { summary, grades, loading, error, refresh } = usePerformance(apiUrl);
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'roles' | 'models' | 'grades'>('overview');
+  const [selectedTab, setSelectedTab] = useState<'overview' | 'models' | 'grades'>('overview');
+  const [totalCost, setTotalCost] = useState<number | null>(null);
 
   useEffect(() => {
     // Refresh every 30 seconds
     const interval = setInterval(refresh, 30000);
     return () => clearInterval(interval);
   }, [refresh]);
+
+  useEffect(() => {
+    // Fetch daily metrics to calculate total cost
+    fetch('/metrics/daily/last30')
+      .then(res => res.json())
+      .then(data => {
+        const cost = data.reduce((sum: number, day: any) => {
+          const dayCost = Object.values(day.provider_breakdown || {}).reduce(
+            (daySum: number, provider: any) => daySum + (provider.cost || 0),
+            0
+          );
+          return sum + dayCost;
+        }, 0);
+        setTotalCost(cost);
+      })
+      .catch(err => console.error('Failed to fetch daily metrics:', err));
+  }, []);
 
   if (loading) {
     return (
@@ -50,7 +68,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ apiUrl }) =
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white">Performance Dashboard</h2>
@@ -67,7 +85,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ apiUrl }) =
 
       {/* Tab Navigation */}
       <div className="flex gap-2 border-b border-gray-700">
-        {(['overview', 'roles', 'models', 'grades'] as const).map((tab) => (
+        {(['overview', 'models', 'grades'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setSelectedTab(tab)}
@@ -84,8 +102,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ apiUrl }) =
 
       {/* Tab Content */}
       <div>
-        {selectedTab === 'overview' && <OverviewTab summary={summary} />}
-        {selectedTab === 'roles' && <RolesTab summary={summary} />}
+        {selectedTab === 'overview' && <OverviewTab summary={summary} totalCost={totalCost} />}
         {selectedTab === 'models' && <ModelsTab summary={summary} />}
         {selectedTab === 'grades' && <GradesTab grades={grades} />}
       </div>
@@ -94,12 +111,24 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ apiUrl }) =
 };
 
 // Overview Tab
-const OverviewTab: React.FC<{ summary: any }> = ({ summary }) => {
-  const costSavings = summary.cost_savings || {};
-  const gradeDistribution = summary.summary?.grade_distribution || {};
+const OverviewTab: React.FC<{ summary: any; totalCost: number | null }> = ({ summary, totalCost }) => {
+  const costSavings = summary.costSavings || {};
+  const gradeDistribution = summary.gradeDistribution || {};
 
   return (
     <div className="space-y-6">
+      {/* Total Cost Card */}
+      {totalCost !== null && (
+        <div className="bg-gradient-to-br from-blue-900/30 to-blue-800/20 border border-blue-700/50 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-blue-300 mb-4">💵 Total Cost (Last 30 Days)</h3>
+          <div className="flex items-baseline gap-2">
+            <span className="text-5xl font-bold text-blue-400">${totalCost.toFixed(2)}</span>
+            <span className="text-lg text-gray-400">USD</span>
+          </div>
+          <p className="text-sm text-gray-400 mt-2">Aggregated across all registered projects</p>
+        </div>
+      )}
+
       {/* Cost Savings Card */}
       <div className="bg-gradient-to-br from-green-900/30 to-green-800/20 border border-green-700/50 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-green-300 mb-4">💰 Cost Optimization</h3>
@@ -140,7 +169,7 @@ const OverviewTab: React.FC<{ summary: any }> = ({ summary }) => {
               key={grade}
               grade={grade}
               count={gradeDistribution[grade] || 0}
-              total={summary.summary?.total_grades || 0}
+              total={summary.totalGrades || 0}
             />
           ))}
         </div>
@@ -173,7 +202,7 @@ const OverviewTab: React.FC<{ summary: any }> = ({ summary }) => {
 
 // Roles Tab
 const RolesTab: React.FC<{ summary: any }> = ({ summary }) => {
-  const roleData = summary.summary?.by_role || {};
+  const roleData = summary.byRole || {};
 
   return (
     <div className="space-y-4">
@@ -230,7 +259,7 @@ const RolesTab: React.FC<{ summary: any }> = ({ summary }) => {
 
 // Models Tab
 const ModelsTab: React.FC<{ summary: any }> = ({ summary }) => {
-  const modelData = summary.summary?.by_model || {};
+  const modelData = summary.byModel || {};
 
   return (
     <div className="space-y-4">
@@ -241,7 +270,7 @@ const ModelsTab: React.FC<{ summary: any }> = ({ summary }) => {
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-lg font-semibold text-white">{model}</h4>
               <div className="text-sm text-gray-400">
-                {data.total_attempts} attempts
+                {data.totalAttempts} attempts
               </div>
             </div>
 
@@ -249,7 +278,7 @@ const ModelsTab: React.FC<{ summary: any }> = ({ summary }) => {
               <div>
                 <div className="text-sm text-gray-400">Success Rate</div>
                 <div className="text-2xl font-bold text-green-400">
-                  {(data.success_rate * 100).toFixed(1)}%
+                  {((data.successRate || 0) * 100).toFixed(1)}%
                 </div>
               </div>
               <div>
@@ -278,9 +307,9 @@ const GradesTab: React.FC<{ grades: any[] }> = ({ grades }) => {
       return (gradeOrder[a.grade as keyof typeof gradeOrder] || 5) -
              (gradeOrder[b.grade as keyof typeof gradeOrder] || 5);
     } else if (sortBy === 'confidence') {
-      return b.confidence_score - a.confidence_score;
+      return b.confidenceScore - a.confidenceScore;
     } else {
-      return b.total_attempts - a.total_attempts;
+      return b.totalAttempts - a.totalAttempts;
     }
   });
 
@@ -302,39 +331,41 @@ const GradesTab: React.FC<{ grades: any[] }> = ({ grades }) => {
       <div className="grid gap-3">
         {sortedGrades.map((grade, idx) => (
           <div
-            key={`${grade.model_id}-${grade.role_id}-${grade.project_id}-${idx}`}
+            key={`${grade.modelID}-${grade.roleID}-${grade.projectID}-${idx}`}
             className="bg-gray-800/50 border border-gray-700 rounded-lg p-4"
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <GradeBadge grade={grade.grade} />
-                  <span className="font-semibold text-white">{grade.model_id}</span>
+                  <span className="font-semibold text-white">{grade.modelID}</span>
                   <span className="text-sm text-gray-400">•</span>
-                  <span className="text-sm text-gray-300 capitalize">{grade.role_id}</span>
+                  <span className="text-sm text-gray-300 capitalize">{grade.roleID}</span>
                 </div>
 
-                <div className="grid grid-cols-4 gap-4 mt-3 text-sm">
+                <div className={`grid gap-4 mt-3 text-sm ${grade.averageTokens ? 'grid-cols-4' : 'grid-cols-3'}`}>
                   <div>
                     <div className="text-gray-400">Success Rate</div>
                     <div className="font-semibold text-green-400">
-                      {(grade.success_rate * 100).toFixed(1)}%
+                      {(grade.successRate * 100).toFixed(1)}%
                     </div>
                   </div>
                   <div>
                     <div className="text-gray-400">Attempts</div>
-                    <div className="font-semibold text-blue-400">{grade.total_attempts}</div>
+                    <div className="font-semibold text-blue-400">{grade.totalAttempts}</div>
                   </div>
                   <div>
                     <div className="text-gray-400">Confidence</div>
                     <div className="font-semibold text-purple-400">
-                      {(grade.confidence_score * 100).toFixed(0)}%
+                      {(grade.confidenceScore * 100).toFixed(0)}%
                     </div>
                   </div>
-                  <div>
-                    <div className="text-gray-400">Avg Tokens</div>
-                    <div className="font-semibold text-gray-300">{grade.average_tokens}</div>
-                  </div>
+                  {grade.averageTokens && (
+                    <div>
+                      <div className="text-gray-400">Avg Tokens</div>
+                      <div className="font-semibold text-gray-300">{grade.averageTokens.toLocaleString()}</div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
