@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/streaming"
 )
@@ -342,7 +343,7 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 			roleFile = "../.ai-pack/agents/orchestrator-chat.md"
 		}
 
-		roleContext, err := s.loadRoleContext(roleFile)
+		roleContext, err := s.loadRoleContext(roleFile, s.rootDir)
 		if err != nil {
 			monitoring.Logger.Warn("chat_role_load_failed", "role", req.Role, "error", err)
 		} else {
@@ -470,10 +471,10 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 	// Record provider usage (provider comes from streaming layer)
 	monitoring.GlobalMetrics.RecordProviderUsage(message.Provider, message.Model, int64(message.InputTokens), int64(message.OutputTokens))
 
-	// Record persistent daily usage
-	if s.persistentMetrics != nil {
-		if err := s.persistentMetrics.RecordUsage(message.Provider, message.Model, int64(message.InputTokens), int64(message.OutputTokens)); err != nil {
-			monitoring.Logger.Warn("failed_to_record_persistent_metrics", "error", err.Error())
+	// Record per-project persistent daily usage (use server root for chat)
+	if pm, err := s.getOrCreateProjectMetrics(s.rootDir); err == nil {
+		if err := pm.RecordUsage(message.Provider, message.Model, int64(message.InputTokens), int64(message.OutputTokens)); err != nil {
+			monitoring.Logger.Warn("failed_to_record_chat_metrics", "error", err.Error())
 		}
 	}
 }

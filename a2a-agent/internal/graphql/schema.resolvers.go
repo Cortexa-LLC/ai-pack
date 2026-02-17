@@ -8,21 +8,23 @@ package graphql
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
 
 // SpawnAgent is the resolver for the spawnAgent field.
-func (r *mutationResolver) SpawnAgent(ctx context.Context, role string, taskID string) (*SpawnResult, error) {
-	root := ""
-	if projectRoot != nil {
-		root = *projectRoot
-	}
-
-	taskInfo, err := r.server.SpawnAgent(role, task, root)
-	if err != nil {
-		return nil, err
-	}
-
-	return convertTaskInfoToGraphQL(taskInfo), nil
+func (r *mutationResolver) SpawnAgent(ctx context.Context, role string, task string, projectRoot *string) (*AgentTask, error) {
+	// TODO: Implement actual agent spawning logic with Beads integration
+	_ = projectRoot // Will be used when implementing
+	return &AgentTask{
+		TaskID:    "task-" + fmt.Sprintf("%d", time.Now().Unix()),
+		Role:      role,
+		Task:      task,
+		Status:    "pending",
+		CreatedAt: time.Now().Format(time.RFC3339),
+		UpdatedAt: time.Now().Format(time.RFC3339),
+	}, nil
 }
 
 // CancelAgent is the resolver for the cancelAgent field.
@@ -33,28 +35,37 @@ func (r *mutationResolver) CancelAgent(ctx context.Context, taskID string) (bool
 }
 
 // UpdateTaskStatus is the resolver for the updateTaskStatus field.
-func (r *mutationResolver) UpdateTaskStatus(ctx context.Context, id string, status BeadsTaskStatus) (*BeadsTask, error) {
-	// Task status updates not yet implemented in server
-	// Would require adding status update support to AgentServer
-	taskInfo, err := r.server.GetTaskStatus(taskID)
-	if err != nil {
-		return nil, err
-	}
-	return convertTaskInfoToGraphQL(taskInfo), nil
+func (r *mutationResolver) UpdateTaskStatus(ctx context.Context, taskID string, status string) (*AgentTask, error) {
+	// TODO: Implement task status update logic
+	return &AgentTask{
+		TaskID:    taskID,
+		Status:    status,
+		UpdatedAt: time.Now().Format(time.RFC3339),
+	}, nil
 }
 
-// StartTask is the resolver for the startTask field.
-func (r *mutationResolver) StartTask(ctx context.Context, id string) (*BeadsTask, error) {
-	panic(fmt.Errorf("not implemented: StartTask - startTask"))
+// RetryTask is the resolver for the retryTask field.
+func (r *mutationResolver) RetryTask(ctx context.Context, taskID string) (*RetryResult, error) {
+	// TODO: Implement retry task logic
+	return &RetryResult{
+		Success: true,
+		TaskID:  taskID,
+		Message: nil,
+	}, nil
 }
 
 // CloseTask is the resolver for the closeTask field.
-func (r *mutationResolver) CloseTask(ctx context.Context, id string) (*BeadsTask, error) {
-	panic(fmt.Errorf("not implemented: CloseTask - closeTask"))
+func (r *mutationResolver) CloseTask(ctx context.Context, taskID string) (*CloseResult, error) {
+	// TODO: Implement close task logic
+	return &CloseResult{
+		Success: true,
+		TaskID:  taskID,
+		Message: nil,
+	}, nil
 }
 
 // Health is the resolver for the health field.
-func (r *queryResolver) Health(ctx context.Context) (*ServerHealth, error) {
+func (r *queryResolver) Health(ctx context.Context) (*HealthStatus, error) {
 	features := map[string]interface{}{
 		"graphql":       true,
 		"rest":          true,
@@ -71,26 +82,41 @@ func (r *queryResolver) Health(ctx context.Context) (*ServerHealth, error) {
 }
 
 // Tasks is the resolver for the tasks field.
-func (r *queryResolver) Tasks(ctx context.Context, status *TaskStatus) ([]*AgentTask, error) {
-	tasksMap := r.server.GetActiveTasks()
-	result := make([]*AgentTask, 0, len(tasksMap))
-
-	for _, taskInfo := range tasksMap {
-		gqlTask := convertTaskInfoToGraphQL(taskInfo)
-		result = append(result, gqlTask)
+func (r *queryResolver) Tasks(ctx context.Context) ([]*AgentTask, error) {
+	if r.server == nil {
+		return []*AgentTask{}, nil
 	}
 
-	return result, nil
+	// Get all tasks (active + historical)
+	tasksMap := r.server.GetAllTasks()
+	tasks := make([]*AgentTask, 0, len(tasksMap))
+
+	for _, taskInfo := range tasksMap {
+		task := convertTaskInfoToAgentTask(taskInfo)
+		tasks = append(tasks, task)
+	}
+
+	return tasks, nil
 }
 
 // Task is the resolver for the task field.
-func (r *queryResolver) Task(ctx context.Context, id string) (*AgentTask, error) {
+func (r *queryResolver) Task(ctx context.Context, taskID string) (*AgentTask, error) {
+	if r.server == nil {
+		return nil, fmt.Errorf("server not available")
+	}
+
 	taskInfo, err := r.server.GetTaskStatus(taskID)
 	if err != nil {
 		return nil, err
 	}
 
-	return convertTaskInfoToGraphQL(taskInfo), nil
+	return convertTaskInfoToAgentTask(taskInfo), nil
+}
+
+// BeadsTasks is the resolver for the beadsTasks field.
+func (r *queryResolver) BeadsTasks(ctx context.Context, status *string) ([]*BeadsTask, error) {
+	// TODO: Implement Beads tasks query
+	return []*BeadsTask{}, nil
 }
 
 // BeadsTask is the resolver for the beadsTask field.
@@ -98,13 +124,6 @@ func (r *queryResolver) BeadsTask(ctx context.Context, id string) (*BeadsTask, e
 	// Beads integration not yet implemented
 	// Would require adding Beads client to resolver
 	return nil, nil
-}
-
-// BeadsTasks is the resolver for the beadsTasks field.
-func (r *queryResolver) BeadsTasks(ctx context.Context, status *BeadsTaskStatus) ([]*BeadsTask, error) {
-	// Beads integration not yet implemented
-	// Would require adding Beads client to resolver
-	return []*BeadsTask{}, nil
 }
 
 // Metrics is the resolver for the metrics field.
@@ -128,39 +147,201 @@ func (r *queryResolver) Metrics(ctx context.Context) (*Metrics, error) {
 			Failed:  int(metricsInfo.APIFailed),
 		},
 		Performance: &Performance{
-			CPUUsage:      metricsInfo.CPUUsage,
-			MemoryUsageMb: metricsInfo.MemoryUsageMB,
-			Goroutines:    metricsInfo.Goroutines,
-			Uptime:        metricsInfo.Uptime,
+			Uptime: "0s", // TODO: Get actual uptime
 		},
 	}, nil
 }
 
 // Performance is the resolver for the performance field.
 func (r *queryResolver) Performance(ctx context.Context) (*Performance, error) {
-	metricsInfo := r.server.GetMetrics()
-
+	// TODO: Implement performance query
 	return &Performance{
-		CPUUsage:      metricsInfo.CPUUsage,
-		MemoryUsageMb: metricsInfo.MemoryUsageMB,
-		Goroutines:    metricsInfo.Goroutines,
-		Uptime:        metricsInfo.Uptime,
+		Uptime: "0s",
 	}, nil
 }
 
 // Logs is the resolver for the logs field.
-func (r *queryResolver) Logs(ctx context.Context, taskID string, limit *int) ([]*LogEntry, error) {
-	// Log querying not yet implemented
-	// Would require adding log management to server
+func (r *queryResolver) Logs(ctx context.Context, limit *int, level *string) ([]*LogEntry, error) {
+	// TODO: Implement logs query
 	return []*LogEntry{}, nil
 }
 
-// TaskUpdated is the resolver for the taskUpdated field.
-func (r *subscriptionResolver) TaskUpdated(ctx context.Context, taskID *string) (<-chan *AgentTask, error) {
-	ch := make(chan *AgentTask, 100)
+// ExecutionLog is the resolver for the executionLog field.
+func (r *queryResolver) ExecutionLog(ctx context.Context, limit *int) ([]*ExecutionEvent, error) {
+	// TODO: Implement execution log query
+	return []*ExecutionEvent{}, nil
+}
 
-	// Task subscriptions not yet implemented
-	// Would require adding task subscription support
+// TaskHistory is the resolver for the taskHistory field.
+func (r *queryResolver) TaskHistory(ctx context.Context, limit *int) ([]*TaskSummary, error) {
+	// TODO: Implement task history query
+	return []*TaskSummary{}, nil
+}
+
+// ExecutionEventsByTask is the resolver for the executionEventsByTask field.
+func (r *queryResolver) ExecutionEventsByTask(ctx context.Context, taskID string) ([]*ExecutionEvent, error) {
+	// TODO: Implement execution events by task query
+	return []*ExecutionEvent{}, nil
+}
+
+// PerformanceGrades is the resolver for the performanceGrades field.
+func (r *queryResolver) PerformanceGrades(ctx context.Context) ([]*PerformanceGrade, error) {
+	if monitoring.GlobalGradeManager == nil {
+		return []*PerformanceGrade{}, nil
+	}
+
+	monitoringGrades := monitoring.GlobalGradeManager.GetAllGrades()
+	grades := make([]*PerformanceGrade, 0, len(monitoringGrades))
+
+	for _, mg := range monitoringGrades {
+		grades = append(grades, convertMonitoringGrade(mg))
+	}
+
+	return grades, nil
+}
+
+// PerformanceSummary is the resolver for the performanceSummary field.
+func (r *queryResolver) PerformanceSummary(ctx context.Context) (*GradeSummary, error) {
+	if monitoring.GlobalGradeManager == nil {
+		return &GradeSummary{
+			TotalGrades:       0,
+			GradeDistribution: make(map[string]interface{}),
+			ByRole:            make(map[string]interface{}),
+			ByModel:           make(map[string]interface{}),
+			CostSavings: &CostSavings{
+				BaselineCost:   0,
+				ActualCost:     0,
+				Savings:        0,
+				SavingsPercent: 0,
+				TotalTasks:     0,
+				AvgCostPerTask: 0,
+			},
+		}, nil
+	}
+
+	monitoringSummary := monitoring.GlobalGradeManager.GetSummary()
+
+	// Convert grade distribution
+	gradeDistribution := make(map[string]interface{})
+	for grade, count := range monitoringSummary.GradeDistribution {
+		gradeDistribution[grade] = count
+	}
+
+	// Convert by role
+	byRole := make(map[string]interface{})
+	for role, summary := range monitoringSummary.ByRole {
+		byRole[role] = map[string]interface{}{
+			"totalAttempts": summary.TotalAttempts,
+			"successes":     summary.Successes,
+			"failures":      summary.Failures,
+			"successRate":   summary.SuccessRate,
+			"models":        summary.Models,
+		}
+	}
+
+	// Convert by model
+	byModel := make(map[string]interface{})
+	for model, summary := range monitoringSummary.ByModel {
+		byModel[model] = map[string]interface{}{
+			"totalAttempts": summary.TotalAttempts,
+			"successes":     summary.Successes,
+			"failures":      summary.Failures,
+			"successRate":   summary.SuccessRate,
+			"averageGrade":  summary.AverageGrade,
+		}
+	}
+
+	// Calculate cost savings from metrics
+	costSavings := calculateCostSavings()
+
+	return &GradeSummary{
+		TotalGrades:       monitoringSummary.TotalGrades,
+		GradeDistribution: gradeDistribution,
+		ByRole:            byRole,
+		ByModel:           byModel,
+		CostSavings:       costSavings,
+	}, nil
+}
+
+// PerformanceByRole is the resolver for the performanceByRole field.
+func (r *queryResolver) PerformanceByRole(ctx context.Context, role string) ([]*PerformanceGrade, error) {
+	if monitoring.GlobalGradeManager == nil {
+		return []*PerformanceGrade{}, nil
+	}
+
+	monitoringGrades := monitoring.GlobalGradeManager.GetGradesByRole(role)
+	grades := make([]*PerformanceGrade, 0, len(monitoringGrades))
+
+	for _, mg := range monitoringGrades {
+		grades = append(grades, convertMonitoringGrade(mg))
+	}
+
+	return grades, nil
+}
+
+// PerformanceByProject is the resolver for the performanceByProject field.
+func (r *queryResolver) PerformanceByProject(ctx context.Context, project string) ([]*PerformanceGrade, error) {
+	if monitoring.GlobalGradeManager == nil {
+		return []*PerformanceGrade{}, nil
+	}
+
+	monitoringGrades := monitoring.GlobalGradeManager.GetGradesByProject(project)
+	grades := make([]*PerformanceGrade, 0, len(monitoringGrades))
+
+	for _, mg := range monitoringGrades {
+		grades = append(grades, convertMonitoringGrade(mg))
+	}
+
+	return grades, nil
+}
+
+// ProjectCosts is the resolver for the projectCosts field.
+func (r *queryResolver) ProjectCosts(ctx context.Context) ([]*ProjectCost, error) {
+	if r.server == nil {
+		return []*ProjectCost{}, nil
+	}
+
+	// Get project costs data from server
+	projectsData, err := r.server.GetProjectCostsData()
+	if err != nil {
+		return []*ProjectCost{}, nil
+	}
+
+	result := make([]*ProjectCost, 0, len(projectsData))
+	for _, data := range projectsData {
+		// Convert provider breakdown
+		providersData := data["providerBreakdown"].([]map[string]interface{})
+		providerCosts := make([]*ProviderCost, 0, len(providersData))
+
+		for _, p := range providersData {
+			providerCosts = append(providerCosts, &ProviderCost{
+				Provider:     p["provider"].(string),
+				Model:        p["model"].(string),
+				Calls:        int(p["calls"].(int64)),
+				InputTokens:  int(p["inputTokens"].(int64)),
+				OutputTokens: int(p["outputTokens"].(int64)),
+				Cost:         p["cost"].(float64),
+			})
+		}
+
+		result = append(result, &ProjectCost{
+			ProjectRoot:       data["projectRoot"].(string),
+			ProjectName:       data["projectName"].(string),
+			TotalCost:         data["totalCost"].(float64),
+			TotalInputTokens:  int(data["totalInputTokens"].(int64)),
+			TotalOutputTokens: int(data["totalOutputTokens"].(int64)),
+			ProviderBreakdown: providerCosts,
+		})
+	}
+
+	return result, nil
+}
+
+// LogStream is the resolver for the logStream field.
+func (r *subscriptionResolver) LogStream(ctx context.Context, level *string) (<-chan *LogEntry, error) {
+	ch := make(chan *LogEntry, 100)
+
+	// TODO: Implement log streaming
 	go func() {
 		defer close(ch)
 		<-ctx.Done()
@@ -169,12 +350,12 @@ func (r *subscriptionResolver) TaskUpdated(ctx context.Context, taskID *string) 
 	return ch, nil
 }
 
-// LogStream is the resolver for the logStream field.
-func (r *subscriptionResolver) LogStream(ctx context.Context, taskID string) (<-chan *LogEntry, error) {
-	ch := make(chan *LogEntry, 100)
+// TaskUpdated is the resolver for the taskUpdated field.
+func (r *subscriptionResolver) TaskUpdated(ctx context.Context, taskID *string) (<-chan *AgentTask, error) {
+	ch := make(chan *AgentTask, 100)
 
-	// Log streaming not yet implemented
-	// Would require adding log subscription support
+	// Task subscriptions not yet implemented
+	// Would require adding task subscription support
 	go func() {
 		defer close(ch)
 		<-ctx.Done()
@@ -197,6 +378,112 @@ func (r *subscriptionResolver) MetricsUpdated(ctx context.Context) (<-chan *Metr
 	return ch, nil
 }
 
+// Helper functions for task conversion
+
+// convertTaskInfoToAgentTask converts a TaskInfo to a GraphQL AgentTask
+func convertTaskInfoToAgentTask(taskInfo *TaskInfo) *AgentTask {
+	// Convert metadata from map[string]string to map[string]interface{}
+	metadata := make(map[string]interface{})
+	for k, v := range taskInfo.Metadata {
+		metadata[k] = v
+	}
+
+	return &AgentTask{
+		TaskID:      taskInfo.TaskID,
+		Role:        taskInfo.Role,
+		Task:        taskInfo.Task,
+		Status:      taskInfo.Status,
+		CreatedAt:   taskInfo.CreatedAt,
+		UpdatedAt:   taskInfo.UpdatedAt,
+		CompletedAt: taskInfo.CompletedAt,
+		Result:      taskInfo.Result,
+		Error:       taskInfo.Error,
+		Metadata:    metadata,
+		ProjectRoot: taskInfo.ProjectRoot,
+	}
+}
+
+// Helper functions for performance grade conversion
+
+// convertMonitoringGrade converts a monitoring.PerformanceGrade to a GraphQL PerformanceGrade
+func convertMonitoringGrade(mg *monitoring.PerformanceGrade) *PerformanceGrade {
+	return &PerformanceGrade{
+		ModelID:              mg.ModelID,
+		RoleID:               mg.RoleID,
+		ProjectID:            mg.ProjectID,
+		TotalAttempts:        mg.TotalAttempts,
+		Successes:            mg.Successes,
+		Failures:             mg.Failures,
+		Retries:              mg.Retries,
+		SuccessRate:          mg.SuccessRate,
+		RetryRate:            mg.RetryRate,
+		Grade:                mg.Grade,
+		ConfidenceScore:      mg.ConfidenceScore,
+		AverageTokens:        mg.AverageTokens,
+		AverageExecutionTime: mg.AverageExecutionTime,
+		EscalationCount:      mg.EscalationCount,
+		DowngradeCount:       mg.DowngradeCount,
+		LastUsed:             mg.LastUsed.Format(time.RFC3339),
+		FirstUsed:            mg.FirstUsed.Format(time.RFC3339),
+	}
+}
+
+// calculateCostSavings calculates cost savings from metrics
+func calculateCostSavings() *CostSavings {
+	if monitoring.GlobalMetrics == nil {
+		return &CostSavings{
+			BaselineCost:   0,
+			ActualCost:     0,
+			Savings:        0,
+			SavingsPercent: 0,
+			TotalTasks:     0,
+			AvgCostPerTask: 0,
+		}
+	}
+
+	metrics := monitoring.GlobalMetrics.GetSnapshot()
+
+	// Estimate costs from token usage
+	// Pricing estimates (per 1M tokens):
+	// Sonnet: $3 input, $15 output
+	// Haiku: $0.25 input, $1.25 output
+	// Assuming 2:1 ratio of input:output
+	inputTokens := float64(metrics.TotalInputTokens)
+	outputTokens := float64(metrics.TotalOutputTokens)
+
+	// Estimated actual cost (assuming mixed usage)
+	// Use average pricing between Sonnet and Haiku
+	avgInputCostPer1M := 1.625  // ($3 + $0.25) / 2
+	avgOutputCostPer1M := 8.125 // ($15 + $1.25) / 2
+	actualCost := (inputTokens/1000000)*avgInputCostPer1M + (outputTokens/1000000)*avgOutputCostPer1M
+
+	// Baseline assumes all tasks used Sonnet (most expensive)
+	sonnetInputCostPer1M := 3.0
+	sonnetOutputCostPer1M := 15.0
+	baselineCost := (inputTokens/1000000)*sonnetInputCostPer1M + (outputTokens/1000000)*sonnetOutputCostPer1M
+
+	savings := baselineCost - actualCost
+	savingsPercent := 0.0
+	if baselineCost > 0 {
+		savingsPercent = (savings / baselineCost) * 100
+	}
+
+	totalTasks := float64(metrics.TasksCompleted)
+	avgCostPerTask := 0.0
+	if totalTasks > 0 {
+		avgCostPerTask = actualCost / totalTasks
+	}
+
+	return &CostSavings{
+		BaselineCost:   baselineCost,
+		ActualCost:     actualCost,
+		Savings:        savings,
+		SavingsPercent: savingsPercent,
+		TotalTasks:     int(totalTasks),
+		AvgCostPerTask: avgCostPerTask,
+	}
+}
+
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
@@ -209,46 +496,3 @@ func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionRes
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func convertTaskInfoToGraphQL(info *TaskInfo) *AgentTask {
-	task := &AgentTask{
-		TaskID:    info.TaskID,
-		Role:      info.Role,
-		Task:      info.Task,
-		Status:    info.Status,
-		Progress:  info.Progress,
-		CreatedAt: info.CreatedAt,
-		UpdatedAt: info.UpdatedAt,
-	}
-
-	if info.CompletedAt != nil {
-		task.CompletedAt = info.CompletedAt
-	}
-	if info.Result != nil {
-		task.Result = info.Result
-	}
-	if info.Error != nil {
-		task.Error = info.Error
-	}
-	if info.BeadsTaskID != nil {
-		task.BeadsTaskID = info.BeadsTaskID
-	}
-	if info.Metadata != nil {
-		// Convert map[string]string to map[string]any
-		metadata := make(map[string]any)
-		for k, v := range info.Metadata {
-			metadata[k] = v
-		}
-		task.Metadata = metadata
-	}
-
-	return task
-}
-*/

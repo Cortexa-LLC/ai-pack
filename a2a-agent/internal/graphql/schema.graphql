@@ -23,7 +23,6 @@ type AgentTask {
   result: String
   error: String
   metadata: JSON
-  beadsTaskID: String
   projectRoot: String
 }
 
@@ -132,6 +131,63 @@ type RateLimiting {
   violations: Int!
 }
 
+# Performance grading types
+type PerformanceGrade {
+  modelID: String!
+  roleID: String!
+  projectID: String!
+  totalAttempts: Int!
+  successes: Int!
+  failures: Int!
+  retries: Int!
+  successRate: Float!
+  retryRate: Float!
+  grade: String!
+  confidenceScore: Float!
+  averageTokens: Int!
+  averageExecutionTime: Float!
+  escalationCount: Int!
+  downgradeCount: Int!
+  lastUsed: String!
+  firstUsed: String!
+}
+
+type GradeSummary {
+  totalGrades: Int!
+  gradeDistribution: JSON!
+  byRole: JSON!
+  byModel: JSON!
+  costSavings: CostSavings!
+}
+
+type CostSavings {
+  baselineCost: Float!
+  actualCost: Float!
+  savings: Float!
+  savingsPercent: Float!
+  totalTasks: Int!
+  avgCostPerTask: Float!
+}
+
+# Per-project cost breakdown
+type ProjectCost {
+  projectRoot: String!
+  projectName: String!
+  totalCost: Float!
+  totalInputTokens: Int!
+  totalOutputTokens: Int!
+  providerBreakdown: [ProviderCost!]!
+}
+
+type ProviderCost {
+  provider: String!
+  model: String!
+  calls: Int!
+  inputTokens: Int!
+  outputTokens: Int!
+  cost: Float!
+}
+
 # Log entry
 type LogEntry {
   timestamp: String!
@@ -192,6 +248,15 @@ type Query {
   executionLog(limit: Int): [ExecutionEvent!]!
   taskHistory(limit: Int): [TaskSummary!]!
   executionEventsByTask(taskID: String!): [ExecutionEvent!]!
+
+  # Performance grading queries
+  performanceGrades: [PerformanceGrade!]!
+  performanceSummary: GradeSummary!
+  performanceByRole(role: String!): [PerformanceGrade!]!
+  performanceByProject(project: String!): [PerformanceGrade!]!
+
+  # Cost breakdown queries
+  projectCosts: [ProjectCost!]!
 }
 
 # Mutations

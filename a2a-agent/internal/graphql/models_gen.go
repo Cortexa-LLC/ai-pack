@@ -13,7 +13,6 @@ type AgentTask struct {
 	Result      *string        `json:"result,omitempty"`
 	Error       *string        `json:"error,omitempty"`
 	Metadata    map[string]any `json:"metadata,omitempty"`
-	BeadsTaskID *string        `json:"beadsTaskID,omitempty"`
 	ProjectRoot *string        `json:"projectRoot,omitempty"`
 }
 
@@ -32,6 +31,15 @@ type CloseResult struct {
 	Message *string `json:"message,omitempty"`
 }
 
+type CostSavings struct {
+	BaselineCost   float64 `json:"baselineCost"`
+	ActualCost     float64 `json:"actualCost"`
+	Savings        float64 `json:"savings"`
+	SavingsPercent float64 `json:"savingsPercent"`
+	TotalTasks     int     `json:"totalTasks"`
+	AvgCostPerTask float64 `json:"avgCostPerTask"`
+}
+
 type ExecutionEvent struct {
 	EventType  string         `json:"eventType"`
 	TaskID     string         `json:"taskID"`
@@ -43,6 +51,14 @@ type ExecutionEvent struct {
 	DurationMs *int           `json:"durationMs,omitempty"`
 	Result     *string        `json:"result,omitempty"`
 	Metadata   map[string]any `json:"metadata,omitempty"`
+}
+
+type GradeSummary struct {
+	TotalGrades       int            `json:"totalGrades"`
+	GradeDistribution map[string]any `json:"gradeDistribution"`
+	ByRole            map[string]any `json:"byRole"`
+	ByModel           map[string]any `json:"byModel"`
+	CostSavings       *CostSavings   `json:"costSavings"`
 }
 
 type HealthStatus struct {
@@ -60,6 +76,26 @@ type LogEntry struct {
 }
 
 type Mutation struct {
+}
+
+type PerformanceGrade struct {
+	ModelID              string  `json:"modelID"`
+	RoleID               string  `json:"roleID"`
+	ProjectID            string  `json:"projectID"`
+	TotalAttempts        int     `json:"totalAttempts"`
+	Successes            int     `json:"successes"`
+	Failures             int     `json:"failures"`
+	Retries              int     `json:"retries"`
+	SuccessRate          float64 `json:"successRate"`
+	RetryRate            float64 `json:"retryRate"`
+	Grade                string  `json:"grade"`
+	ConfidenceScore      float64 `json:"confidenceScore"`
+	AverageTokens        int     `json:"averageTokens"`
+	AverageExecutionTime float64 `json:"averageExecutionTime"`
+	EscalationCount      int     `json:"escalationCount"`
+	DowngradeCount       int     `json:"downgradeCount"`
+	LastUsed             string  `json:"lastUsed"`
+	FirstUsed            string  `json:"firstUsed"`
 }
 
 type Query struct {
