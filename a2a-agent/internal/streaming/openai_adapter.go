@@ -11,11 +11,13 @@ import (
 
 // OpenAIStreamAdapter adapts OpenAI SDK streaming to our StreamProvider interface
 type OpenAIStreamAdapter struct {
-	stream  *openai.ChatCompletionStream
-	current StreamEvent
-	message *CompletedMessage
-	err     error
-	done    bool
+	stream   *openai.ChatCompletionStream
+	current  StreamEvent
+	message  *CompletedMessage
+	err      error
+	done     bool
+	model    string // Model being used
+	provider string // Provider name
 }
 
 // OpenAIFactory creates OpenAI stream providers
@@ -103,7 +105,9 @@ func (f *OpenAIFactory) CreateStream(ctx context.Context, req StreamRequest) (St
 	}
 
 	return &OpenAIStreamAdapter{
-		stream: stream,
+		stream:   stream,
+		model:    req.Model,
+		provider: ProviderOpenAI,
 		message: &CompletedMessage{
 			Provider: ProviderOpenAI,
 			Model:    req.Model,
@@ -170,6 +174,16 @@ func (o *OpenAIStreamAdapter) Close() error {
 // GetMessage returns the accumulated message
 func (o *OpenAIStreamAdapter) GetMessage() *CompletedMessage {
 	return o.message
+}
+
+// GetModel returns the model being used
+func (o *OpenAIStreamAdapter) GetModel() string {
+	return o.model
+}
+
+// GetProvider returns the provider name
+func (o *OpenAIStreamAdapter) GetProvider() string {
+	return o.provider
 }
 
 // convertResponse converts OpenAI response to generic StreamEvent

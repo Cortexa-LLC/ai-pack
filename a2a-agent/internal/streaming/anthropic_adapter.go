@@ -13,11 +13,13 @@ import (
 
 // AnthropicStreamAdapter adapts Anthropic SDK streaming to our StreamProvider interface
 type AnthropicStreamAdapter struct {
-	stream  interface{} // Anthropic streaming type (inferred by Go)
-	current StreamEvent
-	message *CompletedMessage
-	err     error
-	done    bool
+	stream   interface{} // Anthropic streaming type (inferred by Go)
+	current  StreamEvent
+	message  *CompletedMessage
+	err      error
+	done     bool
+	model    string // Model being used
+	provider string // Provider name
 }
 
 // AnthropicFactory creates Anthropic stream providers
@@ -101,7 +103,9 @@ func (f *AnthropicFactory) CreateStream(ctx context.Context, req StreamRequest) 
 	stream := f.client.Messages.NewStreaming(ctx, params)
 
 	return &AnthropicStreamAdapter{
-		stream:  stream,
+		stream:   stream,
+		model:    req.Model,
+		provider: ProviderAnthropic,
 		message: &CompletedMessage{
 			Provider: ProviderAnthropic,
 			Model:    req.Model,
@@ -191,6 +195,16 @@ func (a *AnthropicStreamAdapter) Close() error {
 // GetMessage returns the accumulated message
 func (a *AnthropicStreamAdapter) GetMessage() *CompletedMessage {
 	return a.message
+}
+
+// GetModel returns the model being used
+func (a *AnthropicStreamAdapter) GetModel() string {
+	return a.model
+}
+
+// GetProvider returns the provider name
+func (a *AnthropicStreamAdapter) GetProvider() string {
+	return a.provider
 }
 
 // convertEvent converts Anthropic events to generic StreamEvent
