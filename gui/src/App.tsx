@@ -5,6 +5,7 @@ import { useDetailedMetrics } from './hooks/useDetailedMetrics';
 import MetricsCard from './components/MetricsCard';
 import ChatPanel from './components/ChatPanel';
 import CostBreakdown from './components/CostBreakdown';
+import PerformanceDashboard from './components/PerformanceDashboard';
 
 /**
  * Format milliseconds into human-readable duration
@@ -87,7 +88,7 @@ function App() {
   const { data: detailedMetrics } = useDetailedMetrics();
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'tasks' | 'server-logs' | 'task-logs'>('tasks');
+  const [activeTab, setActiveTab] = useState<'tasks' | 'server-logs' | 'task-logs' | 'performance'>('tasks');
   const [logs, setLogs] = useState<string[]>([]);
   const [serverLogs, setServerLogs] = useState<any[]>([]);
   const [taskDateFilter, setTaskDateFilter] = useState<'today' | '3d' | '5d' | '7d' | '10d' | '30d' | 'all'>(() => {
@@ -818,6 +819,16 @@ function App() {
               >
                 📄 Task Logs {selectedTask && '✓'}
               </button>
+              <button
+                onClick={() => setActiveTab('performance')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'performance'
+                    ? 'border-blue-500 text-blue-400'
+                    : 'border-transparent text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                📊 Performance
+              </button>
               {selectedTask && activeTab === 'task-logs' && (
                 <div className="ml-auto flex items-center gap-2">
                   {/* Only show Following button for in-progress tasks */}
@@ -1463,6 +1474,13 @@ function App() {
                   <p className="text-lg mb-2">📄 No task selected</p>
                   <p className="text-sm">Select a task from the Tasks tab to view its logs</p>
                 </div>
+              </div>
+            )}
+
+            {/* Performance Dashboard Tab */}
+            {activeTab === 'performance' && (
+              <div className="flex-1 overflow-auto">
+                <PerformanceDashboard apiUrl={window.location.origin} />
               </div>
             )}
           </div>
