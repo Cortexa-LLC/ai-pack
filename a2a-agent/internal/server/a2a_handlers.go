@@ -295,18 +295,21 @@ func (s *AgentServer) discoverAvailableAgents() []protocol.AgentDescription {
 	}
 
 	// Load each agent config and build description
+	// For discovery, use a2a-agent directory as fallback since this is not project-specific
 	for role := range agentRoles {
-		config, err := s.loadAgentConfig(role)
+		config, err := s.loadAgentConfig(role, s.rootDir)
 		if err != nil {
 			monitoring.Logger.Warn("failed_to_load_agent_config_for_discovery", "role", role, "error", err)
 			continue
 		}
 
+		// Provide basic agent description
+		// Full metadata is in the role .md file which is loaded during execution
 		agents = append(agents, protocol.AgentDescription{
-			Role:        config.Name,
-			Description: config.Description,
-			Tools:       config.Tools,
-			Timeout:     config.Delegation.Timeout,
+			Role:        role,
+			Description: fmt.Sprintf("%s agent (model: %s, tier: %s)", role, config.Model, config.Tier),
+			Tools:       []string{"bash", "read", "write", "edit", "grep", "glob"},
+			Timeout:     "30m",
 		})
 	}
 

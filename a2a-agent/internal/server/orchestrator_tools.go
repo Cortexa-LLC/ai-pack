@@ -13,7 +13,6 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
-	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 )
 
 // GetOrchestratorTools returns the tool definitions for the orchestrator

@@ -260,6 +260,18 @@ func (m *Metrics) RecordProviderUsage(provider, model string, inputTokens, outpu
 	atomic.AddInt64(&usage.OutputTokens, outputTokens)
 }
 
+// RestoreTokens restores token counts from persistent storage on startup
+func (m *Metrics) RestoreTokens(inputTokens, outputTokens int64) {
+	atomic.AddInt64(&m.TotalInputTokens, inputTokens)
+	atomic.AddInt64(&m.TotalOutputTokens, outputTokens)
+}
+
+// RestoreAPICalls restores API call counts from persistent storage on startup
+func (m *Metrics) RestoreAPICalls(calls int64) {
+	atomic.AddInt64(&m.APICallsTotal, calls)
+	atomic.AddInt64(&m.APICallsSuccess, calls) // Assume all were successful for historical data
+}
+
 // GetSnapshot returns a snapshot of current metrics
 func (m *Metrics) GetSnapshot() MetricsSnapshot {
 	m.mu.RLock()

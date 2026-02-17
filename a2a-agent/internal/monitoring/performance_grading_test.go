@@ -12,7 +12,7 @@ func TestPerformanceGrading(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Create grade manager
-	mgr, err := NewPerformanceGradeManager(tmpDir)
+	mgr, err := NewPerformanceGradeManager(tmpDir, nil)
 	if err != nil {
 		t.Fatalf("Failed to create grade manager: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestPerformanceGrading(t *testing.T) {
 	}
 
 	// Test that grade persists
-	mgr2, err := NewPerformanceGradeManager(tmpDir)
+	mgr2, err := NewPerformanceGradeManager(tmpDir, nil)
 	if err != nil {
 		t.Fatalf("Failed to create second manager: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestGradeCalculation(t *testing.T) {
 	tmpDir := filepath.Join(os.TempDir(), "grade_calc_test")
 	defer os.RemoveAll(tmpDir)
 
-	mgr, err := NewPerformanceGradeManager(tmpDir)
+	mgr, err := NewPerformanceGradeManager(tmpDir, nil)
 	if err != nil {
 		t.Fatalf("Failed to create grade manager: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestModelSelector(t *testing.T) {
 	tmpDir := filepath.Join(os.TempDir(), "model_selector_test")
 	defer os.RemoveAll(tmpDir)
 
-	mgr, err := NewPerformanceGradeManager(tmpDir)
+	mgr, err := NewPerformanceGradeManager(tmpDir, nil)
 	if err != nil {
 		t.Fatalf("Failed to create grade manager: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestGradeSummary(t *testing.T) {
 	tmpDir := filepath.Join(os.TempDir(), "grade_summary_test")
 	defer os.RemoveAll(tmpDir)
 
-	mgr, err := NewPerformanceGradeManager(tmpDir)
+	mgr, err := NewPerformanceGradeManager(tmpDir, nil)
 	if err != nil {
 		t.Fatalf("Failed to create grade manager: %v", err)
 	}
@@ -249,7 +249,7 @@ func TestConfidenceScore(t *testing.T) {
 	tmpDir := filepath.Join(os.TempDir(), "confidence_test")
 	defer os.RemoveAll(tmpDir)
 
-	mgr, err := NewPerformanceGradeManager(tmpDir)
+	mgr, err := NewPerformanceGradeManager(tmpDir, nil)
 	if err != nil {
 		t.Fatalf("Failed to create grade manager: %v", err)
 	}

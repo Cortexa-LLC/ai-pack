@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/beads"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/graphql"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
@@ -109,7 +110,7 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 // Returns nil if no execution found, otherwise returns the TaskInfo for the most recent execution
 // Skips executions marked as superseded (from retries)
 func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, beadsID string) *graphql.TaskInfo {
-	tasksDir := filepath.Join(projectRoot, BeadsDir, "tasks")
+	tasksDir := filepath.Join(projectRoot, constants.BeadsDir, "tasks")
 	entries, err := os.ReadDir(tasksDir)
 	if err != nil {
 		return nil
@@ -159,7 +160,7 @@ func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, beadsID string) *g
 	// Find first non-superseded execution
 	for _, exec := range executions {
 		// Check if this execution is marked as superseded
-		metadataPath := filepath.Join(projectRoot, BeadsDir, "tasks", exec.folderName, MetadataFileName)
+		metadataPath := filepath.Join(projectRoot, constants.BeadsDir, "tasks", exec.folderName, constants.MetadataFileName)
 		if data, err := os.ReadFile(metadataPath); err == nil {
 			var metadata map[string]interface{}
 			if json.Unmarshal(data, &metadata) == nil {
@@ -186,7 +187,7 @@ func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, beadsID string) *g
 
 // scanProjectTasks scans a single project root for tasks
 func (a *GraphQLAdapter) scanProjectTasks(projectRoot string, tasks map[string]*graphql.TaskInfo) {
-	tasksDir := filepath.Join(projectRoot, BeadsDir, "tasks")
+	tasksDir := filepath.Join(projectRoot, constants.BeadsDir, "tasks")
 	entries, err := os.ReadDir(tasksDir)
 	if err != nil {
 		return // Skip if can't read directory
@@ -213,7 +214,7 @@ func (a *GraphQLAdapter) scanProjectTasks(projectRoot string, tasks map[string]*
 
 // loadTaskFromProject loads a task from a specific project root
 func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graphql.TaskInfo, error) {
-	metadataPath := filepath.Join(projectRoot, BeadsDir, "tasks", taskID, MetadataFileName)
+	metadataPath := filepath.Join(projectRoot, constants.BeadsDir, "tasks", taskID, constants.MetadataFileName)
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {
 		return nil, err
@@ -507,7 +508,7 @@ func convertBeadsTaskToTaskInfo(beadsTask beads.Task, projectRoot string) *graph
 // determineExecutionStatus checks execution log to determine if task completed or failed
 func determineExecutionStatus(projectRoot, beadsTaskID string) string {
 	// Find the execution log for this beads task
-	tasksDir := filepath.Join(projectRoot, BeadsDir, "tasks")
+	tasksDir := filepath.Join(projectRoot, constants.BeadsDir, "tasks")
 	entries, err := os.ReadDir(tasksDir)
 	if err != nil {
 		return "completed" // Default to completed if we can't read
@@ -622,6 +623,16 @@ func (a *GraphQLAdapter) CloseTask(taskID string) error {
 	}
 
 	return fmt.Errorf("task not found in any known project: %s", taskID)
+}
+
+// GetProjectCostsData returns cost data for all projects
+func (a *GraphQLAdapter) GetProjectCostsData() ([]map[string]interface{}, error) {
+	return a.server.GetProjectCostsData()
+}
+
+// GetProjectRoots returns all registered project roots
+func (a *GraphQLAdapter) GetProjectRoots() []string {
+	return a.server.GetProjectRoots()
 }
 
 // updateTaskMetadataOnDisk updates a task's status in its project's .beads directory

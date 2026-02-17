@@ -26,10 +26,10 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/tools"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 	"github.com/sashabaranov/go-openai"
+	"gopkg.in/yaml.v3"
 )
 
-	Version = "2.1.0"
-
+var Version = "2.1.0"
 
 type AgentServer struct {
 	rootDir          string
@@ -51,7 +51,8 @@ type AgentServer struct {
 	openaiProvider     *OpenAIProvider
 	modelSelector      *ModelSelector
 	streamingService   *streaming.Service // Clean streaming abstraction
-	persistentMetrics  *monitoring.PersistentMetrics // Persistent daily token usage tracking
+	projectMetrics     map[string]*monitoring.PersistentMetrics // Per-project persistent metrics
+	providerCosts      map[string][2]float64 // Provider cost configuration
 
 	// Concurrent execution tracking
 	mu           sync.RWMutex
@@ -120,6 +121,94 @@ func (s *AgentServer) GetProjectRoots() []string {
 	}
 
 	return roots
+}
+
+// GetProjectCostsData returns cost data for all projects
+func (s *AgentServer) GetProjectCostsData() ([]map[string]interface{}, error) {
+	projects := s.GetProjectRoots()
+	result := make([]map[string]interface{}, 0, len(projects))
+
+	for _, projectRoot := range projects {
+		// Try to get daily usage from the project's metrics directory
+		metricsFile := filepath.Join(projectRoot, ".claude", "metrics", "daily", time.Now().Format("2006-01-02")+".json")
+		data, err := os.ReadFile(metricsFile)
+		if err != nil {
+			continue // Skip projects without today's metrics
+		}
+
+		var dailyUsage struct {
+			TotalInputTokens  int64 `json:"total_input_tokens"`
+			TotalOutputTokens int64 `json:"total_output_tokens"`
+			ProviderBreakdown map[string]struct {
+				Provider     string  `json:"provider"`
+				Model        string  `json:"model"`
+				Calls        int64   `json:"calls"`
+				InputTokens  int64   `json:"input_tokens"`
+				OutputTokens int64   `json:"output_tokens"`
+				Cost         float64 `json:"cost"`
+			} `json:"provider_breakdown"`
+		}
+
+		if err := json.Unmarshal(data, &dailyUsage); err != nil {
+			continue
+		}
+
+		// Calculate total cost
+		totalCost := 0.0
+		providers := make([]map[string]interface{}, 0)
+
+		for _, usage := range dailyUsage.ProviderBreakdown {
+			totalCost += usage.Cost
+			providers = append(providers, map[string]interface{}{
+				"provider":      usage.Provider,
+				"model":         usage.Model,
+				"calls":         usage.Calls,
+				"inputTokens":   usage.InputTokens,
+				"outputTokens":  usage.OutputTokens,
+				"cost":          usage.Cost,
+			})
+		}
+
+		projectName := filepath.Base(projectRoot)
+		result = append(result, map[string]interface{}{
+			"projectRoot":       projectRoot,
+			"projectName":       projectName,
+			"totalCost":         totalCost,
+			"totalInputTokens":  dailyUsage.TotalInputTokens,
+			"totalOutputTokens": dailyUsage.TotalOutputTokens,
+			"providerBreakdown": providers,
+		})
+	}
+
+	return result, nil
+}
+
+// getOrCreateProjectMetrics returns or creates persistent metrics for a project
+func (s *AgentServer) getOrCreateProjectMetrics(projectRoot string) (*monitoring.PersistentMetrics, error) {
+	s.mu.RLock()
+	pm, exists := s.projectMetrics[projectRoot]
+	s.mu.RUnlock()
+
+	if exists {
+		return pm, nil
+	}
+
+	// Create new metrics for this project
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Check again in case another goroutine created it
+	if pm, exists := s.projectMetrics[projectRoot]; exists {
+		return pm, nil
+	}
+
+	pm, err := monitoring.NewPersistentMetrics(projectRoot, s.providerCosts)
+	if err != nil {
+		return nil, err
+	}
+
+	s.projectMetrics[projectRoot] = pm
+	return pm, nil
 }
 
 func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model string, cfg *config.Config) (*AgentServer, error) {
@@ -196,17 +285,15 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		monitoring.Logger.Warn("failed_to_create_execution_log", "error", err.Error())
 	}
 
-	// Initialize persistent metrics for daily token usage tracking
-	persistentMetrics, err := monitoring.NewPersistentMetrics(rootDir)
-	if err != nil {
-		monitoring.Logger.Warn("failed_to_create_persistent_metrics", "error", err.Error())
-	} else {
-		monitoring.Logger.Info("persistent_metrics_initialized", "data_dir", rootDir)
+	// Build cost map from config for per-project metrics
+	costs := make(map[string][2]float64)
+	for modelKey, modelCost := range cfg.ProviderCosts.Models {
+		costs[modelKey] = [2]float64{modelCost.InputCost, modelCost.OutputCost}
 	}
 
 	// Initialize performance grading system
 	gradesDir := filepath.Join(rootDir, ".claude", "performance_grades")
-	if err := monitoring.InitGradeManager(gradesDir); err != nil {
+	if err := monitoring.InitGradeManager(gradesDir, &cfg.GradingCriteria); err != nil {
 		monitoring.Logger.Warn("failed_to_init_grade_manager", "error", err.Error())
 	} else {
 		monitoring.Logger.Info("performance_grading_initialized", "grades_dir", gradesDir)
@@ -247,7 +334,8 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		openaiClient:       openaiClient,
 		anthropicProvider:  anthropicProvider,
 		openaiProvider:     openaiProvider,
-		persistentMetrics:  persistentMetrics,
+		projectMetrics:     make(map[string]*monitoring.PersistentMetrics),
+		providerCosts:      costs,
 
 		activeTasks:      make(map[string]*TaskExecution),
 		taskQueue:        make(chan *TaskExecution, 100),
@@ -375,7 +463,7 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 	taskID := fmt.Sprintf("%s-%s", beadsTaskID, timestamp)
 
 	// Load agent configuration
-	config, err := s.loadAgentConfig(role)
+	config, err := s.loadAgentConfig(role, projectRoot)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load agent config: %w", err)
 	}
@@ -512,7 +600,12 @@ func (s *AgentServer) getTaskStatus(taskID string) (*protocol.TaskStatusResponse
 	return response, nil
 }
 
-func (s *AgentServer) loadAgentConfig(role string) (*AgentConfig, error) {
+func (s *AgentServer) loadAgentConfig(role string, projectRoot string) (*AgentConfig, error) {
+	// Use provided projectRoot or fall back to server root
+	if projectRoot == "" {
+		projectRoot = s.rootDir
+	}
+
 	// Try paths in order:
 	// 1. Project override (.ai/agents/)
 	// 2. Framework (.ai-pack/agents/) - production
@@ -522,10 +615,10 @@ func (s *AgentServer) loadAgentConfig(role string) (*AgentConfig, error) {
 		path   string
 		source string
 	}{
-		{filepath.Join(s.rootDir, ".ai", "agents", role+".yml"), "project_override"},
-		{filepath.Join(s.rootDir, ".ai-pack", "agents", role+".yml"), "framework"},
-		{filepath.Join(s.rootDir, "..", "agents", role+".yml"), "dev_parent"},
-		{filepath.Join(s.rootDir, "agents", role+".yml"), "dev_root"},
+		{filepath.Join(projectRoot, ".ai", "agents", role+".yml"), "project_override"},
+		{filepath.Join(projectRoot, ".ai-pack", "agents", role+".yml"), "framework"},
+		{filepath.Join(projectRoot, "..", "agents", role+".yml"), "dev_parent"},
+		{filepath.Join(projectRoot, "agents", role+".yml"), "dev_root"},
 	}
 
 	var configPath string
@@ -575,23 +668,28 @@ func (s *AgentServer) loadAgentConfig(role string) (*AgentConfig, error) {
 	return &config, nil
 }
 
-func (s *AgentServer) loadRoleContext(roleFile string) (string, error) {
+func (s *AgentServer) loadRoleContext(roleFile string, projectRoot string) (string, error) {
+	// Use provided projectRoot or fall back to server root
+	if projectRoot == "" {
+		projectRoot = s.rootDir
+	}
+
 	// Support override pattern: try .ai/ first, then .ai-pack/
 	var rolePath string
 
 	// If roleFile starts with .ai/, try project override first
 	if strings.HasPrefix(roleFile, ".ai/") {
-		projectPath := filepath.Join(s.rootDir, roleFile)
+		projectPath := filepath.Join(projectRoot, roleFile)
 		if _, err := os.Stat(projectPath); err == nil {
 			rolePath = projectPath
 		} else {
 			// Fallback to framework path
 			frameworkPath := strings.Replace(roleFile, ".ai/", ".ai-pack/", 1)
-			rolePath = filepath.Join(s.rootDir, frameworkPath)
+			rolePath = filepath.Join(projectRoot, frameworkPath)
 		}
 	} else {
 		// Direct path specified
-		rolePath = filepath.Join(s.rootDir, roleFile)
+		rolePath = filepath.Join(projectRoot, roleFile)
 	}
 
 	data, err := os.ReadFile(rolePath)
@@ -607,7 +705,7 @@ func (s *AgentServer) createTaskPacket(taskID, role, task string, config *AgentC
 }
 
 func (s *AgentServer) createTaskPacketInProject(taskID, role, task string, config *AgentConfig, projectRoot string) error {
-	taskDir := filepath.Join(projectRoot, BeadsDir, "tasks", taskID)
+	taskDir := filepath.Join(projectRoot, constants.BeadsDir, "tasks", taskID)
 
 	if err := os.MkdirAll(taskDir, 0755); err != nil {
 		return fmt.Errorf("failed to create task directory: %w", err)
@@ -631,7 +729,7 @@ func (s *AgentServer) createTaskPacketInProject(taskID, role, task string, confi
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(taskDir, MetadataFileName), metadataJSON, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(taskDir, constants.MetadataFileName), metadataJSON, 0644); err != nil {
 		return fmt.Errorf("failed to write metadata: %w", err)
 	}
 
@@ -654,7 +752,7 @@ func (s *AgentServer) updateTaskPacketMetadata(taskID string, runtimeMetadata ma
 
 // updateTaskPacketMetadataInProject updates the task metadata in the project's directory
 func (s *AgentServer) updateTaskPacketMetadataInProject(taskID string, runtimeMetadata map[string]string, projectRoot string) error {
-	metadataPath := filepath.Join(projectRoot, BeadsDir, "tasks", taskID, MetadataFileName)
+	metadataPath := filepath.Join(projectRoot, constants.BeadsDir, "tasks", taskID, constants.MetadataFileName)
 
 	// Read existing metadata
 	data, err := os.ReadFile(metadataPath)
@@ -694,7 +792,7 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 
 	for _, projectRoot := range projectRoots {
 		// Try direct path first
-		metadataPath = filepath.Join(projectRoot, BeadsDir, "tasks", taskID, MetadataFileName)
+		metadataPath = filepath.Join(projectRoot, constants.BeadsDir, "tasks", taskID, constants.MetadataFileName)
 		data, err = os.ReadFile(metadataPath)
 
 		if err != nil {
@@ -702,7 +800,7 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 			// This handles the case where taskID is just the Beads ID without timestamp
 			executionFolder := s.findMostRecentExecutionInProject(projectRoot, taskID)
 			if executionFolder != "" {
-				metadataPath = filepath.Join(projectRoot, BeadsDir, "tasks", executionFolder, MetadataFileName)
+				metadataPath = filepath.Join(projectRoot, constants.BeadsDir, "tasks", executionFolder, constants.MetadataFileName)
 				data, err = os.ReadFile(metadataPath)
 			}
 		}
@@ -726,7 +824,7 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 	var result string
 	// Extract the execution folder from the metadataPath we found
 	executionFolder := filepath.Base(filepath.Dir(metadataPath))
-	resultsPath := filepath.Join(foundProjectRoot, BeadsDir, "tasks", executionFolder, "30-results.md")
+	resultsPath := filepath.Join(foundProjectRoot, constants.BeadsDir, "tasks", executionFolder, "30-results.md")
 	if resultData, err := os.ReadFile(resultsPath); err == nil {
 		result = string(resultData)
 	}
@@ -845,14 +943,14 @@ func (s *AgentServer) markExecutionAsSuperseded(taskID, projectRoot, reason stri
 	if projectRoot == "" {
 		// Search all project roots
 		for _, root := range s.GetProjectRoots() {
-			path := filepath.Join(root, BeadsDir, "tasks", taskID, MetadataFileName)
+			path := filepath.Join(root, constants.BeadsDir, "tasks", taskID, constants.MetadataFileName)
 			if _, err := os.Stat(path); err == nil {
 				metadataPath = path
 				break
 			}
 		}
 	} else {
-		metadataPath = filepath.Join(projectRoot, BeadsDir, "tasks", taskID, MetadataFileName)
+		metadataPath = filepath.Join(projectRoot, constants.BeadsDir, "tasks", taskID, constants.MetadataFileName)
 	}
 
 	if metadataPath == "" {
@@ -950,7 +1048,7 @@ Execute the task according to your role definition.`,
 }
 
 func (s *AgentServer) updateTaskStatus(taskID, projectRoot, status, errorMsg string) error {
-	metadataPath := filepath.Join(projectRoot, BeadsDir, "tasks", taskID, MetadataFileName)
+	metadataPath := filepath.Join(projectRoot, constants.BeadsDir, "tasks", taskID, constants.MetadataFileName)
 	monitoring.Logger.Info("updating_task_status", "task_id", taskID, "status", status, "path", metadataPath)
 
 	data, err := os.ReadFile(metadataPath)
@@ -994,7 +1092,7 @@ func (s *AgentServer) buildSystemPrompt(roleContext string) []anthropic.TextBloc
 	return []anthropic.TextBlockParam{
 		{
 			Text:         roleContext,
-			Type:         ContentTypeText,
+			Type:         constants.ContentTypeText,
 			CacheControl: anthropic.NewCacheControlEphemeralParam(),
 		},
 	}
@@ -1141,8 +1239,8 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 		monitoring.GlobalMetrics.RecordProviderUsage("anthropic", s.model, int64(message.Usage.InputTokens), int64(message.Usage.OutputTokens))
 
 		// Record persistent daily usage
-		if s.persistentMetrics != nil {
-			if err := s.persistentMetrics.RecordUsage("anthropic", s.model, int64(message.Usage.InputTokens), int64(message.Usage.OutputTokens)); err != nil {
+		if pm, err := s.getOrCreateProjectMetrics(s.rootDir); err == nil {
+			if err := pm.RecordUsage("anthropic", s.model, int64(message.Usage.InputTokens), int64(message.Usage.OutputTokens)); err != nil {
 				monitoring.Logger.Warn("failed_to_record_persistent_metrics", "error", err.Error())
 			}
 		}
@@ -1153,13 +1251,13 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 
 		for _, block := range message.Content {
 			switch block.Type {
-			case ContentTypeText:
+			case constants.ContentTypeText:
 				finalResult.WriteString(block.Text)
 				finalResult.WriteString("\n")
 				hasText = true
 				logMsg(fmt.Sprintf("      💬 Text: %d chars", len(block.Text)))
 
-			case ContentTypeToolUse:
+			case constants.ContentTypeToolUse:
 				// Access fields directly from union instead of using AsToolUse()
 				// since we manually constructed these blocks without JSON.raw
 				toolUse := anthropic.ToolUseBlock{
@@ -1263,10 +1361,10 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, ini
 		var assistantContent []anthropic.ContentBlockParamUnion
 		for _, block := range message.Content {
 			switch block.Type {
-			case ContentTypeText:
+			case constants.ContentTypeText:
 				textBlock := block.AsText()
 				assistantContent = append(assistantContent, anthropic.NewTextBlock(textBlock.Text))
-			case ContentTypeToolUse:
+			case constants.ContentTypeToolUse:
 				toolBlock := block.AsToolUse()
 				assistantContent = append(assistantContent, anthropic.NewToolUseBlock(toolBlock.ID, toolBlock.Input, toolBlock.Name))
 			}
@@ -1344,7 +1442,7 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 
 // setupExecutionLogger creates the execution log file and returns a logging function
 func (s *AgentServer) setupExecutionLogger(execution *TaskExecution) func(string) {
-	logPath := filepath.Join(execution.ProjectRoot, BeadsDir, "tasks", execution.TaskID, "execution.log")
+	logPath := filepath.Join(execution.ProjectRoot, constants.BeadsDir, "tasks", execution.TaskID, "execution.log")
 	logFile, err := os.Create(logPath)
 	if err != nil {
 		monitoring.Logger.Error("log_create_error", "task_id", execution.TaskID, "error", err)
@@ -1399,7 +1497,7 @@ func (s *AgentServer) initializeTaskExecution(execution *TaskExecution, logMsg f
 // loadAndLogRoleContext loads role context with logging and error handling
 func (s *AgentServer) loadAndLogRoleContext(execution *TaskExecution, logMsg func(string)) (string, error) {
 	logMsg(fmt.Sprintf("📖 Loading role context: %s", execution.Config.Context.RoleFile))
-	roleContext, err := s.loadRoleContext(execution.Config.Context.RoleFile)
+	roleContext, err := s.loadRoleContext(execution.Config.Context.RoleFile, execution.ProjectRoot)
 	if err != nil {
 		monitoring.Logger.Error("role_context_load_error", "task_id", execution.TaskID, "error", err)
 		logMsg(fmt.Sprintf("❌ Failed to load role context: %v", err))
@@ -1435,7 +1533,7 @@ func (s *AgentServer) buildAndSavePrompt(execution *TaskExecution, roleContext, 
 	prompt := s.buildPrompt(execution.Role, execution.Task, roleContext, execution.Config, taskPacketPath, workingDir)
 	logMsg(fmt.Sprintf("✅ Prompt built (%d chars)", len(prompt)))
 
-	promptPath := filepath.Join(execution.ProjectRoot, BeadsDir, "tasks", execution.TaskID, "agent-prompt.txt")
+	promptPath := filepath.Join(execution.ProjectRoot, constants.BeadsDir, "tasks", execution.TaskID, "agent-prompt.txt")
 	if err := os.WriteFile(promptPath, []byte(prompt), 0644); err != nil {
 		monitoring.Logger.Warn("prompt_save_error", "task_id", execution.TaskID, "error", err)
 	} else {
@@ -1585,7 +1683,7 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 // saveTaskResults saves the task results to disk
 func (s *AgentServer) saveTaskResults(execution *TaskExecution, result string, logMsg func(string)) {
 	logMsg("💾 Saving results...")
-	resultsPath := filepath.Join(execution.ProjectRoot, BeadsDir, "tasks", execution.TaskID, "30-results.md")
+	resultsPath := filepath.Join(execution.ProjectRoot, constants.BeadsDir, "tasks", execution.TaskID, "30-results.md")
 	resultsContent := fmt.Sprintf("# Task Results: %s\n\n**Role**: %s\n**Task**: %s\n**Completed**: %s\n\n## Agent Output\n\n%s\n",
 		execution.TaskID, execution.Role, execution.Task, time.Now().Format(time.RFC3339), result)
 
@@ -1639,7 +1737,7 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	durationMs := time.Since(execution.StartTime).Milliseconds()
 
 	// Log failure to execution log
-	logPath := filepath.Join(execution.ProjectRoot, BeadsDir, "tasks", execution.TaskID, "execution.log")
+	logPath := filepath.Join(execution.ProjectRoot, constants.BeadsDir, "tasks", execution.TaskID, "execution.log")
 	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {
 		timestamp := time.Now().Format("15:04:05")
@@ -1728,7 +1826,7 @@ func (s *AgentServer) CancelTask(taskID string) error {
 		execution.cancel()
 
 		// Log cancellation to execution log
-		logPath := filepath.Join(execution.ProjectRoot, BeadsDir, "tasks", execution.TaskID, "execution.log")
+		logPath := filepath.Join(execution.ProjectRoot, constants.BeadsDir, "tasks", execution.TaskID, "execution.log")
 		logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err == nil {
 			timestamp := time.Now().Format("15:04:05")
@@ -1802,7 +1900,7 @@ func (s *AgentServer) sendStreamEvent(execution *TaskExecution, eventType string
 // writeStreamEventToFile appends a stream event to the per-task log file
 func (s *AgentServer) writeStreamEventToFile(execution *TaskExecution, event *protocol.StreamEvent) {
 	// Build path to task log directory
-	logDir := filepath.Join(execution.ProjectRoot, BeadsDir, "tasks", execution.TaskID)
+	logDir := filepath.Join(execution.ProjectRoot, constants.BeadsDir, "tasks", execution.TaskID)
 	logPath := filepath.Join(logDir, "execution.log")
 
 	// Ensure directory exists
@@ -1906,7 +2004,7 @@ func (s *AgentServer) cleanupInactiveProjects() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	cutoff := time.Now().AddDate(0, 0, -ProjectInactiveDays)
+	cutoff := time.Now().AddDate(0, 0, -constants.ProjectInactiveDays)
 	removed := 0
 
 	for path, lastAccessed := range s.projectRoots {
@@ -2126,7 +2224,7 @@ func (s *AgentServer) archiveOldTasks() {
 // archiveTask moves a task's data to the archive directory
 func (s *AgentServer) archiveTask(projectRoot string, task *beads.Task) error {
 	// Source: .beads/tasks/<task-id>/
-	taskDir := filepath.Join(projectRoot, BeadsDir, "tasks", task.ID)
+	taskDir := filepath.Join(projectRoot, constants.BeadsDir, "tasks", task.ID)
 
 	// Check if task directory exists
 	if _, err := os.Stat(taskDir); os.IsNotExist(err) {
@@ -2138,7 +2236,7 @@ func (s *AgentServer) archiveTask(projectRoot string, task *beads.Task) error {
 
 	// Destination: .beads/archive/<YYYY-MM>/<task-id>/
 	now := time.Now()
-	archiveDir := filepath.Join(projectRoot, BeadsDir, "archive", now.Format("2006-01"))
+	archiveDir := filepath.Join(projectRoot, constants.BeadsDir, "archive", now.Format("2006-01"))
 
 	// Create archive directory if it doesn't exist
 	if err := os.MkdirAll(archiveDir, 0755); err != nil {

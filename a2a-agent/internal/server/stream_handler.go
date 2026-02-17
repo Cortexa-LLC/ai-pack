@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
 
@@ -59,7 +60,7 @@ func (s *AgentServer) handleStream(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		logPath := filepath.Join(projectRoot, BeadsDir, "tasks", taskID, "execution.log")
+		logPath := filepath.Join(projectRoot, constants.BeadsDir, "tasks", taskID, "execution.log")
 
 		// Send initial connection event
 		s.sendSSEEvent(w, flusher, "connected", map[string]interface{}{

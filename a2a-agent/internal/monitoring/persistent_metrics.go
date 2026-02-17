@@ -40,7 +40,7 @@ type PersistentMetrics struct {
 // NewPersistentMetrics creates a new persistent metrics tracker
 func NewPersistentMetrics(dataDir string, costs map[string][2]float64) (*PersistentMetrics, error) {
 	// Create data directory if it doesn't exist
-	metricsDir := filepath.Join(dataDir, "metrics", "daily")
+	metricsDir := filepath.Join(dataDir, ".claude", "metrics", "daily")
 	if err := os.MkdirAll(metricsDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create metrics directory: %w", err)
 	}
@@ -125,11 +125,11 @@ func (pm *PersistentMetrics) RecordUsage(provider, model string, inputTokens, ou
 	usage.InputTokens += inputTokens
 	usage.OutputTokens += outputTokens
 
-	// Calculate cost
+	// Calculate and add cost
 	if costs, ok := pm.costs[key]; ok {
 		inputCost := float64(inputTokens) / 1_000_000 * costs[0]
 		outputCost := float64(outputTokens) / 1_000_000 * costs[1]
-		usage.Cost = inputCost + outputCost
+		usage.Cost += inputCost + outputCost
 	}
 
 	pm.currentDay.LastUpdated = time.Now()

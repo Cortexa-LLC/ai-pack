@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
 )
 
 // PerformanceGrade tracks model performance per role and project
@@ -53,13 +55,21 @@ type PerformanceGradeManager struct {
 	mu         sync.RWMutex
 	grades     map[string]*PerformanceGrade // key: "model:role:project"
 	storageDir string
+	criteria   *config.GradingCriteriaConfig
 }
 
 // NewPerformanceGradeManager creates a new performance grade manager
-func NewPerformanceGradeManager(storageDir string) (*PerformanceGradeManager, error) {
+func NewPerformanceGradeManager(storageDir string, criteria *config.GradingCriteriaConfig) (*PerformanceGradeManager, error) {
+	// Use default criteria if none provided
+	if criteria == nil {
+		defaultCfg := config.DefaultConfig()
+		criteria = &defaultCfg.GradingCriteria
+	}
+
 	mgr := &PerformanceGradeManager{
 		grades:     make(map[string]*PerformanceGrade),
 		storageDir: storageDir,
+		criteria:   criteria,
 	}
 
 	// Create storage directory if needed
@@ -169,25 +179,25 @@ func (m *PerformanceGradeManager) recalculateGrade(grade *PerformanceGrade) {
 	grade.Grade = m.calculateLetterGrade(grade.SuccessRate, grade.RetryRate)
 }
 
-// calculateLetterGrade determines letter grade from metrics
+// calculateLetterGrade determines letter grade from metrics using configurable criteria
 func (m *PerformanceGradeManager) calculateLetterGrade(successRate, retryRate float64) string {
-	// Grade A (90-100%): Success rate ≥ 90%, retry rate < 5%
-	if successRate >= 0.90 && retryRate < 0.05 {
+	// Grade A
+	if successRate >= m.criteria.GradeA.MinSuccessRate && retryRate < m.criteria.GradeA.MaxRetryRate {
 		return "A"
 	}
 
-	// Grade B (80-89%): Success rate ≥ 80%, retry rate < 10%
-	if successRate >= 0.80 && retryRate < 0.10 {
+	// Grade B
+	if successRate >= m.criteria.GradeB.MinSuccessRate && retryRate < m.criteria.GradeB.MaxRetryRate {
 		return "B"
 	}
 
-	// Grade C (70-79%): Success rate ≥ 70%, retry rate < 20%
-	if successRate >= 0.70 && retryRate < 0.20 {
+	// Grade C
+	if successRate >= m.criteria.GradeC.MinSuccessRate && retryRate < m.criteria.GradeC.MaxRetryRate {
 		return "C"
 	}
 
-	// Grade D (60-69%): Success rate ≥ 60%, retry rate < 30%
-	if successRate >= 0.60 && retryRate < 0.30 {
+	// Grade D
+	if successRate >= m.criteria.GradeD.MinSuccessRate && retryRate < m.criteria.GradeD.MaxRetryRate {
 		return "D"
 	}
 
@@ -316,6 +326,81 @@ func (m *PerformanceGradeManager) loadGrades() error {
 	if Logger != nil {
 		Logger.Info("loaded_performance_grades", "count", len(m.grades))
 	}
+	return nil
+}
+
+// LoadGradesFromDirectory loads grades from a specific directory and merges them into the manager
+func (m *PerformanceGradeManager) LoadGradesFromDirectory(directory string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	files, err := os.ReadDir(directory)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // No grades in this directory
+		}
+		return fmt.Errorf("failed to read grades directory: %w", err)
+	}
+
+	loadedCount := 0
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".json") {
+			continue
+		}
+
+		path := filepath.Join(directory, file.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			if Logger != nil {
+				Logger.Warn("failed_to_read_grade_file", "file", file.Name(), "error", err.Error())
+			}
+			continue
+		}
+
+		var grade PerformanceGrade
+		if err := json.Unmarshal(data, &grade); err != nil {
+			if Logger != nil {
+				Logger.Warn("failed_to_unmarshal_grade", "file", file.Name(), "error", err.Error())
+			}
+			continue
+		}
+
+		key := gradeKey(grade.ModelID, grade.RoleID, grade.ProjectID)
+
+		// If grade already exists, merge the data (sum up attempts)
+		if existing, exists := m.grades[key]; exists {
+			existing.TotalAttempts += grade.TotalAttempts
+			existing.Successes += grade.Successes
+			existing.Failures += grade.Failures
+			existing.Retries += grade.Retries
+			existing.TotalTokensUsed += grade.TotalTokensUsed
+			existing.TotalExecutionTimeMs += grade.TotalExecutionTimeMs
+			existing.EscalationCount += grade.EscalationCount
+			existing.DowngradeCount += grade.DowngradeCount
+
+			// Update timestamps
+			if grade.FirstUsed.Before(existing.FirstUsed) {
+				existing.FirstUsed = grade.FirstUsed
+			}
+			if grade.LastUsed.After(existing.LastUsed) {
+				existing.LastUsed = grade.LastUsed
+				existing.LastTaskID = grade.LastTaskID
+			}
+
+			// Recalculate derived metrics
+			m.recalculateGrade(existing)
+		} else {
+			// Add new grade
+			m.grades[key] = &grade
+		}
+
+		loadedCount++
+	}
+
+	if Logger != nil && loadedCount > 0 {
+		Logger.Info("loaded_grades_from_directory", "directory", directory, "count", loadedCount)
+	}
+
 	return nil
 }
 
@@ -464,8 +549,8 @@ func (m *PerformanceGradeManager) ShouldDowngrade(modelID, roleID, projectID str
 var GlobalGradeManager *PerformanceGradeManager
 
 // InitGradeManager initializes the global performance grade manager
-func InitGradeManager(storageDir string) error {
-	mgr, err := NewPerformanceGradeManager(storageDir)
+func InitGradeManager(storageDir string, criteria *config.GradingCriteriaConfig) error {
+	mgr, err := NewPerformanceGradeManager(storageDir, criteria)
 	if err != nil {
 		return err
 	}

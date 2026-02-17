@@ -82,6 +82,15 @@ type ComplexityRoot struct {
 		TaskID  func(childComplexity int) int
 	}
 
+	CostSavings struct {
+		ActualCost     func(childComplexity int) int
+		AvgCostPerTask func(childComplexity int) int
+		BaselineCost   func(childComplexity int) int
+		Savings        func(childComplexity int) int
+		SavingsPercent func(childComplexity int) int
+		TotalTasks     func(childComplexity int) int
+	}
+
 	ExecutionEvent struct {
 		DurationMs func(childComplexity int) int
 		Error      func(childComplexity int) int
@@ -93,6 +102,14 @@ type ComplexityRoot struct {
 		Task       func(childComplexity int) int
 		TaskID     func(childComplexity int) int
 		Timestamp  func(childComplexity int) int
+	}
+
+	GradeSummary struct {
+		ByModel           func(childComplexity int) int
+		ByRole            func(childComplexity int) int
+		CostSavings       func(childComplexity int) int
+		GradeDistribution func(childComplexity int) int
+		TotalGrades       func(childComplexity int) int
 	}
 
 	HTTPMetrics struct {
@@ -120,6 +137,7 @@ type ComplexityRoot struct {
 		AverageTokensPerTask func(childComplexity int) int
 		HTTP                 func(childComplexity int) int
 		Performance          func(childComplexity int) int
+		ProviderBreakdown    func(childComplexity int) int
 		RateLimiting         func(childComplexity int) int
 		SessionMetrics       func(childComplexity int) int
 		Streaming            func(childComplexity int) int
@@ -143,6 +161,34 @@ type ComplexityRoot struct {
 		Uptime func(childComplexity int) int
 	}
 
+	PerformanceGrade struct {
+		AverageExecutionTime func(childComplexity int) int
+		AverageTokens        func(childComplexity int) int
+		ConfidenceScore      func(childComplexity int) int
+		DowngradeCount       func(childComplexity int) int
+		EscalationCount      func(childComplexity int) int
+		Failures             func(childComplexity int) int
+		FirstUsed            func(childComplexity int) int
+		Grade                func(childComplexity int) int
+		LastUsed             func(childComplexity int) int
+		ModelID              func(childComplexity int) int
+		ProjectID            func(childComplexity int) int
+		Retries              func(childComplexity int) int
+		RetryRate            func(childComplexity int) int
+		RoleID               func(childComplexity int) int
+		SuccessRate          func(childComplexity int) int
+		Successes            func(childComplexity int) int
+		TotalAttempts        func(childComplexity int) int
+	}
+
+	ProviderUsage struct {
+		Calls        func(childComplexity int) int
+		InputTokens  func(childComplexity int) int
+		Model        func(childComplexity int) int
+		OutputTokens func(childComplexity int) int
+		Provider     func(childComplexity int) int
+	}
+
 	Query struct {
 		BeadsTask             func(childComplexity int, id string) int
 		BeadsTasks            func(childComplexity int, status *string) int
@@ -152,6 +198,10 @@ type ComplexityRoot struct {
 		Logs                  func(childComplexity int, limit *int, level *string) int
 		Metrics               func(childComplexity int) int
 		Performance           func(childComplexity int) int
+		PerformanceByProject  func(childComplexity int, project string) int
+		PerformanceByRole     func(childComplexity int, role string) int
+		PerformanceGrades     func(childComplexity int) int
+		PerformanceSummary    func(childComplexity int) int
 		Task                  func(childComplexity int, taskID string) int
 		TaskHistory           func(childComplexity int, limit *int) int
 		Tasks                 func(childComplexity int) int
@@ -244,6 +294,10 @@ type QueryResolver interface {
 	ExecutionLog(ctx context.Context, limit *int) ([]*ExecutionEvent, error)
 	TaskHistory(ctx context.Context, limit *int) ([]*TaskSummary, error)
 	ExecutionEventsByTask(ctx context.Context, taskID string) ([]*ExecutionEvent, error)
+	PerformanceGrades(ctx context.Context) ([]*PerformanceGrade, error)
+	PerformanceSummary(ctx context.Context) (*GradeSummary, error)
+	PerformanceByRole(ctx context.Context, role string) ([]*PerformanceGrade, error)
+	PerformanceByProject(ctx context.Context, project string) ([]*PerformanceGrade, error)
 }
 type SubscriptionResolver interface {
 	LogStream(ctx context.Context, level *string) (<-chan *LogEntry, error)
@@ -412,6 +466,43 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.CloseResult.TaskID(childComplexity), true
 
+	case "CostSavings.actualCost":
+		if e.complexity.CostSavings.ActualCost == nil {
+			break
+		}
+
+		return e.complexity.CostSavings.ActualCost(childComplexity), true
+	case "CostSavings.avgCostPerTask":
+		if e.complexity.CostSavings.AvgCostPerTask == nil {
+			break
+		}
+
+		return e.complexity.CostSavings.AvgCostPerTask(childComplexity), true
+	case "CostSavings.baselineCost":
+		if e.complexity.CostSavings.BaselineCost == nil {
+			break
+		}
+
+		return e.complexity.CostSavings.BaselineCost(childComplexity), true
+	case "CostSavings.savings":
+		if e.complexity.CostSavings.Savings == nil {
+			break
+		}
+
+		return e.complexity.CostSavings.Savings(childComplexity), true
+	case "CostSavings.savingsPercent":
+		if e.complexity.CostSavings.SavingsPercent == nil {
+			break
+		}
+
+		return e.complexity.CostSavings.SavingsPercent(childComplexity), true
+	case "CostSavings.totalTasks":
+		if e.complexity.CostSavings.TotalTasks == nil {
+			break
+		}
+
+		return e.complexity.CostSavings.TotalTasks(childComplexity), true
+
 	case "ExecutionEvent.durationMs":
 		if e.complexity.ExecutionEvent.DurationMs == nil {
 			break
@@ -472,6 +563,37 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.ExecutionEvent.Timestamp(childComplexity), true
+
+	case "GradeSummary.byModel":
+		if e.complexity.GradeSummary.ByModel == nil {
+			break
+		}
+
+		return e.complexity.GradeSummary.ByModel(childComplexity), true
+	case "GradeSummary.byRole":
+		if e.complexity.GradeSummary.ByRole == nil {
+			break
+		}
+
+		return e.complexity.GradeSummary.ByRole(childComplexity), true
+	case "GradeSummary.costSavings":
+		if e.complexity.GradeSummary.CostSavings == nil {
+			break
+		}
+
+		return e.complexity.GradeSummary.CostSavings(childComplexity), true
+	case "GradeSummary.gradeDistribution":
+		if e.complexity.GradeSummary.GradeDistribution == nil {
+			break
+		}
+
+		return e.complexity.GradeSummary.GradeDistribution(childComplexity), true
+	case "GradeSummary.totalGrades":
+		if e.complexity.GradeSummary.TotalGrades == nil {
+			break
+		}
+
+		return e.complexity.GradeSummary.TotalGrades(childComplexity), true
 
 	case "HTTPMetrics.errors":
 		if e.complexity.HTTPMetrics.Errors == nil {
@@ -566,6 +688,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Metrics.Performance(childComplexity), true
+	case "Metrics.providerBreakdown":
+		if e.complexity.Metrics.ProviderBreakdown == nil {
+			break
+		}
+
+		return e.complexity.Metrics.ProviderBreakdown(childComplexity), true
 	case "Metrics.rateLimiting":
 		if e.complexity.Metrics.RateLimiting == nil {
 			break
@@ -684,6 +812,140 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Performance.Uptime(childComplexity), true
 
+	case "PerformanceGrade.averageExecutionTime":
+		if e.complexity.PerformanceGrade.AverageExecutionTime == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.AverageExecutionTime(childComplexity), true
+	case "PerformanceGrade.averageTokens":
+		if e.complexity.PerformanceGrade.AverageTokens == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.AverageTokens(childComplexity), true
+	case "PerformanceGrade.confidenceScore":
+		if e.complexity.PerformanceGrade.ConfidenceScore == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.ConfidenceScore(childComplexity), true
+	case "PerformanceGrade.downgradeCount":
+		if e.complexity.PerformanceGrade.DowngradeCount == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.DowngradeCount(childComplexity), true
+	case "PerformanceGrade.escalationCount":
+		if e.complexity.PerformanceGrade.EscalationCount == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.EscalationCount(childComplexity), true
+	case "PerformanceGrade.failures":
+		if e.complexity.PerformanceGrade.Failures == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.Failures(childComplexity), true
+	case "PerformanceGrade.firstUsed":
+		if e.complexity.PerformanceGrade.FirstUsed == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.FirstUsed(childComplexity), true
+	case "PerformanceGrade.grade":
+		if e.complexity.PerformanceGrade.Grade == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.Grade(childComplexity), true
+	case "PerformanceGrade.lastUsed":
+		if e.complexity.PerformanceGrade.LastUsed == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.LastUsed(childComplexity), true
+	case "PerformanceGrade.modelID":
+		if e.complexity.PerformanceGrade.ModelID == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.ModelID(childComplexity), true
+	case "PerformanceGrade.projectID":
+		if e.complexity.PerformanceGrade.ProjectID == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.ProjectID(childComplexity), true
+	case "PerformanceGrade.retries":
+		if e.complexity.PerformanceGrade.Retries == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.Retries(childComplexity), true
+	case "PerformanceGrade.retryRate":
+		if e.complexity.PerformanceGrade.RetryRate == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.RetryRate(childComplexity), true
+	case "PerformanceGrade.roleID":
+		if e.complexity.PerformanceGrade.RoleID == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.RoleID(childComplexity), true
+	case "PerformanceGrade.successRate":
+		if e.complexity.PerformanceGrade.SuccessRate == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.SuccessRate(childComplexity), true
+	case "PerformanceGrade.successes":
+		if e.complexity.PerformanceGrade.Successes == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.Successes(childComplexity), true
+	case "PerformanceGrade.totalAttempts":
+		if e.complexity.PerformanceGrade.TotalAttempts == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.TotalAttempts(childComplexity), true
+
+	case "ProviderUsage.calls":
+		if e.complexity.ProviderUsage.Calls == nil {
+			break
+		}
+
+		return e.complexity.ProviderUsage.Calls(childComplexity), true
+	case "ProviderUsage.inputTokens":
+		if e.complexity.ProviderUsage.InputTokens == nil {
+			break
+		}
+
+		return e.complexity.ProviderUsage.InputTokens(childComplexity), true
+	case "ProviderUsage.model":
+		if e.complexity.ProviderUsage.Model == nil {
+			break
+		}
+
+		return e.complexity.ProviderUsage.Model(childComplexity), true
+	case "ProviderUsage.outputTokens":
+		if e.complexity.ProviderUsage.OutputTokens == nil {
+			break
+		}
+
+		return e.complexity.ProviderUsage.OutputTokens(childComplexity), true
+	case "ProviderUsage.provider":
+		if e.complexity.ProviderUsage.Provider == nil {
+			break
+		}
+
+		return e.complexity.ProviderUsage.Provider(childComplexity), true
+
 	case "Query.beadsTask":
 		if e.complexity.Query.BeadsTask == nil {
 			break
@@ -757,6 +1019,40 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Performance(childComplexity), true
+	case "Query.performanceByProject":
+		if e.complexity.Query.PerformanceByProject == nil {
+			break
+		}
+
+		args, err := ec.field_Query_performanceByProject_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.PerformanceByProject(childComplexity, args["project"].(string)), true
+	case "Query.performanceByRole":
+		if e.complexity.Query.PerformanceByRole == nil {
+			break
+		}
+
+		args, err := ec.field_Query_performanceByRole_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.PerformanceByRole(childComplexity, args["role"].(string)), true
+	case "Query.performanceGrades":
+		if e.complexity.Query.PerformanceGrades == nil {
+			break
+		}
+
+		return e.complexity.Query.PerformanceGrades(childComplexity), true
+	case "Query.performanceSummary":
+		if e.complexity.Query.PerformanceSummary == nil {
+			break
+		}
+
+		return e.complexity.Query.PerformanceSummary(childComplexity), true
 	case "Query.task":
 		if e.complexity.Query.Task == nil {
 			break
@@ -1306,6 +1602,28 @@ func (ec *executionContext) field_Query_logs_args(ctx context.Context, rawArgs m
 		return nil, err
 	}
 	args["level"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_performanceByProject_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "project", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["project"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_performanceByRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "role", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["role"] = arg0
 	return args, nil
 }
 
@@ -2072,6 +2390,180 @@ func (ec *executionContext) fieldContext_CloseResult_message(_ context.Context, 
 	return fc, nil
 }
 
+func (ec *executionContext) _CostSavings_baselineCost(ctx context.Context, field graphql.CollectedField, obj *CostSavings) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CostSavings_baselineCost,
+		func(ctx context.Context) (any, error) {
+			return obj.BaselineCost, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_CostSavings_baselineCost(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CostSavings",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CostSavings_actualCost(ctx context.Context, field graphql.CollectedField, obj *CostSavings) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CostSavings_actualCost,
+		func(ctx context.Context) (any, error) {
+			return obj.ActualCost, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_CostSavings_actualCost(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CostSavings",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CostSavings_savings(ctx context.Context, field graphql.CollectedField, obj *CostSavings) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CostSavings_savings,
+		func(ctx context.Context) (any, error) {
+			return obj.Savings, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_CostSavings_savings(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CostSavings",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CostSavings_savingsPercent(ctx context.Context, field graphql.CollectedField, obj *CostSavings) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CostSavings_savingsPercent,
+		func(ctx context.Context) (any, error) {
+			return obj.SavingsPercent, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_CostSavings_savingsPercent(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CostSavings",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CostSavings_totalTasks(ctx context.Context, field graphql.CollectedField, obj *CostSavings) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CostSavings_totalTasks,
+		func(ctx context.Context) (any, error) {
+			return obj.TotalTasks, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_CostSavings_totalTasks(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CostSavings",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CostSavings_avgCostPerTask(ctx context.Context, field graphql.CollectedField, obj *CostSavings) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CostSavings_avgCostPerTask,
+		func(ctx context.Context) (any, error) {
+			return obj.AvgCostPerTask, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_CostSavings_avgCostPerTask(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CostSavings",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ExecutionEvent_eventType(ctx context.Context, field graphql.CollectedField, obj *ExecutionEvent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2357,6 +2849,165 @@ func (ec *executionContext) fieldContext_ExecutionEvent_metadata(_ context.Conte
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type JSON does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GradeSummary_totalGrades(ctx context.Context, field graphql.CollectedField, obj *GradeSummary) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_GradeSummary_totalGrades,
+		func(ctx context.Context) (any, error) {
+			return obj.TotalGrades, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_GradeSummary_totalGrades(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GradeSummary",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GradeSummary_gradeDistribution(ctx context.Context, field graphql.CollectedField, obj *GradeSummary) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_GradeSummary_gradeDistribution,
+		func(ctx context.Context) (any, error) {
+			return obj.GradeDistribution, nil
+		},
+		nil,
+		ec.marshalNJSON2map,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_GradeSummary_gradeDistribution(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GradeSummary",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type JSON does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GradeSummary_byRole(ctx context.Context, field graphql.CollectedField, obj *GradeSummary) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_GradeSummary_byRole,
+		func(ctx context.Context) (any, error) {
+			return obj.ByRole, nil
+		},
+		nil,
+		ec.marshalNJSON2map,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_GradeSummary_byRole(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GradeSummary",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type JSON does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GradeSummary_byModel(ctx context.Context, field graphql.CollectedField, obj *GradeSummary) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_GradeSummary_byModel,
+		func(ctx context.Context) (any, error) {
+			return obj.ByModel, nil
+		},
+		nil,
+		ec.marshalNJSON2map,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_GradeSummary_byModel(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GradeSummary",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type JSON does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GradeSummary_costSavings(ctx context.Context, field graphql.CollectedField, obj *GradeSummary) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_GradeSummary_costSavings,
+		func(ctx context.Context) (any, error) {
+			return obj.CostSavings, nil
+		},
+		nil,
+		ec.marshalNCostSavings2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐCostSavings,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_GradeSummary_costSavings(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GradeSummary",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "baselineCost":
+				return ec.fieldContext_CostSavings_baselineCost(ctx, field)
+			case "actualCost":
+				return ec.fieldContext_CostSavings_actualCost(ctx, field)
+			case "savings":
+				return ec.fieldContext_CostSavings_savings(ctx, field)
+			case "savingsPercent":
+				return ec.fieldContext_CostSavings_savingsPercent(ctx, field)
+			case "totalTasks":
+				return ec.fieldContext_CostSavings_totalTasks(ctx, field)
+			case "avgCostPerTask":
+				return ec.fieldContext_CostSavings_avgCostPerTask(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CostSavings", field.Name)
 		},
 	}
 	return fc, nil
@@ -3110,6 +3761,47 @@ func (ec *executionContext) fieldContext_Metrics_rateLimiting(_ context.Context,
 	return fc, nil
 }
 
+func (ec *executionContext) _Metrics_providerBreakdown(ctx context.Context, field graphql.CollectedField, obj *Metrics) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Metrics_providerBreakdown,
+		func(ctx context.Context) (any, error) {
+			return obj.ProviderBreakdown, nil
+		},
+		nil,
+		ec.marshalNProviderUsage2ᚕgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐProviderUsageᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Metrics_providerBreakdown(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Metrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "provider":
+				return ec.fieldContext_ProviderUsage_provider(ctx, field)
+			case "model":
+				return ec.fieldContext_ProviderUsage_model(ctx, field)
+			case "calls":
+				return ec.fieldContext_ProviderUsage_calls(ctx, field)
+			case "inputTokens":
+				return ec.fieldContext_ProviderUsage_inputTokens(ctx, field)
+			case "outputTokens":
+				return ec.fieldContext_ProviderUsage_outputTokens(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ProviderUsage", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_spawnAgent(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3155,8 +3847,6 @@ func (ec *executionContext) fieldContext_Mutation_spawnAgent(ctx context.Context
 				return ec.fieldContext_AgentTask_error(ctx, field)
 			case "metadata":
 				return ec.fieldContext_AgentTask_metadata(ctx, field)
-			case "beadsTaskID":
-				return ec.fieldContext_AgentTask_beadsTaskID(ctx, field)
 			case "projectRoot":
 				return ec.fieldContext_AgentTask_projectRoot(ctx, field)
 			}
@@ -3263,8 +3953,6 @@ func (ec *executionContext) fieldContext_Mutation_updateTaskStatus(ctx context.C
 				return ec.fieldContext_AgentTask_error(ctx, field)
 			case "metadata":
 				return ec.fieldContext_AgentTask_metadata(ctx, field)
-			case "beadsTaskID":
-				return ec.fieldContext_AgentTask_beadsTaskID(ctx, field)
 			case "projectRoot":
 				return ec.fieldContext_AgentTask_projectRoot(ctx, field)
 			}
@@ -3412,6 +4100,644 @@ func (ec *executionContext) fieldContext_Performance_uptime(_ context.Context, f
 	return fc, nil
 }
 
+func (ec *executionContext) _PerformanceGrade_modelID(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_modelID,
+		func(ctx context.Context) (any, error) {
+			return obj.ModelID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_modelID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformanceGrade_roleID(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_roleID,
+		func(ctx context.Context) (any, error) {
+			return obj.RoleID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_roleID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformanceGrade_projectID(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_projectID,
+		func(ctx context.Context) (any, error) {
+			return obj.ProjectID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_projectID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformanceGrade_totalAttempts(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_totalAttempts,
+		func(ctx context.Context) (any, error) {
+			return obj.TotalAttempts, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_totalAttempts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformanceGrade_successes(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_successes,
+		func(ctx context.Context) (any, error) {
+			return obj.Successes, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_successes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformanceGrade_failures(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_failures,
+		func(ctx context.Context) (any, error) {
+			return obj.Failures, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_failures(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformanceGrade_retries(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_retries,
+		func(ctx context.Context) (any, error) {
+			return obj.Retries, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_retries(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformanceGrade_successRate(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_successRate,
+		func(ctx context.Context) (any, error) {
+			return obj.SuccessRate, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_successRate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformanceGrade_retryRate(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_retryRate,
+		func(ctx context.Context) (any, error) {
+			return obj.RetryRate, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_retryRate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformanceGrade_grade(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_grade,
+		func(ctx context.Context) (any, error) {
+			return obj.Grade, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_grade(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformanceGrade_confidenceScore(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_confidenceScore,
+		func(ctx context.Context) (any, error) {
+			return obj.ConfidenceScore, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_confidenceScore(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformanceGrade_averageTokens(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_averageTokens,
+		func(ctx context.Context) (any, error) {
+			return obj.AverageTokens, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_averageTokens(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformanceGrade_averageExecutionTime(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_averageExecutionTime,
+		func(ctx context.Context) (any, error) {
+			return obj.AverageExecutionTime, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_averageExecutionTime(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformanceGrade_escalationCount(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_escalationCount,
+		func(ctx context.Context) (any, error) {
+			return obj.EscalationCount, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_escalationCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformanceGrade_downgradeCount(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_downgradeCount,
+		func(ctx context.Context) (any, error) {
+			return obj.DowngradeCount, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_downgradeCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformanceGrade_lastUsed(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_lastUsed,
+		func(ctx context.Context) (any, error) {
+			return obj.LastUsed, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_lastUsed(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformanceGrade_firstUsed(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_firstUsed,
+		func(ctx context.Context) (any, error) {
+			return obj.FirstUsed, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_firstUsed(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProviderUsage_provider(ctx context.Context, field graphql.CollectedField, obj *ProviderUsage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProviderUsage_provider,
+		func(ctx context.Context) (any, error) {
+			return obj.Provider, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProviderUsage_provider(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProviderUsage",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProviderUsage_model(ctx context.Context, field graphql.CollectedField, obj *ProviderUsage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProviderUsage_model,
+		func(ctx context.Context) (any, error) {
+			return obj.Model, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProviderUsage_model(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProviderUsage",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProviderUsage_calls(ctx context.Context, field graphql.CollectedField, obj *ProviderUsage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProviderUsage_calls,
+		func(ctx context.Context) (any, error) {
+			return obj.Calls, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProviderUsage_calls(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProviderUsage",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProviderUsage_inputTokens(ctx context.Context, field graphql.CollectedField, obj *ProviderUsage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProviderUsage_inputTokens,
+		func(ctx context.Context) (any, error) {
+			return obj.InputTokens, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProviderUsage_inputTokens(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProviderUsage",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProviderUsage_outputTokens(ctx context.Context, field graphql.CollectedField, obj *ProviderUsage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProviderUsage_outputTokens,
+		func(ctx context.Context) (any, error) {
+			return obj.OutputTokens, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProviderUsage_outputTokens(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProviderUsage",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_health(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3495,8 +4821,6 @@ func (ec *executionContext) fieldContext_Query_tasks(_ context.Context, field gr
 				return ec.fieldContext_AgentTask_error(ctx, field)
 			case "metadata":
 				return ec.fieldContext_AgentTask_metadata(ctx, field)
-			case "beadsTaskID":
-				return ec.fieldContext_AgentTask_beadsTaskID(ctx, field)
 			case "projectRoot":
 				return ec.fieldContext_AgentTask_projectRoot(ctx, field)
 			}
@@ -3551,8 +4875,6 @@ func (ec *executionContext) fieldContext_Query_task(ctx context.Context, field g
 				return ec.fieldContext_AgentTask_error(ctx, field)
 			case "metadata":
 				return ec.fieldContext_AgentTask_metadata(ctx, field)
-			case "beadsTaskID":
-				return ec.fieldContext_AgentTask_beadsTaskID(ctx, field)
 			case "projectRoot":
 				return ec.fieldContext_AgentTask_projectRoot(ctx, field)
 			}
@@ -3735,6 +5057,8 @@ func (ec *executionContext) fieldContext_Query_metrics(_ context.Context, field 
 				return ec.fieldContext_Metrics_http(ctx, field)
 			case "rateLimiting":
 				return ec.fieldContext_Metrics_rateLimiting(ctx, field)
+			case "providerBreakdown":
+				return ec.fieldContext_Metrics_providerBreakdown(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Metrics", field.Name)
 		},
@@ -4009,6 +5333,266 @@ func (ec *executionContext) fieldContext_Query_executionEventsByTask(ctx context
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_executionEventsByTask_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_performanceGrades(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_performanceGrades,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Query().PerformanceGrades(ctx)
+		},
+		nil,
+		ec.marshalNPerformanceGrade2ᚕᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐPerformanceGradeᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_performanceGrades(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "modelID":
+				return ec.fieldContext_PerformanceGrade_modelID(ctx, field)
+			case "roleID":
+				return ec.fieldContext_PerformanceGrade_roleID(ctx, field)
+			case "projectID":
+				return ec.fieldContext_PerformanceGrade_projectID(ctx, field)
+			case "totalAttempts":
+				return ec.fieldContext_PerformanceGrade_totalAttempts(ctx, field)
+			case "successes":
+				return ec.fieldContext_PerformanceGrade_successes(ctx, field)
+			case "failures":
+				return ec.fieldContext_PerformanceGrade_failures(ctx, field)
+			case "retries":
+				return ec.fieldContext_PerformanceGrade_retries(ctx, field)
+			case "successRate":
+				return ec.fieldContext_PerformanceGrade_successRate(ctx, field)
+			case "retryRate":
+				return ec.fieldContext_PerformanceGrade_retryRate(ctx, field)
+			case "grade":
+				return ec.fieldContext_PerformanceGrade_grade(ctx, field)
+			case "confidenceScore":
+				return ec.fieldContext_PerformanceGrade_confidenceScore(ctx, field)
+			case "averageTokens":
+				return ec.fieldContext_PerformanceGrade_averageTokens(ctx, field)
+			case "averageExecutionTime":
+				return ec.fieldContext_PerformanceGrade_averageExecutionTime(ctx, field)
+			case "escalationCount":
+				return ec.fieldContext_PerformanceGrade_escalationCount(ctx, field)
+			case "downgradeCount":
+				return ec.fieldContext_PerformanceGrade_downgradeCount(ctx, field)
+			case "lastUsed":
+				return ec.fieldContext_PerformanceGrade_lastUsed(ctx, field)
+			case "firstUsed":
+				return ec.fieldContext_PerformanceGrade_firstUsed(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PerformanceGrade", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_performanceSummary(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_performanceSummary,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Query().PerformanceSummary(ctx)
+		},
+		nil,
+		ec.marshalNGradeSummary2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐGradeSummary,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_performanceSummary(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "totalGrades":
+				return ec.fieldContext_GradeSummary_totalGrades(ctx, field)
+			case "gradeDistribution":
+				return ec.fieldContext_GradeSummary_gradeDistribution(ctx, field)
+			case "byRole":
+				return ec.fieldContext_GradeSummary_byRole(ctx, field)
+			case "byModel":
+				return ec.fieldContext_GradeSummary_byModel(ctx, field)
+			case "costSavings":
+				return ec.fieldContext_GradeSummary_costSavings(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type GradeSummary", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_performanceByRole(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_performanceByRole,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().PerformanceByRole(ctx, fc.Args["role"].(string))
+		},
+		nil,
+		ec.marshalNPerformanceGrade2ᚕᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐPerformanceGradeᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_performanceByRole(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "modelID":
+				return ec.fieldContext_PerformanceGrade_modelID(ctx, field)
+			case "roleID":
+				return ec.fieldContext_PerformanceGrade_roleID(ctx, field)
+			case "projectID":
+				return ec.fieldContext_PerformanceGrade_projectID(ctx, field)
+			case "totalAttempts":
+				return ec.fieldContext_PerformanceGrade_totalAttempts(ctx, field)
+			case "successes":
+				return ec.fieldContext_PerformanceGrade_successes(ctx, field)
+			case "failures":
+				return ec.fieldContext_PerformanceGrade_failures(ctx, field)
+			case "retries":
+				return ec.fieldContext_PerformanceGrade_retries(ctx, field)
+			case "successRate":
+				return ec.fieldContext_PerformanceGrade_successRate(ctx, field)
+			case "retryRate":
+				return ec.fieldContext_PerformanceGrade_retryRate(ctx, field)
+			case "grade":
+				return ec.fieldContext_PerformanceGrade_grade(ctx, field)
+			case "confidenceScore":
+				return ec.fieldContext_PerformanceGrade_confidenceScore(ctx, field)
+			case "averageTokens":
+				return ec.fieldContext_PerformanceGrade_averageTokens(ctx, field)
+			case "averageExecutionTime":
+				return ec.fieldContext_PerformanceGrade_averageExecutionTime(ctx, field)
+			case "escalationCount":
+				return ec.fieldContext_PerformanceGrade_escalationCount(ctx, field)
+			case "downgradeCount":
+				return ec.fieldContext_PerformanceGrade_downgradeCount(ctx, field)
+			case "lastUsed":
+				return ec.fieldContext_PerformanceGrade_lastUsed(ctx, field)
+			case "firstUsed":
+				return ec.fieldContext_PerformanceGrade_firstUsed(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PerformanceGrade", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_performanceByRole_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_performanceByProject(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_performanceByProject,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().PerformanceByProject(ctx, fc.Args["project"].(string))
+		},
+		nil,
+		ec.marshalNPerformanceGrade2ᚕᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐPerformanceGradeᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_performanceByProject(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "modelID":
+				return ec.fieldContext_PerformanceGrade_modelID(ctx, field)
+			case "roleID":
+				return ec.fieldContext_PerformanceGrade_roleID(ctx, field)
+			case "projectID":
+				return ec.fieldContext_PerformanceGrade_projectID(ctx, field)
+			case "totalAttempts":
+				return ec.fieldContext_PerformanceGrade_totalAttempts(ctx, field)
+			case "successes":
+				return ec.fieldContext_PerformanceGrade_successes(ctx, field)
+			case "failures":
+				return ec.fieldContext_PerformanceGrade_failures(ctx, field)
+			case "retries":
+				return ec.fieldContext_PerformanceGrade_retries(ctx, field)
+			case "successRate":
+				return ec.fieldContext_PerformanceGrade_successRate(ctx, field)
+			case "retryRate":
+				return ec.fieldContext_PerformanceGrade_retryRate(ctx, field)
+			case "grade":
+				return ec.fieldContext_PerformanceGrade_grade(ctx, field)
+			case "confidenceScore":
+				return ec.fieldContext_PerformanceGrade_confidenceScore(ctx, field)
+			case "averageTokens":
+				return ec.fieldContext_PerformanceGrade_averageTokens(ctx, field)
+			case "averageExecutionTime":
+				return ec.fieldContext_PerformanceGrade_averageExecutionTime(ctx, field)
+			case "escalationCount":
+				return ec.fieldContext_PerformanceGrade_escalationCount(ctx, field)
+			case "downgradeCount":
+				return ec.fieldContext_PerformanceGrade_downgradeCount(ctx, field)
+			case "lastUsed":
+				return ec.fieldContext_PerformanceGrade_lastUsed(ctx, field)
+			case "firstUsed":
+				return ec.fieldContext_PerformanceGrade_firstUsed(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PerformanceGrade", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_performanceByProject_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -4577,8 +6161,6 @@ func (ec *executionContext) fieldContext_Subscription_taskUpdated(ctx context.Co
 				return ec.fieldContext_AgentTask_error(ctx, field)
 			case "metadata":
 				return ec.fieldContext_AgentTask_metadata(ctx, field)
-			case "beadsTaskID":
-				return ec.fieldContext_AgentTask_beadsTaskID(ctx, field)
 			case "projectRoot":
 				return ec.fieldContext_AgentTask_projectRoot(ctx, field)
 			}
@@ -4651,6 +6233,8 @@ func (ec *executionContext) fieldContext_Subscription_metricsUpdated(_ context.C
 				return ec.fieldContext_Metrics_http(ctx, field)
 			case "rateLimiting":
 				return ec.fieldContext_Metrics_rateLimiting(ctx, field)
+			case "providerBreakdown":
+				return ec.fieldContext_Metrics_providerBreakdown(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Metrics", field.Name)
 		},
@@ -6860,8 +8444,6 @@ func (ec *executionContext) _AgentTask(ctx context.Context, sel ast.SelectionSet
 			out.Values[i] = ec._AgentTask_error(ctx, field, obj)
 		case "metadata":
 			out.Values[i] = ec._AgentTask_metadata(ctx, field, obj)
-		case "beadsTaskID":
-			out.Values[i] = ec._AgentTask_beadsTaskID(ctx, field, obj)
 		case "projectRoot":
 			out.Values[i] = ec._AgentTask_projectRoot(ctx, field, obj)
 		default:
@@ -6991,6 +8573,70 @@ func (ec *executionContext) _CloseResult(ctx context.Context, sel ast.SelectionS
 	return out
 }
 
+var costSavingsImplementors = []string{"CostSavings"}
+
+func (ec *executionContext) _CostSavings(ctx context.Context, sel ast.SelectionSet, obj *CostSavings) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, costSavingsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CostSavings")
+		case "baselineCost":
+			out.Values[i] = ec._CostSavings_baselineCost(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "actualCost":
+			out.Values[i] = ec._CostSavings_actualCost(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "savings":
+			out.Values[i] = ec._CostSavings_savings(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "savingsPercent":
+			out.Values[i] = ec._CostSavings_savingsPercent(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalTasks":
+			out.Values[i] = ec._CostSavings_totalTasks(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "avgCostPerTask":
+			out.Values[i] = ec._CostSavings_avgCostPerTask(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var executionEventImplementors = []string{"ExecutionEvent"}
 
 func (ec *executionContext) _ExecutionEvent(ctx context.Context, sel ast.SelectionSet, obj *ExecutionEvent) graphql.Marshaler {
@@ -7037,6 +8683,65 @@ func (ec *executionContext) _ExecutionEvent(ctx context.Context, sel ast.Selecti
 			out.Values[i] = ec._ExecutionEvent_result(ctx, field, obj)
 		case "metadata":
 			out.Values[i] = ec._ExecutionEvent_metadata(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var gradeSummaryImplementors = []string{"GradeSummary"}
+
+func (ec *executionContext) _GradeSummary(ctx context.Context, sel ast.SelectionSet, obj *GradeSummary) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, gradeSummaryImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("GradeSummary")
+		case "totalGrades":
+			out.Values[i] = ec._GradeSummary_totalGrades(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "gradeDistribution":
+			out.Values[i] = ec._GradeSummary_gradeDistribution(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "byRole":
+			out.Values[i] = ec._GradeSummary_byRole(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "byModel":
+			out.Values[i] = ec._GradeSummary_byModel(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "costSavings":
+			out.Values[i] = ec._GradeSummary_costSavings(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -7290,6 +8995,11 @@ func (ec *executionContext) _Metrics(ctx context.Context, sel ast.SelectionSet, 
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "providerBreakdown":
+			out.Values[i] = ec._Metrics_providerBreakdown(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -7403,6 +9113,184 @@ func (ec *executionContext) _Performance(ctx context.Context, sel ast.SelectionS
 			out.Values[i] = graphql.MarshalString("Performance")
 		case "uptime":
 			out.Values[i] = ec._Performance_uptime(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var performanceGradeImplementors = []string{"PerformanceGrade"}
+
+func (ec *executionContext) _PerformanceGrade(ctx context.Context, sel ast.SelectionSet, obj *PerformanceGrade) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, performanceGradeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PerformanceGrade")
+		case "modelID":
+			out.Values[i] = ec._PerformanceGrade_modelID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "roleID":
+			out.Values[i] = ec._PerformanceGrade_roleID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "projectID":
+			out.Values[i] = ec._PerformanceGrade_projectID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalAttempts":
+			out.Values[i] = ec._PerformanceGrade_totalAttempts(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "successes":
+			out.Values[i] = ec._PerformanceGrade_successes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "failures":
+			out.Values[i] = ec._PerformanceGrade_failures(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "retries":
+			out.Values[i] = ec._PerformanceGrade_retries(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "successRate":
+			out.Values[i] = ec._PerformanceGrade_successRate(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "retryRate":
+			out.Values[i] = ec._PerformanceGrade_retryRate(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "grade":
+			out.Values[i] = ec._PerformanceGrade_grade(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "confidenceScore":
+			out.Values[i] = ec._PerformanceGrade_confidenceScore(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "averageTokens":
+			out.Values[i] = ec._PerformanceGrade_averageTokens(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "averageExecutionTime":
+			out.Values[i] = ec._PerformanceGrade_averageExecutionTime(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "escalationCount":
+			out.Values[i] = ec._PerformanceGrade_escalationCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "downgradeCount":
+			out.Values[i] = ec._PerformanceGrade_downgradeCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "lastUsed":
+			out.Values[i] = ec._PerformanceGrade_lastUsed(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "firstUsed":
+			out.Values[i] = ec._PerformanceGrade_firstUsed(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var providerUsageImplementors = []string{"ProviderUsage"}
+
+func (ec *executionContext) _ProviderUsage(ctx context.Context, sel ast.SelectionSet, obj *ProviderUsage) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, providerUsageImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ProviderUsage")
+		case "provider":
+			out.Values[i] = ec._ProviderUsage_provider(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "model":
+			out.Values[i] = ec._ProviderUsage_model(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "calls":
+			out.Values[i] = ec._ProviderUsage_calls(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "inputTokens":
+			out.Values[i] = ec._ProviderUsage_inputTokens(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "outputTokens":
+			out.Values[i] = ec._ProviderUsage_outputTokens(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -7672,6 +9560,94 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_executionEventsByTask(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "performanceGrades":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_performanceGrades(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "performanceSummary":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_performanceSummary(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "performanceByRole":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_performanceByRole(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "performanceByProject":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_performanceByProject(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -8693,6 +10669,16 @@ func (ec *executionContext) marshalNCloseResult2ᚖgithubᚗcomᚋcortexaᚑllc�
 	return ec._CloseResult(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNCostSavings2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐCostSavings(ctx context.Context, sel ast.SelectionSet, v *CostSavings) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._CostSavings(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNExecutionEvent2ᚕᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐExecutionEventᚄ(ctx context.Context, sel ast.SelectionSet, v []*ExecutionEvent) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
@@ -8761,6 +10747,20 @@ func (ec *executionContext) marshalNFloat2float64(ctx context.Context, sel ast.S
 		}
 	}
 	return graphql.WrapContextMarshaler(ctx, res)
+}
+
+func (ec *executionContext) marshalNGradeSummary2githubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐGradeSummary(ctx context.Context, sel ast.SelectionSet, v GradeSummary) graphql.Marshaler {
+	return ec._GradeSummary(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNGradeSummary2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐGradeSummary(ctx context.Context, sel ast.SelectionSet, v *GradeSummary) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._GradeSummary(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNHTTPMetrics2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐHTTPMetrics(ctx context.Context, sel ast.SelectionSet, v *HTTPMetrics) graphql.Marshaler {
@@ -8909,6 +10909,108 @@ func (ec *executionContext) marshalNPerformance2ᚖgithubᚗcomᚋcortexaᚑllc�
 		return graphql.Null
 	}
 	return ec._Performance(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNPerformanceGrade2ᚕᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐPerformanceGradeᚄ(ctx context.Context, sel ast.SelectionSet, v []*PerformanceGrade) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNPerformanceGrade2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐPerformanceGrade(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNPerformanceGrade2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐPerformanceGrade(ctx context.Context, sel ast.SelectionSet, v *PerformanceGrade) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PerformanceGrade(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNProviderUsage2githubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐProviderUsage(ctx context.Context, sel ast.SelectionSet, v ProviderUsage) graphql.Marshaler {
+	return ec._ProviderUsage(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNProviderUsage2ᚕgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐProviderUsageᚄ(ctx context.Context, sel ast.SelectionSet, v []ProviderUsage) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNProviderUsage2githubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐProviderUsage(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalNRateLimiting2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐRateLimiting(ctx context.Context, sel ast.SelectionSet, v *RateLimiting) graphql.Marshaler {
