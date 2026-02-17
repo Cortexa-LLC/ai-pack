@@ -3,6 +3,8 @@ package streaming
 import (
 	"fmt"
 	"strings"
+
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
 
 // SimpleModelSelector implements model selection logic
@@ -48,4 +50,56 @@ func (s *SimpleModelSelector) SelectModel(role string, requestedModel string) (m
 
 	// Claude or unknown model - use Anthropic
 	return requestedModel, "anthropic", nil
+}
+
+// PerformanceGradeModelSelector adapts monitoring.ModelSelector to streaming.ModelSelector interface
+type PerformanceGradeModelSelector struct {
+	gradeSelector    *monitoring.ModelSelector
+	projectID        string
+	defaultModel     string
+	openaiAvailable  bool
+}
+
+// NewPerformanceGradeModelSelector creates a selector that uses performance grades
+func NewPerformanceGradeModelSelector(projectID string, defaultModel string, openaiAvailable bool) *PerformanceGradeModelSelector {
+	return &PerformanceGradeModelSelector{
+		gradeSelector:   monitoring.GlobalModelSelector,
+		projectID:       projectID,
+		defaultModel:    defaultModel,
+		openaiAvailable: openaiAvailable,
+	}
+}
+
+// SelectModel uses performance grades to select the best model
+func (s *PerformanceGradeModelSelector) SelectModel(role string, requestedModel string) (model string, provider string, err error) {
+	// If no performance-grade selector available, fall back to default
+	if s.gradeSelector == nil {
+		monitoring.Logger.Warn("performance_grade_selector_not_initialized", "falling_back_to", s.defaultModel)
+		return s.defaultModel, "anthropic", nil
+	}
+
+	// Use empty string for taskDescription - selector will use role defaults
+	result := s.gradeSelector.SelectModel(role, s.projectID, "")
+
+	monitoring.Logger.Info("model_selected_by_performance",
+		"role", role,
+		"selected_model", result.SelectedModel.ID,
+		"tier", result.Tier,
+		"reasoning", result.Reasoning,
+		"complexity", result.Complexity,
+	)
+
+	// Determine provider from model ID
+	providerName := result.SelectedModel.Provider
+	modelID := result.SelectedModel.ID
+
+	// Check if provider is available
+	if providerName == "openai" && !s.openaiAvailable {
+		monitoring.Logger.Warn("openai_not_available_fallback",
+			"requested", modelID,
+			"falling_back_to", s.defaultModel)
+		return s.defaultModel, "anthropic", nil
+	}
+
+	return modelID, providerName, nil
 }
