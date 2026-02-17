@@ -62,7 +62,7 @@ tools:
 success_criteria:
   - Task completed successfully
 `
-	configPath := filepath.Join(agentDir, "test-agent.yml")
+	configPath := filepath.Join(agentDir, "test-agent.md")
 	if err := os.WriteFile(configPath, []byte(testAgentConfig), 0644); err != nil {
 		t.Fatalf("Failed to write test agent config: %v", err)
 	}

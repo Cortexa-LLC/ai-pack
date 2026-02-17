@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 // GetModelForRole returns the model to use for a given role
@@ -52,31 +49,22 @@ func (s *AgentServer) loadAgentConfigForRole(role string) (*AgentConfig, error) 
 	return nil, fmt.Errorf("agent config not found for role: %s", role)
 }
 
-// parseAgentConfig parses the YAML frontmatter from an agent .md file
+// parseAgentConfig parses the markdown configuration from an agent .md file
 func (s *AgentServer) parseAgentConfig(path string) (*AgentConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	content := string(data)
+	// Extract role name from filename
+	roleName := filepath.Base(path)
+	roleName = roleName[:len(roleName)-3] // Remove .md extension
 
-	// Check for YAML frontmatter
-	if !strings.HasPrefix(content, "---") {
-		return &AgentConfig{}, nil // No frontmatter
+	// Parse using markdown config parser
+	config, _, err := parseMarkdownConfig(data, roleName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse markdown config from %s: %w", path, err)
 	}
 
-	// Extract frontmatter
-	parts := strings.SplitN(content[3:], "---", 2)
-	if len(parts) < 2 {
-		return &AgentConfig{}, nil // Invalid frontmatter
-	}
-
-	// Parse YAML
-	var config AgentConfig
-	if err := yaml.Unmarshal([]byte(parts[0]), &config); err != nil {
-		return nil, fmt.Errorf("failed to parse YAML frontmatter: %w", err)
-	}
-
-	return &config, nil
+	return config, nil
 }
