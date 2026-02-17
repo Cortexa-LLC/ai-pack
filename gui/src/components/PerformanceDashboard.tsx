@@ -38,7 +38,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ apiUrl }) =
     );
   }
 
-  if (!summary?.enabled) {
+  if (!summary || summary.totalGrades === 0) {
     return (
       <div className="p-6 bg-blue-900/20 border border-blue-700/50 rounded-lg">
         <h3 className="text-lg font-semibold text-blue-300 mb-2">Performance Grading Disabled</h3>
