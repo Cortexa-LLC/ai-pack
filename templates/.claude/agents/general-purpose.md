@@ -2,7 +2,7 @@
 
 **Agent:** general-purpose
 **Description:** General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks
-**Model:** claude-sonnet-4-5
+**Model:** claude-sonnet-4-6
 **Tools:** read, write, edit, bash, grep, glob
 **PermissionMode:** bypassPermissions
 ---
