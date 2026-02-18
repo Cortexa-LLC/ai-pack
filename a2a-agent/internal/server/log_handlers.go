@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -310,21 +311,70 @@ func (s *AgentServer) serveTaskContract(w http.ResponseWriter, r *http.Request, 
 	w.Write([]byte(contract.String()))
 }
 
-// serveTaskLogs serves the complete log file as plain text
+// maxLogBytes is the maximum number of bytes served from a log file.
+// Large tool outputs (grep on big files, etc.) can produce gigabyte-scale logs;
+// reading the whole file into memory and sending it to the browser hangs the UI.
+const maxLogBytes = 512 * 1024 // 512 KB
+
+// serveTaskLogs serves the tail of a log file as plain text.
+// If the file exceeds maxLogBytes only the last maxLogBytes are returned,
+// with a truncation notice prepended.
 func (s *AgentServer) serveTaskLogs(w http.ResponseWriter, r *http.Request, logFile string) {
-	// Read log file
-	data, err := os.ReadFile(logFile)
+	f, err := os.Open(logFile)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to read logs: %v", err), http.StatusInternalServerError)
 		return
 	}
+	defer f.Close()
 
-	// Set CORS headers
+	stat, err := f.Stat()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to stat log file: %v", err), http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
-	// Return logs as plain text
-	w.Write(data)
+	size := stat.Size()
+	if size <= maxLogBytes {
+		// Small enough — serve the whole file
+		data, err := io.ReadAll(f)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to read logs: %v", err), http.StatusInternalServerError)
+			return
+		}
+		w.Write(data)
+		return
+	}
+
+	// Large file — seek to last maxLogBytes and serve from there
+	offset := size - maxLogBytes
+	if _, err := f.Seek(offset, io.SeekStart); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to seek log file: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Find the next newline so we start on a clean line boundary
+	buf := make([]byte, 512)
+	n, _ := f.Read(buf)
+	newlineIdx := bytes.IndexByte(buf[:n], '\n')
+	if newlineIdx >= 0 {
+		// Seek past the partial line
+		if _, err := f.Seek(offset+int64(newlineIdx)+1, io.SeekStart); err == nil {
+			offset = offset + int64(newlineIdx) + 1
+		}
+	} else {
+		f.Seek(offset, io.SeekStart)
+	}
+
+	truncationNotice := fmt.Sprintf(
+		"[Log truncated: file is %.1f MB, showing last %.0f KB]\n\n",
+		float64(size)/(1024*1024),
+		float64(maxLogBytes)/1024,
+	)
+	w.Write([]byte(truncationNotice))
+	io.Copy(w, f)
 }
 
 // streamTaskLogs streams log file updates via SSE
