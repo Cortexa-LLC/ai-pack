@@ -2,22 +2,39 @@ package streaming
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/sashabaranov/go-openai"
 )
 
+// openAIMaxCompletionTokens is the maximum completion tokens supported by gpt-4o / gpt-4o-mini.
+// Requests with a higher max_tokens value are rejected by the API with a 400 error.
+const openAIMaxCompletionTokens = 16384
+
+// openaiPendingToolCall accumulates the streamed arguments for a single tool call.
+// OpenAI sends function arguments as partial strings across multiple stream chunks,
+// keyed by the tool call's index in the delta.ToolCalls slice.
+type openaiPendingToolCall struct {
+	id          string
+	name        string
+	argsBuffer  strings.Builder
+}
+
 // OpenAIStreamAdapter adapts OpenAI SDK streaming to our StreamProvider interface
 type OpenAIStreamAdapter struct {
-	stream   *openai.ChatCompletionStream
-	current  StreamEvent
-	message  *CompletedMessage
-	err      error
-	done     bool
-	model    string // Model being used
-	provider string // Provider name
+	stream           *openai.ChatCompletionStream
+	current          StreamEvent
+	message          *CompletedMessage
+	err              error
+	done             bool
+	model            string // Model being used
+	provider         string // Provider name
+	pendingToolCalls map[int]*openaiPendingToolCall
+	pendingEvents    []StreamEvent // tool-use events queued after EOF
 }
 
 // OpenAIFactory creates OpenAI stream providers
@@ -71,12 +88,18 @@ func (f *OpenAIFactory) CreateStream(ctx context.Context, req StreamRequest) (St
 		})
 	}
 
+	// Cap max_tokens to the OpenAI model limit to avoid a 400 error
+	maxTokens := req.MaxTokens
+	if maxTokens > openAIMaxCompletionTokens {
+		maxTokens = openAIMaxCompletionTokens
+	}
+
 	// Build request
 	request := openai.ChatCompletionRequest{
-		Model:       req.Model,
-		Messages:    messages,
-		MaxTokens:   req.MaxTokens,
-		Stream:      true,
+		Model:     req.Model,
+		Messages:  messages,
+		MaxTokens: maxTokens,
+		Stream:    true,
 		StreamOptions: &openai.StreamOptions{
 			IncludeUsage: true,
 		},
@@ -122,9 +145,23 @@ func (o *OpenAIStreamAdapter) Next() bool {
 		return false
 	}
 
+	// Drain any tool-use events queued after the stream ended
+	if len(o.pendingEvents) > 0 {
+		o.current = o.pendingEvents[0]
+		o.pendingEvents = o.pendingEvents[1:]
+		return true
+	}
+
 	response, err := o.stream.Recv()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
+			// Flush accumulated tool calls into pendingEvents before stopping
+			o.flushPendingToolCalls()
+			if len(o.pendingEvents) > 0 {
+				o.current = o.pendingEvents[0]
+				o.pendingEvents = o.pendingEvents[1:]
+				return true
+			}
 			o.done = true
 			return false
 		}
@@ -133,7 +170,34 @@ func (o *OpenAIStreamAdapter) Next() bool {
 		return false
 	}
 
-	// Convert OpenAI response to generic event
+	// Accumulate tool call argument fragments by index
+	if len(response.Choices) > 0 {
+		for _, tc := range response.Choices[0].Delta.ToolCalls {
+			if tc.Index == nil {
+				continue
+			}
+			idx := *tc.Index
+			if o.pendingToolCalls == nil {
+				o.pendingToolCalls = make(map[int]*openaiPendingToolCall)
+			}
+			pending, exists := o.pendingToolCalls[idx]
+			if !exists {
+				pending = &openaiPendingToolCall{}
+				o.pendingToolCalls[idx] = pending
+			}
+			if tc.ID != "" {
+				pending.id = tc.ID
+			}
+			if tc.Function.Name != "" {
+				pending.name = tc.Function.Name
+			}
+			if tc.Function.Arguments != "" {
+				pending.argsBuffer.WriteString(tc.Function.Arguments)
+			}
+		}
+	}
+
+	// Convert OpenAI response to generic event (text only; tool calls emitted on flush)
 	o.current = o.convertResponse(response)
 
 	// Accumulate message content
@@ -153,6 +217,39 @@ func (o *OpenAIStreamAdapter) Next() bool {
 	}
 
 	return true
+}
+
+// flushPendingToolCalls converts accumulated tool call data into StreamEvents.
+// Called once after the stream ends so that each tool call has its complete arguments.
+func (o *OpenAIStreamAdapter) flushPendingToolCalls() {
+	if len(o.pendingToolCalls) == 0 {
+		return
+	}
+
+	// Process tool calls in index order for deterministic output
+	indices := make([]int, 0, len(o.pendingToolCalls))
+	for idx := range o.pendingToolCalls {
+		indices = append(indices, idx)
+	}
+	sort.Ints(indices)
+
+	for _, idx := range indices {
+		pending := o.pendingToolCalls[idx]
+		toolUse := &ToolUse{
+			ID:    pending.id,
+			Name:  pending.name,
+			Input: make(map[string]interface{}),
+		}
+		if argsStr := pending.argsBuffer.String(); argsStr != "" {
+			json.Unmarshal([]byte(argsStr), &toolUse.Input) //nolint:errcheck
+		}
+		o.pendingEvents = append(o.pendingEvents, StreamEvent{
+			Type:    "tool_use",
+			ToolUse: toolUse,
+		})
+	}
+
+	o.pendingToolCalls = nil
 }
 
 // Current returns the current event
@@ -186,7 +283,8 @@ func (o *OpenAIStreamAdapter) GetProvider() string {
 	return o.provider
 }
 
-// convertResponse converts OpenAI response to generic StreamEvent
+// convertResponse converts OpenAI response to generic StreamEvent (text content only).
+// Tool call events are emitted separately via flushPendingToolCalls after EOF.
 func (o *OpenAIStreamAdapter) convertResponse(response openai.ChatCompletionStreamResponse) StreamEvent {
 	event := StreamEvent{
 		Type: "content_block_delta", // Use Anthropic-compatible event type
