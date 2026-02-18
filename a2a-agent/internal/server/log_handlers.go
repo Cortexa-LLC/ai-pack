@@ -230,8 +230,11 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Determine if task is still running
-	isTaskRunning := taskStatus == constants.StatusInProgress
+	// Determine if task is still running.
+	// A task can only be running if it is tracked in activeTasks — if the server
+	// restarted mid-execution the task is gone from activeTasks and the log may have
+	// no completion marker, but it is definitely not running anymore.
+	isTaskRunning := exists && taskStatus == constants.StatusInProgress
 
 	// Check if streaming is requested and task is still running
 	// Completed tasks should never stream (follow mode)
