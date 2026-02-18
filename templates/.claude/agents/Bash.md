@@ -1,12 +1,11 @@
----
-name: Bash
-description: Command execution specialist for running bash commands. Use for git operations, command execution, and terminal tasks.
-tools: Bash
-model: Sonnet
-permissionMode: bypassPermissions
----
-
 # Bash Spawned Agent
+
+**Agent:** Bash
+**Description:** Command execution specialist for running bash commands
+**Model:** claude-sonnet-4-6
+**Tools:** bash
+**PermissionMode:** bypassPermissions
+---
 
 Specialized agent for bash command execution in background tasks.
 

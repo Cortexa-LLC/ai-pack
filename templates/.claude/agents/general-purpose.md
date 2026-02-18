@@ -1,12 +1,11 @@
----
-name: general-purpose
-description: General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. Handles file operations, code exploration, and implementation work.
-tools: All tools
-model: Sonnet
-permissionMode: bypassPermissions
----
-
 # General Purpose Spawned Agent
+
+**Agent:** general-purpose
+**Description:** General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks
+**Model:** claude-sonnet-4-6
+**Tools:** read, write, edit, bash, grep, glob
+**PermissionMode:** bypassPermissions
+---
 
 This agent is used by the Orchestrator for parallel execution of independent tasks.
 
