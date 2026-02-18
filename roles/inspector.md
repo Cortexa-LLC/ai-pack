@@ -1,5 +1,13 @@
 # Inspector Role
 
+**Agent:** inspector
+**Description:** Bug investigation specialist for root cause analysis and retrospectives
+**Timeout:** 10min
+**MaxContext:** 32000
+**Tools:** read, grep, glob, bash, write
+**Delegation:** delegate
+---
+
 **Version:** 1.1.0
 **Last Updated:** 2026-02-15
 **Complexity:** Medium to High

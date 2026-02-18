@@ -1,5 +1,16 @@
 # Cost-Optimized Engineer Agent
 
+**Agent:** engineer-cheap
+**Description:** Cost-optimized engineer for simple implementations using GPT-4o-mini
+**Model:** gpt-4o-mini
+**Tier:** minimal
+**Timeout:** 10min
+**MaxContext:** 32000
+**Tools:** read, write, edit, bash, grep, glob
+**Gates:** tdd-enforcement, code-quality-review
+**Delegation:** delegate
+---
+
 **Version:** 2.0
 **Last Updated:** 2026-02-15
 **Complexity:** Low
