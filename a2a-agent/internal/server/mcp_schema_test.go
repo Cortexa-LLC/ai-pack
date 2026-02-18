@@ -3,6 +3,8 @@ package server
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/anthropics/anthropic-sdk-go"
 )
 
 // TestCleanSchemaProperties validates that MCP tool schemas are cleaned correctly
@@ -156,6 +158,56 @@ func containsField(schema map[string]interface{}, fieldName string) bool {
 		}
 	}
 	return false
+}
+
+// TestAnthropicToolParamSerialization validates that tool params serialize correctly
+func TestAnthropicToolParamSerialization(t *testing.T) {
+	// Create a tool param as we would for MCP tools
+	properties := map[string]interface{}{
+		"entities": map[string]interface{}{
+			"type": "array",
+			"items": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"name": map[string]interface{}{
+						"type":        "string",
+						"description": "Entity name",
+					},
+				},
+			},
+		},
+	}
+
+	tool := anthropic.ToolParam{
+		Name: "create_entities",
+		InputSchema: anthropic.ToolInputSchemaParam{
+			Type:       "object",
+			Properties: properties,
+			Required:   []string{"entities"},
+		},
+	}
+
+	// Try to serialize it
+	toolJSON, err := json.MarshalIndent(tool, "", "  ")
+	if err != nil {
+		t.Fatalf("Failed to serialize tool param: %v", err)
+	}
+
+	t.Logf("Serialized tool:\n%s", string(toolJSON))
+
+	// Verify structure
+	var toolMap map[string]interface{}
+	if err := json.Unmarshal(toolJSON, &toolMap); err != nil {
+		t.Fatalf("Failed to deserialize tool: %v", err)
+	}
+
+	// Check required fields exist
+	if toolMap["name"] == nil {
+		t.Error("Missing 'name' field")
+	}
+	if toolMap["input_schema"] == nil {
+		t.Error("Missing 'input_schema' field")
+	}
 }
 
 // TestMCPToolSchemaConversion validates complete MCP tool to Anthropic conversion

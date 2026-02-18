@@ -2620,16 +2620,17 @@ func (s *AgentServer) executeTool(ctx context.Context, toolName string, toolInpu
 
 // cleanSchemaProperties recursively cleans schema properties to be Anthropic-compatible
 // Removes: $schema, additionalProperties, and other non-standard fields
+// Preserves: type, description, properties, items, enum, etc.
 func cleanSchemaProperties(properties map[string]interface{}) map[string]interface{} {
 	cleaned := make(map[string]interface{})
 
 	for key, value := range properties {
-		// Skip fields that Anthropic doesn't support
+		// Skip fields that Anthropic doesn't support in nested schemas
 		if key == "$schema" || key == "additionalProperties" {
 			continue
 		}
 
-		// Recursively clean nested objects
+		// Handle nested objects recursively
 		if valueMap, ok := value.(map[string]interface{}); ok {
 			cleaned[key] = cleanSchemaProperties(valueMap)
 		} else {
