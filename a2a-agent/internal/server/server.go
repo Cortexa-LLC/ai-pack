@@ -1493,6 +1493,30 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			}
 		}
 
+		// Truncate tool result content in older messages to prevent context blowup.
+		// Full results are only needed for the most recent turns — older results
+		// just need to convey what happened, not the full content.
+		const maxOldResultChars = 500
+		const recentTurnsToKeepFull = 3
+		if len(truncatedMessages) > recentTurnsToKeepFull*2+1 {
+			cutoff := len(truncatedMessages) - recentTurnsToKeepFull*2
+			compacted := make([]streaming.Message, len(truncatedMessages))
+			copy(compacted, truncatedMessages)
+			for i := 1; i < cutoff; i++ { // skip index 0 (initial prompt)
+				if len(compacted[i].ToolResults) > 0 {
+					newResults := make([]streaming.ToolResult, len(compacted[i].ToolResults))
+					for j, tr := range compacted[i].ToolResults {
+						newResults[j] = tr
+						if len(tr.Content) > maxOldResultChars {
+							newResults[j].Content = tr.Content[:maxOldResultChars] + fmt.Sprintf(" …[%d chars]", len(tr.Content))
+						}
+					}
+					compacted[i].ToolResults = newResults
+				}
+			}
+			truncatedMessages = compacted
+		}
+
 		// Prepare streaming request — messages already in provider-agnostic format
 		streamReq := streaming.StreamRequest{
 			Messages:     truncatedMessages,
@@ -1698,9 +1722,9 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 				logMsg(fmt.Sprintf("         ✓ %s", preview))
 			}
 
-			// Cap tool result size to prevent a single large output from
-			// consuming the entire API context window (~8k token budget per result).
-			const maxToolResultChars = 30000
+			// Cap tool result size. Large results are compacted in history on subsequent turns,
+			// but we still cap at initial storage to avoid a single result eating the context.
+			const maxToolResultChars = 8000
 			if len(result) > maxToolResultChars {
 				result = result[:maxToolResultChars] + fmt.Sprintf("\n\n[Output truncated: %d chars total, showing first %d]", len(result), maxToolResultChars)
 			}
