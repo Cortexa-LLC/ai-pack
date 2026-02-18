@@ -157,6 +157,7 @@ type GradeSummary {
   gradeDistribution: JSON!
   byRole: JSON!
   byModel: JSON!
+  modelTiers: JSON!
   costSavings: CostSavings!
 }
 

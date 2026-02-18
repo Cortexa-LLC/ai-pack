@@ -254,11 +254,40 @@ func (r *queryResolver) PerformanceSummary(ctx context.Context) (*GradeSummary, 
 	// Calculate cost savings from metrics
 	costSavings := calculateCostSavings()
 
+	// Build model tiers info from the canonical ModelsByTier registry
+	tierOrder := []monitoring.ModelTier{
+		monitoring.TierMinimal,
+		monitoring.TierLow,
+		monitoring.TierMedium,
+		monitoring.TierHigh,
+	}
+	tierNames := map[monitoring.ModelTier]string{
+		monitoring.TierMinimal: "Minimal",
+		monitoring.TierLow:     "Low",
+		monitoring.TierMedium:  "Medium",
+		monitoring.TierHigh:    "High",
+	}
+	tiers := make([]map[string]interface{}, 0, len(tierOrder))
+	for _, tier := range tierOrder {
+		models := monitoring.ModelsByTier[tier]
+		modelIDs := make([]string, 0, len(models))
+		for _, m := range models {
+			modelIDs = append(modelIDs, m.ID)
+		}
+		tiers = append(tiers, map[string]interface{}{
+			"tier":   int(tier),
+			"name":   tierNames[tier],
+			"models": modelIDs,
+		})
+	}
+	modelTiersInfo := map[string]any{"tiers": tiers}
+
 	return &GradeSummary{
 		TotalGrades:       monitoringSummary.TotalGrades,
 		GradeDistribution: gradeDistribution,
 		ByRole:            byRole,
 		ByModel:           byModel,
+		ModelTiers:        modelTiersInfo,
 		CostSavings:       costSavings,
 	}, nil
 }
