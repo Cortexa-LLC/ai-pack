@@ -131,35 +131,8 @@ func (s *OrchestratorSession) checkForUpdates() {
 
 // handleTaskStatusChange handles when a task changes status
 func (s *OrchestratorSession) handleTaskStatusChange(taskID, oldStatus, newStatus string, task *TaskInfo) {
+	// All task status changes are visible in the swim lane — no need to echo them in chat.
 	monitoring.Logger.Info("orchestrator_status_change", "task_id", taskID, "old", oldStatus, "new", newStatus)
-
-	var message string
-	var updateType string
-
-	switch newStatus {
-	case "completed":
-		message = fmt.Sprintf("✅ Task %s completed", taskID)
-		updateType = "task_complete"
-	case "failed":
-		message = fmt.Sprintf("❌ Task %s failed", taskID)
-		updateType = "task_failed"
-	case "blocked":
-		message = fmt.Sprintf("🚧 Task %s blocked", taskID)
-		updateType = "task_blocked"
-	case "in_progress":
-		message = fmt.Sprintf("⏳ Task %s in progress", taskID)
-		updateType = "task_started"
-	default:
-		return
-	}
-
-	s.sendUpdate(OrchestratorUpdate{
-		Type:      updateType,
-		Message:   message,
-		TaskID:    taskID,
-		Status:    newStatus,
-		Timestamp: time.Now(),
-	})
 }
 
 // checkForReadyTasks looks for tasks that are ready to be executed
@@ -310,11 +283,17 @@ func (s *AgentServer) HandleOrchestratorSSE(w http.ResponseWriter, r *http.Reque
 
 	// Stream updates
 	ctx := r.Context()
+	heartbeat := time.NewTicker(30 * time.Second)
+	defer heartbeat.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			monitoring.Logger.Info("orchestrator_sse_disconnected", "session_id", session.sessionID)
 			return
+		case <-heartbeat.C:
+			// SSE comment keeps the connection alive through proxies
+			fmt.Fprintf(w, ": heartbeat\n\n")
+			flusher.Flush()
 		case update := <-session.updateChan:
 			data, _ := json.Marshal(update)
 			fmt.Fprintf(w, "event: update\n")

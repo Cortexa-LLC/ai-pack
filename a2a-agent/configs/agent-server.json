@@ -14,7 +14,7 @@
     "max_inactive_turns": 10
   },
   "logging": {
-    "level": "info",
+    "level": "debug",
     "format": "json"
   },
   "metrics": {
