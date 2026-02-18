@@ -3,6 +3,7 @@ package streaming
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
@@ -79,7 +80,16 @@ func (s *Service) CreateStream(ctx context.Context, role string, req StreamReque
 
 			defaultFactory := s.providers[s.defaultProvider]
 			if defaultFactory != nil {
-				req.Model = req.Model // Keep the model or use default?
+				// Translate model name to one compatible with fallback provider
+				fallbackModel := s.translateModelForProvider(req.Model, providerName, s.defaultProvider)
+
+				monitoring.Logger.Info("model_translated_for_fallback",
+					"original_model", req.Model,
+					"fallback_model", fallbackModel,
+					"from_provider", providerName,
+					"to_provider", s.defaultProvider)
+
+				req.Model = fallbackModel
 				return defaultFactory.CreateStream(ctx, req)
 			}
 		}
@@ -98,4 +108,43 @@ func (s *Service) GetProviderForModel(model string) string {
 		}
 	}
 	return s.defaultProvider
+}
+
+// translateModelForProvider translates a model name from one provider to an equivalent in another provider
+func (s *Service) translateModelForProvider(model, fromProvider, toProvider string) string {
+	// If providers are the same, no translation needed
+	if fromProvider == toProvider {
+		return model
+	}
+
+	// OpenAI -> Anthropic translations
+	if fromProvider == ProviderOpenAI && toProvider == ProviderAnthropic {
+		switch model {
+		case "gpt-4o", "gpt-4o-2024-08-06":
+			return "claude-sonnet-4-5-20250929" // Map GPT-4o to Claude Sonnet 4.5
+		case "gpt-4o-mini":
+			return "claude-haiku-4-5-20251022" // Map GPT-4o-mini to Claude Haiku 4.5
+		case "gpt-5.2-mini":
+			return "claude-sonnet-4-5-20250929" // Map GPT-5.2-mini to Claude Sonnet 4.5
+		default:
+			// Default to Sonnet 4.5 for unknown GPT models
+			return "claude-sonnet-4-5-20250929"
+		}
+	}
+
+	// Anthropic -> OpenAI translations
+	if fromProvider == ProviderAnthropic && toProvider == ProviderOpenAI {
+		if strings.Contains(strings.ToLower(model), "opus") {
+			return "gpt-4o" // Map Opus to GPT-4o
+		} else if strings.Contains(strings.ToLower(model), "sonnet") {
+			return "gpt-4o" // Map Sonnet to GPT-4o
+		} else if strings.Contains(strings.ToLower(model), "haiku") {
+			return "gpt-4o-mini" // Map Haiku to GPT-4o-mini
+		}
+		// Default to GPT-4o for unknown Claude models
+		return "gpt-4o"
+	}
+
+	// No translation available, return original model
+	return model
 }
