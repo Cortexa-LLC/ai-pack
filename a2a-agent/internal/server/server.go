@@ -1574,8 +1574,13 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 				logMsg(fmt.Sprintf("         ❌ Tool execution failed: %v", err))
 				result = fmt.Sprintf("Error: %v", err)
 			} else {
-				// Log full tool result without truncation
-				logMsg(fmt.Sprintf("         ✓ %s", result))
+				// Log a truncated preview of the tool result to keep execution logs manageable
+				preview := result
+				const maxLogPreview = 500
+				if len(preview) > maxLogPreview {
+					preview = preview[:maxLogPreview] + fmt.Sprintf("… (%d chars total)", len(result))
+				}
+				logMsg(fmt.Sprintf("         ✓ %s", preview))
 			}
 
 			// Add tool result to blocks
