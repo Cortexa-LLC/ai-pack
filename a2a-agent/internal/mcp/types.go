@@ -126,7 +126,9 @@ type ListToolsResult struct {
 // CallToolParams request
 type CallToolParams struct {
 	Name      string                 `json:"name"`
-	Arguments map[string]interface{} `json:"arguments,omitempty"`
+	// Arguments must NOT use omitempty: Go omits empty maps, causing the MCP
+	// server to receive no "arguments" field and fail with "received undefined".
+	Arguments map[string]interface{} `json:"arguments"`
 }
 
 // CallToolResult response

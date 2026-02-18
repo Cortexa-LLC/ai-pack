@@ -58,6 +58,7 @@ type GradeSummary struct {
 	GradeDistribution map[string]any `json:"gradeDistribution"`
 	ByRole            map[string]any `json:"byRole"`
 	ByModel           map[string]any `json:"byModel"`
+	ModelTiers        map[string]any `json:"modelTiers"`
 	CostSavings       *CostSavings   `json:"costSavings"`
 }
 
