@@ -75,7 +75,7 @@ bd ready
 ```
 
 **Beads Workflow Summary:**
-```
+```text
 1. bd ready           → Find next validation task
 2. bd show <id>       → Review what needs validation
 3. bd update --claim <id>      → Begin validation
@@ -953,7 +953,7 @@ mvn test jacoco:report
 - [Testing Standards](../quality/clean-code/04-testing.md)
 - [TDD Gate](../gates/00-global-gates.md#7-test-driven-development)
 - [Verification Gates](../gates/30-verification.md)
-- [Review Template](../templates/task-packet/30-review.md)
+- Review Template (`.ai-pack/templates/task-packet/30-review.md`)
 
 ---
 

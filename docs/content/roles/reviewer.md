@@ -73,7 +73,7 @@ bd ready
 ```
 
 **Beads Workflow Summary:**
-```
+```text
 1. bd ready           → Find next review task
 2. bd show <id>       → Review what needs reviewing
 3. bd update --claim <id>      → Begin review
@@ -380,7 +380,7 @@ END IF
 ```
 
 **Modern Stack Verification:**
-```
+```text
 ✅ CORRECT Modern Stack (2026):
 <PropertyGroup>
   <EnableNETAnalyzers>true</EnableNETAnalyzers>
@@ -1086,11 +1086,11 @@ These are blocking issues. Please address and request re-review."
   - `bd close <id>` - Mark review complete
 
 ### Reference Materials
-- [Engineering Standards](../quality/engineering-standards.md)
+- [Engineering Standards](../quality/clean-code/00-general-rules.md)
 - [Clean Code Guidelines](../quality/clean-code/)
 - [Code Review Checklist](../quality/clean-code/06-code-review-checklist.md)
 - [Verification Gates](../gates/30-verification.md)
-- [Review Template](../templates/task-packet/30-review.md)
+- Review Template (`.ai-pack/templates/task-packet/30-review.md`)
 
 ---
 
