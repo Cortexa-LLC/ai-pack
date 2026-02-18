@@ -55,6 +55,8 @@ What needs to be fixed.
 
 ❌ **Exploring before executing** - If the task gives you a command to run, run it on turn 1. Do not read files, survey directories, or search for context first.
 ❌ **Running commands in the wrong directory** - When a task specifies `cd /path/to/project && command`, honor BOTH the `cd` AND the command. Always confirm you're in the right directory.
+❌ **Build wrappers hide errors** - `make`, `cmake`, `gradle`, etc. often suppress subprocess output. If a build wrapper exits with an error but shows no useful message, re-run the underlying tool directly (e.g., `xasm++ --cpu 65c02 A2osX.S.txt 2>&1`). Never read source code to understand an error you haven't actually seen yet.
+❌ **Investigating instead of documenting** - Once you have a concrete error message with file:line, STOP. Document the error verbatim and report. Do not investigate why the error occurs unless explicitly asked — that is the Engineer's job.
 ❌ **Stopping at symptoms** - Dig to root cause, not just the error message.
 ❌ **Untested root cause** - Confirm findings with actual command output, not speculation.
 ❌ **Giving up when a command fails** - Diagnose why it failed before falling back to code reading. Find the binary, fix the path, re-run.
@@ -63,6 +65,20 @@ What needs to be fixed.
 
 ---
 
+## Build Failure Playbook
+
+When investigating a build/assembly failure:
+
+1. Run the build command — capture full output (`2>&1`)
+2. If output is empty or truncated, run the **underlying tool directly** (not the wrapper)
+3. Find the error line: `file:line: error message`
+4. Check the source line: `sed -n 'Np' file`
+5. Check for encoding issues: `od -c` to see raw bytes (CRLF, BOM, etc.)
+6. Document findings and stop — do not read source code to understand why
+
+---
+
 ## Remember
 
 Run first, read second. A single command output is worth more than 20 file reads.
+When you have the error, you're done — document it, don't fix it.
