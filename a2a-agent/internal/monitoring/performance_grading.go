@@ -457,6 +457,16 @@ func (m *PerformanceGradeManager) GetSummary() GradeSummary {
 		ByModel:           make(map[string]ModelSummary),
 	}
 
+	// Pre-seed ByModel with every known model so the UI always shows all models
+	// even before they have accumulated any performance history.
+	for _, models := range ModelsByTier {
+		for _, info := range models {
+			if _, exists := summary.ByModel[info.ID]; !exists {
+				summary.ByModel[info.ID] = ModelSummary{}
+			}
+		}
+	}
+
 	// Collect all grades for analysis
 	allGrades := make([]PerformanceGrade, 0, len(m.grades))
 	for _, grade := range m.grades {
