@@ -2970,6 +2970,35 @@ func (ec *executionContext) fieldContext_GradeSummary_byModel(_ context.Context,
 	return fc, nil
 }
 
+func (ec *executionContext) _GradeSummary_modelTiers(ctx context.Context, field graphql.CollectedField, obj *GradeSummary) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_GradeSummary_modelTiers,
+		func(ctx context.Context) (any, error) {
+			return obj.ModelTiers, nil
+		},
+		nil,
+		ec.marshalNJSON2map,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_GradeSummary_modelTiers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GradeSummary",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type JSON does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _GradeSummary_costSavings(ctx context.Context, field graphql.CollectedField, obj *GradeSummary) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -8734,6 +8763,11 @@ func (ec *executionContext) _GradeSummary(ctx context.Context, sel ast.Selection
 			}
 		case "byModel":
 			out.Values[i] = ec._GradeSummary_byModel(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "modelTiers":
+			out.Values[i] = ec._GradeSummary_modelTiers(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

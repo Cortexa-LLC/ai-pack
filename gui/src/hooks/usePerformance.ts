@@ -7,6 +7,7 @@ const PERFORMANCE_QUERY = `
       gradeDistribution
       byRole
       byModel
+      modelTiers
       costSavings {
         baselineCost
         actualCost

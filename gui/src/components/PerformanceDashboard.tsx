@@ -179,7 +179,7 @@ const OverviewTab: React.FC<{ summary: any; totalCost: number | null }> = ({ sum
       <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-white mb-4">🎯 Model Tiers</h3>
         <div className="space-y-3">
-          {summary.model_tiers?.tiers?.map((tier: any) => (
+          {summary.modelTiers?.tiers?.map((tier: any) => (
             <div key={tier.tier} className="flex items-center justify-between p-3 bg-gray-700/30 rounded">
               <div className="flex-1">
                 <div className="flex items-center gap-3">
