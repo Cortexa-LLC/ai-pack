@@ -43,7 +43,7 @@ func main() {
 		handleDiff(os.Args[2:])
 	case "files":
 		handleFiles(os.Args[2:])
-	case "cancel":
+	case "cancel", "stop":
 		handleCancel(os.Args[2:])
 	case "retry":
 		handleRetry(os.Args[2:])
@@ -1794,7 +1794,7 @@ func usage() {
 	fmt.Println("  agent wait <task-id>                                Wait for completion")
 	fmt.Println("  agent diff <task-id>                                Show git diff")
 	fmt.Println("  agent files <task-id>                               List modified files")
-	fmt.Println("  agent cancel <task-id>                              Cancel a running task")
+	fmt.Println("  agent cancel|stop <task-id>                         Cancel a running task")
 	fmt.Println("  agent retry <task-id>                               Retry a failed task")
 	fmt.Println("  agent metrics                                       Show server metrics")
 	fmt.Println("  agent performance                                   Performance report with token usage")

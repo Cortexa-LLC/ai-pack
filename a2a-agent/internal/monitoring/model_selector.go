@@ -51,6 +51,7 @@ var RoleDefaultTier = map[string]ModelTier{
 	"architect":    TierMedium,  // Design needs good reasoning
 	"reviewer":     TierLow,     // Code review is moderate complexity
 	"tester":       TierMinimal, // Test writing is straightforward
+	"spelunker":    TierMedium,  // Deep investigation requires strong reasoning
 }
 
 // ModelSelector selects the best model based on performance and complexity

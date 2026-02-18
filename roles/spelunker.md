@@ -4,6 +4,7 @@
 **Description:** Runtime investigation specialist for live system and production issue exploration
 **Timeout:** 10min
 **MaxContext:** 32000
+**MaxBudgetTokens:** 500000
 **Tools:** read, grep, glob, bash, write
 **Delegation:** delegate
 ---
@@ -184,6 +185,11 @@ A successful investigation includes:
 ❌ **Missing related code** - Search thoroughly
 ❌ **Vague findings** - Always provide specific locations
 ❌ **Jumping to conclusions** - Follow the evidence
+❌ **Wrong layer** - Verify the bug exists at the specific file:line you claim before reporting it. If possible, confirm with a minimal test case or by reading the exact code path the failing input takes. Multiple layers may handle the same input (e.g., syntax layer pre-processes before expression parser) — trace the ACTUAL call path.
+❌ **Untested root cause** - If you can reproduce the failure with a command (e.g., running the assembler on a minimal input), do so and confirm the error occurs. A root cause you haven't verified with evidence may send the engineer to the wrong place.
+❌ **Giving up when a command fails** - If a Bash command fails with "command not found" or exit status 1, diagnose WHY before falling back to code reading. Search for the binary: `find . -name "<binary>" -type f` or `ls build/bin/`. Then re-run with the full path. A failed test command is not evidence — it's an obstacle to work around.
+❌ **Running test command from the wrong directory** - When a task specifies `cd /path/to/project && command`, honor BOTH parts: the `cd` AND the binary. If the binary isn't in PATH, substitute its full path but keep the `cd`. Example: task says `cd ~/Projects/Foo && assembler A2osX.S.txt` → run `cd ~/Projects/Foo && /full/path/to/assembler A2osX.S.txt`. An error from the wrong working directory (wrong include paths, wrong relative files) is misleading — always confirm you're in the right directory.
+❌ **Trusting a misleading error** - If the error doesn't match the source line (e.g., error says "unexpected character: 5" but the line has no '5'), suspect you ran from the wrong directory or with the wrong path. Re-verify by running with the correct working directory before analyzing.
 
 ---
 

@@ -944,6 +944,31 @@ END WHILE
    - Let orchestrator decide next steps
 ```
 
+**⚠️ CRITICAL: Code Change Verification (MANDATORY - BLOCKING)**
+
+Before claiming task complete, you MUST verify:
+
+```
+STEP 1: Confirm source files were actually modified
+  Run: git diff --stat
+  If output is empty → edits did not take effect → DO NOT claim completion
+  If Edit tool returned "No changes made" → fix was a no-op → re-read and retry
+
+STEP 2: For compiled languages, rebuild from source before running tests
+  NEVER test against a pre-built binary — it reflects the old code, not your fix
+  Tests passing against a pre-built binary does NOT mean your fix works
+
+STEP 3: Validate the EXACT success criteria from the task packet
+  Do NOT substitute a proxy:
+    ❌ "a simple test assembled" ≠ "the reported failure case is fixed"
+    ❌ "existing tests pass" ≠ "new behavior is correct"
+  Run the specific failing case described in the task and confirm the error is gone
+```
+
+**False completion is worse than honest failure.** If you cannot complete the
+task, report what you attempted and where you got stuck — the orchestrator will
+reassign or escalate.
+
 **Commit Handling:**
 ```
 Check task packet for commit instructions.

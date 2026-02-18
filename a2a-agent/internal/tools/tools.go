@@ -393,11 +393,18 @@ func executeEdit(input map[string]interface{}, workingDir string, settings *clau
 	// Replace first occurrence
 	newContent := strings.Replace(content, oldString, newString, 1)
 
+	// Detect no-op before writing — old_string == new_string means nothing changed.
+	if newContent == content {
+		return fmt.Sprintf("No changes made to %s (old_string and new_string are identical)", filePath), nil
+	}
+
 	if err := os.WriteFile(filePath, []byte(newContent), 0644); err != nil {
 		return fmt.Sprintf(errWritingFile, err), nil
 	}
 
-	return fmt.Sprintf("File edited: %s", filePath), nil
+	oldLines := strings.Count(oldString, "\n") + 1
+	newLines := strings.Count(newString, "\n") + 1
+	return fmt.Sprintf("File edited: %s (replaced %d lines with %d lines)", filePath, oldLines, newLines), nil
 }
 
 func executeMultiEdit(input map[string]interface{}, workingDir string, settings *claude.Settings) (string, error) {
@@ -473,8 +480,15 @@ func executeGrep(input map[string]interface{}, workingDir string, settings *clau
 		searchPath = filepath.Join(workingDir, searchPath)
 	}
 
-	// Use grep command
-	cmd := exec.Command("grep", "-r", "-n", pattern, searchPath)
+	// Load .claudeignore and build grep exclusion flags so grep never scans ignored paths.
+	claudeIgnore, ignoreErr := LoadClaudeIgnore(workingDir)
+	grepArgs := []string{"-r", "-n"}
+	if ignoreErr == nil {
+		grepArgs = append(grepArgs, claudeIgnore.GrepExcludeArgs()...)
+	}
+	grepArgs = append(grepArgs, pattern, searchPath)
+
+	cmd := exec.Command("grep", grepArgs...)
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
@@ -484,8 +498,7 @@ func executeGrep(input map[string]interface{}, workingDir string, settings *clau
 		}
 	}
 
-	// Filter out results from ignored files
-	claudeIgnore, ignoreErr := LoadClaudeIgnore(workingDir)
+	// Post-filter output lines for complex patterns that couldn't be expressed as grep flags.
 	if ignoreErr == nil && len(claudeIgnore.patterns) > 0 {
 		lines := strings.Split(string(output), "\n")
 		filtered := make([]string, 0, len(lines))
