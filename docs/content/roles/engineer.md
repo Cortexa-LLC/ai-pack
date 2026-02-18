@@ -268,7 +268,7 @@ bd ready
 ```
 
 **Beads Workflow Summary:**
-```
+```text
 1. bd ready           → Find next task
 2. bd show <id>       → Review requirements
 3. bd update --claim <id>      → Begin work
@@ -566,7 +566,7 @@ If you see nested directories like `server/server/`, `client/client/`, or `docs/
 Test-Driven Development is NOT optional. It is a BLOCKING requirement enforced by the [TDD Enforcement Gate](../gates/05-tdd-enforcement.md).
 
 **Implementation Cycle (MANDATORY):**
-```
+```bash
 1. Understand requirements
 2. Read existing code (establish context)
 3. MANDATORY - Start Beads task
@@ -823,7 +823,7 @@ END IF
 ### During Work
 
 **Continuous Verification:**
-```
+```text
 WHILE working:
   run tests frequently
   verify changes locally
@@ -851,7 +851,7 @@ END WHILE
 **⚠️ CRITICAL: Do NOT claim completion unless ALL criteria are met**
 
 **Completion Checklist (MANDATORY - BLOCKING):**
-```
+```text
 ✓ All acceptance criteria met
 ✓ All tests passing (100%) - RUN TESTS TO VERIFY
 ✓ Code coverage 80-90%
@@ -875,7 +875,7 @@ END WHILE
 **Commit Handling:**
 ```
 Check task packet for commit instructions.
-```
+```bash
 
 **⚠️ CRITICAL: Beads Task Closure (MANDATORY)**
 

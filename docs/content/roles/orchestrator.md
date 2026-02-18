@@ -52,7 +52,7 @@ task_id=$(bd create "Task Title" --priority high --json | jq -r '.id')
 **CRITICAL:** Task creation MUST use Beads FIRST, then create task packet. See **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** for full requirements.
 
 **Mandatory Procedure:**
-```
+```bash
 FOR every non-trivial task:
   STEP 1: MANDATORY - Create Beads task with working directory and task packet reference
     # The description MUST include:
@@ -154,7 +154,7 @@ Each agent will execute in its specified working directory.
 
 The linking process creates two critical connections:
 1. **Contract → Beads** (STEP 4): The task packet's 00-contract.md references the Beads task ID
-2. **Beads → Task Packet** (STEP 1): The Beads task description includes "Task packet: <path>"
+2. **Beads → Task Packet** (STEP 1): The Beads task description includes "Task packet: `<path>`"
 
 This bi-directional linking ensures:
 - Orchestrators can navigate from task packet to Beads task status
@@ -214,7 +214,7 @@ END IF
 - Ideal: 1 agent (complete before next)
 
 **MANDATORY Beads Workflow:**
-```
+```bash
 STEP 1: Analyze user requirements
   - Estimate file count and complexity
   - Check against batch size limits
@@ -1598,7 +1598,7 @@ Use Task tool (foreground agents) when:
 - Task requires **immediate results** for next step
 - Agent needs **conversation context** from current session
 - Task is **interactive** (back-and-forth required)
-- Task is **very short** (<5 minutes)
+- Task is **very short** (under 5 minutes)
 
 **AGENT CLI SPAWNING PROTOCOL:**
 
