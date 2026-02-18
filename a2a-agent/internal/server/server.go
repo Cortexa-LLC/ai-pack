@@ -2652,24 +2652,48 @@ func (s *AgentServer) getAllTools() []anthropic.ToolParam {
 
 		for serverName, serverTools := range mcpTools {
 			for _, tool := range serverTools {
-				// MCP InputSchema is already a complete JSON schema
-				// Extract properties and required fields, cleaning out unsupported fields
-				properties, _ := tool.InputSchema["properties"].(map[string]interface{})
-				if properties == nil {
+				// MCP InputSchema structure varies:
+				// - Some have {"properties": {...}, "required": [...]}
+				// - Others have properties directly at root: {"param1": {...}, "param2": {...}}
+
+				var properties map[string]interface{}
+				var required []string
+
+				// Check if schema has explicit "properties" field (JSON Schema standard format)
+				if props, ok := tool.InputSchema["properties"].(map[string]interface{}); ok {
+					properties = props
+
+					// Extract required array if present
+					if req, ok := tool.InputSchema["required"].([]interface{}); ok {
+						for _, r := range req {
+							if rStr, ok := r.(string); ok {
+								required = append(required, rStr)
+							}
+						}
+					}
+				} else {
+					// No "properties" field - MCP schema has properties at root level
+					// Treat entire InputSchema as properties, excluding meta fields
 					properties = make(map[string]interface{})
+					for key, value := range tool.InputSchema {
+						// Skip meta fields - only keep actual parameter definitions
+						if key != "$schema" && key != "type" && key != "required" && key != "additionalProperties" {
+							properties[key] = value
+						}
+					}
+
+					// Extract required array if present at root
+					if req, ok := tool.InputSchema["required"].([]interface{}); ok {
+						for _, r := range req {
+							if rStr, ok := r.(string); ok {
+								required = append(required, rStr)
+							}
+						}
+					}
 				}
 
 				// Clean properties recursively - remove $schema, additionalProperties, etc.
 				cleanedProperties := cleanSchemaProperties(properties)
-
-				required := []string{}
-				if req, ok := tool.InputSchema["required"].([]interface{}); ok {
-					for _, r := range req {
-						if rStr, ok := r.(string); ok {
-							required = append(required, rStr)
-						}
-					}
-				}
 
 				// Debug log the cleaned schema
 				if schemaJSON, err := json.MarshalIndent(cleanedProperties, "", "  "); err == nil {
@@ -2693,6 +2717,13 @@ func (s *AgentServer) getAllTools() []anthropic.ToolParam {
 					anthropicTool.Description = param.NewOpt(tool.Description)
 				}
 
+				// Debug log the final wrapped schema
+				if finalSchemaJSON, err := json.MarshalIndent(anthropicTool.InputSchema, "", "  "); err == nil {
+					monitoring.Logger.Debug("mcp_tool_final_schema",
+						"tool", tool.Name,
+						"final_schema", string(finalSchemaJSON))
+				}
+
 				toolList = append(toolList, anthropicTool)
 
 				monitoring.Logger.Debug("mcp_tool_registered",
@@ -2701,6 +2732,16 @@ func (s *AgentServer) getAllTools() []anthropic.ToolParam {
 			}
 		}
 	}
+
+	// Debug log all tools being returned, especially tools.0
+	if len(toolList) > 0 {
+		if tools0JSON, err := json.MarshalIndent(toolList[0].InputSchema, "", "  "); err == nil {
+			monitoring.Logger.Debug("tools_array_first_tool",
+				"name", toolList[0].Name,
+				"input_schema", string(tools0JSON))
+		}
+	}
+	monitoring.Logger.Debug("tools_array_count", "total", len(toolList))
 
 	return toolList
 }
