@@ -63,12 +63,34 @@ func (f *AnthropicFactory) SupportsModel(model string) bool {
 
 // CreateStream creates an Anthropic streaming provider
 func (f *AnthropicFactory) CreateStream(ctx context.Context, req StreamRequest) (StreamProvider, error) {
-	// Convert generic messages to Anthropic format
+	// Convert generic messages to Anthropic format, preserving tool call history.
 	messages := make([]anthropic.MessageParam, 0, len(req.Messages))
 	for _, msg := range req.Messages {
-		if msg.Role == "user" {
+		switch {
+		case len(msg.ToolResults) > 0:
+			// User message carrying tool results
+			var blocks []anthropic.ContentBlockParamUnion
+			for _, tr := range msg.ToolResults {
+				blocks = append(blocks, anthropic.NewToolResultBlock(tr.ToolUseID, tr.Content, tr.IsError))
+			}
+			messages = append(messages, anthropic.NewUserMessage(blocks...))
+
+		case len(msg.ToolUses) > 0:
+			// Assistant message with tool calls (and optional preceding text)
+			var blocks []anthropic.ContentBlockParamUnion
+			if msg.Content != "" {
+				blocks = append(blocks, anthropic.NewTextBlock(msg.Content))
+			}
+			for _, tu := range msg.ToolUses {
+				inputJSON, _ := json.Marshal(tu.Input)
+				blocks = append(blocks, anthropic.NewToolUseBlock(tu.ID, json.RawMessage(inputJSON), tu.Name))
+			}
+			messages = append(messages, anthropic.NewAssistantMessage(blocks...))
+
+		case msg.Role == "user":
 			messages = append(messages, anthropic.NewUserMessage(anthropic.NewTextBlock(msg.Content)))
-		} else if msg.Role == "assistant" {
+
+		case msg.Role == "assistant":
 			messages = append(messages, anthropic.NewAssistantMessage(anthropic.NewTextBlock(msg.Content)))
 		}
 	}
