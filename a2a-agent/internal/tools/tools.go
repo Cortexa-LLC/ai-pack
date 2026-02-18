@@ -7,9 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/packages/param"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/claude"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/streaming"
 )
 
 const (
@@ -17,9 +16,9 @@ const (
 	errWritingFile = "Error writing file: %v"
 )
 
-// Define tools matching Claude Code's exact naming
-func DefineTools() []anthropic.ToolParam {
-	return []anthropic.ToolParam{
+// DefineTools returns all native tools in provider-agnostic format.
+func DefineTools() []streaming.Tool {
+	return []streaming.Tool{
 		// File operations
 		defineReadTool(),
 		defineWriteTool(),
@@ -40,219 +39,201 @@ func DefineTools() []anthropic.ToolParam {
 }
 
 // defineBashTool creates the Bash tool (matches Claude Code)
-func defineBashTool() anthropic.ToolParam {
-	properties := map[string]interface{}{
-		"command": map[string]interface{}{
-			"type":        "string",
-			"description": "The bash command to execute",
-		},
-	}
-
-	return anthropic.ToolParam{
+func defineBashTool() streaming.Tool {
+	return streaming.Tool{
 		Name:        "Bash",
-		Description: param.NewOpt("Execute bash commands in the working directory. Use this to run git, npm, tests, or any other shell commands."),
-		InputSchema: anthropic.ToolInputSchemaParam{
-			Type:       "object",
-			Properties: properties,
-			Required:   []string{"command"},
+		Description: "Execute bash commands in the working directory. Use this to run git, npm, tests, or any other shell commands.",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"command": map[string]interface{}{
+					"type":        "string",
+					"description": "The bash command to execute",
+				},
+			},
+			"required": []string{"command"},
 		},
 	}
 }
 
 // defineReadTool creates the Read tool (matches Claude Code)
-func defineReadTool() anthropic.ToolParam {
-	properties := map[string]interface{}{
-		"file_path": map[string]interface{}{
-			"type":        "string",
-			"description": "Path to the file to read (relative to working directory)",
-		},
-	}
-
-	return anthropic.ToolParam{
+func defineReadTool() streaming.Tool {
+	return streaming.Tool{
 		Name:        "Read",
-		Description: param.NewOpt("Read the contents of a file."),
-		InputSchema: anthropic.ToolInputSchemaParam{
-			Type:       "object",
-			Properties: properties,
-			Required:   []string{"file_path"},
+		Description: "Read the contents of a file.",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"file_path": map[string]interface{}{
+					"type":        "string",
+					"description": "Path to the file to read (relative to working directory)",
+				},
+			},
+			"required": []string{"file_path"},
 		},
 	}
 }
 
 // defineWriteTool creates the Write tool (matches Claude Code)
-func defineWriteTool() anthropic.ToolParam {
-	properties := map[string]interface{}{
-		"file_path": map[string]interface{}{
-			"type":        "string",
-			"description": "Path to the file to write (relative to working directory)",
-		},
-		"content": map[string]interface{}{
-			"type":        "string",
-			"description": "Content to write to the file",
-		},
-	}
-
-	return anthropic.ToolParam{
+func defineWriteTool() streaming.Tool {
+	return streaming.Tool{
 		Name:        "Write",
-		Description: param.NewOpt("Create a new file with the given content. Will overwrite if file exists."),
-		InputSchema: anthropic.ToolInputSchemaParam{
-			Type:       "object",
-			Properties: properties,
-			Required:   []string{"file_path", "content"},
+		Description: "Create a new file with the given content. Will overwrite if file exists.",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"file_path": map[string]interface{}{
+					"type":        "string",
+					"description": "Path to the file to write (relative to working directory)",
+				},
+				"content": map[string]interface{}{
+					"type":        "string",
+					"description": "Content to write to the file",
+				},
+			},
+			"required": []string{"file_path", "content"},
 		},
 	}
 }
 
 // defineEditTool creates the Edit tool (matches Claude Code)
-func defineEditTool() anthropic.ToolParam {
-	properties := map[string]interface{}{
-		"file_path": map[string]interface{}{
-			"type":        "string",
-			"description": "Path to the file to edit (relative to working directory)",
-		},
-		"old_string": map[string]interface{}{
-			"type":        "string",
-			"description": "The exact string to replace in the file",
-		},
-		"new_string": map[string]interface{}{
-			"type":        "string",
-			"description": "The string to replace it with",
-		},
-	}
-
-	return anthropic.ToolParam{
+func defineEditTool() streaming.Tool {
+	return streaming.Tool{
 		Name:        "Edit",
-		Description: param.NewOpt("Edit a file by replacing an exact string match. The old_string must match exactly (including whitespace and indentation)."),
-		InputSchema: anthropic.ToolInputSchemaParam{
-			Type:       "object",
-			Properties: properties,
-			Required:   []string{"file_path", "old_string", "new_string"},
+		Description: "Edit a file by replacing an exact string match. The old_string must match exactly (including whitespace and indentation).",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"file_path": map[string]interface{}{
+					"type":        "string",
+					"description": "Path to the file to edit (relative to working directory)",
+				},
+				"old_string": map[string]interface{}{
+					"type":        "string",
+					"description": "The exact string to replace in the file",
+				},
+				"new_string": map[string]interface{}{
+					"type":        "string",
+					"description": "The string to replace it with",
+				},
+			},
+			"required": []string{"file_path", "old_string", "new_string"},
 		},
 	}
 }
 
 // defineMultiEditTool creates the MultiEdit tool for making multiple edits at once
-func defineMultiEditTool() anthropic.ToolParam {
-	properties := map[string]interface{}{
-		"file_path": map[string]interface{}{
-			"type":        "string",
-			"description": "Path to the file to edit (relative to working directory)",
-		},
-		"edits": map[string]interface{}{
-			"type":        "array",
-			"description": "Array of edits to perform in order",
-			"items": map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"old_string": map[string]interface{}{
-						"type":        "string",
-						"description": "The exact string to replace in the file",
-					},
-					"new_string": map[string]interface{}{
-						"type":        "string",
-						"description": "The string to replace it with",
+func defineMultiEditTool() streaming.Tool {
+	return streaming.Tool{
+		Name:        "MultiEdit",
+		Description: "Make multiple edits to a file in a single operation. Each edit replaces an exact string match.",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"file_path": map[string]interface{}{
+					"type":        "string",
+					"description": "Path to the file to edit (relative to working directory)",
+				},
+				"edits": map[string]interface{}{
+					"type":        "array",
+					"description": "Array of edits to perform in order",
+					"items": map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"old_string": map[string]interface{}{
+								"type":        "string",
+								"description": "The exact string to replace in the file",
+							},
+							"new_string": map[string]interface{}{
+								"type":        "string",
+								"description": "The string to replace it with",
+							},
+						},
+						"required": []string{"old_string", "new_string"},
 					},
 				},
-				"required": []string{"old_string", "new_string"},
 			},
-		},
-	}
-
-	return anthropic.ToolParam{
-		Name:        "MultiEdit",
-		Description: param.NewOpt("Make multiple edits to a file in a single operation. Each edit replaces an exact string match."),
-		InputSchema: anthropic.ToolInputSchemaParam{
-			Type:       "object",
-			Properties: properties,
-			Required:   []string{"file_path", "edits"},
+			"required": []string{"file_path", "edits"},
 		},
 	}
 }
 
 // defineGrepTool creates the Grep tool (matches Claude Code)
-func defineGrepTool() anthropic.ToolParam {
-	properties := map[string]interface{}{
-		"pattern": map[string]interface{}{
-			"type":        "string",
-			"description": "The pattern to search for (regex supported)",
-		},
-		"path": map[string]interface{}{
-			"type":        "string",
-			"description": "Optional path to search in (defaults to current directory)",
-		},
-	}
-
-	return anthropic.ToolParam{
+func defineGrepTool() streaming.Tool {
+	return streaming.Tool{
 		Name:        "Grep",
-		Description: param.NewOpt("Search for patterns in files. Returns matching lines with file paths."),
-		InputSchema: anthropic.ToolInputSchemaParam{
-			Type:       "object",
-			Properties: properties,
-			Required:   []string{"pattern"},
+		Description: "Search for patterns in files. Returns matching lines with file paths.",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"pattern": map[string]interface{}{
+					"type":        "string",
+					"description": "The pattern to search for (regex supported)",
+				},
+				"path": map[string]interface{}{
+					"type":        "string",
+					"description": "Optional path to search in (defaults to current directory)",
+				},
+			},
+			"required": []string{"pattern"},
 		},
 	}
 }
 
 // defineGlobTool creates the Glob tool (matches Claude Code)
-func defineGlobTool() anthropic.ToolParam {
-	properties := map[string]interface{}{
-		"pattern": map[string]interface{}{
-			"type":        "string",
-			"description": "Glob pattern to match files (e.g., **/*.go, src/**/*.ts)",
-		},
-	}
-
-	return anthropic.ToolParam{
+func defineGlobTool() streaming.Tool {
+	return streaming.Tool{
 		Name:        "Glob",
-		Description: param.NewOpt("Find files matching a glob pattern. Returns list of file paths."),
-		InputSchema: anthropic.ToolInputSchemaParam{
-			Type:       "object",
-			Properties: properties,
-			Required:   []string{"pattern"},
+		Description: "Find files matching a glob pattern. Returns list of file paths.",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"pattern": map[string]interface{}{
+					"type":        "string",
+					"description": "Glob pattern to match files (e.g., **/*.go, src/**/*.ts)",
+				},
+			},
+			"required": []string{"pattern"},
 		},
 	}
 }
 
 // defineWebSearchTool creates the WebSearch tool (matches Claude Code)
-func defineWebSearchTool() anthropic.ToolParam {
-	properties := map[string]interface{}{
-		"query": map[string]interface{}{
-			"type":        "string",
-			"description": "The search query",
-		},
-	}
-
-	return anthropic.ToolParam{
+func defineWebSearchTool() streaming.Tool {
+	return streaming.Tool{
 		Name:        "WebSearch",
-		Description: param.NewOpt("Search the web for information. Returns search results with titles, URLs, and snippets."),
-		InputSchema: anthropic.ToolInputSchemaParam{
-			Type:       "object",
-			Properties: properties,
-			Required:   []string{"query"},
+		Description: "Search the web for information. Returns search results with titles, URLs, and snippets.",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"query": map[string]interface{}{
+					"type":        "string",
+					"description": "The search query",
+				},
+			},
+			"required": []string{"query"},
 		},
 	}
 }
 
 // defineWebFetchTool creates the WebFetch tool (matches Claude Code)
-func defineWebFetchTool() anthropic.ToolParam {
-	properties := map[string]interface{}{
-		"url": map[string]interface{}{
-			"type":        "string",
-			"description": "The URL to fetch",
-		},
-		"prompt": map[string]interface{}{
-			"type":        "string",
-			"description": "Optional prompt describing what to extract from the page",
-		},
-	}
-
-	return anthropic.ToolParam{
+func defineWebFetchTool() streaming.Tool {
+	return streaming.Tool{
 		Name:        "WebFetch",
-		Description: param.NewOpt("Fetch and parse a web page. Returns the page content, optionally filtered by prompt."),
-		InputSchema: anthropic.ToolInputSchemaParam{
-			Type:       "object",
-			Properties: properties,
-			Required:   []string{"url"},
+		Description: "Fetch and parse a web page. Returns the page content, optionally filtered by prompt.",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"url": map[string]interface{}{
+					"type":        "string",
+					"description": "The URL to fetch",
+				},
+				"prompt": map[string]interface{}{
+					"type":        "string",
+					"description": "Optional prompt describing what to extract from the page",
+				},
+			},
+			"required": []string{"url"},
 		},
 	}
 }

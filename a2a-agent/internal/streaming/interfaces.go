@@ -69,10 +69,16 @@ type StreamRequest struct {
 	ProviderHints map[string]interface{} // Provider-specific options
 }
 
-// Message represents a chat message
+// Message represents a chat message with optional tool call history.
+// Exactly one of the following shapes is expected per message:
+//   - text-only:    Role + Content (no ToolUses/ToolResults)
+//   - tool calls:   Role="assistant", ToolUses set (Content may be empty)
+//   - tool results: Role="user", ToolResults set (Content empty)
 type Message struct {
-	Role    string // "user" or "assistant"
-	Content string
+	Role        string       // "user" or "assistant"
+	Content     string       // text content (may be empty when ToolUses is set)
+	ToolUses    []ToolUse    // tool calls made by the assistant in this turn
+	ToolResults []ToolResult // tool results returned by the user in this turn
 }
 
 // Tool represents a tool/function available to the model
