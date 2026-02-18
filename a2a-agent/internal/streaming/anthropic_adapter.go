@@ -9,6 +9,7 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/anthropics/anthropic-sdk-go/packages/param"
 )
 
 // AnthropicStreamAdapter adapts Anthropic SDK streaming to our StreamProvider interface
@@ -82,19 +83,50 @@ func (f *AnthropicFactory) CreateStream(ctx context.Context, req StreamRequest) 
 	if len(req.Tools) > 0 {
 		tools := make([]anthropic.ToolUnionParam, 0, len(req.Tools))
 		for _, tool := range req.Tools {
+			// Extract properties from the schema map
+			// tool.InputSchema is already a complete schema with "type", "properties", "required"
+			// We need to extract just the properties field
+			properties, ok := tool.InputSchema["properties"].(map[string]interface{})
+			if !ok {
+				properties = make(map[string]interface{})
+			}
+
 			// Convert input schema to ToolInputSchemaParam
 			schema := anthropic.ToolInputSchemaParam{
 				Type:       "object",
-				Properties: tool.InputSchema,
-			}
-			if required, ok := tool.InputSchema["required"].([]string); ok {
-				schema.Required = required
+				Properties: properties,
 			}
 
-			tools = append(tools, anthropic.ToolUnionParamOfTool(
-				schema,
-				tool.Name,
-			))
+			// Extract required array - handle both []string and []interface{} types
+			if required, ok := tool.InputSchema["required"].([]string); ok {
+				schema.Required = required
+			} else if requiredIface, ok := tool.InputSchema["required"].([]interface{}); ok {
+				reqStrings := make([]string, 0, len(requiredIface))
+				for _, r := range requiredIface {
+					if rStr, ok := r.(string); ok {
+						reqStrings = append(reqStrings, rStr)
+					}
+				}
+				schema.Required = reqStrings
+			}
+
+			// Create ToolParam manually to ensure Type field is set correctly
+			toolParam := anthropic.ToolParam{
+				Name:        tool.Name,
+				InputSchema: schema,
+				Type:        anthropic.ToolTypeCustom,
+			}
+			// Add description if available
+			if tool.Description != "" {
+				toolParam.Description = param.NewOpt(tool.Description)
+			}
+
+			// Create ToolUnionParam from ToolParam
+			toolUnion := anthropic.ToolUnionParam{
+				OfTool: &toolParam,
+			}
+
+			tools = append(tools, toolUnion)
 		}
 		params.Tools = tools
 	}
