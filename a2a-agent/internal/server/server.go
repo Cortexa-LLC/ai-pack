@@ -14,7 +14,6 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
-	"github.com/anthropics/anthropic-sdk-go/packages/param"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/auth"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/beads"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/claude"
@@ -1262,44 +1261,22 @@ func (s *AgentServer) updateTaskStatus(taskID, projectRoot, status, errorMsg str
 	return nil
 }
 
-// buildSystemPrompt creates system messages with prompt caching for role context
-func (s *AgentServer) buildSystemPrompt(roleContext string) []anthropic.TextBlockParam {
-	// Cache the role context with 5-minute TTL (auto-refreshed on each turn)
-	// This provides massive speedup across agentic loop turns while automatically
-	// expiring between tasks
-	return []anthropic.TextBlockParam{
-		{
-			Text:         roleContext,
-			Type:         constants.ContentTypeText,
-			CacheControl: anthropic.NewCacheControlEphemeralParam(),
-		},
-	}
+// buildSystemPrompt returns the system prompt string for the agentic loop.
+func (s *AgentServer) buildSystemPrompt(roleContext string) string {
+	return roleContext
 }
 
-// convertToToolUnionParams converts []ToolParam to []ToolUnionParam for SDK v1.19+
-func convertToToolUnionParams(tools []anthropic.ToolParam) []anthropic.ToolUnionParam {
-	result := make([]anthropic.ToolUnionParam, len(tools))
-	for i, tool := range tools {
-		result[i] = anthropic.ToolUnionParam{
-			OfTool: &tool,
-		}
-	}
-	return result
-}
-
-// estimateTokenCount provides a rough estimate of token count for context management
-// Uses character-based estimation (roughly 4 chars per token for English text)
 // executeAgenticLoop runs the agentic loop with tool support
 func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, role string, initialPrompt string, roleContext string, workingDir string, config *AgentConfig, logMsg func(string)) (string, error) {
-	// Define tools (native + MCP tools)
+	// Define tools (native + MCP tools) in provider-agnostic format
 	toolDefs := s.getAllTools()
 
-	// Build system prompt with caching for role context
+	// Build system prompt string for role context
 	systemPrompt := s.buildSystemPrompt(roleContext)
 
 	// Build messages starting with user prompt (task-specific)
-	messages := []anthropic.MessageParam{
-		anthropic.NewUserMessage(anthropic.NewTextBlock(initialPrompt)),
+	messages := []streaming.Message{
+		{Role: "user", Content: initialPrompt},
 	}
 
 	logMsg(fmt.Sprintf("🔄 Starting agentic loop (max_inactive: %d, caching: enabled, extended_thinking: %v)",
@@ -1325,7 +1302,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		if len(messages) > 1+maxHistoryMessages {
 			firstMsg := messages[0] // Keep initial prompt with task context
 			recentMsgs := messages[len(messages)-maxHistoryMessages:]
-			truncatedMessages = append([]anthropic.MessageParam{firstMsg}, recentMsgs...)
+			truncatedMessages = append([]streaming.Message{firstMsg}, recentMsgs...)
 
 			// Only log truncation occasionally to avoid spam
 			if len(messages)%10 == 0 {
@@ -1333,78 +1310,13 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			}
 		}
 
-		// Convert messages to provider-agnostic format
-		streamMessages := make([]streaming.Message, 0, len(truncatedMessages))
-		for _, msg := range truncatedMessages {
-			// Extract text from Anthropic message format
-			var content string
-			hasToolUse := false
-			hasToolResult := false
-
-			for _, block := range msg.Content {
-				if textBlock := block.OfText; textBlock != nil {
-					content += textBlock.Text
-				} else if block.OfToolUse != nil {
-					hasToolUse = true
-				} else if block.OfToolResult != nil {
-					hasToolResult = true
-				}
-			}
-
-			// If message has no text but has tool use/results, create a placeholder
-			// OpenAI requires non-empty content for all messages
-			if content == "" {
-				if hasToolUse {
-					content = "[Tool use]"
-				} else if hasToolResult {
-					content = "[Tool results]"
-				} else {
-					// Skip completely empty messages
-					continue
-				}
-			}
-
-			streamMessages = append(streamMessages, streaming.Message{
-				Role:    string(msg.Role),
-				Content: content,
-			})
-		}
-
-		// Convert tools to provider-agnostic format
-		// The streaming format expects InputSchema to be a complete JSON Schema object
-		// with "type", "properties", and "required" at the top level
-		streamTools := make([]streaming.Tool, 0, len(toolDefs))
-		for _, tool := range toolDefs {
-			// Build complete JSON Schema object
-			schema := map[string]interface{}{
-				"type":       tool.InputSchema.Type,
-				"properties": tool.InputSchema.Properties,
-			}
-			// Add required array if present
-			if len(tool.InputSchema.Required) > 0 {
-				schema["required"] = tool.InputSchema.Required
-			}
-
-			streamTools = append(streamTools, streaming.Tool{
-				Name:        tool.Name,
-				Description: "", // TODO: Extract from param.Opt
-				InputSchema: schema,
-			})
-		}
-
-		// Build system prompt string from blocks
-		var systemPromptStr string
-		for _, block := range systemPrompt {
-			systemPromptStr += block.Text
-		}
-
-		// Prepare streaming request
+		// Prepare streaming request — messages already in provider-agnostic format
 		streamReq := streaming.StreamRequest{
-			Messages:     streamMessages,
-			SystemPrompt: systemPromptStr,
+			Messages:     truncatedMessages,
+			SystemPrompt: systemPrompt,
 			MaxTokens:    s.maxTokens,
 			Model:        s.model, // Default model - will be overridden by role-based selection
-			Tools:        streamTools,
+			Tools:        toolDefs,
 		}
 
 		// Note: Extended thinking support requires newer SDK version
@@ -1565,11 +1477,12 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			return "", fmt.Errorf("no output from agent on turn %d", turn)
 		}
 
-		// Execute tools and build tool results
-		var toolResultBlocks []anthropic.ContentBlockParamUnion
+		// Execute tools and accumulate results
+		var toolResults []streaming.ToolResult
 		for _, toolUse := range toolUses {
 			// Execute tool (native or MCP)
 			result, err := s.executeTool(ctx, toolUse.Name, toolUse.Input, workingDir)
+			isError := err != nil
 			if err != nil {
 				logMsg(fmt.Sprintf("         ❌ Tool execution failed: %v", err))
 				result = fmt.Sprintf("Error: %v", err)
@@ -1583,8 +1496,11 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 				logMsg(fmt.Sprintf("         ✓ %s", preview))
 			}
 
-			// Add tool result to blocks
-			toolResultBlocks = append(toolResultBlocks, anthropic.NewToolResultBlock(toolUse.ID, result, false))
+			toolResults = append(toolResults, streaming.ToolResult{
+				ToolUseID: toolUse.ID,
+				Content:   result,
+				IsError:   isError,
+			})
 		}
 
 		// Progress detection: check if agent is making progress
@@ -1635,19 +1551,17 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		}
 
 		// Add assistant message with text and tool uses
-		var assistantContent []anthropic.ContentBlockParamUnion
-		if hasText {
-			assistantContent = append(assistantContent, anthropic.NewTextBlock(responseTextStr))
-		}
-		for _, toolUse := range toolUses {
-			// Convert tool input to json.RawMessage
-			inputJSON, _ := json.Marshal(toolUse.Input)
-			assistantContent = append(assistantContent, anthropic.NewToolUseBlock(toolUse.ID, json.RawMessage(inputJSON), toolUse.Name))
-		}
-		messages = append(messages, anthropic.NewAssistantMessage(assistantContent...))
+		messages = append(messages, streaming.Message{
+			Role:     "assistant",
+			Content:  responseTextStr,
+			ToolUses: toolUses,
+		})
 
 		// Add tool results as user message
-		messages = append(messages, anthropic.NewUserMessage(toolResultBlocks...))
+		messages = append(messages, streaming.Message{
+			Role:        "user",
+			ToolResults: toolResults,
+		})
 
 		// Increment turn counter
 		turn++
@@ -2666,9 +2580,10 @@ func cleanSchemaProperties(properties map[string]interface{}) map[string]interfa
 	return cleaned
 }
 
-// getAllTools returns all available tools including native tools and MCP tools
-func (s *AgentServer) getAllTools() []anthropic.ToolParam {
-	// Start with native tools
+// getAllTools returns all available tools in provider-agnostic format.
+// Includes native tools and any tools registered via MCP servers.
+func (s *AgentServer) getAllTools() []streaming.Tool {
+	// Start with native tools (already in streaming.Tool format)
 	toolList := tools.DefineTools()
 
 	// Add MCP tools if manager is initialized
@@ -2727,29 +2642,29 @@ func (s *AgentServer) getAllTools() []anthropic.ToolParam {
 						"schema", string(schemaJSON))
 				}
 
-				// Convert MCP tool to Anthropic ToolParam
-				anthropicTool := anthropic.ToolParam{
-					Name: tool.Name,
-					InputSchema: anthropic.ToolInputSchemaParam{
-						Type:       "object",
-						Properties: cleanedProperties,
-						Required:   required,
-					},
+				// Build provider-agnostic streaming.Tool with a complete JSON Schema
+				schema := map[string]interface{}{
+					"type":       "object",
+					"properties": cleanedProperties,
+				}
+				if len(required) > 0 {
+					schema["required"] = required
 				}
 
-				// Add description if available
-				if tool.Description != "" {
-					anthropicTool.Description = param.NewOpt(tool.Description)
+				streamTool := streaming.Tool{
+					Name:        tool.Name,
+					Description: tool.Description,
+					InputSchema: schema,
 				}
 
-				// Debug log the final wrapped schema
-				if finalSchemaJSON, err := json.MarshalIndent(anthropicTool.InputSchema, "", "  "); err == nil {
+				// Debug log the final schema
+				if finalSchemaJSON, err := json.MarshalIndent(schema, "", "  "); err == nil {
 					monitoring.Logger.Debug("mcp_tool_final_schema",
 						"tool", tool.Name,
 						"final_schema", string(finalSchemaJSON))
 				}
 
-				toolList = append(toolList, anthropicTool)
+				toolList = append(toolList, streamTool)
 
 				monitoring.Logger.Debug("mcp_tool_registered",
 					"server", serverName,
@@ -2758,7 +2673,7 @@ func (s *AgentServer) getAllTools() []anthropic.ToolParam {
 		}
 	}
 
-	// Debug log all tools being returned, especially tools.0
+	// Debug log all tools being returned
 	if len(toolList) > 0 {
 		if tools0JSON, err := json.MarshalIndent(toolList[0].InputSchema, "", "  "); err == nil {
 			monitoring.Logger.Debug("tools_array_first_tool",

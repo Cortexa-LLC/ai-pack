@@ -76,16 +76,51 @@ func (f *OpenAIFactory) CreateStream(ctx context.Context, req StreamRequest) (St
 		})
 	}
 
-	// Add conversation messages
+	// Add conversation messages, preserving tool call history.
 	for _, msg := range req.Messages {
-		role := openai.ChatMessageRoleUser
-		if msg.Role == "assistant" {
-			role = openai.ChatMessageRoleAssistant
+		switch {
+		case len(msg.ToolResults) > 0:
+			// Each tool result is a separate "tool" role message in OpenAI format
+			for _, tr := range msg.ToolResults {
+				messages = append(messages, openai.ChatCompletionMessage{
+					Role:       openai.ChatMessageRoleTool,
+					Content:    tr.Content,
+					ToolCallID: tr.ToolUseID,
+				})
+			}
+
+		case len(msg.ToolUses) > 0:
+			// Assistant message with tool calls
+			toolCalls := make([]openai.ToolCall, 0, len(msg.ToolUses))
+			for _, tu := range msg.ToolUses {
+				argsJSON, _ := json.Marshal(tu.Input)
+				toolCalls = append(toolCalls, openai.ToolCall{
+					ID:   tu.ID,
+					Type: openai.ToolTypeFunction,
+					Function: openai.FunctionCall{
+						Name:      tu.Name,
+						Arguments: string(argsJSON),
+					},
+				})
+			}
+			messages = append(messages, openai.ChatCompletionMessage{
+				Role:      openai.ChatMessageRoleAssistant,
+				Content:   msg.Content,
+				ToolCalls: toolCalls,
+			})
+
+		case msg.Role == "user":
+			messages = append(messages, openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleUser,
+				Content: msg.Content,
+			})
+
+		default: // "assistant"
+			messages = append(messages, openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleAssistant,
+				Content: msg.Content,
+			})
 		}
-		messages = append(messages, openai.ChatCompletionMessage{
-			Role:    role,
-			Content: msg.Content,
-		})
 	}
 
 	// Cap max_tokens to the OpenAI model limit to avoid a 400 error
