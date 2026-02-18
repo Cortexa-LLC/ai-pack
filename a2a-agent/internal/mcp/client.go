@@ -10,6 +10,8 @@ import (
 	"os/exec"
 	"sync"
 	"sync/atomic"
+
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
 
 // Client represents an MCP client connected to a server
@@ -207,6 +209,11 @@ func (c *Client) call(ctx context.Context, method string, params interface{}, re
 	data, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Debug: log the JSON being sent to the MCP server
+	if method == "tools/call" {
+		monitoring.Logger.Debug("mcp_tool_call_json", "json", string(data))
 	}
 
 	if _, err := c.stdin.Write(append(data, '\n')); err != nil {

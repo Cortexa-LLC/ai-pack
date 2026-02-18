@@ -233,6 +233,48 @@ func matchPattern(pattern, path string) bool {
 	return strings.Contains(path, pattern)
 }
 
+// GrepExcludeArgs converts .claudeignore patterns into grep --exclude-dir / --exclude
+// flags so that grep never scans ignored directories or files in the first place.
+// Complex path patterns (e.g. ".beads/tasks/*/execution.log") that can't be expressed
+// as simple grep flags are skipped here and still handled by post-filtering.
+func (ci *ClaudeIgnore) GrepExcludeArgs() []string {
+	var args []string
+	seen := make(map[string]bool)
+
+	add := func(arg string) {
+		if !seen[arg] {
+			seen[arg] = true
+			args = append(args, arg)
+		}
+	}
+
+	for _, p := range ci.patterns {
+		if p.negate {
+			continue
+		}
+		pat := p.pattern
+
+		// Strip leading **/ prefix: "**/node_modules/" → "node_modules/"
+		pat = strings.TrimPrefix(pat, "**/")
+
+		if strings.HasSuffix(pat, "/") {
+			// Directory pattern — extract the directory name.
+			// Only use as --exclude-dir if there are no remaining path separators,
+			// i.e. it's a bare name like "build/" not "docs/website/node_modules/".
+			name := strings.TrimSuffix(pat, "/")
+			if !strings.Contains(name, "/") {
+				add("--exclude-dir=" + name)
+			}
+		} else if !strings.Contains(pat, "/") {
+			// Simple file glob with no directory component: "*.log", "*.o", ".DS_Store"
+			add("--exclude=" + pat)
+		}
+		// Skip multi-segment path patterns — post-filtering handles those.
+	}
+
+	return args
+}
+
 // FilterPaths filters a list of paths based on .claudeignore rules
 func (ci *ClaudeIgnore) FilterPaths(paths []string) []string {
 	if len(ci.patterns) == 0 {

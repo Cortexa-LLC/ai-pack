@@ -78,8 +78,8 @@ function TaskList({ tasks }: TaskListProps) {
           )}
 
           <div className="mt-3 text-xs text-gray-500">
-            Created: {new Date(task.createdAt).toLocaleString()}
-            {task.completedAt && ` • Completed: ${new Date(task.completedAt).toLocaleString()}`}
+            Created: {new Date(task.createdAt).toLocaleString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+            {task.completedAt && ` • Completed: ${new Date(task.completedAt).toLocaleString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}`}
           </div>
         </div>
       ))}

@@ -933,7 +933,7 @@ function App() {
                                     </div>
                                     {task.createdAt && (
                                       <div className="text-xs text-gray-500">
-                                        Created: {new Date(task.createdAt).toLocaleString()}
+                                        Created: {new Date(task.createdAt).toLocaleString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
                                       </div>
                                     )}
                                   </div>
@@ -1001,7 +1001,7 @@ function App() {
                                   </div>
                                   {task.createdAt && (
                                     <div className="text-xs text-gray-500">
-                                      Created: {new Date(task.createdAt).toLocaleString()}
+                                      Created: {new Date(task.createdAt).toLocaleString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
                                     </div>
                                   )}
                                 </div>
@@ -1062,7 +1062,7 @@ function App() {
                                   )}
                                   {task.updatedAt && (
                                     <div className="text-xs text-gray-500 mt-1">
-                                      Blocked: {new Date(task.updatedAt).toLocaleString()}
+                                      Blocked: {new Date(task.updatedAt).toLocaleString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
                                     </div>
                                   )}
                                 </div>
@@ -1133,7 +1133,7 @@ function App() {
                                   </div>
                                   {task.completedAt && (
                                     <div className="text-xs text-gray-500">
-                                      Completed: {new Date(task.completedAt).toLocaleString()}
+                                      Completed: {new Date(task.completedAt).toLocaleString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
                                     </div>
                                   )}
                                 </div>
@@ -1194,7 +1194,7 @@ function App() {
                                   </div>
                                   {(task.completedAt || task.updatedAt) && (
                                     <div className="text-xs text-gray-500">
-                                      Failed: {new Date(task.completedAt || task.updatedAt).toLocaleString()}
+                                      Failed: {new Date(task.completedAt || task.updatedAt).toLocaleString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
                                     </div>
                                   )}
                                 </div>

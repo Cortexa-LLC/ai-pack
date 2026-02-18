@@ -124,9 +124,29 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Try to find the task execution
+	// Try to find the task execution.
+	// activeTasks is keyed by full execution ID (e.g. "xasm++-qbxv-20260218-091500"),
+	// but the GUI requests logs using the short Beads ID (e.g. "xasm++-qbxv").
+	// Try exact match first, then prefix/metadata match for short IDs.
 	s.mu.RLock()
 	execution, exists := s.activeTasks[taskID]
+	if !exists {
+		prefix := taskID + "-"
+		for _, exec := range s.activeTasks {
+			if strings.HasPrefix(exec.TaskID, prefix) {
+				execution = exec
+				exists = true
+				break
+			}
+			if exec.metadata != nil {
+				if btid, ok := exec.metadata["beads_task_id"]; ok && btid == taskID {
+					execution = exec
+					exists = true
+					break
+				}
+			}
+		}
+	}
 	s.mu.RUnlock()
 
 	// Determine the project root and log file path

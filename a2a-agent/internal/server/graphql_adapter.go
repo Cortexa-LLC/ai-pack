@@ -226,7 +226,7 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 		Task        string            `json:"task"`
 		Description string            `json:"description"`
 		Status      string            `json:"status"`
-		CreatedAt   time.Time         `json:"created_at"`
+		CreatedAt   time.Time         `json:"spawned_at"`
 		UpdatedAt   time.Time         `json:"updated_at"`
 		CompletedAt *time.Time        `json:"completed_at,omitempty"`
 		Result      string            `json:"result,omitempty"`
@@ -236,6 +236,22 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 
 	if err := json.Unmarshal(data, &status); err != nil {
 		return nil, err
+	}
+
+	// Fall back to parsing timestamp from execution folder name when spawned_at is missing.
+	// Folder format: {beads-id}-YYYYMMDD-HHMMSS  e.g. xasm++-qbxv-20260218-084509
+	if status.CreatedAt.IsZero() {
+		parts := strings.Split(taskID, "-")
+		if len(parts) >= 2 {
+			lastPart := parts[len(parts)-1]
+			secondLastPart := parts[len(parts)-2]
+			if len(lastPart) == 6 && len(secondLastPart) == 8 {
+				status.CreatedAt, _ = time.Parse("20060102-150405", secondLastPart+"-"+lastPart)
+			}
+		}
+	}
+	if status.UpdatedAt.IsZero() {
+		status.UpdatedAt = status.CreatedAt
 	}
 
 	// Convert to TaskInfo

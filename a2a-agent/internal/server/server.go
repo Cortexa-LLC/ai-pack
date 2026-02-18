@@ -38,7 +38,8 @@ const (
 	configFieldModel       = "Model"
 	configFieldTier        = "Tier"
 	configFieldTimeout     = "Timeout"
-	configFieldMaxContext  = "MaxContext"
+	configFieldMaxContext      = "MaxContext"
+	configFieldMaxBudgetTokens = "MaxBudgetTokens"
 	configFieldDelegation  = "Delegation"
 	configFieldTools       = "Tools"
 	configFieldGates       = "Gates"
@@ -50,7 +51,8 @@ const (
 	defaultModel       = "gpt-4o-mini"
 	defaultDelegation  = "delegate"
 	defaultTimeout     = "10min"
-	defaultMaxContext  = 32000
+	defaultMaxContext      = 32000
+	defaultMaxBudgetTokens = 0 // 0 = unlimited
 	configSeparator    = "---"
 	markdownFieldStart = "**"
 	markdownFieldEnd   = ":**"
@@ -111,26 +113,27 @@ type TaskExecution struct {
 }
 
 type AgentConfig struct {
-	Name        string `yaml:"name"`
-	Description string `yaml:"description"`
-	Tier        string `yaml:"tier"`
-	Model       string `yaml:"model"` // LLM model to use (e.g., "gpt-4o-mini", "claude-sonnet-3-5-20241022")
+	Name        string
+	Description string
+	Tier        string
+	Model       string // LLM model to use (e.g., "gpt-4o-mini", "claude-sonnet-3-5-20241022")
 	Context     struct {
-		RoleFile               string   `yaml:"role_file"`
-		RoleContent            string   `yaml:"-"` // Loaded from .md file content (not from YAML)
-		Gates                  []string `yaml:"gates"`
-		AdditionalInstructions string   `yaml:"additional_instructions"`
-	} `yaml:"context"`
+		RoleFile               string
+		RoleContent            string   // Loaded from .md file content
+		Gates                  []string
+		AdditionalInstructions string
+	}
 	Delegation struct {
-		Mode       string `yaml:"mode"`
-		Timeout    string `yaml:"timeout"`
-		MaxContext int    `yaml:"max_context"`
-	} `yaml:"delegation"`
-	Tools            []string               `yaml:"tools"`
-	SuccessCriteria  []string               `yaml:"success_criteria"`
-	Metadata         map[string]interface{} `yaml:"metadata"`          // Changed from map[string]string to support arrays
-	ExtendedThinking bool                   `yaml:"extended_thinking"` // Enable extended thinking mode
-	MaxTurns         int                    `yaml:"max_turns"`         // Deprecated: No turn limit, only max_inactive stops execution
+		Mode            string
+		Timeout         string
+		MaxContext      int
+		MaxBudgetTokens int // 0 = unlimited
+	}
+	Tools            []string
+	SuccessCriteria  []string
+	Metadata         map[string]interface{}
+	ExtendedThinking bool
+	MaxTurns         int // Deprecated: No turn limit, only max_inactive stops execution
 }
 
 // GetProjectRoots returns all known project roots
@@ -696,13 +699,15 @@ func parseMarkdownConfig(data []byte, roleName string) (*AgentConfig, string, er
 		Tier:  defaultTier,
 		Model: defaultModel,
 		Delegation: struct {
-			Mode       string `yaml:"mode"`
-			Timeout    string `yaml:"timeout"`
-			MaxContext int    `yaml:"max_context"`
+			Mode            string
+			Timeout         string
+			MaxContext      int
+			MaxBudgetTokens int // 0 = unlimited
 		}{
-			Mode:       defaultDelegation,
-			Timeout:    defaultTimeout,
-			MaxContext: defaultMaxContext,
+			Mode:            defaultDelegation,
+			Timeout:         defaultTimeout,
+			MaxContext:      defaultMaxContext,
+			MaxBudgetTokens: defaultMaxBudgetTokens,
 		},
 	}
 
@@ -749,6 +754,8 @@ func parseMarkdownConfig(data []byte, roleName string) (*AgentConfig, string, er
 				config.Delegation.Timeout = value
 			case configFieldMaxContext:
 				fmt.Sscanf(value, "%d", &config.Delegation.MaxContext)
+			case configFieldMaxBudgetTokens:
+				fmt.Sscanf(value, "%d", &config.Delegation.MaxBudgetTokens)
 			case configFieldDelegation:
 				config.Delegation.Mode = value
 			case configFieldTools:
@@ -1006,8 +1013,30 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 		result = string(resultData)
 	}
 
-	createdAt, _ := time.Parse(time.RFC3339, metadata["spawned_at"].(string))
-	updatedAt, _ := time.Parse(time.RFC3339, metadata["updated_at"].(string))
+	var createdAt time.Time
+	if spawnedAt, ok := metadata["spawned_at"].(string); ok && spawnedAt != "" {
+		createdAt, _ = time.Parse(time.RFC3339, spawnedAt)
+	}
+	if createdAt.IsZero() {
+		// Fall back to parsing the timestamp from the execution folder name.
+		// Format: {beads-id}-YYYYMMDD-HHMMSS  e.g. xasm++-qbxv-20260218-084509
+		parts := strings.Split(executionFolder, "-")
+		if len(parts) >= 2 {
+			lastPart := parts[len(parts)-1]
+			secondLastPart := parts[len(parts)-2]
+			if len(lastPart) == 6 && len(secondLastPart) == 8 {
+				createdAt, _ = time.Parse("20060102-150405", secondLastPart+"-"+lastPart)
+			}
+		}
+	}
+
+	var updatedAt time.Time
+	if updatedAtStr, ok := metadata["updated_at"].(string); ok && updatedAtStr != "" {
+		updatedAt, _ = time.Parse(time.RFC3339, updatedAtStr)
+	}
+	if updatedAt.IsZero() {
+		updatedAt = createdAt
+	}
 
 	// Extract status with fallback for older tasks
 	status := "unknown"
@@ -1175,9 +1204,41 @@ func (s *AgentServer) findMostRecentExecutionFolderInRoot(beadsTaskID string) st
 }
 
 func (s *AgentServer) buildPrompt(role, task, roleContext string, config *AgentConfig, taskPacketPath, workingDir string) string {
-	// Note: roleContext is now passed separately as a system message for prompt caching
-	// This prompt only contains the task-specific information
-	prompt := fmt.Sprintf(`You are a %s agent.
+	// If a contract exists, extract its key sections so we can place them prominently.
+	contractSections := ""
+	if taskPacketPath != "" {
+		contractPath := filepath.Join(workingDir, taskPacketPath, "00-contract.md")
+		if contractData, err := os.ReadFile(contractPath); err == nil {
+			contractSections = extractContractSections(string(contractData))
+		}
+	}
+
+	// Build the prompt with contract sections FIRST so the agent sees explicit steps
+	// before the general task description. This prevents the agent from defaulting to
+	// exploration mode when explicit commands are provided.
+	var prompt string
+	if contractSections != "" {
+		prompt = fmt.Sprintf(`You are a %s agent.
+
+**Working Directory:** %s
+**Task Packet:** %s
+
+All file operations must use paths relative to the working directory above.
+
+---
+
+%s
+
+---
+
+**Task:** %s`,
+			role,
+			workingDir,
+			taskPacketPath,
+			contractSections,
+			task)
+	} else {
+		prompt = fmt.Sprintf(`You are a %s agent.
 
 **Your Task:**
 %s
@@ -1186,26 +1247,13 @@ func (s *AgentServer) buildPrompt(role, task, roleContext string, config *AgentC
 %s
 
 All file operations (Read, Write, Edit, Glob, Grep, Bash) must be performed relative to the working directory above.`,
-		role,
-		task,
-		workingDir)
+			role,
+			task,
+			workingDir)
 
-	// Add task packet location if available (the role file defines how to use it)
-	if taskPacketPath != "" {
-		prompt += fmt.Sprintf(`
-
-**Task Packet Location:**
-%s
-
-The task packet contains:
-- 00-contract.md - Requirements and acceptance criteria
-- 10-plan.md - Implementation plan
-- 20-work-log.md - Progress tracking
-- 30-review.md - Review notes
-- 40-acceptance.md - Completion checklist
-
-Your role definition specifies how to use the task packet.`,
-			taskPacketPath)
+		if taskPacketPath != "" {
+			prompt += fmt.Sprintf("\n\n**Task Packet:** %s\n\nThe task packet contains: 00-contract.md, 10-plan.md, 20-work-log.md, 30-review.md, 40-acceptance.md.", taskPacketPath)
+		}
 	}
 
 	prompt += fmt.Sprintf(`
@@ -1213,15 +1261,79 @@ Your role definition specifies how to use the task packet.`,
 **Configuration:**
 - Timeout: %s
 - Tools: %v
-- Success Criteria: %v
 
 Execute the task according to your role definition.`,
 		config.Delegation.Timeout,
 		config.Tools,
-		config.SuccessCriteria,
 	)
 
 	return prompt
+}
+
+// extractContractSections pulls the meaningful sections out of a 00-contract.md file,
+// skipping empty boilerplate placeholders ([Requirement X], [Assumption X], etc.).
+// This prevents agents from having to read 300+ lines of template noise.
+func extractContractSections(content string) string {
+	// Sections we want to include
+	keep := []string{
+		"## Task Description",
+		"## Success Criteria",
+		"## Background",
+	}
+
+	lines := strings.Split(content, "\n")
+	var result []string
+	inKeptSection := false
+	sectionHasContent := false
+	var sectionLines []string
+
+	flushSection := func() {
+		if inKeptSection && sectionHasContent {
+			result = append(result, sectionLines...)
+		}
+		sectionLines = nil
+		sectionHasContent = false
+	}
+
+	for _, line := range lines {
+		// Check if this line starts a new section heading
+		if strings.HasPrefix(line, "## ") {
+			flushSection()
+			inKeptSection = false
+			for _, k := range keep {
+				if strings.HasPrefix(line, k) {
+					inKeptSection = true
+					break
+				}
+			}
+			if inKeptSection {
+				sectionLines = []string{line}
+			}
+			continue
+		}
+
+		if !inKeptSection {
+			continue
+		}
+
+		// Skip lines that are pure boilerplate placeholders
+		trimmed := strings.TrimSpace(line)
+		isPlaceholder := trimmed == "" ||
+			(strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]")) ||
+			strings.HasPrefix(trimmed, "□ [") ||
+			strings.HasPrefix(trimmed, "✗ [") ||
+			strings.HasPrefix(trimmed, "✓ [") ||
+			trimmed == "```" ||
+			trimmed == "---"
+
+		sectionLines = append(sectionLines, line)
+		if !isPlaceholder {
+			sectionHasContent = true
+		}
+	}
+	flushSection()
+
+	return strings.TrimSpace(strings.Join(result, "\n"))
 }
 
 func (s *AgentServer) updateTaskStatus(taskID, projectRoot, status, errorMsg string) error {
@@ -1262,8 +1374,36 @@ func (s *AgentServer) updateTaskStatus(taskID, projectRoot, status, errorMsg str
 }
 
 // buildSystemPrompt returns the system prompt string for the agentic loop.
+// loadSharedPolicy loads the shared agent-policy.md that applies to all agents.
+// It follows the same search order as role files: project override → framework → dev paths.
+func (s *AgentServer) loadSharedPolicy(projectRoot string) string {
+	if projectRoot == "" {
+		projectRoot = s.rootDir
+	}
+	candidates := []string{
+		filepath.Join(projectRoot, ".ai", "roles", "shared", "agent-policy.md"),
+		filepath.Join(projectRoot, ".ai-pack", "roles", "shared", "agent-policy.md"),
+		filepath.Join(projectRoot, "..", "roles", "shared", "agent-policy.md"),
+		filepath.Join(projectRoot, "roles", "shared", "agent-policy.md"),
+	}
+	for _, path := range candidates {
+		if data, err := os.ReadFile(path); err == nil {
+			return string(data)
+		}
+	}
+	return ""
+}
+
 func (s *AgentServer) buildSystemPrompt(roleContext string) string {
-	return roleContext
+	return s.buildSystemPromptForProject(roleContext, "")
+}
+
+func (s *AgentServer) buildSystemPromptForProject(roleContext string, projectRoot string) string {
+	policy := s.loadSharedPolicy(projectRoot)
+	if policy == "" {
+		return roleContext
+	}
+	return policy + "\n\n---\n\n" + roleContext
 }
 
 // executeAgenticLoop runs the agentic loop with tool support
@@ -1271,8 +1411,8 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 	// Define tools (native + MCP tools) in provider-agnostic format
 	toolDefs := s.getAllTools()
 
-	// Build system prompt string for role context
-	systemPrompt := s.buildSystemPrompt(roleContext)
+	// roleContext already has the shared policy prepended by the caller
+	systemPrompt := roleContext
 
 	// Build messages starting with user prompt (task-specific)
 	messages := []streaming.Message{
@@ -1289,6 +1429,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 	// Progress tracking for turn counter reset
 	turn := 1
 	inactiveTurns := 0
+	consecutiveErrorTurns := 0 // Turns where EVERY tool call returned an error (different-path looping)
 	lastTextLength := 0
 	lastToolSignature := "" // Tracks tool names + input hash for better progress detection
 
@@ -1435,6 +1576,20 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			apiDuration, inputTokens, outputTokens,
 			totalInputTokens+totalOutputTokens))
 
+		// Enforce token budget if set in role config
+		if config.Delegation.MaxBudgetTokens > 0 {
+			used := totalInputTokens + totalOutputTokens
+			limit := int64(config.Delegation.MaxBudgetTokens)
+			if used >= limit {
+				logMsg(fmt.Sprintf("❌ Token budget exhausted: %d/%d tokens used", used, limit))
+				return finalResult.String(), fmt.Errorf("token budget exceeded: used %d tokens (limit: %d)", used, limit)
+			}
+			// Warn at 80%
+			if used >= limit*8/10 {
+				logMsg(fmt.Sprintf("⚠️  Token budget warning: %d/%d tokens used (%.0f%%)", used, limit, float64(used)/float64(limit)*100))
+			}
+		}
+
 		// Record per-turn token metrics
 		monitoring.GlobalMetrics.RecordTurnTokens(taskID, turn, inputTokens, outputTokens, apiDuration)
 
@@ -1496,11 +1651,37 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 				logMsg(fmt.Sprintf("         ✓ %s", preview))
 			}
 
+			// Cap tool result size to prevent a single large output from
+			// consuming the entire API context window (~8k token budget per result).
+			const maxToolResultChars = 30000
+			if len(result) > maxToolResultChars {
+				result = result[:maxToolResultChars] + fmt.Sprintf("\n\n[Output truncated: %d chars total, showing first %d]", len(result), maxToolResultChars)
+			}
 			toolResults = append(toolResults, streaming.ToolResult{
 				ToolUseID: toolUse.ID,
 				Content:   result,
 				IsError:   isError,
 			})
+		}
+
+		// Track whether every tool call this turn returned an error
+		allToolsErrored := len(toolResults) > 0
+		for _, tr := range toolResults {
+			if !tr.IsError {
+				allToolsErrored = false
+				break
+			}
+		}
+		if allToolsErrored {
+			consecutiveErrorTurns++
+			logMsg(fmt.Sprintf("      ⚠️  All tools errored this turn (%d consecutive error turns)", consecutiveErrorTurns))
+			maxConsecutiveErrors := s.maxInactiveTurns
+			if consecutiveErrorTurns >= maxConsecutiveErrors {
+				logMsg(fmt.Sprintf("❌ Agent stuck: %d consecutive turns with all tools failing", maxConsecutiveErrors))
+				return "", fmt.Errorf("agent stuck: %d consecutive turns where every tool call returned an error", maxConsecutiveErrors)
+			}
+		} else {
+			consecutiveErrorTurns = 0
 		}
 
 		// Progress detection: check if agent is making progress
@@ -1708,8 +1889,22 @@ func (s *AgentServer) extractTaskMetadata(execution *TaskExecution, logMsg func(
 
 	if execution.metadata != nil {
 		if path := execution.metadata["task_packet_path"]; path != "" {
-			taskPacketPath = path
-			logMsg(fmt.Sprintf("📦 Task packet: %s", taskPacketPath))
+			// Only pass the task packet path to the agent if the directory actually exists.
+			// If it doesn't exist, the agent would waste dozens of turns trying to read it.
+			fullPath := path
+			if !filepath.IsAbs(path) {
+				projectRoot := execution.metadata["project_root"]
+				if projectRoot == "" {
+					projectRoot = s.rootDir
+				}
+				fullPath = filepath.Join(projectRoot, path)
+			}
+			if info, err := os.Stat(fullPath); err == nil && info.IsDir() {
+				taskPacketPath = path
+				logMsg(fmt.Sprintf("📦 Task packet: %s", taskPacketPath))
+			} else {
+				logMsg(fmt.Sprintf("⚠️  Task packet path not found, skipping: %s", path))
+			}
 		}
 		if dir := execution.metadata["working_directory"]; dir != "" {
 			workingDir = dir
@@ -1742,7 +1937,7 @@ func (s *AgentServer) buildAndSavePrompt(execution *TaskExecution, roleContext, 
 func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskExecution, prompt, roleContext, workingDir string, logMsg func(string)) (string, error) {
 	s.sendStreamEvent(execution, "api_call_start", map[string]interface{}{})
 
-	result, err := s.executeAgenticLoop(ctx, execution.TaskID, execution.Role, prompt, roleContext, workingDir, execution.Config, logMsg)
+	result, err := s.executeAgenticLoop(ctx, execution.TaskID, execution.Role, prompt, s.buildSystemPromptForProject(roleContext, execution.ProjectRoot), workingDir, execution.Config, logMsg)
 	if err != nil {
 		// Check if error is due to cancellation or timeout.
 		// context.Canceled: User-initiated cancellation via CancelTask()
@@ -1894,9 +2089,14 @@ func (s *AgentServer) updateTaskCompletion(execution *TaskExecution, result stri
 	s.mu.Lock()
 	execution.Status = constants.StatusCompleted
 	execution.Result = result
-	beadsTaskID := execution.TaskID // TaskID is the Beads task ID
+	// Use the short Beads task ID (e.g. "xasm++-qbxv") stored in metadata,
+	// not the full execution TaskID (e.g. "xasm++-qbxv-20260218-084509").
+	beadsTaskID := execution.TaskID // fallback to full ID if metadata missing
 	projectRoot := ""
 	if execution.metadata != nil {
+		if id, ok := execution.metadata["beads_task_id"]; ok && id != "" {
+			beadsTaskID = id
+		}
 		projectRoot = execution.metadata["project_root"]
 	}
 	// Remove from active tasks map since task is now completed
@@ -2007,6 +2207,24 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 func (s *AgentServer) CancelTask(taskID string) error {
 	s.mu.Lock()
 	execution, exists := s.activeTasks[taskID]
+	if !exists {
+		// Try prefix match for short Beads IDs (e.g. "xasm++-qbxv" → "xasm++-qbxv-20260218-101958")
+		prefix := taskID + "-"
+		for _, exec := range s.activeTasks {
+			if strings.HasPrefix(exec.TaskID, prefix) {
+				execution = exec
+				exists = true
+				break
+			}
+			if exec.metadata != nil {
+				if btid, ok := exec.metadata["beads_task_id"]; ok && btid == taskID {
+					execution = exec
+					exists = true
+					break
+				}
+			}
+		}
+	}
 	s.mu.Unlock()
 
 	if !exists {
@@ -2307,10 +2525,61 @@ func (s *AgentServer) handleOrphanedTasks() {
 	}
 	s.mu.Unlock()
 
-	if orphanedCount > 0 || staleCount > 0 {
+	// Second pass: scan execution folders for stale in_progress metadata.
+	// This catches tasks that were interrupted mid-run (e.g. server killed) whose
+	// Beads status was already reset to "open" by bd reopen, but whose execution
+	// metadata file still says "in_progress".
+	staleMeta := 0
+	for _, projectRoot := range projectRoots {
+		tasksDir := filepath.Join(projectRoot, constants.BeadsDir, "tasks")
+		entries, err := os.ReadDir(tasksDir)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			folderName := entry.Name()
+			metadataPath := filepath.Join(tasksDir, folderName, constants.MetadataFileName)
+			data, err := os.ReadFile(metadataPath)
+			if err != nil {
+				continue
+			}
+			var meta map[string]interface{}
+			if json.Unmarshal(data, &meta) != nil {
+				continue
+			}
+			if meta["status"] != "in_progress" {
+				continue
+			}
+			// Not active — mark it failed so the GUI doesn't show it as running
+			s.mu.RLock()
+			_, isActive := s.activeTasks[folderName]
+			s.mu.RUnlock()
+			if isActive {
+				continue
+			}
+			meta["status"] = constants.StatusFailed
+			meta["error"] = "interrupted: server restarted while task was running"
+			meta["updated_at"] = time.Now().Format(time.RFC3339)
+			if updated, err := json.MarshalIndent(meta, "", "  "); err == nil {
+				if writeErr := os.WriteFile(metadataPath, updated, 0644); writeErr == nil {
+					monitoring.Logger.Info("stale_execution_marked_failed",
+						"folder", folderName,
+						"project", projectRoot,
+					)
+					staleMeta++
+				}
+			}
+		}
+	}
+
+	if orphanedCount > 0 || staleCount > 0 || staleMeta > 0 {
 		monitoring.Logger.Info("task_cleanup_summary",
 			"orphaned", orphanedCount,
 			"stale_removed", staleCount,
+			"stale_metadata_fixed", staleMeta,
 		)
 	}
 }
