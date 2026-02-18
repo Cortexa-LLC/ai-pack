@@ -1338,9 +1338,29 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		for _, msg := range truncatedMessages {
 			// Extract text from Anthropic message format
 			var content string
+			hasToolUse := false
+			hasToolResult := false
+
 			for _, block := range msg.Content {
 				if textBlock := block.OfText; textBlock != nil {
 					content += textBlock.Text
+				} else if block.OfToolUse != nil {
+					hasToolUse = true
+				} else if block.OfToolResult != nil {
+					hasToolResult = true
+				}
+			}
+
+			// If message has no text but has tool use/results, create a placeholder
+			// OpenAI requires non-empty content for all messages
+			if content == "" {
+				if hasToolUse {
+					content = "[Tool use]"
+				} else if hasToolResult {
+					content = "[Tool results]"
+				} else {
+					// Skip completely empty messages
+					continue
 				}
 			}
 
