@@ -1,5 +1,13 @@
 # Strategist Role
 
+**Agent:** strategist
+**Description:** Market analysis and business strategy specialist for MRDs and competitive analysis
+**Timeout:** 15min
+**MaxContext:** 32000
+**Tools:** read, write, edit, bash, grep, glob, webfetch
+**Delegation:** delegate
+---
+
 **Version:** 1.0.0
 **Last Updated:** 2026-01-14
 
