@@ -1270,6 +1270,48 @@ Execute the task according to your role definition.`,
 	return prompt
 }
 
+// toolParamPreview returns a short human-readable summary of a tool's key parameter for logging.
+func toolParamPreview(toolName string, input map[string]interface{}) string {
+	const maxLen = 120
+	truncate := func(s string) string {
+		s = strings.ReplaceAll(s, "\n", " ")
+		if len(s) > maxLen {
+			return s[:maxLen] + "…"
+		}
+		return s
+	}
+	switch strings.ToLower(toolName) {
+	case "bash":
+		if cmd, ok := input["command"].(string); ok {
+			return truncate(cmd)
+		}
+	case "read":
+		if p, ok := input["file_path"].(string); ok {
+			return truncate(p)
+		}
+	case "write":
+		if p, ok := input["file_path"].(string); ok {
+			return truncate(p)
+		}
+	case "edit", "multiedit":
+		if p, ok := input["file_path"].(string); ok {
+			return truncate(p)
+		}
+	case "grep":
+		if pat, ok := input["pattern"].(string); ok {
+			if path, ok2 := input["path"].(string); ok2 {
+				return truncate(pat + " @ " + path)
+			}
+			return truncate(pat)
+		}
+	case "glob":
+		if pat, ok := input["pattern"].(string); ok {
+			return truncate(pat)
+		}
+	}
+	return ""
+}
+
 // extractContractSections pulls the meaningful sections out of a 00-contract.md file,
 // skipping empty boilerplate placeholders ([Requirement X], [Assumption X], etc.).
 // This prevents agents from having to read 300+ lines of template noise.
@@ -1617,9 +1659,14 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			logMsg(fmt.Sprintf("      💬 Text: %d chars", len(responseTextStr)))
 		}
 
-		// Log tool uses
+		// Log tool uses with key parameter
 		for _, toolUse := range toolUses {
-			logMsg(fmt.Sprintf("      🔧 Tool: %s", toolUse.Name))
+			param := toolParamPreview(toolUse.Name, toolUse.Input)
+			if param != "" {
+				logMsg(fmt.Sprintf("      🔧 Tool: %s(%s)", toolUse.Name, param))
+			} else {
+				logMsg(fmt.Sprintf("      🔧 Tool: %s", toolUse.Name))
+			}
 		}
 
 		// If no tool uses and we have text, we're done
