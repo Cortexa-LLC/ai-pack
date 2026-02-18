@@ -12,15 +12,26 @@ import (
 	"github.com/anthropics/anthropic-sdk-go/packages/param"
 )
 
+// pendingToolUse tracks an in-progress streaming Anthropic tool call.
+// Anthropic sends tool input as incremental JSON deltas (input_json_delta)
+// across multiple content_block_delta events; we accumulate them here and
+// emit the completed ToolUse on content_block_stop.
+type pendingToolUse struct {
+	id         string
+	name       string
+	jsonBuffer strings.Builder
+}
+
 // AnthropicStreamAdapter adapts Anthropic SDK streaming to our StreamProvider interface
 type AnthropicStreamAdapter struct {
-	stream   interface{} // Anthropic streaming type (inferred by Go)
-	current  StreamEvent
-	message  *CompletedMessage
-	err      error
-	done     bool
-	model    string // Model being used
-	provider string // Provider name
+	stream           interface{} // Anthropic streaming type (inferred by Go)
+	current          StreamEvent
+	message          *CompletedMessage
+	err              error
+	done             bool
+	model            string // Model being used
+	provider         string // Provider name
+	pendingToolCalls map[int]*pendingToolUse
 }
 
 // AnthropicFactory creates Anthropic stream providers
@@ -244,7 +255,7 @@ func (a *AnthropicStreamAdapter) convertEvent(event interface{}) StreamEvent {
 	// Marshal and unmarshal to extract fields
 	eventJSON, _ := json.Marshal(event)
 	var eventData map[string]interface{}
-	json.Unmarshal(eventJSON, &eventData)
+	json.Unmarshal(eventJSON, &eventData) //nolint:errcheck
 
 	eventType := ""
 	if t, ok := eventData["type"].(string); ok {
@@ -255,49 +266,74 @@ func (a *AnthropicStreamAdapter) convertEvent(event interface{}) StreamEvent {
 		Type: eventType,
 	}
 
+	// Get block index if present (used to correlate tool call events)
+	blockIndex := 0
+	if idxFloat, ok := eventData["index"].(float64); ok {
+		blockIndex = int(idxFloat)
+	}
+
 	// Handle different event types
 	switch eventType {
 	case "content_block_start":
-		// Extract tool use blocks
 		if contentBlock, ok := eventData["content_block"].(map[string]interface{}); ok {
 			if blockType, ok := contentBlock["type"].(string); ok && blockType == "tool_use" {
-				toolUse := &ToolUse{
-					Input: make(map[string]interface{}),
+				// Store pending tool call — input comes in subsequent input_json_delta events
+				if a.pendingToolCalls == nil {
+					a.pendingToolCalls = make(map[int]*pendingToolUse)
 				}
+				pending := &pendingToolUse{}
 				if id, ok := contentBlock["id"].(string); ok {
-					toolUse.ID = id
+					pending.id = id
 				}
 				if name, ok := contentBlock["name"].(string); ok {
-					toolUse.Name = name
+					pending.name = name
 				}
-				if input, ok := contentBlock["input"].(map[string]interface{}); ok {
-					toolUse.Input = input
-				}
-				genericEvent.ToolUse = toolUse
+				a.pendingToolCalls[blockIndex] = pending
+				// Don't emit ToolUse yet; wait for content_block_stop
 			}
 		}
 
 	case "content_block_delta":
-		// Extract text delta
-		eventJSON, _ := json.Marshal(event)
-		var eventData map[string]interface{}
-		json.Unmarshal(eventJSON, &eventData)
-
 		if delta, ok := eventData["delta"].(map[string]interface{}); ok {
-			if text, ok := delta["text"].(string); ok {
-				genericEvent.Delta = &DeltaContent{
-					Text: text,
-					Type: "text",
+			deltaType, _ := delta["type"].(string)
+			switch deltaType {
+			case "text_delta":
+				if text, ok := delta["text"].(string); ok {
+					genericEvent.Delta = &DeltaContent{
+						Text: text,
+						Type: "text",
+					}
+				}
+			case "input_json_delta":
+				// Accumulate JSON fragment for the pending tool call
+				if partialJSON, ok := delta["partial_json"].(string); ok {
+					if a.pendingToolCalls != nil {
+						if pending, exists := a.pendingToolCalls[blockIndex]; exists {
+							pending.jsonBuffer.WriteString(partialJSON)
+						}
+					}
 				}
 			}
 		}
 
-	case "message_start":
-		// Extract message metadata
-		eventJSON, _ := json.Marshal(event)
-		var eventData map[string]interface{}
-		json.Unmarshal(eventJSON, &eventData)
+	case "content_block_stop":
+		// If this block was a tool call, emit the completed ToolUse now
+		if a.pendingToolCalls != nil {
+			if pending, exists := a.pendingToolCalls[blockIndex]; exists {
+				toolUse := &ToolUse{
+					ID:    pending.id,
+					Name:  pending.name,
+					Input: make(map[string]interface{}),
+				}
+				if jsonStr := pending.jsonBuffer.String(); jsonStr != "" {
+					json.Unmarshal([]byte(jsonStr), &toolUse.Input) //nolint:errcheck
+				}
+				genericEvent.ToolUse = toolUse
+				delete(a.pendingToolCalls, blockIndex)
+			}
+		}
 
+	case "message_start":
 		if msgData, ok := eventData["message"].(map[string]interface{}); ok {
 			if id, ok := msgData["id"].(string); ok {
 				a.message.ID = id
@@ -305,7 +341,6 @@ func (a *AnthropicStreamAdapter) convertEvent(event interface{}) StreamEvent {
 			if role, ok := msgData["role"].(string); ok {
 				a.message.Role = role
 			}
-			// Extract input tokens from usage
 			if usage, ok := msgData["usage"].(map[string]interface{}); ok {
 				if inputTokens, ok := usage["input_tokens"].(float64); ok {
 					a.message.InputTokens = int(inputTokens)
@@ -314,17 +349,11 @@ func (a *AnthropicStreamAdapter) convertEvent(event interface{}) StreamEvent {
 		}
 
 	case "message_delta":
-		// Extract token usage
-		eventJSON, _ := json.Marshal(event)
-		var eventData map[string]interface{}
-		json.Unmarshal(eventJSON, &eventData)
-
 		if usage, ok := eventData["usage"].(map[string]interface{}); ok {
 			if outputTokens, ok := usage["output_tokens"].(float64); ok {
 				a.message.OutputTokens = int(outputTokens)
 			}
 		}
-
 		if delta, ok := eventData["delta"].(map[string]interface{}); ok {
 			if stopReason, ok := delta["stop_reason"].(string); ok {
 				a.message.StopReason = stopReason
