@@ -2670,6 +2670,13 @@ func (s *AgentServer) getAllTools() []anthropic.ToolParam {
 					}
 				}
 
+				// Debug log the cleaned schema
+				if schemaJSON, err := json.MarshalIndent(cleanedProperties, "", "  "); err == nil {
+					monitoring.Logger.Debug("mcp_tool_schema_cleaned",
+						"tool", tool.Name,
+						"schema", string(schemaJSON))
+				}
+
 				// Convert MCP tool to Anthropic ToolParam
 				anthropicTool := anthropic.ToolParam{
 					Name: tool.Name,
