@@ -2,7 +2,7 @@
 
 **Agent:** Bash
 **Description:** Command execution specialist for running bash commands
-**Model:** claude-sonnet-4-6
+**Model:** claude-sonnet-4-5
 **Tools:** bash
 **PermissionMode:** bypassPermissions
 ---

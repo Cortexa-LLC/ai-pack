@@ -2,6 +2,7 @@
 
 **Agent:** spelunker
 **Description:** Runtime investigation specialist for live system and production issue exploration
+**Model:** claude-sonnet-4-5
 **Timeout:** 10min
 **MaxContext:** 32000
 **MaxBudgetTokens:** 500000
