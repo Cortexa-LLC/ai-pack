@@ -40,7 +40,7 @@ func (s *SimpleModelSelector) SelectModel(role string, requestedModel string) (m
 
 	// Determine provider based on model name
 	modelLower := strings.ToLower(requestedModel)
-	if strings.HasPrefix(modelLower, "gpt-") || strings.HasPrefix(modelLower, "codex") {
+	if strings.HasPrefix(modelLower, "gpt-") || strings.HasPrefix(modelLower, "o1") || strings.HasPrefix(modelLower, "o3") || strings.HasPrefix(modelLower, "o4") {
 		// OpenAI model requested
 		if !s.openaiAvailable {
 			// OpenAI not available, fall back to Anthropic
@@ -77,7 +77,7 @@ func (s *PerformanceGradeModelSelector) SelectModel(role string, requestedModel 
 	// The grade selector only provides defaults when no model is pinned.
 	if requestedModel != "" {
 		modelLower := strings.ToLower(requestedModel)
-		if strings.HasPrefix(modelLower, "gpt-") || strings.HasPrefix(modelLower, "codex") {
+		if strings.HasPrefix(modelLower, "gpt-") || strings.HasPrefix(modelLower, "o1") || strings.HasPrefix(modelLower, "o3") || strings.HasPrefix(modelLower, "o4") {
 			if !s.openaiAvailable {
 				monitoring.Logger.Warn("openai_not_available_fallback",
 					"requested", requestedModel,

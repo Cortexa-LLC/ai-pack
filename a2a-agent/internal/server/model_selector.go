@@ -18,18 +18,18 @@ func NewModelSelector(server *AgentServer) *ModelSelector {
 }
 
 // SelectProviderWithFallback selects the best available provider for a model
-// Priority: GPT-5.2 → GPT-5.2-mini → GPT-4o-mini → Claude Sonnet
+// Priority: gpt-5.1-codex → gpt-4.1 → gpt-4.1-mini → gpt-4o-mini → Claude Sonnet
 // Note: gpt-4o is excluded — demonstrated unreliable tool use (false positive completions)
 func (ms *ModelSelector) SelectProviderWithFallback(requestedModel string) (LLMProvider, string, error) {
-	// Check if model is OpenAI (gpt-*)
+	// Check if model is OpenAI (gpt-* or o-series)
 	if strings.HasPrefix(requestedModel, "gpt-") {
 		// gpt-4o is excluded — demonstrated unreliable tool use (false positive completions)
 		if requestedModel == "gpt-4o" {
 			monitoring.Logger.Warn("model_excluded",
 				"requested", requestedModel,
 				"reason", "unreliable_tool_use",
-				"redirect", "gpt-5.2-mini")
-			requestedModel = "gpt-5.2-mini"
+				"redirect", "gpt-4.1-mini")
+			requestedModel = "gpt-4.1-mini"
 		}
 		// Check if OpenAI is available
 		if ms.server.openaiProvider != nil {
@@ -53,7 +53,7 @@ func (ms *ModelSelector) SelectProviderWithFallback(requestedModel string) (LLMP
 }
 
 // RecommendModel suggests the best available model based on task complexity
-// Favors models in availability order: GPT-5.2 → GPT-5.2-mini → GPT-4o-mini → Claude
+// Favors models in availability order: gpt-5.1-codex → gpt-4.1 → gpt-4.1-mini → gpt-4o-mini → Claude
 func (ms *ModelSelector) RecommendModel(taskDescription string) string {
 	desc := strings.ToLower(taskDescription)
 
@@ -91,36 +91,42 @@ func (ms *ModelSelector) RecommendModel(taskDescription string) string {
 		return ms.server.model
 
 	case isComplex:
-		// Complex tasks - use GPT-5.2 (best reasoning)
-		return "gpt-5.2"
+		// Complex tasks - use gpt-5.1-codex (best reasoning for code)
+		return "gpt-5.1-codex"
 
 	case isBackground:
-		// Background/bulk - use GPT-5.2-mini (good quality, low cost)
-		return "gpt-5.2-mini"
+		// Background/bulk - use gpt-4.1-mini (good quality, low cost)
+		return "gpt-4.1-mini"
 
 	case isSimple:
-		// Simple tasks - use GPT-4o-mini (cheapest)
+		// Simple tasks - use gpt-4o-mini (cheapest)
 		return "gpt-4o-mini"
 
 	default:
-		// Default: GPT-5.2 (primary model)
-		return "gpt-5.2"
+		// Default: gpt-4.1-mini (reliable, economical)
+		return "gpt-4.1-mini"
 	}
 }
 
 // GetProviderCost returns estimated cost per 1M tokens for a model
 func (ms *ModelSelector) GetProviderCost(model string) string {
 	switch {
-	case strings.HasPrefix(model, "gpt-5.2-mini"):
-		return "$0.60 input / $2.40 output per 1M tokens"
-	case strings.HasPrefix(model, "gpt-5.2"):
-		return "$5.00 input / $15.00 output per 1M tokens"
+	case strings.Contains(model, "gpt-5.2-codex"):
+		return "$5.00 input / $20.00 output per 1M tokens"
+	case strings.Contains(model, "gpt-5.1-codex-mini"):
+		return "$1.50 input / $6.00 output per 1M tokens"
+	case strings.Contains(model, "gpt-5.1-codex"):
+		return "$3.00 input / $12.00 output per 1M tokens"
+	case strings.HasPrefix(model, "gpt-4.1-nano"):
+		return "$0.10 input / $0.40 output per 1M tokens"
+	case strings.HasPrefix(model, "gpt-4.1-mini"):
+		return "$0.40 input / $1.60 output per 1M tokens"
+	case strings.HasPrefix(model, "gpt-4.1"):
+		return "$2.00 input / $8.00 output per 1M tokens"
 	case strings.HasPrefix(model, "gpt-4o-mini"):
 		return "$0.15 input / $0.60 output per 1M tokens"
 	case strings.HasPrefix(model, "gpt-4o"):
 		return "$2.50 input / $10.00 output per 1M tokens"
-	case strings.HasPrefix(model, "gpt-3.5"):
-		return "$0.50 input / $1.50 output per 1M tokens"
 	case strings.Contains(model, "haiku"):
 		return "$0.25 input / $1.25 output per 1M tokens"
 	case strings.Contains(model, "sonnet"):
@@ -152,21 +158,30 @@ func CalculateCost(model string, inputTokens, outputTokens int) float64 {
 	var inputCost, outputCost float64
 
 	switch {
-	case strings.HasPrefix(model, "gpt-5.2-mini"):
-		inputCost = 0.60
-		outputCost = 2.40
-	case strings.HasPrefix(model, "gpt-5.2"):
+	case strings.Contains(model, "gpt-5.2-codex"):
 		inputCost = 5.00
-		outputCost = 15.00
+		outputCost = 20.00
+	case strings.Contains(model, "gpt-5.1-codex-mini"):
+		inputCost = 1.50
+		outputCost = 6.00
+	case strings.Contains(model, "gpt-5.1-codex"):
+		inputCost = 3.00
+		outputCost = 12.00
+	case strings.HasPrefix(model, "gpt-4.1-nano"):
+		inputCost = 0.10
+		outputCost = 0.40
+	case strings.HasPrefix(model, "gpt-4.1-mini"):
+		inputCost = 0.40
+		outputCost = 1.60
+	case strings.HasPrefix(model, "gpt-4.1"):
+		inputCost = 2.00
+		outputCost = 8.00
 	case strings.HasPrefix(model, "gpt-4o-mini"):
 		inputCost = 0.15
 		outputCost = 0.60
 	case strings.HasPrefix(model, "gpt-4o"):
 		inputCost = 2.50
 		outputCost = 10.00
-	case strings.HasPrefix(model, "gpt-3.5"):
-		inputCost = 0.50
-		outputCost = 1.50
 	case strings.Contains(model, "haiku"):
 		inputCost = 0.25
 		outputCost = 1.25
@@ -192,15 +207,17 @@ func (ms *ModelSelector) GetFallbackChain(failedModel string) []string {
 	// If OpenAI available, use OpenAI fallback chain
 	if ms.server.openaiProvider != nil {
 		switch failedModel {
-		case "gpt-5.2":
-			return []string{"gpt-5.2-mini", ms.server.model}
-		case "gpt-5.2-mini":
+		case "gpt-5.2-codex":
+			return []string{"gpt-5.1-codex", ms.server.model}
+		case "gpt-5.1-codex":
+			return []string{"gpt-5.1-codex-mini", ms.server.model}
+		case "gpt-5.1-codex-mini":
+			return []string{"gpt-4.1-mini", ms.server.model}
+		case "gpt-4.1":
+			return []string{"gpt-4.1-mini", ms.server.model}
+		case "gpt-4.1-mini":
 			return []string{"gpt-4o-mini", ms.server.model}
 		case "gpt-4o-mini":
-			return []string{"codex", ms.server.model}
-		case "codex":
-			return []string{"codex-mini", ms.server.model}
-		case "codex-mini":
 			return []string{ms.server.model}
 		default:
 			return []string{ms.server.model}

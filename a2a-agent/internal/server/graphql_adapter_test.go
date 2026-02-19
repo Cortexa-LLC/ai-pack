@@ -33,7 +33,7 @@ func TestGetMetrics(t *testing.T) {
 	monitoring.GlobalMetrics.IncrementTasksSpawned()
 	monitoring.GlobalMetrics.IncrementTasksCompleted(1000)
 	monitoring.GlobalMetrics.IncrementAPICallsSuccess()
-	monitoring.GlobalMetrics.RecordTokenUsage("test-task", 100, 200, 1)
+	monitoring.GlobalMetrics.RecordTurnTokens("test-task", 1, 100, 200, 50)
 
 	// Act: Get metrics through adapter
 	metrics := adapter.GetMetrics()

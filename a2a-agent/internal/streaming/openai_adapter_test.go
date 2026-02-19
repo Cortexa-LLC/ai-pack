@@ -7,12 +7,12 @@ func TestIsCodexModel(t *testing.T) {
 		model    string
 		expected bool
 	}{
-		{"codex", true},
-		{"Codex", true},
-		{"codex-mini", true},
-		{"CODEX-MINI", true},
+		{"gpt-5.1-codex", true},
+		{"gpt-5.1-codex-mini", true},
+		{"gpt-5.2-codex", true},
+		{"GPT-5.1-CODEX", true},
 		{"gpt-4o-mini", false},
-		{"gpt-5.2", false},
+		{"gpt-4.1-mini", false},
 		{"o1-preview", false},
 		{"claude-3-opus", false},
 	}
@@ -35,11 +35,16 @@ func TestUsesMaxCompletionTokens(t *testing.T) {
 		{"o1-preview", true},
 		{"O1-mini", true},
 		{"o3-mini", true},
+		{"o4-mini", true},
 		{"gpt-5.2", true},
-		{"GPT-5.2-mini", true},
+		{"gpt-5", true},
+		{"gpt-5-mini", true},
+		{"gpt-5.1-codex", true},
+		{"gpt-5.2-codex", true},
 		{"gpt-4o-mini", false},
-		{"codex", false},
-		{"codex-mini", false},
+		{"gpt-4.1-mini", false},
+		{"gpt-4.1-nano", false},
+		{"claude-sonnet-4-6", false},
 	}
 
 	for _, tt := range tests {

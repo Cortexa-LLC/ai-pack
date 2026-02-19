@@ -122,10 +122,10 @@ func (s *Service) translateModelForProvider(model, fromProvider, toProvider stri
 		switch model {
 		case "gpt-4o", "gpt-4o-2024-08-06":
 			return "claude-sonnet-4-5-20250929" // Map GPT-4o to Claude Sonnet 4.5
-		case "gpt-4o-mini":
-			return "claude-haiku-4-5-20251022" // Map GPT-4o-mini to Claude Haiku 4.5
-		case "gpt-5.2-mini":
-			return "claude-sonnet-4-5-20250929" // Map GPT-5.2-mini to Claude Sonnet 4.5
+		case "gpt-4o-mini", "gpt-4.1-nano":
+			return "claude-haiku-4-5-20251022" // Map small GPT models to Claude Haiku 4.5
+		case "gpt-4.1-mini":
+			return "claude-sonnet-4-5-20250929" // Map GPT-4.1-mini to Claude Sonnet 4.5
 		default:
 			// Default to Sonnet 4.5 for unknown GPT models
 			return "claude-sonnet-4-5-20250929"
