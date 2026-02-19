@@ -82,10 +82,14 @@ function filterLogLines(lines: string[]): string[] {
 /**
  * Main application component for AI-Pack monitoring dashboard
  */
+declare const __APP_VERSION__: string;
+declare const __GIT_COMMIT__: string;
+
 function App() {
   const { data: metricsData, isLoading: metricsLoading, isError: metricsError } = useMetrics();
   const { data: tasksData, isLoading: tasksLoading, isError: tasksError, refetch: refetchTasks } = useTasks();
   const { data: detailedMetrics } = useDetailedMetrics();
+  const [serverVersion, setServerVersion] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'tasks' | 'server-logs' | 'task-logs' | 'performance'>('tasks');
@@ -97,6 +101,13 @@ function App() {
   });
   const [followLogs, setFollowLogs] = useState(true);
   const [followServerLogs, setFollowServerLogs] = useState(true);
+
+  // Fetch server version once on mount
+  useEffect(() => {
+    fetch('/health').then(r => r.json()).then(data => {
+      if (data.version) setServerVersion(`${data.version}-${data.commit || 'unknown'}`);
+    }).catch(() => {});
+  }, []);
 
   // Save date filter preference to localStorage
   useEffect(() => {
@@ -775,9 +786,14 @@ function App() {
     <div className="h-screen flex flex-col bg-gray-900 text-white">
       {/* Header */}
       <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="AI-Pack" className="h-8 w-8" />
-          <h1 className="text-xl font-bold">AI-Pack Console</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="AI-Pack" className="h-8 w-8" />
+            <h1 className="text-xl font-bold">AI-Pack Console</h1>
+          </div>
+          <div className="text-xs text-gray-500 font-mono">
+            gui {__APP_VERSION__}-{__GIT_COMMIT__}{serverVersion ? ` · server ${serverVersion}` : ''}
+          </div>
         </div>
       </header>
 

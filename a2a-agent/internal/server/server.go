@@ -29,7 +29,9 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-var Version = "2.1.0"
+var Version = "dev"
+var Commit = "unknown"
+var BuildTime = "unknown"
 
 // Configuration field names (for markdown header parsing)
 const (
