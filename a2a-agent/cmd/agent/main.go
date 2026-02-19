@@ -14,7 +14,12 @@ import (
 	"time"
 )
 
-const Version = "2.2.0"
+// Version info injected at build time via ldflags.
+var (
+	Version   = "dev"
+	Commit    = "unknown"
+	BuildTime = "unknown"
+)
 const ServerURL = "http://localhost:8080"
 const descOutputAsJSON = "Output as JSON"
 const sseDataPrefix = "data: "
@@ -54,7 +59,7 @@ func main() {
 	case "discovery", "discover":
 		handleDiscovery(os.Args[2:])
 	case "version", "--version", "-v":
-		fmt.Printf("AI-Pack Agent CLI v%s\n", Version)
+		fmt.Printf("agent %s (%s)\nBuilt: %s\nCopyright (c) 2026 Cortexa LLC\nLicensed under the MIT License\n", Version, Commit, BuildTime)
 	case "help", "--help", "-h":
 		usage()
 	default:

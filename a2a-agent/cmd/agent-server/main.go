@@ -22,12 +22,19 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/server"
 )
 
+// Version info injected at build time via ldflags.
+var (
+	Version   = "dev"
+	Commit    = "unknown"
+	BuildTime = "unknown"
+)
+
 const (
-	ServerPort           = "8080"
-	agentURLFormatMsg    = "agentURLFormatMsg"
-	contentTypeJSON      = "application/json"
-	formatTaskID         = "   Task ID: %s\n"
-	formatStatus         = "   Status: %s\n"
+	ServerPort        = "8080"
+	agentURLFormatMsg = "agentURLFormatMsg"
+	contentTypeJSON   = "application/json"
+	formatTaskID      = "   Task ID: %s\n"
+	formatStatus      = "   Status: %s\n"
 )
 
 // checkServerRunning checks if the agent-server is already running
@@ -238,9 +245,11 @@ func handleProtocolURL(agentURL, configPath string) {
 // Health check endpoint
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	health := map[string]interface{}{
-		"status":  "healthy",
-		"version": server.Version,
-		"server":  "ai-pack-agent-server",
+		"status":     "healthy",
+		"version":    server.Version,
+		"commit":     server.Commit,
+		"build_time": server.BuildTime,
+		"server":     "ai-pack-agent-server",
 		"features": map[string]bool{
 			"a2a_protocol":       true,
 			"sse_streaming":      true,
@@ -344,19 +353,30 @@ func printUsage() {
 	fmt.Println("")
 }
 
-func parseCommandLine() (configPath *string, maxConcurrent *int, port *int, serverMode *bool, migrateTasks *bool, args []string) {
+func parseCommandLine() (configPath *string, maxConcurrent *int, port *int, serverMode *bool, migrateTasks *bool, versionFlag *bool, args []string) {
 	configPath = flag.String("config", "agent-server.json", "Path to configuration file")
 	maxConcurrent = flag.Int("max-concurrent", 0, "Override max concurrent agents (0 = use config)")
 	port = flag.Int("port", 0, "Override server port (0 = use config)")
 	serverMode = flag.Bool("server", false, "Run in server mode (HTTP/A2A protocol). Default: protocol handler mode")
 	migrateTasks = flag.Bool("migrate-tasks", false, "Migrate legacy task-* folders to beads-id-timestamp format")
+	versionFlag = flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
 	args = flag.Args()
 	return
 }
 
 func main() {
-	configPath, maxConcurrent, port, serverMode, migrateTasks, args := parseCommandLine()
+	configPath, maxConcurrent, port, serverMode, migrateTasks, versionFlag, args := parseCommandLine()
+
+	// Forward build-time vars to server package
+	server.Version = Version
+	server.Commit = Commit
+	server.BuildTime = BuildTime
+
+	if *versionFlag {
+		fmt.Printf("agent-server %s (%s)\nBuilt: %s\nCopyright (c) 2026 Cortexa LLC\nLicensed under the MIT License\n", Version, Commit, BuildTime)
+		return
+	}
 
 	// Check if we have a non-flag argument (agent:// URL)
 	if len(args) > 0 && !*serverMode && !*migrateTasks {
