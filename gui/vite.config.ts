@@ -2,16 +2,16 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { execSync } from 'child_process'
 
-const gitCommit = (() => {
-  try { return execSync('git rev-parse --short HEAD').toString().trim() }
-  catch { return 'unknown' }
+const gitVersion = (() => {
+  try { return execSync('git describe --tags --always --dirty').toString().trim() }
+  catch { return 'dev' }
 })()
 
 export default defineConfig({
   plugins: [react()],
   define: {
-    __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '1.0.0'),
-    __GIT_COMMIT__: JSON.stringify(gitCommit),
+    __APP_VERSION__: JSON.stringify(gitVersion),
+    __GIT_COMMIT__: JSON.stringify(''),
   },
   server: {
     port: 3000,

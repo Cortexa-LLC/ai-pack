@@ -799,7 +799,7 @@ function App() {
             <h1 className="text-xl font-bold">AI-Pack Console</h1>
           </button>
           <div className="text-xs text-gray-500 font-mono">
-            gui {__APP_VERSION__}-{__GIT_COMMIT__}{serverVersion ? ` · server ${serverVersion}` : ''}
+            gui {__APP_VERSION__}{serverVersion ? ` · server ${serverVersion}` : ''}
           </div>
         </div>
       </header>
@@ -2145,7 +2145,7 @@ function App() {
             <div className="space-y-2 text-sm font-mono mb-6">
               <div className="flex justify-between">
                 <span className="text-gray-500">GUI version</span>
-                <span className="text-gray-200">{__APP_VERSION__}-{__GIT_COMMIT__}</span>
+                <span className="text-gray-200">{__APP_VERSION__}</span>
               </div>
               {serverHealth && (
                 <>
