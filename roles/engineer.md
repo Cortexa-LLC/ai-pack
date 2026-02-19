@@ -2,7 +2,7 @@
 
 **Agent:** engineer
 **Description:** Implementation specialist following TDD workflow
-**Model:** gpt-4o-mini
+**Model:** gpt-5.2-mini
 **Tier:** minimal
 **Timeout:** 10min
 **MaxBudgetTokens:** 0

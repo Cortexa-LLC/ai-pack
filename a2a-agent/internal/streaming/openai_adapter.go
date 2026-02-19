@@ -15,6 +15,9 @@ import (
 // Requests with a higher max_tokens value are rejected by the API with a 400 error.
 const openAIMaxCompletionTokens = 16384
 
+// codexMaxCompletionTokens is the maximum completion tokens supported by codex and codex-mini models.
+const codexMaxCompletionTokens = 8192
+
 // usesMaxCompletionTokens returns true for newer OpenAI models that require the
 // max_completion_tokens field instead of the deprecated max_tokens field.
 func usesMaxCompletionTokens(model string) bool {
@@ -22,6 +25,12 @@ func usesMaxCompletionTokens(model string) bool {
 	return strings.HasPrefix(lower, "o1") ||
 		strings.HasPrefix(lower, "o3") ||
 		strings.Contains(lower, "gpt-5.")
+}
+
+// isCodexModel returns true for codex and codex-mini models.
+func isCodexModel(model string) bool {
+	lower := strings.ToLower(model)
+	return strings.HasPrefix(lower, "codex")
 }
 
 // openaiPendingToolCall accumulates the streamed arguments for a single tool call.
@@ -132,9 +141,13 @@ func (f *OpenAIFactory) CreateStream(ctx context.Context, req StreamRequest) (St
 		}
 	}
 
-	// Cap tokens to the OpenAI model limit to avoid a 400 error
+	// Cap tokens to the appropriate model limit to avoid a 400 error
 	maxTokens := req.MaxTokens
-	if maxTokens > openAIMaxCompletionTokens {
+	if isCodexModel(req.Model) {
+		if maxTokens > codexMaxCompletionTokens {
+			maxTokens = codexMaxCompletionTokens
+		}
+	} else if maxTokens > openAIMaxCompletionTokens {
 		maxTokens = openAIMaxCompletionTokens
 	}
 
