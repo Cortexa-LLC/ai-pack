@@ -15,6 +15,15 @@ import (
 // Requests with a higher max_tokens value are rejected by the API with a 400 error.
 const openAIMaxCompletionTokens = 16384
 
+// usesMaxCompletionTokens returns true for newer OpenAI models that require the
+// max_completion_tokens field instead of the deprecated max_tokens field.
+func usesMaxCompletionTokens(model string) bool {
+	lower := strings.ToLower(model)
+	return strings.HasPrefix(lower, "o1") ||
+		strings.HasPrefix(lower, "o3") ||
+		strings.Contains(lower, "gpt-5.")
+}
+
 // openaiPendingToolCall accumulates the streamed arguments for a single tool call.
 // OpenAI sends function arguments as partial strings across multiple stream chunks,
 // keyed by the tool call's index in the delta.ToolCalls slice.
@@ -123,21 +132,26 @@ func (f *OpenAIFactory) CreateStream(ctx context.Context, req StreamRequest) (St
 		}
 	}
 
-	// Cap max_tokens to the OpenAI model limit to avoid a 400 error
+	// Cap tokens to the OpenAI model limit to avoid a 400 error
 	maxTokens := req.MaxTokens
 	if maxTokens > openAIMaxCompletionTokens {
 		maxTokens = openAIMaxCompletionTokens
 	}
 
-	// Build request
+	// Build request — newer models (o1/o3/gpt-5.x) require MaxCompletionTokens;
+	// legacy models (gpt-4o-mini, gpt-3.5, etc.) use the deprecated MaxTokens.
 	request := openai.ChatCompletionRequest{
-		Model:     req.Model,
-		Messages:  messages,
-		MaxTokens: maxTokens,
-		Stream:    true,
+		Model:    req.Model,
+		Messages: messages,
+		Stream:   true,
 		StreamOptions: &openai.StreamOptions{
 			IncludeUsage: true,
 		},
+	}
+	if usesMaxCompletionTokens(req.Model) {
+		request.MaxCompletionTokens = maxTokens
+	} else {
+		request.MaxTokens = maxTokens
 	}
 
 	// Convert tools if provided

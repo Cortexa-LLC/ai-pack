@@ -5,6 +5,8 @@
 **Model:** gpt-4o-mini
 **Tier:** minimal
 **Timeout:** 10min
+**MaxBudgetTokens:** 0
+**MaxTurns:** 600
 **MaxContext:** 32000
 **Tools:** read, write, edit, bash, grep, glob
 **Gates:** tdd-enforcement, code-quality-review

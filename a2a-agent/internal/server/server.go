@@ -42,6 +42,7 @@ const (
 	configFieldTimeout     = "Timeout"
 	configFieldMaxContext      = "MaxContext"
 	configFieldMaxBudgetTokens = "MaxBudgetTokens"
+	configFieldMaxTurns        = "MaxTurns"
 	configFieldDelegation  = "Delegation"
 	configFieldTools       = "Tools"
 	configFieldGates       = "Gates"
@@ -130,12 +131,12 @@ type AgentConfig struct {
 		Timeout         string
 		MaxContext      int
 		MaxBudgetTokens int // 0 = unlimited
+		MaxTurns        int // 0 = unlimited
 	}
-	Tools            []string
-	SuccessCriteria  []string
-	Metadata         map[string]interface{}
+	Tools           []string
+	SuccessCriteria []string
+	Metadata        map[string]interface{}
 	ExtendedThinking bool
-	MaxTurns         int // Deprecated: No turn limit, only max_inactive stops execution
 }
 
 // GetProjectRoots returns all known project roots
@@ -705,6 +706,7 @@ func parseMarkdownConfig(data []byte, roleName string) (*AgentConfig, string, er
 			Timeout         string
 			MaxContext      int
 			MaxBudgetTokens int // 0 = unlimited
+			MaxTurns        int // 0 = unlimited
 		}{
 			Mode:            defaultDelegation,
 			Timeout:         defaultTimeout,
@@ -758,6 +760,8 @@ func parseMarkdownConfig(data []byte, roleName string) (*AgentConfig, string, er
 				fmt.Sscanf(value, "%d", &config.Delegation.MaxContext)
 			case configFieldMaxBudgetTokens:
 				fmt.Sscanf(value, "%d", &config.Delegation.MaxBudgetTokens)
+			case configFieldMaxTurns:
+				fmt.Sscanf(value, "%d", &config.Delegation.MaxTurns)
 			case configFieldDelegation:
 				config.Delegation.Mode = value
 			case configFieldTools:
@@ -1819,6 +1823,12 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 
 		// Increment turn counter
 		turn++
+
+		// Enforce turn budget
+		if config.Delegation.MaxTurns > 0 && turn > config.Delegation.MaxTurns {
+			logMsg(fmt.Sprintf("❌ Turn budget exhausted: %d turns reached (limit: %d)", turn-1, config.Delegation.MaxTurns))
+			return finalResult.String(), fmt.Errorf("turn budget exceeded: %d turns (limit: %d)", turn-1, config.Delegation.MaxTurns)
+		}
 	}
 
 	monitoring.GlobalMetrics.IncrementAPICallsSuccess()

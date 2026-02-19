@@ -72,6 +72,21 @@ func NewPerformanceGradeModelSelector(projectID string, defaultModel string, ope
 
 // SelectModel uses performance grades to select the best model
 func (s *PerformanceGradeModelSelector) SelectModel(role string, requestedModel string) (model string, provider string, err error) {
+	// If a specific model is explicitly requested (e.g. from role config), honor it.
+	// The grade selector only provides defaults when no model is pinned.
+	if requestedModel != "" {
+		if strings.HasPrefix(strings.ToLower(requestedModel), "gpt-") {
+			if !s.openaiAvailable {
+				monitoring.Logger.Warn("openai_not_available_fallback",
+					"requested", requestedModel,
+					"falling_back_to", s.defaultModel)
+				return s.defaultModel, "anthropic", nil
+			}
+			return requestedModel, "openai", nil
+		}
+		return requestedModel, "anthropic", nil
+	}
+
 	// If no performance-grade selector available, fall back to default
 	if s.gradeSelector == nil {
 		monitoring.Logger.Warn("performance_grade_selector_not_initialized", "falling_back_to", s.defaultModel)
