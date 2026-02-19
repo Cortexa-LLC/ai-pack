@@ -19,9 +19,18 @@ func NewModelSelector(server *AgentServer) *ModelSelector {
 
 // SelectProviderWithFallback selects the best available provider for a model
 // Priority: GPT-5.2 → GPT-5.2-mini → GPT-4o-mini → Claude Sonnet
+// Note: gpt-4o is excluded — demonstrated unreliable tool use (false positive completions)
 func (ms *ModelSelector) SelectProviderWithFallback(requestedModel string) (LLMProvider, string, error) {
 	// Check if model is OpenAI (gpt-*)
 	if strings.HasPrefix(requestedModel, "gpt-") {
+		// gpt-4o is excluded — demonstrated unreliable tool use (false positive completions)
+		if requestedModel == "gpt-4o" {
+			monitoring.Logger.Warn("model_excluded",
+				"requested", requestedModel,
+				"reason", "unreliable_tool_use",
+				"redirect", "gpt-5.2-mini")
+			requestedModel = "gpt-5.2-mini"
+		}
 		// Check if OpenAI is available
 		if ms.server.openaiProvider != nil {
 			monitoring.Logger.Info("model_selected", "requested", requestedModel, "provider", "openai")
@@ -75,6 +84,7 @@ func (ms *ModelSelector) RecommendModel(taskDescription string) string {
 	}
 
 	// Recommend based on task type (OpenAI available)
+	// Note: gpt-4o intentionally excluded — unreliable tool use
 	switch {
 	case isCritical:
 		// Critical tasks - use Claude Sonnet for maximum reliability
@@ -183,10 +193,8 @@ func (ms *ModelSelector) GetFallbackChain(failedModel string) []string {
 	if ms.server.openaiProvider != nil {
 		switch failedModel {
 		case "gpt-5.2":
-			return []string{"gpt-5.2-mini", "gpt-4o", ms.server.model}
+			return []string{"gpt-5.2-mini", ms.server.model}
 		case "gpt-5.2-mini":
-			return []string{"gpt-4o-mini", ms.server.model}
-		case "gpt-4o":
 			return []string{"gpt-4o-mini", ms.server.model}
 		case "gpt-4o-mini":
 			return []string{ms.server.model}
