@@ -57,12 +57,20 @@ func (r *mutationResolver) RetryTask(ctx context.Context, taskID string) (*Retry
 
 // CloseTask is the resolver for the closeTask field.
 func (r *mutationResolver) CloseTask(ctx context.Context, taskID string) (*CloseResult, error) {
-	// TODO: Implement close task logic
-	return &CloseResult{
-		Success: true,
-		TaskID:  taskID,
-		Message: nil,
-	}, nil
+	if err := r.server.CloseTask(taskID); err != nil {
+		msg := err.Error()
+		return &CloseResult{Success: false, TaskID: taskID, Message: &msg}, nil
+	}
+	return &CloseResult{Success: true, TaskID: taskID, Message: nil}, nil
+}
+
+// DeleteTask is the resolver for the deleteTask field.
+func (r *mutationResolver) DeleteTask(ctx context.Context, taskID string) (*DeleteResult, error) {
+	if err := r.server.DeleteTask(taskID); err != nil {
+		msg := err.Error()
+		return &DeleteResult{Success: false, TaskID: taskID, Message: &msg}, nil
+	}
+	return &DeleteResult{Success: true, TaskID: taskID, Message: nil}, nil
 }
 
 // Health is the resolver for the health field.
@@ -408,112 +416,6 @@ func (r *subscriptionResolver) MetricsUpdated(ctx context.Context) (<-chan *Metr
 	return ch, nil
 }
 
-// Helper functions for task conversion
-
-// convertTaskInfoToAgentTask converts a TaskInfo to a GraphQL AgentTask
-func convertTaskInfoToAgentTask(taskInfo *TaskInfo) *AgentTask {
-	// Convert metadata from map[string]string to map[string]interface{}
-	metadata := make(map[string]interface{})
-	for k, v := range taskInfo.Metadata {
-		metadata[k] = v
-	}
-
-	return &AgentTask{
-		TaskID:      taskInfo.TaskID,
-		Role:        taskInfo.Role,
-		Task:        taskInfo.Task,
-		Status:      taskInfo.Status,
-		CreatedAt:   taskInfo.CreatedAt,
-		UpdatedAt:   taskInfo.UpdatedAt,
-		CompletedAt: taskInfo.CompletedAt,
-		Result:      taskInfo.Result,
-		Error:       taskInfo.Error,
-		Metadata:    metadata,
-		ProjectRoot: taskInfo.ProjectRoot,
-	}
-}
-
-// Helper functions for performance grade conversion
-
-// convertMonitoringGrade converts a monitoring.PerformanceGrade to a GraphQL PerformanceGrade
-func convertMonitoringGrade(mg *monitoring.PerformanceGrade) *PerformanceGrade {
-	return &PerformanceGrade{
-		ModelID:              mg.ModelID,
-		RoleID:               mg.RoleID,
-		ProjectID:            mg.ProjectID,
-		TotalAttempts:        mg.TotalAttempts,
-		Successes:            mg.Successes,
-		Failures:             mg.Failures,
-		Retries:              mg.Retries,
-		SuccessRate:          mg.SuccessRate,
-		RetryRate:            mg.RetryRate,
-		Grade:                mg.Grade,
-		ConfidenceScore:      mg.ConfidenceScore,
-		AverageTokens:        mg.AverageTokens,
-		AverageExecutionTime: mg.AverageExecutionTime,
-		EscalationCount:      mg.EscalationCount,
-		DowngradeCount:       mg.DowngradeCount,
-		LastUsed:             mg.LastUsed.Format(time.RFC3339),
-		FirstUsed:            mg.FirstUsed.Format(time.RFC3339),
-	}
-}
-
-// calculateCostSavings calculates cost savings from metrics
-func calculateCostSavings() *CostSavings {
-	if monitoring.GlobalMetrics == nil {
-		return &CostSavings{
-			BaselineCost:   0,
-			ActualCost:     0,
-			Savings:        0,
-			SavingsPercent: 0,
-			TotalTasks:     0,
-			AvgCostPerTask: 0,
-		}
-	}
-
-	metrics := monitoring.GlobalMetrics.GetSnapshot()
-
-	// Estimate costs from token usage
-	// Pricing estimates (per 1M tokens):
-	// Sonnet: $3 input, $15 output
-	// Haiku: $0.25 input, $1.25 output
-	// Assuming 2:1 ratio of input:output
-	inputTokens := float64(metrics.TotalInputTokens)
-	outputTokens := float64(metrics.TotalOutputTokens)
-
-	// Estimated actual cost (assuming mixed usage)
-	// Use average pricing between Sonnet and Haiku
-	avgInputCostPer1M := 1.625  // ($3 + $0.25) / 2
-	avgOutputCostPer1M := 8.125 // ($15 + $1.25) / 2
-	actualCost := (inputTokens/1000000)*avgInputCostPer1M + (outputTokens/1000000)*avgOutputCostPer1M
-
-	// Baseline assumes all tasks used Sonnet (most expensive)
-	sonnetInputCostPer1M := 3.0
-	sonnetOutputCostPer1M := 15.0
-	baselineCost := (inputTokens/1000000)*sonnetInputCostPer1M + (outputTokens/1000000)*sonnetOutputCostPer1M
-
-	savings := baselineCost - actualCost
-	savingsPercent := 0.0
-	if baselineCost > 0 {
-		savingsPercent = (savings / baselineCost) * 100
-	}
-
-	totalTasks := float64(metrics.TasksCompleted)
-	avgCostPerTask := 0.0
-	if totalTasks > 0 {
-		avgCostPerTask = actualCost / totalTasks
-	}
-
-	return &CostSavings{
-		BaselineCost:   baselineCost,
-		ActualCost:     actualCost,
-		Savings:        savings,
-		SavingsPercent: savingsPercent,
-		TotalTasks:     int(totalTasks),
-		AvgCostPerTask: avgCostPerTask,
-	}
-}
-
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
@@ -526,3 +428,107 @@ func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionRes
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+
+func convertTaskInfoToAgentTask(taskInfo *TaskInfo) *AgentTask {
+// Convert metadata from map[string]string to map[string]interface{}
+metadata := make(map[string]interface{})
+for k, v := range taskInfo.Metadata {
+	metadata[k] = v
+}
+
+return &AgentTask{
+	TaskID:      taskInfo.TaskID,
+	Role:        taskInfo.Role,
+	Task:        taskInfo.Task,
+	Status:      taskInfo.Status,
+	CreatedAt:   taskInfo.CreatedAt,
+	UpdatedAt:   taskInfo.UpdatedAt,
+	CompletedAt: taskInfo.CompletedAt,
+	Result:      taskInfo.Result,
+	Error:       taskInfo.Error,
+	Metadata:    metadata,
+	ProjectRoot: taskInfo.ProjectRoot,
+}
+}
+func convertMonitoringGrade(mg *monitoring.PerformanceGrade) *PerformanceGrade {
+return &PerformanceGrade{
+	ModelID:              mg.ModelID,
+	RoleID:               mg.RoleID,
+	ProjectID:            mg.ProjectID,
+	TotalAttempts:        mg.TotalAttempts,
+	Successes:            mg.Successes,
+	Failures:             mg.Failures,
+	Retries:              mg.Retries,
+	SuccessRate:          mg.SuccessRate,
+	RetryRate:            mg.RetryRate,
+	Grade:                mg.Grade,
+	ConfidenceScore:      mg.ConfidenceScore,
+	AverageTokens:        mg.AverageTokens,
+	AverageExecutionTime: mg.AverageExecutionTime,
+	EscalationCount:      mg.EscalationCount,
+	DowngradeCount:       mg.DowngradeCount,
+	LastUsed:             mg.LastUsed.Format(time.RFC3339),
+	FirstUsed:            mg.FirstUsed.Format(time.RFC3339),
+}
+}
+func calculateCostSavings() *CostSavings {
+if monitoring.GlobalMetrics == nil {
+	return &CostSavings{
+		BaselineCost:   0,
+		ActualCost:     0,
+		Savings:        0,
+		SavingsPercent: 0,
+		TotalTasks:     0,
+		AvgCostPerTask: 0,
+	}
+}
+
+metrics := monitoring.GlobalMetrics.GetSnapshot()
+
+// Estimate costs from token usage
+// Pricing estimates (per 1M tokens):
+// Sonnet: $3 input, $15 output
+// Haiku: $0.25 input, $1.25 output
+// Assuming 2:1 ratio of input:output
+inputTokens := float64(metrics.TotalInputTokens)
+outputTokens := float64(metrics.TotalOutputTokens)
+
+// Estimated actual cost (assuming mixed usage)
+// Use average pricing between Sonnet and Haiku
+avgInputCostPer1M := 1.625  // ($3 + $0.25) / 2
+avgOutputCostPer1M := 8.125 // ($15 + $1.25) / 2
+actualCost := (inputTokens/1000000)*avgInputCostPer1M + (outputTokens/1000000)*avgOutputCostPer1M
+
+// Baseline assumes all tasks used Sonnet (most expensive)
+sonnetInputCostPer1M := 3.0
+sonnetOutputCostPer1M := 15.0
+baselineCost := (inputTokens/1000000)*sonnetInputCostPer1M + (outputTokens/1000000)*sonnetOutputCostPer1M
+
+savings := baselineCost - actualCost
+savingsPercent := 0.0
+if baselineCost > 0 {
+	savingsPercent = (savings / baselineCost) * 100
+}
+
+totalTasks := float64(metrics.TasksCompleted)
+avgCostPerTask := 0.0
+if totalTasks > 0 {
+	avgCostPerTask = actualCost / totalTasks
+}
+
+return &CostSavings{
+	BaselineCost:   baselineCost,
+	ActualCost:     actualCost,
+	Savings:        savings,
+	SavingsPercent: savingsPercent,
+	TotalTasks:     int(totalTasks),
+	AvgCostPerTask: avgCostPerTask,
+}
+}

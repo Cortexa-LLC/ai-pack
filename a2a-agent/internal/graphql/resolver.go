@@ -17,6 +17,7 @@ type ServerInterface interface {
 	SpawnAgent(role, task, projectRoot string) (*TaskInfo, error)
 	CancelTask(taskID string) error
 	CloseTask(taskID string) error
+	DeleteTask(taskID string) error
 	GetMetrics() *MetricsInfo
 	GetProjectCostsData() ([]map[string]interface{}, error)
 }

@@ -54,7 +54,7 @@ func TestHandleLogsStreamSSEHeaders(t *testing.T) {
 	}()
 
 	// Give it time to write headers and start streaming
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 
 	// Get response (headers should be written by now)
 	resp := w.Result()
@@ -109,7 +109,7 @@ func TestHandleLogsStreamConnectedEvent(t *testing.T) {
 	}()
 
 	// Give it time to send connected event
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 
 	resp := w.Result()
 
@@ -189,8 +189,8 @@ func TestHandleLogsStreamLogEvents(t *testing.T) {
 		server.HandleLogsStream(w, req)
 	}()
 
-	// Give stream time to start
-	time.Sleep(50 * time.Millisecond)
+	// Give stream time to start and subscribe to log buffer
+	time.Sleep(10 * time.Millisecond)
 
 	// Generate some log entries
 	logBuffer := monitoring.GetLogBuffer()
@@ -203,8 +203,8 @@ func TestHandleLogsStreamLogEvents(t *testing.T) {
 		},
 	})
 
-	// Give time for event to be sent
-	time.Sleep(100 * time.Millisecond)
+	// Give time for event to be delivered via channel and written to recorder
+	time.Sleep(10 * time.Millisecond)
 
 	resp := w.Result()
 	defer resp.Body.Close()

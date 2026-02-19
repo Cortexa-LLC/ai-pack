@@ -99,12 +99,20 @@ func (s *AgentServer) streamActiveTaskFromChannel(ctx context.Context, w http.Re
 		"message": "Stream connected (live)",
 	})
 
+	// Heartbeat keeps the connection alive through proxies and prevents client inactivity timeouts.
+	heartbeat := time.NewTicker(30 * time.Second)
+	defer heartbeat.Stop()
+
 	// Stream events from channel
 	for {
 		select {
 		case <-ctx.Done():
 			// Client disconnected
 			return
+		case <-heartbeat.C:
+			// SSE comment — ignored by clients but resets TCP/proxy idle timers
+			fmt.Fprintf(w, ": heartbeat\n\n")
+			flusher.Flush()
 		case event, ok := <-execution.streamChan:
 			if !ok {
 				// Channel closed, task completed

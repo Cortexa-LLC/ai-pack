@@ -641,6 +641,62 @@ func (a *GraphQLAdapter) CloseTask(taskID string) error {
 	return fmt.Errorf("task not found in any known project: %s", taskID)
 }
 
+// DeleteTask permanently removes a task via `bd delete` and cleans up local state.
+func (a *GraphQLAdapter) DeleteTask(taskID string) error {
+	// Find the project root for this task (needed to set working directory for bd)
+	projectRoot := a.findProjectRootForTask(taskID)
+
+	// Run bd delete — this removes the task from the Beads database entirely
+	cmd := exec.Command("bd", "delete", taskID)
+	if projectRoot != "" {
+		cmd.Dir = projectRoot
+	}
+	if out, err := cmd.CombinedOutput(); err != nil {
+		monitoring.Logger.Warn("bd_delete_failed",
+			"task_id", taskID,
+			"error", err.Error(),
+			"output", string(out))
+		// Don't return — still clean up local state
+	} else {
+		monitoring.Logger.Info("bd_delete_succeeded", "task_id", taskID)
+	}
+
+	// Remove from in-memory active tasks
+	a.server.mu.Lock()
+	delete(a.server.activeTasks, taskID)
+	a.server.mu.Unlock()
+
+	// Remove metadata directory from disk if present
+	if projectRoot != "" {
+		metadataDir := filepath.Join(projectRoot, ".beads", "tasks", taskID)
+		if err := os.RemoveAll(metadataDir); err != nil {
+			monitoring.Logger.Warn("failed_to_remove_task_metadata_dir",
+				"task_id", taskID, "path", metadataDir, "error", err.Error())
+		}
+	}
+
+	return nil
+}
+
+// findProjectRootForTask returns the project root for a task, or "" if not found.
+func (a *GraphQLAdapter) findProjectRootForTask(taskID string) string {
+	a.server.mu.RLock()
+	if execution, exists := a.server.activeTasks[taskID]; exists {
+		root := execution.ProjectRoot
+		a.server.mu.RUnlock()
+		return root
+	}
+	a.server.mu.RUnlock()
+
+	for projectRoot := range a.server.projectRoots {
+		metadataPath := filepath.Join(projectRoot, ".beads", "tasks", taskID, "metadata.json")
+		if _, err := os.Stat(metadataPath); err == nil {
+			return projectRoot
+		}
+	}
+	return ""
+}
+
 // GetProjectCostsData returns cost data for all projects
 func (a *GraphQLAdapter) GetProjectCostsData() ([]map[string]interface{}, error) {
 	return a.server.GetProjectCostsData()

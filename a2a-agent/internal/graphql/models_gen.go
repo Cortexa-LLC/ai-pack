@@ -40,6 +40,12 @@ type CostSavings struct {
 	AvgCostPerTask float64 `json:"avgCostPerTask"`
 }
 
+type DeleteResult struct {
+	Success bool    `json:"success"`
+	TaskID  string  `json:"taskID"`
+	Message *string `json:"message,omitempty"`
+}
+
 type ExecutionEvent struct {
 	EventType  string         `json:"eventType"`
 	TaskID     string         `json:"taskID"`

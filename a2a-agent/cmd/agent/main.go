@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -68,7 +69,8 @@ func main() {
 	}
 }
 
-func parseSpawnFlags(args []string) (role, taskInput string, wait, stream bool) {
+func parseSpawnFlags(args []string) (role, taskInput string, wait, stream bool, inactiveTimeout time.Duration) {
+	inactiveTimeout = 2 * time.Minute // default: server heartbeats every 30s, so 2m = ~4 missed beats
 	var positionalArgs []string
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -78,13 +80,23 @@ func parseSpawnFlags(args []string) (role, taskInput string, wait, stream bool) 
 			stream = true
 		} else if arg == "--async" {
 			// Reserved for future use, ignore
+		} else if strings.HasPrefix(arg, "--inactive-timeout=") {
+			val := strings.TrimPrefix(arg, "--inactive-timeout=")
+			if d, err := time.ParseDuration(val); err == nil {
+				inactiveTimeout = d
+			}
+		} else if arg == "--inactive-timeout" && i+1 < len(args) {
+			i++
+			if d, err := time.ParseDuration(args[i]); err == nil {
+				inactiveTimeout = d
+			}
 		} else {
 			positionalArgs = append(positionalArgs, arg)
 		}
 	}
 
 	if len(positionalArgs) < 2 {
-		fmt.Println("Usage: agent <role> <beads-task-id> [--wait|--stream]")
+		fmt.Println("Usage: agent <role> <beads-task-id> [--wait|--stream] [--inactive-timeout 20m]")
 		os.Exit(1)
 	}
 
@@ -110,7 +122,7 @@ func validateBeadsTaskOrExit(taskInput, role string) {
 }
 
 func handleSpawn(args []string) {
-	role, taskInput, wait, stream := parseSpawnFlags(args)
+	role, taskInput, wait, stream, inactiveTimeout := parseSpawnFlags(args)
 	validateBeadsTaskOrExit(taskInput, role)
 
 	fmt.Printf("🎯 Beads task: %s\n", taskInput)
@@ -195,81 +207,7 @@ func handleSpawn(args []string) {
 	if stream {
 		fmt.Println()
 		fmt.Println("📡 Streaming real-time progress...")
-		// Use internal task ID directly for streaming
-		streamURL := fmt.Sprintf("%s/stream/%s", ServerURL, internalTaskID)
-		resp, err := http.Get(streamURL)
-		if err != nil {
-			fmt.Printf("❌ Failed to connect to stream: %v\n", err)
-			os.Exit(1)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != 200 {
-			fmt.Printf("❌ Stream connection failed with status %d\n", resp.StatusCode)
-			os.Exit(1)
-		}
-
-		fmt.Printf("✓ Connected to task stream: %s\n", internalTaskID)
-		fmt.Println()
-
-		// Read SSE events
-		buffer := make([]byte, 8192)
-		dataBuffer := ""
-
-		for {
-			n, err := resp.Body.Read(buffer)
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				fmt.Printf("⚠️  Stream read error: %v\n", err)
-				break
-			}
-
-			dataBuffer += string(buffer[:n])
-
-			for {
-				idx := strings.Index(dataBuffer, "\n\n")
-				if idx == -1 {
-					break
-				}
-
-				message := dataBuffer[:idx]
-				dataBuffer = dataBuffer[idx+2:]
-
-				if strings.HasPrefix(message, sseDataPrefix) {
-					jsonData := strings.TrimPrefix(message, sseDataPrefix)
-
-					var event map[string]interface{}
-					if err := json.Unmarshal([]byte(jsonData), &event); err != nil {
-						continue
-					}
-
-					eventType, _ := event["type"].(string)
-					timestamp, _ := event["timestamp"].(string)
-					data, _ := event["data"].(map[string]interface{})
-
-					switch eventType {
-					case "status_update":
-						status, _ := data["status"].(string)
-						progress, _ := data["progress"].(float64)
-						fmt.Printf("[%s] Status: %s (%.0f%%)\n", timestamp, status, progress*100)
-					case "completed":
-						fmt.Printf("[%s] 🎉 Task completed!\n", timestamp)
-						fmt.Println()
-						showMetrics()
-						return
-					case "failed":
-						errorMsg, _ := data["error"].(string)
-						fmt.Printf("[%s] ❌ Task failed: %s\n", timestamp, errorMsg)
-						os.Exit(1)
-					}
-				}
-			}
-		}
-		fmt.Println()
-		fmt.Println("✓ Stream closed")
-		showMetrics()
+		streamTaskProgressWithInactivity(internalTaskID, inactiveTimeout)
 		return
 	}
 
@@ -277,7 +215,14 @@ func handleSpawn(args []string) {
 	if wait {
 		fmt.Println()
 		fmt.Println("⏳ Waiting for completion...")
+		deadline := time.Now().Add(4 * time.Hour)
+		consecutiveNotFound := 0
 		for {
+			if time.Now().After(deadline) {
+				fmt.Println("⏰ Timeout: task did not complete within 4h")
+				break
+			}
+
 			resp, err := http.Get(fmt.Sprintf("%s/a2a/status/%s", ServerURL, internalTaskID))
 			if err != nil {
 				time.Sleep(2 * time.Second)
@@ -286,6 +231,17 @@ func handleSpawn(args []string) {
 
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
+
+			if resp.StatusCode == http.StatusNotFound {
+				consecutiveNotFound++
+				if consecutiveNotFound >= 3 {
+					fmt.Println("❌ Task no longer exists on server (server may have restarted)")
+					break
+				}
+				time.Sleep(2 * time.Second)
+				continue
+			}
+			consecutiveNotFound = 0
 
 			var status map[string]interface{}
 			if err := json.Unmarshal(body, &status); err != nil {
@@ -943,13 +899,18 @@ func handleListLocalDeprecated(args []string) {
 }
 
 func handleWait(args []string) {
-	if len(args) < 1 {
-		fmt.Println("Usage: agent wait <task-id>")
+	fs := flag.NewFlagSet("wait", flag.ExitOnError)
+	timeout := fs.Duration("timeout", 4*time.Hour, "Maximum time to wait before giving up (e.g. 30m, 2h)")
+	fs.Parse(args)
+
+	remaining := fs.Args()
+	if len(remaining) < 1 {
+		fmt.Println("Usage: agent wait [--timeout 4h] <task-id>")
 		os.Exit(1)
 	}
 
-	taskID := args[0]
-	waitForTaskCompletion(taskID)
+	taskID := remaining[0]
+	waitForTaskCompletion(taskID, *timeout)
 }
 
 func handleDiff(args []string) {
@@ -1437,69 +1398,65 @@ func truncateDescription(desc string, maxLen int) string {
 	return firstLine
 }
 
-func streamTaskProgress(beadsTaskID string) {
-	// Try to find task ID by querying server first (for cross-project tasks)
-	internalTaskID := findInternalTaskIDFromServer(beadsTaskID)
+// streamTaskProgressWithInactivity streams SSE events for internalTaskID and exits if
+// no data arrives for longer than inactiveTimeout (default 2m).
+//
+// The server sends ": heartbeat" SSE comments every 30s. Any received bytes —
+// including heartbeat bytes — reset the inactivity timer. So the timer only
+// fires when the server is genuinely unreachable (dead process, network partition),
+// not when an agent is simply between turns.
+func streamTaskProgressWithInactivity(internalTaskID string, inactiveTimeout time.Duration) {
+	streamURL := fmt.Sprintf("%s/stream/%s", ServerURL, internalTaskID)
 
-	// Fallback: Look up internal task ID from local filesystem
-	if internalTaskID == "" {
-		internalTaskID = findInternalTaskID(beadsTaskID)
-	}
-	if internalTaskID == "" {
-		// Check if this is a Beads task that's already completed
-		if isValidBeadsTask(beadsTaskID) {
-			cmd := exec.Command("bd", "show", beadsTaskID, "--json")
-			output, err := cmd.Output()
-			if err == nil {
-				var beadsTask map[string]interface{}
-				if json.Unmarshal(output, &beadsTask) == nil {
-					if status, ok := beadsTask["status"].(string); ok {
-						if status == "closed" || status == "completed" {
-							fmt.Printf("✅ Task already completed: %s\n", beadsTaskID)
-							os.Exit(0)
-						}
-					}
-				}
-			}
-		}
-		fmt.Printf("❌ No agent found for Beads task: %s\n", beadsTaskID)
-		fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", beadsTaskID)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, streamURL, nil)
+	if err != nil {
+		fmt.Printf("❌ Failed to build stream request: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Connect to SSE stream endpoint
-	streamURL := fmt.Sprintf("%s/stream/%s", ServerURL, internalTaskID)
-	resp, err := http.Get(streamURL)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		fmt.Printf("❌ Failed to connect to stream: %v\n", err)
 		os.Exit(1)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		fmt.Printf("❌ Stream connection failed with status %d\n", resp.StatusCode)
 		os.Exit(1)
 	}
 
 	fmt.Printf("✓ Connected to task stream: %s\n", internalTaskID)
+	fmt.Printf("  (inactivity timeout: %v)\n", inactiveTimeout)
 	fmt.Println()
 
-	// Read SSE events line by line
-	// SSE format: "data: {...}\n\n"
+	// Cancel context (and thus close the HTTP body) if no data arrives within the window.
+	inactivityTimer := time.AfterFunc(inactiveTimeout, func() {
+		fmt.Printf("\n⏰ Stream inactive for %v — disconnecting\n", inactiveTimeout)
+		cancel()
+	})
+	defer inactivityTimer.Stop()
+
 	buffer := make([]byte, 8192)
 	dataBuffer := ""
 
 	for {
 		n, err := resp.Body.Read(buffer)
+		if n > 0 {
+			// Reset inactivity timer whenever any bytes arrive
+			inactivityTimer.Reset(inactiveTimeout)
+			dataBuffer += string(buffer[:n])
+		}
 		if err != nil {
-			if err == io.EOF {
+			if err == io.EOF || ctx.Err() != nil {
 				break
 			}
 			fmt.Printf("⚠️  Stream read error: %v\n", err)
 			break
 		}
-
-		dataBuffer += string(buffer[:n])
 
 		// Process complete SSE messages (terminated by "\n\n")
 		for {
@@ -1511,7 +1468,11 @@ func streamTaskProgress(beadsTaskID string) {
 			message := dataBuffer[:idx]
 			dataBuffer = dataBuffer[idx+2:]
 
-			// Parse SSE event
+			// Skip SSE comments (keepalives: ": heartbeat")
+			if strings.HasPrefix(message, ":") {
+				continue
+			}
+
 			if strings.HasPrefix(message, sseDataPrefix) {
 				jsonData := strings.TrimPrefix(message, sseDataPrefix)
 
@@ -1520,7 +1481,6 @@ func streamTaskProgress(beadsTaskID string) {
 					continue
 				}
 
-				// Display event based on type
 				eventType, _ := event["type"].(string)
 				timestamp, _ := event["timestamp"].(string)
 				data, _ := event["data"].(map[string]interface{})
@@ -1549,7 +1509,6 @@ func streamTaskProgress(beadsTaskID string) {
 					os.Exit(1)
 
 				default:
-					// Log unknown events for debugging
 					fmt.Printf("[%s] %s\n", timestamp, eventType)
 				}
 			}
@@ -1561,7 +1520,7 @@ func streamTaskProgress(beadsTaskID string) {
 	showMetrics()
 }
 
-func waitForTaskCompletion(beadsTaskID string) {
+func waitForTaskCompletion(beadsTaskID string, timeout time.Duration) {
 	// Look up internal task ID from Beads task ID
 	internalTaskID := findInternalTaskID(beadsTaskID)
 	if internalTaskID == "" {
@@ -1586,7 +1545,15 @@ func waitForTaskCompletion(beadsTaskID string) {
 		os.Exit(1)
 	}
 
+	deadline := time.Now().Add(timeout)
+	consecutiveNotFound := 0
+
 	for {
+		if time.Now().After(deadline) {
+			fmt.Printf("⏰ Timeout: task %s did not complete within %v\n", beadsTaskID, timeout)
+			os.Exit(1)
+		}
+
 		resp, err := http.Get(fmt.Sprintf("%s/a2a/status/%s", ServerURL, internalTaskID))
 		if err != nil {
 			time.Sleep(2 * time.Second)
@@ -1595,6 +1562,17 @@ func waitForTaskCompletion(beadsTaskID string) {
 
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
+
+		if resp.StatusCode == http.StatusNotFound {
+			consecutiveNotFound++
+			if consecutiveNotFound >= 3 {
+				fmt.Printf("❌ Task %s no longer exists on server (server may have restarted)\n", beadsTaskID)
+				os.Exit(1)
+			}
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		consecutiveNotFound = 0
 
 		var status map[string]interface{}
 		if err := json.Unmarshal(body, &status); err != nil {
@@ -1796,7 +1774,7 @@ func usage() {
 	fmt.Println("  agent logs <task-id> [--tail N] [--follow] [--json] Show agent logs")
 	fmt.Println("  agent logs --server [--tail N] [--follow] [--json]  Show server logs")
 	fmt.Println("  agent list [--all|--running|--completed|--failed] [--verbose|--json|--server] List agents")
-	fmt.Println("  agent wait <task-id>                                Wait for completion")
+	fmt.Println("  agent wait [--timeout 4h] <task-id>                Wait for completion")
 	fmt.Println("  agent diff <task-id>                                Show git diff")
 	fmt.Println("  agent files <task-id>                               List modified files")
 	fmt.Println("  agent cancel|stop <task-id>                         Cancel a running task")
