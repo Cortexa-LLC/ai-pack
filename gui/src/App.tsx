@@ -90,6 +90,8 @@ function App() {
   const { data: tasksData, isLoading: tasksLoading, isError: tasksError, refetch: refetchTasks } = useTasks();
   const { data: detailedMetrics } = useDetailedMetrics();
   const [serverVersion, setServerVersion] = useState<string | null>(null);
+  const [serverHealth, setServerHealth] = useState<{ version?: string; commit?: string; build_time?: string } | null>(null);
+  const [showAbout, setShowAbout] = useState(false);
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'tasks' | 'server-logs' | 'task-logs' | 'performance'>('tasks');
@@ -106,6 +108,7 @@ function App() {
   useEffect(() => {
     fetch('/health').then(r => r.json()).then(data => {
       if (data.version) setServerVersion(`${data.version}-${data.commit || 'unknown'}`);
+      setServerHealth(data);
     }).catch(() => {});
   }, []);
 
@@ -787,10 +790,14 @@ function App() {
       {/* Header */}
       <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <button
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
+            onClick={() => setShowAbout(true)}
+            title="About AI-Pack"
+          >
             <img src="/logo.png" alt="AI-Pack" className="h-8 w-8" />
             <h1 className="text-xl font-bold">AI-Pack Console</h1>
-          </div>
+          </button>
           <div className="text-xs text-gray-500 font-mono">
             gui {__APP_VERSION__}-{__GIT_COMMIT__}{serverVersion ? ` · server ${serverVersion}` : ''}
           </div>
@@ -2119,6 +2126,52 @@ function App() {
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
               >
                 OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAbout && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowAbout(false)}>
+          <div className="bg-gray-800 rounded-lg shadow-xl p-8 max-w-md w-full mx-4 border border-gray-700" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-4 mb-6">
+              <img src="/logo.png" alt="AI-Pack" className="h-14 w-14" />
+              <div>
+                <h2 className="text-2xl font-bold text-white">AI-Pack</h2>
+                <p className="text-gray-400 text-sm">Multi-Agent Development Console</p>
+              </div>
+            </div>
+            <div className="space-y-2 text-sm font-mono mb-6">
+              <div className="flex justify-between">
+                <span className="text-gray-500">GUI version</span>
+                <span className="text-gray-200">{__APP_VERSION__}-{__GIT_COMMIT__}</span>
+              </div>
+              {serverHealth && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Server version</span>
+                    <span className="text-gray-200">{serverHealth.version}-{serverHealth.commit}</span>
+                  </div>
+                  {serverHealth.build_time && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Built</span>
+                      <span className="text-gray-200">{serverHealth.build_time.replace('_', ' ')}</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="border-t border-gray-700 pt-4 space-y-1 text-xs text-gray-500">
+              <p>Copyright © {new Date().getFullYear()} Cortexa LLC. All rights reserved.</p>
+              <p>Licensed under the MIT License.</p>
+            </div>
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowAbout(false)}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>
