@@ -394,6 +394,14 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 	// Get all project roots to scan (server root + registered projects)
 	projectRoots := s.GetProjectRoots()
 
+	// Build set of beads IDs already covered by active in-memory tasks
+	activeBeadsIDs := make(map[string]bool)
+	for _, task := range tasksMap {
+		if task.BeadsTaskID != "" {
+			activeBeadsIDs[task.BeadsTaskID] = true
+		}
+	}
+
 	// Then, get beads tasks from each project using bd list
 	beadsClient := s.beadsClient
 	for _, projectRoot := range projectRoots {
@@ -405,8 +413,8 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 		// Convert beads tasks to TaskInfo
 		for _, beadsTask := range beadsTasks {
 			taskID := beadsTask.ID
-			// Skip if already in tasks map (active tasks take precedence)
-			if _, exists := tasksMap[taskID]; exists {
+			// Skip if already in tasks map by full ID or by beads ID
+			if _, exists := tasksMap[taskID]; exists || activeBeadsIDs[taskID] {
 				continue
 			}
 
@@ -424,6 +432,7 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 
 			task := TaskInfo{
 				TaskID:      taskID,
+				BeadsTaskID: taskID,
 				Status:      status,
 				Role:        "beads-task",
 				Description: beadsTask.Title,
