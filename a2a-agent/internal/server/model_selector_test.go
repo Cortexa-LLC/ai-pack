@@ -30,23 +30,23 @@ func TestGetFallbackChain(t *testing.T) {
 		expectedChain []string
 	}{
 		{
-			failedModel:   "gpt-5.2",
-			expectedChain: []string{"gpt-5.2-mini", "claude-3-opus-20240229"},
+			failedModel:   "gpt-5.2-codex",
+			expectedChain: []string{"gpt-5.1-codex", "claude-3-opus-20240229"},
 		},
 		{
-			failedModel:   "gpt-5.2-mini",
+			failedModel:   "gpt-5.1-codex",
+			expectedChain: []string{"gpt-5.1-codex-mini", "claude-3-opus-20240229"},
+		},
+		{
+			failedModel:   "gpt-5.1-codex-mini",
+			expectedChain: []string{"gpt-4.1-mini", "claude-3-opus-20240229"},
+		},
+		{
+			failedModel:   "gpt-4.1-mini",
 			expectedChain: []string{"gpt-4o-mini", "claude-3-opus-20240229"},
 		},
 		{
 			failedModel:   "gpt-4o-mini",
-			expectedChain: []string{"codex", "claude-3-opus-20240229"},
-		},
-		{
-			failedModel:   "codex",
-			expectedChain: []string{"codex-mini", "claude-3-opus-20240229"},
-		},
-		{
-			failedModel:   "codex-mini",
 			expectedChain: []string{"claude-3-opus-20240229"},
 		},
 		{
@@ -87,7 +87,7 @@ func TestGetFallbackChainNoOpenAI(t *testing.T) {
 	}
 	ms := &ModelSelector{server: srv}
 
-	tests := []string{"gpt-5.2", "gpt-4o-mini", "codex", "codex-mini", "unknown-model"}
+	tests := []string{"gpt-5.2-codex", "gpt-5.1-codex", "gpt-4.1-mini", "gpt-4o-mini", "unknown-model"}
 
 	for _, failedModel := range tests {
 		t.Run(failedModel, func(t *testing.T) {

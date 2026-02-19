@@ -15,22 +15,20 @@ import (
 // Requests with a higher max_tokens value are rejected by the API with a 400 error.
 const openAIMaxCompletionTokens = 16384
 
-// codexMaxCompletionTokens is the maximum completion tokens supported by codex and codex-mini models.
-const codexMaxCompletionTokens = 8192
-
 // usesMaxCompletionTokens returns true for newer OpenAI models that require the
 // max_completion_tokens field instead of the deprecated max_tokens field.
 func usesMaxCompletionTokens(model string) bool {
 	lower := strings.ToLower(model)
 	return strings.HasPrefix(lower, "o1") ||
 		strings.HasPrefix(lower, "o3") ||
-		strings.Contains(lower, "gpt-5.")
+		strings.HasPrefix(lower, "o4") ||
+		strings.Contains(lower, "gpt-5")
 }
 
-// isCodexModel returns true for codex and codex-mini models.
+// isCodexModel returns true for models in the codex family (e.g. gpt-5.1-codex, gpt-5.2-codex).
 func isCodexModel(model string) bool {
 	lower := strings.ToLower(model)
-	return strings.HasPrefix(lower, "codex")
+	return strings.Contains(lower, "codex")
 }
 
 // openaiPendingToolCall accumulates the streamed arguments for a single tool call.
@@ -74,11 +72,13 @@ func (f *OpenAIFactory) GetProviderName() string {
 	return ProviderOpenAI
 }
 
-// SupportsModel checks if this is a GPT model
+// SupportsModel checks if this is an OpenAI model
 func (f *OpenAIFactory) SupportsModel(model string) bool {
-	return strings.HasPrefix(strings.ToLower(model), "gpt-") ||
-		strings.Contains(strings.ToLower(model), "o1-") ||
-		strings.Contains(strings.ToLower(model), "o3-")
+	lower := strings.ToLower(model)
+	return strings.HasPrefix(lower, "gpt-") ||
+		strings.HasPrefix(lower, "o1") ||
+		strings.HasPrefix(lower, "o3") ||
+		strings.HasPrefix(lower, "o4")
 }
 
 // CreateStream creates an OpenAI streaming provider
@@ -141,13 +141,9 @@ func (f *OpenAIFactory) CreateStream(ctx context.Context, req StreamRequest) (St
 		}
 	}
 
-	// Cap tokens to the appropriate model limit to avoid a 400 error
+	// Cap tokens to avoid a 400 error from the API
 	maxTokens := req.MaxTokens
-	if isCodexModel(req.Model) {
-		if maxTokens > codexMaxCompletionTokens {
-			maxTokens = codexMaxCompletionTokens
-		}
-	} else if maxTokens > openAIMaxCompletionTokens {
+	if maxTokens > openAIMaxCompletionTokens {
 		maxTokens = openAIMaxCompletionTokens
 	}
 

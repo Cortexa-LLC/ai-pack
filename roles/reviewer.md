@@ -2,6 +2,7 @@
 
 **Agent:** reviewer
 **Description:** Code review specialist focused on quality and security
+**Model:** gpt-4.1-mini
 **Timeout:** 10min
 **MaxContext:** 32000
 **Tools:** read, grep, glob, bash

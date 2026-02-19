@@ -186,8 +186,8 @@ func getModelTierInfo() map[string]interface{} {
 			{
 				"tier":        2,
 				"name":        "Low",
-				"models":      []string{"gpt-5.2-mini"},
-				"cost_range":  "$0.60-2.40/1M",
+				"models":      []string{"gpt-4.1-mini"},
+				"cost_range":  "$0.40-1.60/1M",
 				"description": "Good balance for standard work",
 			},
 			{

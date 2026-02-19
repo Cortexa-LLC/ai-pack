@@ -231,8 +231,15 @@ func TestGradeSummary(t *testing.T) {
 		t.Errorf("Expected 3 roles in summary, got %d", len(summary.ByRole))
 	}
 
-	if len(summary.ByModel) != 3 {
-		t.Errorf("Expected 3 models in summary, got %d", len(summary.ByModel))
+	// GetSummary pre-seeds all known catalog models, so ByModel will have at least
+	// the 3 tested models (and likely more from the catalog pre-seeding).
+	for _, model := range models {
+		if _, exists := summary.ByModel[model]; !exists {
+			t.Errorf("Expected model %s to appear in summary", model)
+		}
+	}
+	if len(summary.ByModel) < len(models) {
+		t.Errorf("Expected at least %d models in summary, got %d", len(models), len(summary.ByModel))
 	}
 
 	// Check grade distribution
@@ -283,10 +290,11 @@ func TestConfidenceScore(t *testing.T) {
 				tt.attempts, tt.expectedMinConf, tt.expectedMaxConf, grade.ConfidenceScore)
 		}
 
-		// Reset for next test
-		mgr = &PerformanceGradeManager{
-			grades:     make(map[string]*PerformanceGrade),
-			storageDir: tmpDir,
+		// Reset for next test using a fresh directory so disk state doesn't carry over
+		tmpDir = t.TempDir()
+		mgr, err = NewPerformanceGradeManager(tmpDir, nil)
+		if err != nil {
+			t.Fatalf("Failed to reset grade manager: %v", err)
 		}
 	}
 }
