@@ -4,8 +4,9 @@
 **Description:** Runtime investigation specialist for live system and production issue exploration
 **Model:** claude-sonnet-4-6
 **Timeout:** 10min
+**MaxBudgetTokens:** 0
+**MaxTurns:** 600
 **MaxContext:** 32000
-**MaxBudgetTokens:** 500000
 **Tools:** read, grep, glob, bash, write
 **Delegation:** delegate
 ---
