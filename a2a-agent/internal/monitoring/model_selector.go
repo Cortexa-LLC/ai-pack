@@ -9,7 +9,7 @@ type ModelTier int
 
 const (
 	TierMinimal ModelTier = 1 // gpt-4o-mini, claude-haiku-4-5
-	TierLow     ModelTier = 2 // gpt-4o, gpt-5.2-mini
+	TierLow     ModelTier = 2 // gpt-5.2-mini
 	TierMedium  ModelTier = 3 // claude-sonnet-4-5
 	TierHigh    ModelTier = 4 // claude-opus-4-6
 )
@@ -30,7 +30,6 @@ var ModelsByTier = map[ModelTier][]ModelInfo{
 		{ID: "claude-haiku-4-5", Tier: TierMinimal, Provider: "anthropic", CostPerMIn: 1.00, CostPerMOut: 5.00},
 	},
 	TierLow: {
-		{ID: "gpt-4o", Tier: TierLow, Provider: "openai", CostPerMIn: 2.50, CostPerMOut: 10.00},
 		{ID: "gpt-5.2-mini", Tier: TierLow, Provider: "openai", CostPerMIn: 0.60, CostPerMOut: 2.40},
 	},
 	TierMedium: {
