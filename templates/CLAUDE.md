@@ -5,6 +5,48 @@
 
 ---
 
+## Agent Orientation
+
+> ⚠️ **FILL THIS IN BEFORE SPAWNING ANY AGENT.** This section is what lets orchestrators
+> write precise task briefs on day one. Without it, every agent rediscovers the codebase
+> from scratch — burning 600+ turns and $40+ per task. See `docs/product/cold-start-protocol.md`.
+
+### What this project does
+[One paragraph: what does this codebase build or do?]
+
+### Key directories
+| Path | Purpose |
+|------|---------|
+| `src/` | [what's here] |
+| `tests/` | [what's here] |
+
+### How to build
+```bash
+[exact build command]
+# Expected success: [what success output looks like]
+```
+
+### How to run tests
+```bash
+[exact test command]
+# Expected: [pass/fail signal, e.g. "exit 0, all N tests passing"]
+```
+
+### Key files for agents
+| File | Why agents need to know |
+|------|------------------------|
+| [path/to/file] | [what it does, when agents will touch it] |
+
+### Conventions agents must follow
+- [e.g. "All Go code in a2a-agent/internal/ — no changes outside that path"]
+- [e.g. "Run go build ./... after every change to verify compilation"]
+
+### What agents must NOT do
+- [e.g. "Never delete files without explicit instruction"]
+- [e.g. "Never modify roles/*.md wholesale — append only"]
+
+---
+
 ## ⚠️ CRITICAL: Task Packet Requirement
 
 **BEFORE starting ANY non-trivial task, you MUST:**
@@ -32,6 +74,29 @@ This will:
 - Needs verification
 
 **This is MANDATORY and enforced by hooks.**
+
+### Acceptance Criteria Must Be Verifiable Commands
+
+When creating tasks via `bd create --acceptance "..."`, acceptance criteria **must be
+expressed as shell commands**, not prose descriptions:
+
+```bash
+# ✅ Good — agent can run this and verify exit code
+--acceptance "go build ./... exits 0 and go test ./... exits 0"
+
+# ✅ Good — specific and measurable
+--acceptance "all 704 tests pass: ./build/xasm++ --test exits 0 with no FAIL lines"
+
+# ❌ Bad — agent marks done without checking
+--acceptance "files are created and documented"
+
+# ❌ Bad — unverifiable
+--acceptance "implementation is correct"
+```
+
+Prose acceptance criteria are never enforced. Agents close tasks as "complete" when they
+have satisfied the letter of the criterion — a file existing satisfies "file is created"
+even if the file is empty or wrong.
 
 ---
 

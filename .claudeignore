@@ -15,8 +15,9 @@
 **/.nuxt/
 **/.output/
 
-# Task logs and temporary files
-.beads/tasks/
+# Beads task tracking (transient/supporting data, not project source)
+.beads/
+**/.beads/
 **/*.log
 **/tmp/
 **/temp/

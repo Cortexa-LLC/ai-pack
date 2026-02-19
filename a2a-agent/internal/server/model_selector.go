@@ -34,7 +34,7 @@ func (ms *ModelSelector) SelectProviderWithFallback(requestedModel string) (LLMP
 		// Check if OpenAI is available
 		if ms.server.openaiProvider != nil {
 			monitoring.Logger.Info("model_selected", "requested", requestedModel, "provider", "openai")
-			return NewOpenAIProvider(ms.server.openaiClient, requestedModel, ms.server.maxTokens), requestedModel, nil
+			return NewOpenAIProvider(&ms.server.openaiClient, requestedModel, ms.server.maxTokens), requestedModel, nil
 		}
 
 		// OpenAI not available - fall back to Claude
@@ -49,7 +49,7 @@ func (ms *ModelSelector) SelectProviderWithFallback(requestedModel string) (LLMP
 
 	// Claude model requested or default
 	monitoring.Logger.Info("model_selected", "requested", requestedModel, "provider", "anthropic")
-	return NewAnthropicProvider(ms.server.client, requestedModel, ms.server.maxTokens), requestedModel, nil
+	return NewAnthropicProvider(&ms.server.client, requestedModel, ms.server.maxTokens), requestedModel, nil
 }
 
 // RecommendModel suggests the best available model based on task complexity
@@ -205,7 +205,7 @@ func CalculateCost(model string, inputTokens, outputTokens int) float64 {
 // GetFallbackChain returns the fallback chain for a failed model
 func (ms *ModelSelector) GetFallbackChain(failedModel string) []string {
 	// If OpenAI available, use OpenAI fallback chain
-	if ms.server.openaiProvider != nil {
+	if ms.server.openaiKey != "" {
 		switch failedModel {
 		case "gpt-5.2-codex":
 			return []string{"gpt-5.1-codex", ms.server.model}

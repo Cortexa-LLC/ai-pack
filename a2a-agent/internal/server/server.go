@@ -13,9 +13,10 @@ import (
 	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
-	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/auth"
+	anthropic_option "github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/beads"
+	openai_option "github.com/openai/openai-go/option"
+
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/claude"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/streaming"
@@ -23,10 +24,9 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/mcp"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/protocol"
-	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/proxy"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/tools"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
-	"github.com/sashabaranov/go-openai"
+	openai "github.com/openai/openai-go"
 )
 
 var Version = "dev"
@@ -35,36 +35,36 @@ var BuildTime = "unknown"
 
 // Configuration field names (for markdown header parsing)
 const (
-	configFieldAgent       = "Agent"
-	configFieldDescription = "Description"
-	configFieldModel       = "Model"
-	configFieldTier        = "Tier"
-	configFieldTimeout     = "Timeout"
+	configFieldAgent           = "Agent"
+	configFieldDescription     = "Description"
+	configFieldModel           = "Model"
+	configFieldTier            = "Tier"
+	configFieldTimeout         = "Timeout"
 	configFieldMaxContext      = "MaxContext"
 	configFieldMaxBudgetTokens = "MaxBudgetTokens"
 	configFieldMaxTurns        = "MaxTurns"
-	configFieldDelegation  = "Delegation"
-	configFieldTools       = "Tools"
-	configFieldGates       = "Gates"
+	configFieldDelegation      = "Delegation"
+	configFieldTools           = "Tools"
+	configFieldGates           = "Gates"
 )
 
 // Configuration defaults
 const (
-	defaultTier        = "minimal"
-	defaultModel       = "gpt-4o-mini"
-	defaultDelegation  = "delegate"
-	defaultTimeout     = "10min"
+	defaultTier            = "minimal"
+	defaultModel           = "gpt-4o-mini"
+	defaultDelegation      = "delegate"
+	defaultTimeout         = "10min"
 	defaultMaxContext      = 32000
 	defaultMaxBudgetTokens = 0 // 0 = unlimited
-	configSeparator    = "---"
-	markdownFieldStart = "**"
-	markdownFieldEnd   = ":**"
+	configSeparator        = "---"
+	markdownFieldStart     = "**"
+	markdownFieldEnd       = ":**"
 )
 
 type AgentServer struct {
 	rootDir          string
 	anthropicKey     string
-	client           anthropic.Client // SDK v1.19+ returns Client by value
+	client           anthropic.Client // SDK v1.19+ returns Client by value, store value to match
 	beadsClient      *beads.Client
 	claudeSettings   *claude.Settings // Claude Code settings (deny patterns, etc.)
 	executionLog     *execution_log.ExecutionLog // Persistent agent execution log
@@ -75,15 +75,15 @@ type AgentServer struct {
 	config           *config.Config   // Server configuration
 
 	// Multi-provider LLM support
-	openaiKey          string
-	openaiClient       *openai.Client
+	openaiKey        string
+	openaiClient     openai.Client
 	anthropicProvider  *AnthropicProvider
 	openaiProvider     *OpenAIProvider
-	modelSelector      *ModelSelector
-	streamingService   *streaming.Service // Clean streaming abstraction
-	projectMetrics     map[string]*monitoring.PersistentMetrics // Per-project persistent metrics
-	providerCosts      map[string][2]float64 // Provider cost configuration
-	mcpManager         *mcp.Manager          // MCP server manager
+	modelSelector     *ModelSelector
+	streamingService  *streaming.Service // Clean streaming abstraction
+	projectMetrics   map[string]*monitoring.PersistentMetrics // Per-project persistent metrics
+	providerCosts    map[string][2]float64 // Provider cost configuration
+	mcpManager       *mcp.Manager          // MCP server manager
 
 	// Concurrent execution tracking
 	mu           sync.RWMutex
@@ -116,17 +116,17 @@ type TaskExecution struct {
 }
 
 type AgentConfig struct {
-	Name        string
-	Description string
-	Tier        string
-	Model       string // LLM model to use (e.g., "gpt-4o-mini", "claude-sonnet-3-5-20241022")
-	Context     struct {
+	Name            string
+	Description     string
+	Tier            string
+	Model           string // LLM model to use (e.g., "gpt-4o-mini", "claude-sonnet-3-5-20241022")
+	Context         struct {
 		RoleFile               string
 		RoleContent            string   // Loaded from .md file content
 		Gates                  []string
 		AdditionalInstructions string
 	}
-	Delegation struct {
+	Delegation      struct {
 		Mode            string
 		Timeout         string
 		MaxContext      int
@@ -245,54 +245,43 @@ func (s *AgentServer) getOrCreateProjectMetrics(projectRoot string) (*monitoring
 }
 
 func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model string, cfg *config.Config) (*AgentServer, error) {
-	// Get authentication credentials
-	// ANTHROPIC_API_TOKEN = Bearer token (for corporate proxies)
-	// ANTHROPIC_API_KEY = API key (standard x-api-key header)
-	apiKey, isBearerToken, err := auth.GetAPIKey()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get API key: %w", err)
-	}
-
-	// Build client options
-	var clientOpts []option.RequestOption
-
-	if isBearerToken {
-		// For Bearer tokens, we need to use a custom HTTP client that sets Authorization header
-		clientOpts = append(clientOpts, option.WithHTTPClient(proxy.NewBearerTokenClient(apiKey, &cfg.API)))
-		monitoring.Logger.Info("api_configuration", "auth_type", "bearer_token")
-	} else {
-		// Standard API key - let SDK set x-api-key header
-		clientOpts = append(clientOpts, option.WithAPIKey(apiKey))
-
-		// Add custom HTTP client for proxy support (URL rewriting only)
-		if httpClient := proxy.NewHTTPClient(&cfg.API); httpClient != nil {
-			clientOpts = append(clientOpts, option.WithHTTPClient(httpClient))
-		}
-		monitoring.Logger.Info("api_configuration", "auth_type", "api_key")
-	}
-
-	// Set request timeout to avoid streaming enforcement
-	// SDK requires streaming if calculated timeout > 10 minutes
-	// By setting explicit timeout, we bypass that check
-	if cfg.API.TimeoutSeconds > 0 {
-		timeout := time.Duration(cfg.API.TimeoutSeconds) * time.Second
-		clientOpts = append(clientOpts, option.WithRequestTimeout(timeout))
-		monitoring.Logger.Info("api_configuration", "request_timeout", fmt.Sprintf("%v", timeout))
-	}
-
-	// Log proxy mode
-	monitoring.Logger.Info("api_configuration", "proxy_mode", proxy.LogProxyMode(&cfg.API))
-
-	client := anthropic.NewClient(clientOpts...)
-
-	// Initialize OpenAI client for multi-provider support
-	var openaiClient *openai.Client
+	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
 	openaiKey := os.Getenv("OPENAI_API_KEY")
+
+	clientOpts := []openai_option.RequestOption{
+		openai_option.WithRequestTimeout(10 * time.Second),
+	}
+
 	if openaiKey != "" {
-		openaiClient = openai.NewClient(openaiKey)
-		monitoring.Logger.Info("openai_client_initialized", "provider", "openai")
-	} else {
-		monitoring.Logger.Warn("openai_api_key_not_set", "message", "Set OPENAI_API_KEY to enable GPT models for cost savings")
+		clientOpts = append(clientOpts, openai_option.WithAPIKey(openaiKey))
+	}
+
+	openaiClient := openai.NewClient(clientOpts...)
+
+	anthropicOpts := []anthropic_option.RequestOption{
+		anthropic_option.WithRequestTimeout(10 * time.Second),
+	}
+
+	if anthropicKey != "" {
+		anthropicOpts = append(anthropicOpts, anthropic_option.WithAPIKey(anthropicKey))
+	}
+
+	anthropicClient := anthropic.NewClient(anthropicOpts...)
+
+	server := &AgentServer{
+		rootDir:        rootDir,
+		maxConcurrent:  maxConcurrent,
+		maxTokens:      maxTokens,
+		model:          model,
+		config:         cfg,
+		openaiClient:   openaiClient,
+		client:         anthropicClient,
+		projectMetrics: make(map[string]*monitoring.PersistentMetrics),
+		providerCosts:  make(map[string][2]float64),
+		activeTasks:    make(map[string]*TaskExecution),
+		taskQueue:      make(chan *TaskExecution, maxConcurrent),
+		workerPool:     make(chan struct{}, maxConcurrent),
+		projectRoots:   make(map[string]time.Time),
 	}
 
 	// Load Claude Code settings (global + project-specific)
@@ -307,7 +296,10 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	}
 
 	// Get max inactive turns from config
-	maxInactiveTurns := cfg.Agent.MaxInactiveTurns
+	maxInactiveTurns := 0
+	if cfg != nil {
+		maxInactiveTurns = cfg.Agent.MaxInactiveTurns
+	}
 	if maxInactiveTurns == 0 {
 		maxInactiveTurns = 10 // Default fallback
 	}
@@ -320,16 +312,20 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 
 	// Build cost map from config for per-project metrics
 	costs := make(map[string][2]float64)
-	for modelKey, modelCost := range cfg.ProviderCosts.Models {
-		costs[modelKey] = [2]float64{modelCost.InputCost, modelCost.OutputCost}
+	if cfg != nil {
+		for modelKey, modelCost := range cfg.ProviderCosts.Models {
+			costs[modelKey] = [2]float64{modelCost.InputCost, modelCost.OutputCost}
+		}
 	}
 
 	// Initialize performance grading system
-	gradesDir := filepath.Join(rootDir, ".claude", "performance_grades")
-	if err := monitoring.InitGradeManager(gradesDir, &cfg.GradingCriteria); err != nil {
-		monitoring.Logger.Warn("failed_to_init_grade_manager", "error", err.Error())
-	} else {
-		monitoring.Logger.Info("performance_grading_initialized", "grades_dir", gradesDir)
+	if cfg != nil {
+		gradesDir := filepath.Join(rootDir, ".claude", "performance_grades")
+		if err := monitoring.InitGradeManager(gradesDir, &cfg.GradingCriteria); err != nil {
+			monitoring.Logger.Warn("failed_to_init_grade_manager", "error", err.Error())
+		} else {
+			monitoring.Logger.Info("performance_grading_initialized", "grades_dir", gradesDir)
+		}
 	}
 
 	// Initialize complexity analyzer
@@ -341,56 +337,32 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		monitoring.Logger.Info("adaptive_model_selection_enabled")
 	}
 
-	// Create LLM providers for multi-provider support
-	anthropicProvider := NewAnthropicProvider(client, model, maxTokens)
-	var openaiProvider *OpenAIProvider
-	if openaiClient != nil {
-		openaiProvider = NewOpenAIProvider(openaiClient, "gpt-4o-mini", maxTokens)
-	}
+	// Populate server fields that require pre-computed values
+	server.anthropicKey = anthropicKey
+	server.openaiKey = openaiKey
+	server.beadsClient = beads.NewClient()
+	server.claudeSettings = claudeSettings
+	server.executionLog = execLog
+	server.maxInactiveTurns = maxInactiveTurns
+	server.providerCosts = costs
 
-	// Create server instance first (needed for model selector)
-	server := &AgentServer{
-		rootDir:          rootDir,
-		anthropicKey:     apiKey,
-		client:           client,
-		beadsClient:      beads.NewClient(),
-		claudeSettings:   claudeSettings,
-		executionLog:     execLog,
-		maxConcurrent:    maxConcurrent,
-		maxTokens:        maxTokens,
-		model:            model,
-		maxInactiveTurns: maxInactiveTurns,
-		config:           cfg,
-
-		// Multi-provider LLM support
-		openaiKey:          openaiKey,
-		openaiClient:       openaiClient,
-		anthropicProvider:  anthropicProvider,
-		openaiProvider:     openaiProvider,
-		projectMetrics:     make(map[string]*monitoring.PersistentMetrics),
-		providerCosts:      costs,
-
-		activeTasks:      make(map[string]*TaskExecution),
-		taskQueue:        make(chan *TaskExecution, 100),
-		workerPool:       make(chan struct{}, maxConcurrent),
-		projectRoots:     make(map[string]time.Time),
-	}
-
-	// Initialize model selector
+	// Initialize LLM providers
+	server.anthropicProvider = NewAnthropicProvider(&server.client, model, maxTokens)
+	server.openaiProvider = NewOpenAIProvider(&server.openaiClient, model, maxTokens)
 	server.modelSelector = NewModelSelector(server)
 
 	// Initialize streaming service with performance-grade-based model selection
-	modelSelector := streaming.NewPerformanceGradeModelSelector(
+	streamingSelector := streaming.NewPerformanceGradeModelSelector(
 		rootDir,
 		model,
-		openaiClient != nil,
+		openaiKey != "",
 	)
-	streamingService := streaming.NewService(modelSelector, "anthropic")
+	streamingService := streaming.NewService(streamingSelector, "anthropic")
 
 	// Register provider factories
-	streamingService.RegisterProvider(streaming.NewAnthropicFactory(apiKey, maxTokens, clientOpts...))
-	if openaiClient != nil {
-		streamingService.RegisterProvider(streaming.NewOpenAIFactory(openaiClient, maxTokens))
+	streamingService.RegisterProvider(streaming.NewAnthropicFactory(anthropicKey, maxTokens))
+	if openaiKey != "" {
+		streamingService.RegisterProvider(streaming.NewOpenAIFactory(openaiKey))
 	}
 
 	server.streamingService = streamingService
@@ -399,7 +371,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 
 	// Initialize MCP manager if enabled
 	server.mcpManager = mcp.NewManager()
-	if cfg.MCP.Enabled {
+	if cfg != nil && cfg.MCP.Enabled {
 		// Load MCP servers from user/project configs
 		mcpServers, err := config.LoadMCPServers(&cfg.MCP, rootDir)
 		if err != nil {
@@ -460,7 +432,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	server.cleanupInactiveProjects()
 
 	// Archive old completed tasks if enabled
-	if cfg.TaskCleanup.Enabled && beads.IsInstalled() {
+	if cfg != nil && cfg.TaskCleanup.Enabled && beads.IsInstalled() {
 		server.archiveOldTasks()
 	}
 
@@ -1779,14 +1751,13 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		}
 		currentToolPattern := strings.Join(toolNames, ",")
 
-		// Build tool signature including input details for better progress detection
+		// Build tool signature including input details for better progress detection.
+		// Use the full input JSON (no truncation) so that commands sharing a long common
+		// prefix (e.g. `go doc pkg.TypeA` vs `go doc pkg.TypeB`) are correctly treated
+		// as distinct tool calls.
 		var toolSignatures []string
 		for _, toolUse := range toolUses {
-			// Create a signature that includes tool name and key input parameters
 			inputJSON, _ := json.Marshal(toolUse.Input)
-			if len(inputJSON) > 100 {
-				inputJSON = inputJSON[:100]
-			}
 			toolSignatures = append(toolSignatures, fmt.Sprintf("%s:%s", toolUse.Name, string(inputJSON)))
 		}
 		currentToolSignature := strings.Join(toolSignatures, "|")
@@ -2214,6 +2185,36 @@ func (s *AgentServer) completeBeadsTask(beadsTaskID string, projectRoot string, 
 	return nil
 }
 
+// resetBeadsTask resets an in-progress beads task back to "open" when execution
+// fails or is cancelled, so it no longer appears as RUNNING in the GUI after restart.
+func (s *AgentServer) resetBeadsTask(execution *TaskExecution) {
+	if !beads.IsInstalled() {
+		return
+	}
+	beadsTaskID := execution.TaskID
+	projectRoot := execution.ProjectRoot
+	if execution.metadata != nil {
+		if id, ok := execution.metadata["beads_task_id"]; ok && id != "" {
+			beadsTaskID = id
+		}
+		if pr := execution.metadata["project_root"]; pr != "" {
+			projectRoot = pr
+		}
+	}
+	if !beads.IsBeadsTaskID(beadsTaskID) {
+		return
+	}
+	cmd := exec.Command("bd", "update", "-s", "open", beadsTaskID)
+	if projectRoot != "" {
+		cmd.Dir = projectRoot
+	}
+	if err := cmd.Run(); err != nil {
+		monitoring.Logger.Warn("failed_to_reset_beads_task", "task_id", beadsTaskID, "error", err.Error())
+	} else {
+		monitoring.Logger.Info("beads_task_reset_to_open", "task_id", beadsTaskID)
+	}
+}
+
 func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	ctx := context.Background()
 	durationMs := time.Since(execution.StartTime).Milliseconds()
@@ -2239,6 +2240,8 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	if err := s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, constants.StatusFailed, errorMsg); err != nil {
 		monitoring.Logger.Error("failed_to_update_failed_status", "task_id", execution.TaskID, "error", err)
 	}
+	// Reset beads task to open so it does not appear as RUNNING after a server restart.
+	s.resetBeadsTask(execution)
 	s.sendStreamEvent(execution, constants.StatusFailed, map[string]interface{}{
 		"error": errorMsg,
 	})
@@ -2358,6 +2361,8 @@ func (s *AgentServer) cancelTaskExecution(execution *TaskExecution, message stri
 	if err := s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "cancelled", message); err != nil {
 		monitoring.Logger.Error("failed_to_update_cancelled_status", "task_id", execution.TaskID, "error", err)
 	}
+	// Reset beads task to open so it does not appear as RUNNING after a server restart.
+	s.resetBeadsTask(execution)
 	s.sendStreamEvent(execution, "cancelled", map[string]interface{}{
 		"message": message,
 	})
@@ -2554,20 +2559,18 @@ func (s *AgentServer) handleOrphanedTasks() {
 				s.mu.RUnlock()
 
 				if !hasActiveTask {
-					// This is an orphaned task - it's marked in_progress but not running
-					// Mark it as "queued" so it can be automatically resumed
+					// This is an orphaned task - marked in_progress in beads but no active execution.
+					// Reset to "open" so it shows as queued (not stuck as running) in the GUI.
 					monitoring.Logger.Warn("orphaned_task_detected",
 						"task_id", beadsTask.ID,
 						"title", beadsTask.Title,
 						"project", projectRoot,
-						"action", "resetting_to_queued",
+						"action", "resetting_to_open",
 					)
 
-					// Reset the task to "queued" status in Beads
-					// This allows it to be automatically picked up and resumed
+					// "bd update -s open" is the correct reset; "queued" is not a valid beads status.
 					if beads.IsInstalled() {
-						// Use bd update to reset status
-						cmd := exec.Command("bd", "update", "--status", "queued", beadsTask.ID)
+						cmd := exec.Command("bd", "update", "-s", "open", beadsTask.ID)
 						cmd.Dir = projectRoot
 						if err := cmd.Run(); err != nil {
 							monitoring.Logger.Error("failed_to_reset_orphaned_task",
@@ -2576,7 +2579,7 @@ func (s *AgentServer) handleOrphanedTasks() {
 						} else {
 							monitoring.Logger.Info("orphaned_task_reset",
 								"task_id", beadsTask.ID,
-								"new_status", "queued")
+								"new_status", "open")
 						}
 					}
 

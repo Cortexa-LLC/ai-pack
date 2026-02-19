@@ -2,8 +2,8 @@
 
 **Agent:** engineer
 **Description:** Implementation specialist following TDD workflow
-**Model:** gpt-4.1-mini
-**Tier:** minimal
+**Model:** claude-sonnet-4-6
+**Tier:** medium
 **Timeout:** 10min
 **MaxBudgetTokens:** 0
 **MaxTurns:** 600

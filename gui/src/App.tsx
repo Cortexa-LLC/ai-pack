@@ -522,6 +522,55 @@ function App() {
     }
   };
 
+  const deleteTask = async (taskID: string, taskDescription: string, event?: React.MouseEvent, skipConfirm = false) => {
+    if (event) event.stopPropagation();
+
+    if (!skipConfirm) {
+      setConfirmModal({
+        show: true,
+        title: 'Delete Task',
+        message: `Permanently delete this task from Beads?\n\n${taskDescription.split('\n')[0]}`,
+        onConfirm: () => {
+          setConfirmModal({ show: false, title: '', message: '', onConfirm: () => {} });
+          deleteTask(taskID, taskDescription, undefined, true);
+        },
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch('/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation DeleteTask($taskID: String!) {
+              deleteTask(taskID: $taskID) {
+                success
+                message
+                taskID
+              }
+            }
+          `,
+          variables: { taskID },
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.errors) {
+        showAlert('Error', `Failed to delete task: ${result.errors[0].message}`);
+      } else if (result.data?.deleteTask?.success) {
+        setTimeout(() => refetchTasks(), 300);
+      } else {
+        showAlert('Error', 'Failed to delete task: ' + (result.data?.deleteTask?.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+      showAlert('Error', 'Failed to delete task. Check console for details.');
+    }
+  };
+
   const closeTask = async (taskID: string, taskDescription: string, event?: React.MouseEvent, skipConfirm = false) => {
     // Stop propagation if called from within a clickable card
     if (event) {
@@ -1231,11 +1280,11 @@ function App() {
                                       🔄
                                     </button>
                                     <button
-                                      onClick={(e) => closeTask(task.taskID, task.task, e)}
-                                      className="w-6 h-6 flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors text-xs"
-                                      title="Close/dismiss task"
+                                      onClick={(e) => deleteTask(task.taskID, task.task, e)}
+                                      className="w-6 h-6 flex items-center justify-center bg-red-700 hover:bg-red-800 text-white rounded transition-colors text-xs"
+                                      title="Delete task (bd delete)"
                                     >
-                                      ✕
+                                      🗑️
                                     </button>
                                   </div>
                                 )}

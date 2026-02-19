@@ -276,6 +276,9 @@ type Mutation {
 
   # Close/dismiss a task (marks as closed in Beads)
   closeTask(taskID: String!): CloseResult!
+
+  # Permanently delete a task (bd delete — removes from Beads entirely)
+  deleteTask(taskID: String!): DeleteResult!
 }
 
 # Retry task result
@@ -287,6 +290,13 @@ type RetryResult {
 
 # Close task result
 type CloseResult {
+  success: Boolean!
+  taskID: String!
+  message: String
+}
+
+# Delete task result
+type DeleteResult {
   success: Boolean!
   taskID: String!
   message: String

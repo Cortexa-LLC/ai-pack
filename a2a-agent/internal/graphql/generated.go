@@ -91,6 +91,12 @@ type ComplexityRoot struct {
 		TotalTasks     func(childComplexity int) int
 	}
 
+	DeleteResult struct {
+		Message func(childComplexity int) int
+		Success func(childComplexity int) int
+		TaskID  func(childComplexity int) int
+	}
+
 	ExecutionEvent struct {
 		DurationMs func(childComplexity int) int
 		Error      func(childComplexity int) int
@@ -109,6 +115,7 @@ type ComplexityRoot struct {
 		ByRole            func(childComplexity int) int
 		CostSavings       func(childComplexity int) int
 		GradeDistribution func(childComplexity int) int
+		ModelTiers        func(childComplexity int) int
 		TotalGrades       func(childComplexity int) int
 	}
 
@@ -152,6 +159,7 @@ type ComplexityRoot struct {
 	Mutation struct {
 		CancelAgent      func(childComplexity int, taskID string) int
 		CloseTask        func(childComplexity int, taskID string) int
+		DeleteTask       func(childComplexity int, taskID string) int
 		RetryTask        func(childComplexity int, taskID string) int
 		SpawnAgent       func(childComplexity int, role string, task string, projectRoot *string) int
 		UpdateTaskStatus func(childComplexity int, taskID string, status string) int
@@ -181,6 +189,24 @@ type ComplexityRoot struct {
 		TotalAttempts        func(childComplexity int) int
 	}
 
+	ProjectCost struct {
+		ProjectName       func(childComplexity int) int
+		ProjectRoot       func(childComplexity int) int
+		ProviderBreakdown func(childComplexity int) int
+		TotalCost         func(childComplexity int) int
+		TotalInputTokens  func(childComplexity int) int
+		TotalOutputTokens func(childComplexity int) int
+	}
+
+	ProviderCost struct {
+		Calls        func(childComplexity int) int
+		Cost         func(childComplexity int) int
+		InputTokens  func(childComplexity int) int
+		Model        func(childComplexity int) int
+		OutputTokens func(childComplexity int) int
+		Provider     func(childComplexity int) int
+	}
+
 	ProviderUsage struct {
 		Calls        func(childComplexity int) int
 		InputTokens  func(childComplexity int) int
@@ -202,6 +228,7 @@ type ComplexityRoot struct {
 		PerformanceByRole     func(childComplexity int, role string) int
 		PerformanceGrades     func(childComplexity int) int
 		PerformanceSummary    func(childComplexity int) int
+		ProjectCosts          func(childComplexity int) int
 		Task                  func(childComplexity int, taskID string) int
 		TaskHistory           func(childComplexity int, limit *int) int
 		Tasks                 func(childComplexity int) int
@@ -281,6 +308,7 @@ type MutationResolver interface {
 	UpdateTaskStatus(ctx context.Context, taskID string, status string) (*AgentTask, error)
 	RetryTask(ctx context.Context, taskID string) (*RetryResult, error)
 	CloseTask(ctx context.Context, taskID string) (*CloseResult, error)
+	DeleteTask(ctx context.Context, taskID string) (*DeleteResult, error)
 }
 type QueryResolver interface {
 	Health(ctx context.Context) (*HealthStatus, error)
@@ -298,6 +326,7 @@ type QueryResolver interface {
 	PerformanceSummary(ctx context.Context) (*GradeSummary, error)
 	PerformanceByRole(ctx context.Context, role string) ([]*PerformanceGrade, error)
 	PerformanceByProject(ctx context.Context, project string) ([]*PerformanceGrade, error)
+	ProjectCosts(ctx context.Context) ([]*ProjectCost, error)
 }
 type SubscriptionResolver interface {
 	LogStream(ctx context.Context, level *string) (<-chan *LogEntry, error)
@@ -503,6 +532,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.CostSavings.TotalTasks(childComplexity), true
 
+	case "DeleteResult.message":
+		if e.complexity.DeleteResult.Message == nil {
+			break
+		}
+
+		return e.complexity.DeleteResult.Message(childComplexity), true
+	case "DeleteResult.success":
+		if e.complexity.DeleteResult.Success == nil {
+			break
+		}
+
+		return e.complexity.DeleteResult.Success(childComplexity), true
+	case "DeleteResult.taskID":
+		if e.complexity.DeleteResult.TaskID == nil {
+			break
+		}
+
+		return e.complexity.DeleteResult.TaskID(childComplexity), true
+
 	case "ExecutionEvent.durationMs":
 		if e.complexity.ExecutionEvent.DurationMs == nil {
 			break
@@ -588,6 +636,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.GradeSummary.GradeDistribution(childComplexity), true
+	case "GradeSummary.modelTiers":
+		if e.complexity.GradeSummary.ModelTiers == nil {
+			break
+		}
+
+		return e.complexity.GradeSummary.ModelTiers(childComplexity), true
 	case "GradeSummary.totalGrades":
 		if e.complexity.GradeSummary.TotalGrades == nil {
 			break
@@ -771,6 +825,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.CloseTask(childComplexity, args["taskID"].(string)), true
+	case "Mutation.deleteTask":
+		if e.complexity.Mutation.DeleteTask == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteTask_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteTask(childComplexity, args["taskID"].(string)), true
 	case "Mutation.retryTask":
 		if e.complexity.Mutation.RetryTask == nil {
 			break
@@ -915,6 +980,80 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.PerformanceGrade.TotalAttempts(childComplexity), true
 
+	case "ProjectCost.projectName":
+		if e.complexity.ProjectCost.ProjectName == nil {
+			break
+		}
+
+		return e.complexity.ProjectCost.ProjectName(childComplexity), true
+	case "ProjectCost.projectRoot":
+		if e.complexity.ProjectCost.ProjectRoot == nil {
+			break
+		}
+
+		return e.complexity.ProjectCost.ProjectRoot(childComplexity), true
+	case "ProjectCost.providerBreakdown":
+		if e.complexity.ProjectCost.ProviderBreakdown == nil {
+			break
+		}
+
+		return e.complexity.ProjectCost.ProviderBreakdown(childComplexity), true
+	case "ProjectCost.totalCost":
+		if e.complexity.ProjectCost.TotalCost == nil {
+			break
+		}
+
+		return e.complexity.ProjectCost.TotalCost(childComplexity), true
+	case "ProjectCost.totalInputTokens":
+		if e.complexity.ProjectCost.TotalInputTokens == nil {
+			break
+		}
+
+		return e.complexity.ProjectCost.TotalInputTokens(childComplexity), true
+	case "ProjectCost.totalOutputTokens":
+		if e.complexity.ProjectCost.TotalOutputTokens == nil {
+			break
+		}
+
+		return e.complexity.ProjectCost.TotalOutputTokens(childComplexity), true
+
+	case "ProviderCost.calls":
+		if e.complexity.ProviderCost.Calls == nil {
+			break
+		}
+
+		return e.complexity.ProviderCost.Calls(childComplexity), true
+	case "ProviderCost.cost":
+		if e.complexity.ProviderCost.Cost == nil {
+			break
+		}
+
+		return e.complexity.ProviderCost.Cost(childComplexity), true
+	case "ProviderCost.inputTokens":
+		if e.complexity.ProviderCost.InputTokens == nil {
+			break
+		}
+
+		return e.complexity.ProviderCost.InputTokens(childComplexity), true
+	case "ProviderCost.model":
+		if e.complexity.ProviderCost.Model == nil {
+			break
+		}
+
+		return e.complexity.ProviderCost.Model(childComplexity), true
+	case "ProviderCost.outputTokens":
+		if e.complexity.ProviderCost.OutputTokens == nil {
+			break
+		}
+
+		return e.complexity.ProviderCost.OutputTokens(childComplexity), true
+	case "ProviderCost.provider":
+		if e.complexity.ProviderCost.Provider == nil {
+			break
+		}
+
+		return e.complexity.ProviderCost.Provider(childComplexity), true
+
 	case "ProviderUsage.calls":
 		if e.complexity.ProviderUsage.Calls == nil {
 			break
@@ -1053,6 +1192,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.PerformanceSummary(childComplexity), true
+	case "Query.projectCosts":
+		if e.complexity.Query.ProjectCosts == nil {
+			break
+		}
+
+		return e.complexity.Query.ProjectCosts(childComplexity), true
 	case "Query.task":
 		if e.complexity.Query.Task == nil {
 			break
@@ -1476,6 +1621,17 @@ func (ec *executionContext) field_Mutation_cancelAgent_args(ctx context.Context,
 }
 
 func (ec *executionContext) field_Mutation_closeTask_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "taskID", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["taskID"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteTask_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "taskID", ec.unmarshalNString2string)
@@ -2559,6 +2715,93 @@ func (ec *executionContext) fieldContext_CostSavings_avgCostPerTask(_ context.Co
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _DeleteResult_success(ctx context.Context, field graphql.CollectedField, obj *DeleteResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_DeleteResult_success,
+		func(ctx context.Context) (any, error) {
+			return obj.Success, nil
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_DeleteResult_success(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "DeleteResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _DeleteResult_taskID(ctx context.Context, field graphql.CollectedField, obj *DeleteResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_DeleteResult_taskID,
+		func(ctx context.Context) (any, error) {
+			return obj.TaskID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_DeleteResult_taskID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "DeleteResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _DeleteResult_message(ctx context.Context, field graphql.CollectedField, obj *DeleteResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_DeleteResult_message,
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_DeleteResult_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "DeleteResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -4100,6 +4343,55 @@ func (ec *executionContext) fieldContext_Mutation_closeTask(ctx context.Context,
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_deleteTask(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_deleteTask,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().DeleteTask(ctx, fc.Args["taskID"].(string))
+		},
+		nil,
+		ec.marshalNDeleteResult2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐDeleteResult,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_deleteTask(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_DeleteResult_success(ctx, field)
+			case "taskID":
+				return ec.fieldContext_DeleteResult_taskID(ctx, field)
+			case "message":
+				return ec.fieldContext_DeleteResult_message(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type DeleteResult", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteTask_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Performance_uptime(ctx context.Context, field graphql.CollectedField, obj *Performance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4617,6 +4909,368 @@ func (ec *executionContext) fieldContext_PerformanceGrade_firstUsed(_ context.Co
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProjectCost_projectRoot(ctx context.Context, field graphql.CollectedField, obj *ProjectCost) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProjectCost_projectRoot,
+		func(ctx context.Context) (any, error) {
+			return obj.ProjectRoot, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProjectCost_projectRoot(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProjectCost",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProjectCost_projectName(ctx context.Context, field graphql.CollectedField, obj *ProjectCost) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProjectCost_projectName,
+		func(ctx context.Context) (any, error) {
+			return obj.ProjectName, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProjectCost_projectName(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProjectCost",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProjectCost_totalCost(ctx context.Context, field graphql.CollectedField, obj *ProjectCost) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProjectCost_totalCost,
+		func(ctx context.Context) (any, error) {
+			return obj.TotalCost, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProjectCost_totalCost(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProjectCost",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProjectCost_totalInputTokens(ctx context.Context, field graphql.CollectedField, obj *ProjectCost) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProjectCost_totalInputTokens,
+		func(ctx context.Context) (any, error) {
+			return obj.TotalInputTokens, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProjectCost_totalInputTokens(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProjectCost",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProjectCost_totalOutputTokens(ctx context.Context, field graphql.CollectedField, obj *ProjectCost) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProjectCost_totalOutputTokens,
+		func(ctx context.Context) (any, error) {
+			return obj.TotalOutputTokens, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProjectCost_totalOutputTokens(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProjectCost",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProjectCost_providerBreakdown(ctx context.Context, field graphql.CollectedField, obj *ProjectCost) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProjectCost_providerBreakdown,
+		func(ctx context.Context) (any, error) {
+			return obj.ProviderBreakdown, nil
+		},
+		nil,
+		ec.marshalNProviderCost2ᚕᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐProviderCostᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProjectCost_providerBreakdown(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProjectCost",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "provider":
+				return ec.fieldContext_ProviderCost_provider(ctx, field)
+			case "model":
+				return ec.fieldContext_ProviderCost_model(ctx, field)
+			case "calls":
+				return ec.fieldContext_ProviderCost_calls(ctx, field)
+			case "inputTokens":
+				return ec.fieldContext_ProviderCost_inputTokens(ctx, field)
+			case "outputTokens":
+				return ec.fieldContext_ProviderCost_outputTokens(ctx, field)
+			case "cost":
+				return ec.fieldContext_ProviderCost_cost(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ProviderCost", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProviderCost_provider(ctx context.Context, field graphql.CollectedField, obj *ProviderCost) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProviderCost_provider,
+		func(ctx context.Context) (any, error) {
+			return obj.Provider, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProviderCost_provider(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProviderCost",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProviderCost_model(ctx context.Context, field graphql.CollectedField, obj *ProviderCost) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProviderCost_model,
+		func(ctx context.Context) (any, error) {
+			return obj.Model, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProviderCost_model(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProviderCost",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProviderCost_calls(ctx context.Context, field graphql.CollectedField, obj *ProviderCost) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProviderCost_calls,
+		func(ctx context.Context) (any, error) {
+			return obj.Calls, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProviderCost_calls(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProviderCost",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProviderCost_inputTokens(ctx context.Context, field graphql.CollectedField, obj *ProviderCost) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProviderCost_inputTokens,
+		func(ctx context.Context) (any, error) {
+			return obj.InputTokens, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProviderCost_inputTokens(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProviderCost",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProviderCost_outputTokens(ctx context.Context, field graphql.CollectedField, obj *ProviderCost) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProviderCost_outputTokens,
+		func(ctx context.Context) (any, error) {
+			return obj.OutputTokens, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProviderCost_outputTokens(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProviderCost",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProviderCost_cost(ctx context.Context, field graphql.CollectedField, obj *ProviderCost) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ProviderCost_cost,
+		func(ctx context.Context) (any, error) {
+			return obj.Cost, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ProviderCost_cost(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProviderCost",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
 		},
 	}
 	return fc, nil
@@ -5465,6 +6119,8 @@ func (ec *executionContext) fieldContext_Query_performanceSummary(_ context.Cont
 				return ec.fieldContext_GradeSummary_byRole(ctx, field)
 			case "byModel":
 				return ec.fieldContext_GradeSummary_byModel(ctx, field)
+			case "modelTiers":
+				return ec.fieldContext_GradeSummary_modelTiers(ctx, field)
 			case "costSavings":
 				return ec.fieldContext_GradeSummary_costSavings(ctx, field)
 			}
@@ -5624,6 +6280,49 @@ func (ec *executionContext) fieldContext_Query_performanceByProject(ctx context.
 	if fc.Args, err = ec.field_Query_performanceByProject_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_projectCosts(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_projectCosts,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Query().ProjectCosts(ctx)
+		},
+		nil,
+		ec.marshalNProjectCost2ᚕᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐProjectCostᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_projectCosts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "projectRoot":
+				return ec.fieldContext_ProjectCost_projectRoot(ctx, field)
+			case "projectName":
+				return ec.fieldContext_ProjectCost_projectName(ctx, field)
+			case "totalCost":
+				return ec.fieldContext_ProjectCost_totalCost(ctx, field)
+			case "totalInputTokens":
+				return ec.fieldContext_ProjectCost_totalInputTokens(ctx, field)
+			case "totalOutputTokens":
+				return ec.fieldContext_ProjectCost_totalOutputTokens(ctx, field)
+			case "providerBreakdown":
+				return ec.fieldContext_ProjectCost_providerBreakdown(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ProjectCost", field.Name)
+		},
 	}
 	return fc, nil
 }
@@ -8666,6 +9365,52 @@ func (ec *executionContext) _CostSavings(ctx context.Context, sel ast.SelectionS
 	return out
 }
 
+var deleteResultImplementors = []string{"DeleteResult"}
+
+func (ec *executionContext) _DeleteResult(ctx context.Context, sel ast.SelectionSet, obj *DeleteResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, deleteResultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("DeleteResult")
+		case "success":
+			out.Values[i] = ec._DeleteResult_success(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "taskID":
+			out.Values[i] = ec._DeleteResult_taskID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "message":
+			out.Values[i] = ec._DeleteResult_message(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var executionEventImplementors = []string{"ExecutionEvent"}
 
 func (ec *executionContext) _ExecutionEvent(ctx context.Context, sel ast.SelectionSet, obj *ExecutionEvent) graphql.Marshaler {
@@ -9111,6 +9856,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "deleteTask":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteTask(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9266,6 +10018,134 @@ func (ec *executionContext) _PerformanceGrade(ctx context.Context, sel ast.Selec
 			}
 		case "firstUsed":
 			out.Values[i] = ec._PerformanceGrade_firstUsed(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var projectCostImplementors = []string{"ProjectCost"}
+
+func (ec *executionContext) _ProjectCost(ctx context.Context, sel ast.SelectionSet, obj *ProjectCost) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, projectCostImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ProjectCost")
+		case "projectRoot":
+			out.Values[i] = ec._ProjectCost_projectRoot(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "projectName":
+			out.Values[i] = ec._ProjectCost_projectName(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalCost":
+			out.Values[i] = ec._ProjectCost_totalCost(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalInputTokens":
+			out.Values[i] = ec._ProjectCost_totalInputTokens(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalOutputTokens":
+			out.Values[i] = ec._ProjectCost_totalOutputTokens(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "providerBreakdown":
+			out.Values[i] = ec._ProjectCost_providerBreakdown(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var providerCostImplementors = []string{"ProviderCost"}
+
+func (ec *executionContext) _ProviderCost(ctx context.Context, sel ast.SelectionSet, obj *ProviderCost) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, providerCostImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ProviderCost")
+		case "provider":
+			out.Values[i] = ec._ProviderCost_provider(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "model":
+			out.Values[i] = ec._ProviderCost_model(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "calls":
+			out.Values[i] = ec._ProviderCost_calls(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "inputTokens":
+			out.Values[i] = ec._ProviderCost_inputTokens(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "outputTokens":
+			out.Values[i] = ec._ProviderCost_outputTokens(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cost":
+			out.Values[i] = ec._ProviderCost_cost(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -9682,6 +10562,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_performanceByProject(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "projectCosts":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_projectCosts(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -10713,6 +11615,20 @@ func (ec *executionContext) marshalNCostSavings2ᚖgithubᚗcomᚋcortexaᚑllc�
 	return ec._CostSavings(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNDeleteResult2githubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐDeleteResult(ctx context.Context, sel ast.SelectionSet, v DeleteResult) graphql.Marshaler {
+	return ec._DeleteResult(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNDeleteResult2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐDeleteResult(ctx context.Context, sel ast.SelectionSet, v *DeleteResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._DeleteResult(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNExecutionEvent2ᚕᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐExecutionEventᚄ(ctx context.Context, sel ast.SelectionSet, v []*ExecutionEvent) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
@@ -10997,6 +11913,114 @@ func (ec *executionContext) marshalNPerformanceGrade2ᚖgithubᚗcomᚋcortexa�
 		return graphql.Null
 	}
 	return ec._PerformanceGrade(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNProjectCost2ᚕᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐProjectCostᚄ(ctx context.Context, sel ast.SelectionSet, v []*ProjectCost) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNProjectCost2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐProjectCost(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNProjectCost2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐProjectCost(ctx context.Context, sel ast.SelectionSet, v *ProjectCost) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ProjectCost(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNProviderCost2ᚕᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐProviderCostᚄ(ctx context.Context, sel ast.SelectionSet, v []*ProviderCost) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNProviderCost2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐProviderCost(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNProviderCost2ᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐProviderCost(ctx context.Context, sel ast.SelectionSet, v *ProviderCost) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ProviderCost(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNProviderUsage2githubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐProviderUsage(ctx context.Context, sel ast.SelectionSet, v ProviderUsage) graphql.Marshaler {
