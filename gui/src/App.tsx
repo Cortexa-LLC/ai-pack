@@ -107,7 +107,7 @@ function App() {
   // Fetch server version once on mount
   useEffect(() => {
     fetch('/health').then(r => r.json()).then(data => {
-      if (data.version) setServerVersion(`${data.version}-${data.commit || 'unknown'}`);
+      if (data.version) setServerVersion(data.version);
       setServerHealth(data);
     }).catch(() => {});
   }, []);
@@ -2151,7 +2151,7 @@ function App() {
                 <>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Server version</span>
-                    <span className="text-gray-200">{serverHealth.version}-{serverHealth.commit}</span>
+                    <span className="text-gray-200">{serverHealth.version}</span>
                   </div>
                   {serverHealth.build_time && (
                     <div className="flex justify-between">
