@@ -148,16 +148,16 @@ func (r *queryResolver) Metrics(ctx context.Context) (*Metrics, error) {
 			Failed:  int(metricsInfo.APIFailed),
 		},
 		Performance: &Performance{
-			Uptime: "0s", // TODO: Get actual uptime
+			Uptime: metricsInfo.Uptime,
 		},
 	}, nil
 }
 
 // Performance is the resolver for the performance field.
 func (r *queryResolver) Performance(ctx context.Context) (*Performance, error) {
-	// TODO: Implement performance query
+	metricsInfo := r.server.GetMetrics()
 	return &Performance{
-		Uptime: "0s",
+		Uptime: metricsInfo.Uptime,
 	}, nil
 }
 

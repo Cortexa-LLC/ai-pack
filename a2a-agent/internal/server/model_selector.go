@@ -197,6 +197,10 @@ func (ms *ModelSelector) GetFallbackChain(failedModel string) []string {
 		case "gpt-5.2-mini":
 			return []string{"gpt-4o-mini", ms.server.model}
 		case "gpt-4o-mini":
+			return []string{"codex", ms.server.model}
+		case "codex":
+			return []string{"codex-mini", ms.server.model}
+		case "codex-mini":
 			return []string{ms.server.model}
 		default:
 			return []string{ms.server.model}

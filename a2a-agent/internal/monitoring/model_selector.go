@@ -8,7 +8,7 @@ import (
 type ModelTier int
 
 const (
-	TierMinimal ModelTier = 1 // gpt-4o-mini, claude-haiku-4-5
+	TierMinimal ModelTier = 1 // gpt-4o-mini, codex, codex-mini, claude-haiku-4-5
 	TierLow     ModelTier = 2 // gpt-5.2-mini
 	TierMedium  ModelTier = 3 // claude-sonnet-4-5
 	TierHigh    ModelTier = 4 // claude-opus-4-6
@@ -27,6 +27,8 @@ type ModelInfo struct {
 var ModelsByTier = map[ModelTier][]ModelInfo{
 	TierMinimal: {
 		{ID: "gpt-4o-mini", Tier: TierMinimal, Provider: "openai", CostPerMIn: 0.15, CostPerMOut: 0.60},
+		{ID: "codex", Tier: TierMinimal, Provider: "openai", CostPerMIn: 0.12, CostPerMOut: 0.48},
+		{ID: "codex-mini", Tier: TierMinimal, Provider: "openai", CostPerMIn: 0.12, CostPerMOut: 0.48},
 		{ID: "claude-haiku-4-5", Tier: TierMinimal, Provider: "anthropic", CostPerMIn: 1.00, CostPerMOut: 5.00},
 	},
 	TierLow: {

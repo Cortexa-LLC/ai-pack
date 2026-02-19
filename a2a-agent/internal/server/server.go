@@ -1524,11 +1524,16 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		}
 
 		// Prepare streaming request — messages already in provider-agnostic format
+		// Use role-configured model if set, otherwise fall back to server default
+		requestModel := s.model
+		if config.Model != "" {
+			requestModel = config.Model
+		}
 		streamReq := streaming.StreamRequest{
 			Messages:     truncatedMessages,
 			SystemPrompt: systemPrompt,
 			MaxTokens:    s.maxTokens,
-			Model:        s.model, // Default model - will be overridden by role-based selection
+			Model:        requestModel,
 			Tools:        toolDefs,
 		}
 
@@ -1614,6 +1619,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 
 		// Check for streaming errors
 		if err := stream.Err(); err != nil {
+			monitoring.GlobalMetrics.IncrementAPICallsFailed()
 			errMsg := err.Error()
 
 			// Check for token limit errors and provide actionable guidance
@@ -1662,8 +1668,9 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			}
 		}
 
-		// Record per-turn token metrics
+		// Record per-turn token metrics and API call count
 		monitoring.GlobalMetrics.RecordTurnTokens(taskID, turn, inputTokens, outputTokens, apiDuration)
+		monitoring.GlobalMetrics.IncrementAPICallsSuccess()
 
 		// Get model and provider from stream
 		selectedModel := stream.GetModel()
@@ -1831,7 +1838,6 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		}
 	}
 
-	monitoring.GlobalMetrics.IncrementAPICallsSuccess()
 	monitoring.LogAPICall(ctx, taskID, s.model, int(totalInputTokens+totalOutputTokens))
 
 	// Record token usage for this session
