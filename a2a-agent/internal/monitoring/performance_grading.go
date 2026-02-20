@@ -566,6 +566,46 @@ func (m *PerformanceGradeManager) ShouldDowngrade(modelID, roleID, projectID str
 	return grade.Grade == "A" && consecutiveSuccesses >= 10
 }
 
+// ReloadGrades re-reads all grade JSON files from the storage directory and
+// replaces the in-memory grades map.  Safe for concurrent use.
+func (m *PerformanceGradeManager) ReloadGrades() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Reset the grades map before reloading to remove stale entries.
+	m.grades = make(map[string]*PerformanceGrade)
+
+	files, err := os.ReadDir(m.storageDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // No grades yet; not an error
+		}
+		return fmt.Errorf("failed to read grades directory: %w", err)
+	}
+
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".json") {
+			continue
+		}
+
+		path := filepath.Join(m.storageDir, file.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue // Skip unreadable files
+		}
+
+		var grade PerformanceGrade
+		if err := json.Unmarshal(data, &grade); err != nil {
+			continue // Skip malformed files
+		}
+
+		key := fmt.Sprintf("%s:%s:%s", grade.ModelID, grade.RoleID, grade.ProjectID)
+		m.grades[key] = &grade
+	}
+
+	return nil
+}
+
 // Global performance grade manager instance
 var GlobalGradeManager *PerformanceGradeManager
 

@@ -256,6 +256,41 @@ func getGradeWeights() map[string]interface{} {
 	}
 }
 
+// HandlePerformanceReload forces the grade manager to re-read all grade JSON
+// files from disk and replace the in-memory grades map.
+//
+// POST /api/performance/reload
+func (s *AgentServer) HandlePerformanceReload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if monitoring.GlobalGradeManager == nil {
+		w.Header().Set("Content-Type", constants.ContentTypeJSON)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Performance grade manager not initialized",
+		})
+		return
+	}
+
+	if err := monitoring.GlobalGradeManager.ReloadGrades(); err != nil {
+		w.Header().Set("Content-Type", constants.ContentTypeJSON)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", constants.ContentTypeJSON)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "reloaded",
+	})
+}
+
 // Register performance API routes
 func (s *AgentServer) registerPerformanceRoutes() {
 	// Performance grade endpoints
@@ -263,4 +298,5 @@ func (s *AgentServer) registerPerformanceRoutes() {
 	http.HandleFunc("/api/performance/summary", s.HandlePerformanceSummary)
 	http.HandleFunc("/api/performance/by-role", s.HandlePerformanceByRole)
 	http.HandleFunc("/api/performance/by-project", s.HandlePerformanceByProject)
+	http.HandleFunc("/api/performance/reload", s.HandlePerformanceReload)
 }
