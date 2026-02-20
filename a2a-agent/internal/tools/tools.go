@@ -1,11 +1,13 @@
 package tools
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/claude"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/streaming"
@@ -302,7 +304,13 @@ func executeBash(input map[string]interface{}, workingDir string, settings *clau
 		return fmt.Sprintf("❌ Command blocked by Claude settings: %s", reason), nil
 	}
 
-	cmd := exec.Command("bash", "-c", command)
+	// Enforce a per-command timeout so a hung or misbehaving process cannot
+	// block the goroutine indefinitely.
+	const bashTimeout = 2 * time.Minute
+	cmdCtx, cancelCmd := context.WithTimeout(context.Background(), bashTimeout)
+	defer cancelCmd()
+
+	cmd := exec.CommandContext(cmdCtx, "bash", "-c", command)
 	cmd.Dir = workingDir
 	output, err := cmd.CombinedOutput()
 

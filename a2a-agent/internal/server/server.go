@@ -64,6 +64,31 @@ const (
 	markdownFieldEnd       = ":**"
 )
 
+// defaultRoleTimeout is the fallback used when a role's Timeout field is absent
+// or cannot be parsed.
+const defaultRoleTimeout = 10 * time.Minute
+
+// parseRoleTimeout converts a human-friendly timeout string (e.g. "10min", "1h",
+// "30sec") to a time.Duration. It first attempts time.ParseDuration (which handles
+// standard Go suffixes such as "10m", "1h30m"). If that fails it retries after
+// mapping the common long-form suffixes "min" → "m" and "sec" → "s". If parsing
+// still fails, defaultRoleTimeout is returned.
+func parseRoleTimeout(s string) time.Duration {
+	if s == "" {
+		return defaultRoleTimeout
+	}
+	// Try standard Go format first ("10m", "1h", "30s", etc.).
+	if d, err := time.ParseDuration(s); err == nil && d > 0 {
+		return d
+	}
+	// Normalise common long-form suffixes.
+	normalised := strings.NewReplacer("min", "m", "sec", "s").Replace(s)
+	if d, err := time.ParseDuration(normalised); err == nil && d > 0 {
+		return d
+	}
+	return defaultRoleTimeout
+}
+
 type AgentServer struct {
 	rootDir              string
 	anthropicKey         string
@@ -1922,8 +1947,12 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 }
 
 func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
-	// Create cancellable context
-	ctx, cancel := context.WithCancel(context.Background())
+	// Create context with deadline derived from the role's Timeout config field.
+	// parseRoleTimeout converts human-friendly values like "10min" or "1h" to a
+	// time.Duration; it falls back to defaultRoleTimeout when the value is missing
+	// or unparseable.
+	roleTimeout := parseRoleTimeout(execution.Config.Delegation.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), roleTimeout)
 
 	// Store cancel function so task can be cancelled later
 	s.mu.Lock()
@@ -3232,7 +3261,8 @@ func (s *AgentServer) resumeFromCheckpoint(taskID, projectRoot string, cp *Agent
 		streamOpen:  true,
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	roleTimeout := parseRoleTimeout(config.Delegation.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), roleTimeout)
 	execution.cancel = cancel
 	defer cancel()
 
