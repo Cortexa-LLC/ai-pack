@@ -3,7 +3,6 @@ package streaming
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/openai/openai-go"
@@ -84,6 +83,13 @@ func (f *OpenAIFactory) CreateStream(ctx context.Context, req StreamRequest) (St
 		if req.MaxTokens > 0 {
 			params.MaxOutputTokens = param.NewOpt(int64(req.MaxTokens))
 		}
+		if len(req.Tools) > 0 {
+			tools := make([]responses.ToolUnionParam, 0, len(req.Tools))
+			for _, tool := range req.Tools {
+				tools = append(tools, responses.ToolParamOfFunction(tool.Name, tool.InputSchema, false))
+			}
+			params.Tools = tools
+		}
 
 		stream := f.client.Responses.NewStreaming(ctx, params)
 		return &OpenAIResponsesStreamAdapter{
@@ -137,12 +143,31 @@ func (f *OpenAIFactory) CreateStream(ctx context.Context, req StreamRequest) (St
 		}
 	}
 
-	stream, err := f.StreamChatCompletion(ctx, req.Model, messages, req.MaxTokens)
-	if err != nil {
-		return nil, fmt.Errorf("openai chat stream: %w", err)
+	chatParams := openai.ChatCompletionNewParams{
+		Model:         openai.ChatModel(req.Model),
+		Messages:      messages,
+		StreamOptions: openai.ChatCompletionStreamOptionsParam{IncludeUsage: param.NewOpt(true)},
 	}
+	if req.MaxTokens > 0 {
+		chatParams.MaxCompletionTokens = param.NewOpt(int64(req.MaxTokens))
+	}
+	if len(req.Tools) > 0 {
+		chatTools := make([]openai.ChatCompletionToolParam, 0, len(req.Tools))
+		for _, tool := range req.Tools {
+			chatTools = append(chatTools, openai.ChatCompletionToolParam{
+				Type: "function",
+				Function: openai.FunctionDefinitionParam{
+					Name:        tool.Name,
+					Description: param.NewOpt(tool.Description),
+					Parameters:  openai.FunctionParameters(tool.InputSchema),
+				},
+			})
+		}
+		chatParams.Tools = chatTools
+	}
+	chatStream := f.client.Chat.Completions.NewStreaming(ctx, chatParams)
 	return &OpenAIChatStreamAdapter{
-		stream:   stream,
+		stream:   chatStream,
 		model:    req.Model,
 		provider: ProviderOpenAI,
 		message: &CompletedMessage{
