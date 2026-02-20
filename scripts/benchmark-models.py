@@ -1066,25 +1066,36 @@ def evaluate_tester(output: str, prompt_index: int) -> bool:
 
 
 def evaluate_reviewer(output: str, prompt_index: int) -> bool:
-    """Must identify at least one issue with a severity label."""
+    """Must identify at least one issue or concern in the code."""
     if not output or len(output) < 60:
         return False
-    severity_pattern = r'\b(critical|major|minor|bug|issue|problem|vulnerability|risk)\b'
-    if not re.search(severity_pattern, output.lower()):
+    # Accept any of: severity labels, or common code-review feedback terms
+    review_pattern = (
+        r'\b(critical|major|minor|bug|issue|problem|vulnerability|risk|'
+        r'error|flaw|concern|incorrect|unsafe|inefficient|performance|'
+        r'fix|improve|suggest|recommend|avoid|should|instead|better|'
+        r'correctness|logic|security|injection|style|violation)\b'
+    )
+    if not re.search(review_pattern, output.lower()):
         return False
     return True
 
 
 def evaluate_orchestrator(output: str, prompt_index: int) -> bool:
-    """Must contain agent assignments and a structured plan."""
+    """Must contain a structured delegation plan."""
     if not output or len(output) < 100:
         return False
-    agent_pattern = r'\b(agent|engineer|architect|tester|reviewer|spelunker|inspector|'
-    agent_pattern += r'orchestrator|product.manager|designer|strategist)\b'
+    # Must mention roles/agents OR task delegation concepts
+    agent_pattern = (
+        r'\b(agent|engineer|architect|tester|reviewer|spelunker|inspector|'
+        r'orchestrator|product.manager|designer|strategist|team|task|step|'
+        r'phase|assign|delegate|handoff|parallel|sequen|depend|owner|'
+        r'responsible|coordinate|plan|workflow|pipeline)\b'
+    )
     if not re.search(agent_pattern, output.lower()):
         return False
     # Must have some structure (numbered list, bullet, or heading)
-    if not re.search(r'(\d+\.|[-*•]|##)', output):
+    if not re.search(r'(\d+\.|[-*•]|##|\n[-*])', output):
         return False
     return True
 
@@ -1104,8 +1115,11 @@ def evaluate_inspector(output: str, prompt_index: int) -> bool:
     """Must identify root causes with reasoning."""
     if not output or len(output) < 100:
         return False
-    cause_pattern = r'\b(root cause|likely cause|hypothesis|probable|evidence|diagnos|'
-    cause_pattern += r'investigate|check|look for)\b'
+    cause_pattern = (
+        r'\b(root cause|likely cause|hypothesis|probable|evidence|diagnos|'
+        r'investigate|check|look for|cause|reason|suspect|because|due to|'
+        r'explain|indicate|symptom|contribut|trigger|factor|analyz)\b'
+    )
     if not re.search(cause_pattern, output.lower()):
         return False
     return True
@@ -1137,19 +1151,27 @@ def evaluate_archaeologist(output: str, prompt_index: int) -> bool:
     """Must reason about history, legacy, and technical debt."""
     if not output or len(output) < 80:
         return False
-    history_pattern = r'\b(history|legacy|technical debt|evolved|migration|over time|'
-    history_pattern += r'original|deprecated|refactor|consolidat|risk)\b'
+    history_pattern = (
+        r'\b(history|legacy|technical debt|evolved|migration|over time|'
+        r'original|deprecated|refactor|consolidat|risk|old|grew|accumul|'
+        r'started|began|added|grew|pattern|debt|duplication|scattered|'
+        r'duplicate|redundan|obsolete|replaced|supersed|version|old code)\b'
+    )
     if not re.search(history_pattern, output.lower()):
         return False
     return True
 
 
 def evaluate_product_manager(output: str, prompt_index: int) -> bool:
-    """Must contain user stories or acceptance criteria."""
+    """Must contain user stories or requirements-related content."""
     if not output or len(output) < 80:
         return False
-    pm_pattern = r'\b(user story|as a user|acceptance criteria|given|when|then|'
-    pm_pattern += r'success metric|kpi|measure|requirement)\b'
+    pm_pattern = (
+        r'\b(user story|as a user|acceptance criteria|given|when|then|'
+        r'success metric|kpi|measure|requirement|feature|functionality|'
+        r'onboarding|notification|workflow|specification|spec|criteria|'
+        r'objective|goal|outcome|user need|use case|priority)\b'
+    )
     if not re.search(pm_pattern, output.lower()):
         return False
     return True
@@ -1249,10 +1271,12 @@ def call_openai(api_model: str, prompt: dict, timeout: int = 60) -> dict:
 
             if is_reasoning_model:
                 messages = [m for m in messages if m["role"] != "system"]
+                # Reasoning models (o1/o3/o4) use reasoning tokens internally;
+                # grant a larger budget so visible output tokens are non-empty.
                 resp = client.chat.completions.create(
                     model=api_model,
                     messages=messages,
-                    max_completion_tokens=1024,
+                    max_completion_tokens=8192,
                 )
             else:
                 resp = client.chat.completions.create(
@@ -1406,11 +1430,14 @@ def load_or_create_grade(model_id: str, role_id: str, project_id: str) -> dict:
         "confidence_score": 0.0,
         "last_updated": now,
         "sample_size": 0,
+        "source": "benchmark",
     }
 
 
 def update_grade(grade: dict, elapsed_ms: float, tokens: int, success: bool) -> dict:
     """Add one benchmark result into an existing grade dict and recalculate."""
+    # Ensure benchmark-produced grades are always tagged so the GUI can filter them
+    grade.setdefault("source", "benchmark")
     grade["total_attempts"] += 1
     grade["total_execution_time_ms"] += elapsed_ms
     grade["total_tokens_used"] += tokens

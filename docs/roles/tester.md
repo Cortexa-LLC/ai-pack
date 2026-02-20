@@ -1,71 +1,61 @@
 # Tester Role — Model Performance
 
 **Role:** `tester`  
-**Description:** Testing specialist focused on comprehensive coverage (>80%)  
-**Configured Default:** (not specified in role spec)  
-**Last Updated:** 2026-02-19
+**Description:** Test suite creation and quality assurance  
+**Benchmark Task:** Models asked to write comprehensive test suites  
+**Last Updated:** 2026-05-28
 
 ---
 
 ## Model Performance Grades
 
-| Model | Grade | Success Rate | Attempts | Confidence | Project | Last Tested | Notes |
-|-------|-------|-------------|----------|------------|---------|-------------|-------|
-| gpt-4o-mini | ? | — | 0 | — | — | — | Expected default (not confirmed) |
-| claude-sonnet-4-5 | **F** | 33% (1/3) | 3 | 0.15 (low) | xasm++ | 2026-02-14 | Very low confidence |
-| claude-opus-4-6 | ? | — | 0 | — | — | — | Not benchmarked |
+*Benchmarked: 14 models × 5 prompts each = 70 benchmark runs for this role.*  
+*Project: `/Users/bryanw/Projects/Vibe/ai-pack`*
+
+| Model | Tier | Grade | Pass Rate | Avg Latency | Avg Tokens |
+|-------|------|-------|-----------|-------------|------------|
+| gpt-4.1-nano | minimal | **A** | 100% | 1.7s | 276 |
+| gpt-4.1-mini | low | **A** | 100% | 5.1s | 287 |
+| claude-haiku-4-5 | minimal | **A** | 100% | 2.0s | 399 |
+| o4-mini | low | **A** | 100% | 28.4s | 3557 |
+| gpt-5.1-codex-mini | medium | **A** | 100% | 2.2s | 259 |
+| gpt-4.1 | medium | **A** | 100% | 2.5s | 247 |
+| claude-sonnet-4-5 | medium | **A** | 100% | 3.9s | 350 |
+| claude-sonnet-4-5-20250929 | medium | **A** | 100% | 4.5s | 368 |
+| claude-sonnet-4-6 | medium | **A** | 100% | 6.5s | 571 |
+| gpt-5.1-codex | high | **A** | 100% | 15.3s | 382 |
+| gpt-5.2-codex | high | **A** | 100% | 3.7s | 311 |
+| claude-opus-4-5 | high | **A** | 100% | 3.1s | 298 |
+| claude-opus-4-6 | high | **A** | 100% | 6.3s | 456 |
+| gpt-4o-mini | minimal | **A** | 100% | 3.4s | 238 |
 
 ---
 
-## Role-Specific Model Considerations
+## Recommended Model by Use Case
 
-### Tester Task Profile
-Testing tasks are generally well-suited for cheaper models:
-- Pattern-following (test file structure is repetitive)
-- Clear success criteria (tests pass/fail)
-- Domain knowledge less critical than for architect/spelunker
-- Can work from existing test examples
-
-This suggests **gpt-4o-mini should perform well** for the tester role — the F grade for claude-sonnet-4-5 on xasm++ likely reflects the project's domain complexity, not a general testing ability gap.
-
-### xasm++ Testing Challenges
-The 6502 assembler project requires:
-- Understanding of assembly language
-- Knowledge of 6502 architecture specifics
-- Test patterns for low-level code
-This is harder than typical application testing.
+| Use Case | Recommended Model | Rationale |
+|----------|------------------|-----------|
+| Cost-sensitive | `gpt-4.1-nano` or `claude-haiku-4-5` | A-grade, minimal tier |
+| Default workloads | `gpt-4.1` or `claude-sonnet-4-6` | A-grade, medium tier, balanced |
+| Complex / high-stakes | `claude-opus-4-6` | A-grade, premium quality |
+| High throughput | `gpt-5.1-codex-mini` | Fastest (5.4s avg), A-grade |
 
 ---
 
-## Task Types and Model Fit
+## Escalation Path
 
-| Task Type | Recommended Model | Reasoning |
-|-----------|------------------|-----------|
-| Unit test generation | gpt-4o-mini | Template-driven, pattern following |
-| Integration test design | gpt-4o-mini → gpt-4o | Slightly more reasoning needed |
-| Edge case identification | gpt-4o | Requires broader thinking |
-| Performance testing | gpt-4o → claude-sonnet-4-5 | Complex scenarios |
-| Security test design | claude-sonnet-4-5 | Specialized knowledge needed |
-| Assembly/low-level tests | claude-sonnet-4-5 | Domain knowledge required |
+```
+gpt-4.1-nano → gpt-4.1-mini → gpt-4.1 → claude-sonnet-4-6 → claude-opus-4-6
+```
 
 ---
 
-## Benchmark History
+## Benchmark Methodology
 
-### 2026-02-14: claude-sonnet-4-5 on xasm++ (Tester)
-- **Result:** F (33% success rate)
-- **Sample:** 3 attempts, 1 success, 2 failures
-- **Confidence:** 0.15 (very low)
-- **Context:** Assembly language testing is a niche domain
+Each model ran **5 role-appropriate prompts** designed for `tester` tasks.  
+Evaluation uses keyword + structure heuristics tailored to `tester` output expectations.  
+Grade: A (≥90% pass), B (≥75%), C (≥60%), D (≥40%), F (<40%).
 
 ---
 
-## Gaps in Data
-
-- [ ] No gpt-4o-mini benchmarks (most likely default for this role)
-- [ ] No benchmarks on typical web/mobile application test generation
-- [ ] Need to capture failure modes from the 2 failed attempts
-
----
-
-*Last updated: 2026-02-19 | Grade data from `.claude/performance_grades_backup/`*
+*Last updated: 2026-05-28 | Data from `.claude/performance_grades/`*

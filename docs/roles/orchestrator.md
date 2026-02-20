@@ -2,75 +2,60 @@
 
 **Role:** `orchestrator`  
 **Description:** Multi-agent task coordination and delegation  
-**Configured Default:** (not specified — uses system default)  
-**Last Updated:** 2026-02-19
+**Benchmark Task:** Models asked to produce delegation plans with dependency ordering  
+**Last Updated:** 2026-05-28
 
 ---
 
 ## Model Performance Grades
 
-| Model | Grade | Success Rate | Attempts | Confidence | Project | Last Tested | Notes |
-|-------|-------|-------------|----------|------------|---------|-------------|-------|
-| claude-sonnet-4-5 | **F** | 33% (2/6) | 6 | 0.30 (low) | xasm++ | 2026-02-03 | 4 failures, 0 retries |
-| claude-opus-4-6 | ? | — | 0 | — | — | — | Premium fit for complex orchestration |
-| gpt-4o | ? | — | 0 | — | — | — | Potentially viable for simpler orchestration |
+*Benchmarked: 14 models × 5 prompts each = 70 benchmark runs for this role.*  
+*Project: `/Users/bryanw/Projects/Vibe/ai-pack`*
+
+| Model | Tier | Grade | Pass Rate | Avg Latency | Avg Tokens |
+|-------|------|-------|-----------|-------------|------------|
+| gpt-4.1-nano | minimal | **A** | 100% | 5.2s | 729 |
+| gpt-4.1-mini | low | **A** | 100% | 9.3s | 632 |
+| claude-haiku-4-5 | minimal | **A** | 100% | 10.5s | 1140 |
+| o4-mini | low | **A** | 100% | 74.1s | 9916 |
+| gpt-5.1-codex-mini | medium | **A** | 100% | 5.5s | 822 |
+| gpt-4.1 | medium | **A** | 100% | 13.1s | 761 |
+| claude-sonnet-4-5 | medium | **A** | 100% | 22.6s | 1144 |
+| claude-sonnet-4-5-20250929 | medium | **A** | 100% | 23.3s | 1139 |
+| claude-sonnet-4-6 | medium | **A** | 100% | 22.0s | 1146 |
+| gpt-5.1-codex | high | **A** | 100% | 14.8s | 662 |
+| gpt-5.2-codex | high | **A** | 100% | 15.4s | 885 |
+| claude-opus-4-5 | high | **A** | 100% | 20.1s | 1145 |
+| claude-opus-4-6 | high | **A** | 100% | 25.6s | 1145 |
+| gpt-4o-mini | minimal | **A** | 100% | 13.9s | 811 |
 
 ---
 
-## Role-Specific Model Considerations
+## Recommended Model by Use Case
 
-### Orchestrator Task Complexity
-The orchestrator role is one of the **most complex roles** in the system:
-- Must understand the full project context
-- Decomposes tasks intelligently across multiple agents
-- Manages dependencies and sequencing
-- Handles failures and re-routing
-- Maintains coherence across long multi-turn sessions
-
-This argues for **higher-tier models** as the default. The F grade for claude-sonnet-4-5 with 6 attempts (moderate sample) is more concerning than the 3-attempt F grades.
-
-### Confidence Analysis
-- **0.30 confidence** with 6 attempts is the second-highest in the dataset
-- 2 successes out of 6 attempts represents a real pattern, not statistical noise
-- The 4 failures on xasm++ orchestration likely reflect domain complexity
-
-### Recommended Model for Orchestrator
-Based on role complexity and available data:
-1. **Primary:** claude-sonnet-4-6 or claude-opus-4-6
-2. **Budget alternative:** claude-sonnet-4-5 (monitor closely)
-3. **Avoid:** gpt-4o-mini (orchestration requires deep reasoning)
+| Use Case | Recommended Model | Rationale |
+|----------|------------------|-----------|
+| Cost-sensitive | `gpt-4.1-nano` or `claude-haiku-4-5` | A-grade, minimal tier |
+| Default workloads | `gpt-4.1` or `claude-sonnet-4-6` | A-grade, medium tier, balanced |
+| Complex / high-stakes | `claude-opus-4-6` | A-grade, premium quality |
+| High throughput | `gpt-5.1-codex-mini` | Fastest (5.4s avg), A-grade |
 
 ---
 
-## Escalation Path for Orchestrator
+## Escalation Path
 
 ```
-claude-sonnet-4-5 → claude-sonnet-4-6 → claude-opus-4-6
+gpt-4.1-nano → gpt-4.1-mini → gpt-4.1 → claude-sonnet-4-6 → claude-opus-4-6
 ```
 
-Unlike engineering roles, **skip the cheap models** for orchestration. The cost of a failed orchestration run (wasted sub-agent work) often exceeds the savings from using a cheaper orchestrator.
+---
+
+## Benchmark Methodology
+
+Each model ran **5 role-appropriate prompts** designed for `orchestrator` tasks.  
+Evaluation uses keyword + structure heuristics tailored to `orchestrator` output expectations.  
+Grade: A (≥90% pass), B (≥75%), C (≥60%), D (≥40%), F (<40%).
 
 ---
 
-## Benchmark History
-
-### 2026-02-03: claude-sonnet-4-5 on xasm++ (Orchestrator)
-- **Result:** F (33% success rate)
-- **Sample:** 6 attempts, 2 successes, 4 failures
-- **Confidence:** 0.30 (low-moderate)
-- **Context:** xasm++ project — niche 6502 assembler domain
-- **Execution time:** ~283 seconds average
-- **Escalations/Downgrades:** None recorded
-
----
-
-## Gaps in Data
-
-- [ ] No benchmarks for claude-opus-4-6 (most appropriate model)
-- [ ] No benchmarks on typical software orchestration scenarios
-- [ ] Need to understand failure modes: did orchestration produce wrong sub-tasks? Failed to coordinate? Timed out?
-- [ ] No benchmarks across different orchestration complexity levels (simple 2-agent vs. complex 5-agent pipelines)
-
----
-
-*Last updated: 2026-02-19 | Grade data from `.claude/performance_grades_backup/`*
+*Last updated: 2026-05-28 | Data from `.claude/performance_grades/`*

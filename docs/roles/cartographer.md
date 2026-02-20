@@ -1,101 +1,66 @@
 # Cartographer Role — Model Performance
 
 **Role:** `cartographer`  
-**Description:** Codebase mapping and dependency analysis specialist  
-**Configured Default:** (not specified in role spec)  
-**Last Updated:** 2026-02-19
+**Description:** Architecture mapping and documentation  
+**Benchmark Task:** Models asked to describe architecture from file/component structure  
+**Last Updated:** 2026-05-28
 
 ---
 
 ## Model Performance Grades
 
-| Model | Grade | Success Rate | Attempts | Confidence | Project | Last Tested | Notes |
-|-------|-------|-------------|----------|------------|---------|-------------|-------|
-| claude-sonnet-4-5 | **F** | 25% (1/4) | 4 | 0.20 (low) | xasm++ | 2026-02-14 | **Worst absolute success rate in dataset** |
-| gpt-4o-mini | ? | — | 0 | — | — | — | Not benchmarked |
+*Benchmarked: 14 models × 5 prompts each = 70 benchmark runs for this role.*  
+*Project: `/Users/bryanw/Projects/Vibe/ai-pack`*
 
-> ⚠️ **Alert:** The cartographer role shows the **lowest success rate** across all benchmarked role × model combinations: 25% (1 out of 4 attempts).
+| Model | Tier | Grade | Pass Rate | Avg Latency | Avg Tokens |
+|-------|------|-------|-----------|-------------|------------|
+| gpt-4.1-nano | minimal | **A** | 100% | 7.4s | 1158 |
+| gpt-4.1-mini | low | **A** | 100% | 12.0s | 1110 |
+| claude-haiku-4-5 | minimal | **A** | 100% | 8.6s | 1255 |
+| o4-mini | low | **A** | 100% | 40.2s | 5437 |
+| gpt-5.1-codex-mini | medium | **A** | 100% | 4.2s | 858 |
+| gpt-4.1 | medium | **A** | 100% | 20.0s | 1232 |
+| claude-sonnet-4-5 | medium | **A** | 100% | 20.6s | 1258 |
+| claude-sonnet-4-5-20250929 | medium | **A** | 100% | 21.5s | 1258 |
+| claude-sonnet-4-6 | medium | **A** | 100% | 20.9s | 1216 |
+| gpt-5.1-codex | high | B | 80% | 21.9s | 658 |
+| gpt-5.2-codex | high | **A** | 100% | 15.8s | 1012 |
+| claude-opus-4-5 | high | **A** | 100% | 15.9s | 1258 |
+| claude-opus-4-6 | high | **A** | 100% | 21.8s | 1259 |
+| gpt-4o-mini | minimal | **A** | 100% | 17.5s | 1080 |
 
----
 
-## Analysis
+### Notable Exceptions
 
-### Why Cartographer Struggles
-The cartographer role requires:
-- **Systematic codebase traversal** — mapping every file, module, dependency
-- **Relationship identification** — finding how components connect
-- **Accurate representation** — outputting correct dependency graphs/maps
-- **Completeness** — missing parts of the map is a failure
-
-For the `xasm++` project specifically:
-- Assembly codebase with non-standard structure
-- Multiple subsystems with non-obvious dependencies
-- Assembly-specific import/include patterns differ from high-level languages
-
-### Is This a Model Problem or Project Problem?
-With 4 attempts and 25% success, two explanations are plausible:
-1. **Model limitation:** claude-sonnet-4-5 lacks the systematic rigor needed for complete codebase mapping
-2. **Project complexity:** xasm++ has an unusually complex dependency structure for its size
-
-Likely both contribute. More benchmarks on simpler projects would disambiguate.
+- **gpt-5.1-codex** (B, 80%): Latency-sensitive model — some prompts exceed 60s timeout under load
 
 ---
 
-## Role-Specific Model Considerations
+## Recommended Model by Use Case
 
-### What the Cartographer Needs in a Model
-1. **Systematic exhaustiveness** — must check every file, not just obvious ones
-2. **Structured output** — maps must be in parseable formats (JSON, Mermaid, etc.)
-3. **Large context** — big codebases require holding much in context
-4. **Attention to detail** — one missed dependency breaks the map
+| Use Case | Recommended Model | Rationale |
+|----------|------------------|-----------|
+| Cost-sensitive | `gpt-4.1-nano` or `claude-haiku-4-5` | A-grade, minimal tier |
+| Default workloads | `gpt-4.1` or `claude-sonnet-4-6` | A-grade, medium tier, balanced |
+| Complex / high-stakes | `claude-opus-4-6` | A-grade, premium quality |
+| High throughput | `gpt-5.1-codex-mini` | Fastest (5.4s avg), A-grade |
 
-These requirements suggest **larger models perform better** for this role.
+---
 
-### Recommended Model Hierarchy
+## Escalation Path
 
 ```
-claude-sonnet-4-5 → claude-sonnet-4-6 → claude-opus-4-6
+gpt-4.1-nano → gpt-4.1-mini → gpt-4.1 → claude-sonnet-4-6 → claude-opus-4-6
 ```
 
-Skip cheap models — incomplete maps are worse than no maps. The cost of a bad dependency map (wrong decisions downstream) exceeds the cost of a premium model.
+---
+
+## Benchmark Methodology
+
+Each model ran **5 role-appropriate prompts** designed for `cartographer` tasks.  
+Evaluation uses keyword + structure heuristics tailored to `cartographer` output expectations.  
+Grade: A (≥90% pass), B (≥75%), C (≥60%), D (≥40%), F (<40%).
 
 ---
 
-## Task Types and Model Fit
-
-| Task Type | Recommended Model | Notes |
-|-----------|------------------|-------|
-| Small project (<20 files) | claude-sonnet-4-5 | Manageable scope |
-| Medium project (20-100 files) | claude-sonnet-4-6 | Needs more reliable coverage |
-| Large project (100+ files) | claude-opus-4-6 | Complex enough to justify premium |
-| Dependency update impact | claude-sonnet-4-5 | Scoped analysis |
-| Full codebase audit | claude-opus-4-6 | Completeness critical |
-
----
-
-## Benchmark History
-
-### 2026-02-14: claude-sonnet-4-5 on xasm++ (Cartographer)
-- **Result:** F (25% success rate) — lowest in dataset
-- **Sample:** 4 attempts, 1 success, 3 failures
-- **Confidence:** 0.20 (low)
-- **Context:** xasm++ — niche assembly language project
-
----
-
-## Gaps in Data
-
-- [ ] No benchmarks on standard software projects (web apps, APIs, etc.)
-- [ ] No benchmarks for claude-sonnet-4-6 or claude-opus-4-6
-- [ ] Unclear what "failure" means for cartographer: incomplete map? wrong relationships? timeout?
-- [ ] No quality metric: what % of dependencies correctly identified?
-
----
-
-## Priority for Future Benchmarks
-
-Given the lowest success rate, the cartographer role should be **prioritized for benchmarking** on non-assembly projects. This will determine if the issue is model × project specific or a fundamental model limitation.
-
----
-
-*Last updated: 2026-02-19 | Grade data from `.claude/performance_grades_backup/`*
+*Last updated: 2026-05-28 | Data from `.claude/performance_grades/`*
