@@ -532,8 +532,12 @@ func main() {
 	// Setup GraphQL endpoints
 	s.SetupGraphQLHandlers(mux)
 
-	// Wrap with logging middleware
-	handler := server.LoggingMiddleware(mux)
+	// Wrap with middleware chain: logging → CORS → API key auth → mux
+	handler := server.LoggingMiddleware(
+		server.CORSMiddleware(
+			server.APIKeyMiddleware(cfg.Server.APIKey, mux),
+		),
+	)
 
 	// Start server
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
