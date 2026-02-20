@@ -175,7 +175,13 @@ Verify XSS prevention, CSRF tokens, and rate limiting implementation." \
 bd ready
 ```
 
-**Completing Work:**
+**Completing Your Review:**
+
+When findings are written and tasks created:
+1. List all files you created or modified
+2. Do not commit — findings in `.ai/` are gitignored; Beads tasks are already created
+3. Report your summary to the orchestrator
+
 ```bash
 # When review complete and work approved
 bd close bd-a1b2
