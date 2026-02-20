@@ -43,9 +43,12 @@ func (s *Service) CreateStream(ctx context.Context, role string, req StreamReque
 			"role", role,
 			"requested_model", req.Model,
 			"error", err.Error())
-		// Fall back to default provider
+		// Fall back to default provider, keeping the selector's returned model
+		// (SelectModel returns a translated default model on error, not the original).
 		providerName = s.defaultProvider
-		selectedModel = req.Model
+		if selectedModel == "" {
+			selectedModel = s.translateModelForProvider(req.Model, s.GetProviderForModel(req.Model), s.defaultProvider)
+		}
 	}
 
 	// Log the selection

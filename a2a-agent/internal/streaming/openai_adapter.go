@@ -3,6 +3,7 @@ package streaming
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/openai/openai-go"
@@ -122,7 +123,10 @@ func (f *OpenAIFactory) CreateStream(ctx context.Context, req StreamRequest) (St
 			if len(msg.ToolUses) > 0 {
 				var toolCalls []openai.ChatCompletionMessageToolCallParam
 				for _, tu := range msg.ToolUses {
-					argsJSON, _ := json.Marshal(tu.Input)
+					argsJSON, err := json.Marshal(tu.Input)
+					if err != nil {
+						return nil, fmt.Errorf("marshal tool input for %q: %w", tu.Name, err)
+					}
 					toolCalls = append(toolCalls, openai.ChatCompletionMessageToolCallParam{
 						ID:   tu.ID,
 						Type: "function",
@@ -226,20 +230,10 @@ func IsCodexModel(model string) bool {
 // isCodexModel determines if a model should use the Responses API
 func isCodexModel(model string) bool {
 	lower := strings.ToLower(model)
-	codexPrefixes := []string{
-		"code-",
-		"davinci-codex",
-		"gpt-5.1-codex",
-	}
-
-	for _, prefix := range codexPrefixes {
-		if strings.HasPrefix(lower, prefix) {
-			return true
-		}
-	}
-
-	// Also match any model containing "codex"
-	return strings.Contains(lower, "codex")
+	// Match code- prefix (legacy), davinci-codex (legacy), and any model containing "codex"
+	return strings.HasPrefix(lower, "code-") ||
+		strings.HasPrefix(lower, "davinci-codex") ||
+		strings.Contains(lower, "codex")
 }
 
 // usesMaxCompletionTokens returns true for models that use max_completion_tokens instead of max_tokens
@@ -371,7 +365,9 @@ func (a *OpenAIResponsesStreamAdapter) Next() bool {
 			item := event.AsResponseOutputItemDone()
 			if item.Item.Type == "function_call" {
 				var input map[string]interface{}
-				json.Unmarshal([]byte(item.Item.Arguments), &input)
+				if err := json.Unmarshal([]byte(item.Item.Arguments), &input); err != nil {
+					input = map[string]interface{}{"_args": item.Item.Arguments}
+				}
 				a.pendingEvents = append(a.pendingEvents, StreamEvent{Type: "tool_use", ToolUse: &ToolUse{ID: item.Item.CallID, Name: item.Item.Name, Input: input}})
 			}
 		case "response.completed":
@@ -382,6 +378,8 @@ func (a *OpenAIResponsesStreamAdapter) Next() bool {
 	}
 	if err := a.stream.Err(); err != nil {
 		a.current = StreamEvent{Error: err}
+		a.done = true
+		return false
 	}
 	a.done = true
 	if len(a.pendingEvents) > 0 {
