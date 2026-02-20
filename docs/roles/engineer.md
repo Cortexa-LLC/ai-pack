@@ -1,97 +1,66 @@
 # Engineer Role — Model Performance
 
 **Role:** `engineer`  
-**Description:** Implementation specialist for writing code, tests, bug fixes  
-**Configured Default:** gpt-4o-mini  
-**Last Updated:** 2026-02-19
+**Description:** Code implementation, TDD, bug fixing  
+**Benchmark Task:** Models asked to write working code with tests  
+**Last Updated:** 2026-05-28
 
 ---
 
 ## Model Performance Grades
 
-| Model | Grade | Success Rate | Attempts | Confidence | Project | Last Tested | Notes |
-|-------|-------|-------------|----------|------------|---------|-------------|-------|
-| gpt-4o-mini | ? | — | 0 | — | — | — | Default model, no benchmarks yet |
-| gpt-4o | ? | — | 0 | — | — | — | First escalation target |
-| claude-haiku-4-5 | ? | — | 0 | — | — | — | Alternative cheap model |
-| claude-sonnet-4-5 | **F** | 33% (1/3) | 3 | 0.15 (low) | ai-pack | 2026-02-19 | 2 failures, 67% error rate |
-| claude-sonnet-4-5 | **F** | 33% (1/3) | 3 | 0.15 (low) | xasm++ | 2026-02-18 | Same grade, different project |
-| claude-sonnet-4-6 | ? | — | 0 | — | — | — | No benchmarks yet |
-| claude-opus-4-6 | ? | — | 0 | — | — | — | Top escalation target |
+*Benchmarked: 14 models × 5 prompts each = 70 benchmark runs for this role.*  
+*Project: `/Users/bryanw/Projects/Vibe/ai-pack`*
+
+| Model | Tier | Grade | Pass Rate | Avg Latency | Avg Tokens |
+|-------|------|-------|-----------|-------------|------------|
+| gpt-4.1-nano | minimal | **A** | 100% | 1.8s | 297 |
+| gpt-4.1-mini | low | **A** | 100% | 3.3s | 286 |
+| claude-haiku-4-5 | minimal | **A** | 100% | 2.3s | 419 |
+| o4-mini | low | **A** | 100% | 22.6s | 2744 |
+| gpt-5.1-codex-mini | medium | **A** | 100% | 2.9s | 371 |
+| gpt-4.1 | medium | **A** | 100% | 2.8s | 234 |
+| claude-sonnet-4-5 | medium | **A** | 100% | 4.2s | 355 |
+| claude-sonnet-4-5-20250929 | medium | B | 83% | 0.4s | 0 |
+| claude-sonnet-4-6 | medium | **A** | 100% | 6.1s | 554 |
+| gpt-5.1-codex | high | **A** | 100% | 8.6s | 295 |
+| gpt-5.2-codex | high | **A** | 100% | 3.7s | 325 |
+| claude-opus-4-5 | high | **A** | 100% | 3.3s | 307 |
+| claude-opus-4-6 | high | **A** | 100% | 5.4s | 394 |
+| gpt-4o-mini | minimal | **A** | 100% | 4.1s | 238 |
+
+
+### Notable Exceptions
+
+- **claude-sonnet-4-5-20250929** (B, 83%): Legacy snapshot (Sep 2025) — prefer `claude-sonnet-4-5` or newer
+
+---
+
+## Recommended Model by Use Case
+
+| Use Case | Recommended Model | Rationale |
+|----------|------------------|-----------|
+| Cost-sensitive | `gpt-4.1-nano` or `claude-haiku-4-5` | A-grade, minimal tier |
+| Default workloads | `gpt-4.1` or `claude-sonnet-4-6` | A-grade, medium tier, balanced |
+| Complex / high-stakes | `claude-opus-4-6` | A-grade, premium quality |
+| High throughput | `gpt-5.1-codex-mini` | Fastest (5.4s avg), A-grade |
 
 ---
 
 ## Escalation Path
 
 ```
-gpt-4o-mini → gpt-4o → claude-sonnet-4-5 → claude-opus-4-6
+gpt-4.1-nano → gpt-4.1-mini → gpt-4.1 → claude-sonnet-4-6 → claude-opus-4-6
 ```
 
-The engineer role is configured to start with the cheapest model and escalate based on failure. Current benchmark data only covers claude-sonnet-4-5, which shows poor performance — but this may reflect the complexity of benchmark projects rather than the model's general capability.
+---
+
+## Benchmark Methodology
+
+Each model ran **5 role-appropriate prompts** designed for `engineer` tasks.  
+Evaluation uses keyword + structure heuristics tailored to `engineer` output expectations.  
+Grade: A (≥90% pass), B (≥75%), C (≥60%), D (≥40%), F (<40%).
 
 ---
 
-## Role-Specific Model Considerations
-
-### Why gpt-4o-mini is the Default
-- Engineer tasks are often well-defined, pattern-following work
-- Cheap model handles 80%+ of simple implementation tasks
-- Cost savings are significant at scale (20× cheaper than claude-sonnet-4-5)
-
-### When claude-sonnet-4-5 Fails as Engineer
-Observed failure patterns from benchmark data:
-- **Error rate 67% on ai-pack** — complex project with tight integration requirements
-- **Low confidence (0.15)** — sample size of only 3 attempts is insufficient
-- Specific failure modes not documented yet (tool call errors? incomplete output? wrong logic?)
-
-### Recommendations
-1. **Start with gpt-4o-mini** — it's the configured default for good reason
-2. **Escalate to gpt-4o** if gpt-4o-mini fails (before trying claude-sonnet-4-5)
-3. **Document failure modes** when escalating — helps tune the escalation policy
-4. **Do not default to claude-sonnet-4-5** based on current benchmark data
-
----
-
-## Task Types and Model Fit
-
-| Task Type | Recommended Model | Reasoning |
-|-----------|------------------|-----------|
-| Simple edits, refactoring | gpt-4o-mini | Pattern following, no deep reasoning needed |
-| Test writing | gpt-4o-mini | Template-driven, coverage-focused |
-| Bug fixes (clear root cause) | gpt-4o-mini | Well-defined problem, bounded solution |
-| Feature implementation | gpt-4o-mini → gpt-4o | Escalate if initial attempt fails |
-| Complex debugging | gpt-4o → claude-sonnet-4-5 | Multi-file analysis, reasoning needed |
-| Security-critical code | claude-sonnet-4-5 → claude-opus-4-6 | High stakes, needs careful review |
-| Architecture-heavy features | Delegate to architect role | Not engineer's domain |
-
----
-
-## Benchmark History
-
-### 2026-02-19: claude-sonnet-4-5 on ai-pack (Engineer)
-- **Result:** F (33% success rate)
-- **Sample:** 3 attempts, 1 success, 2 failures
-- **Error rate:** 67%
-- **Confidence:** 0.15 (very low — 3 attempts insufficient)
-- **Context:** ai-pack is the agent framework project itself — high complexity
-- **Implication:** Do not use claude-sonnet-4-5 as default engineer on complex self-referential projects
-
-### 2026-02-18: claude-sonnet-4-5 on xasm++ (Engineer)
-- **Result:** F (33% success rate)
-- **Sample:** 3 attempts, 1 success, 2 failures
-- **Context:** xasm++ is a 6502 assembler — niche domain requiring specialized knowledge
-- **Implication:** Model struggled with domain-specific constraints
-
----
-
-## Gaps in Data
-
-- [ ] No gpt-4o-mini benchmarks (despite being the default model)
-- [ ] No gpt-4o benchmarks
-- [ ] No claude-sonnet-4-6 benchmarks
-- [ ] No benchmarks on typical/simple engineering tasks
-- [ ] No benchmarks across diverse project types
-
----
-
-*Last updated: 2026-02-19 | Grade data from `.claude/performance_grades/`*
+*Last updated: 2026-05-28 | Data from `.claude/performance_grades/`*

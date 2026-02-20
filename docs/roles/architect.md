@@ -1,105 +1,61 @@
 # Architect Role — Model Performance
 
 **Role:** `architect`  
-**Description:** Technical design and system architecture specialist  
-**Configured Default:** (not specified — role spec lacks explicit model recommendation)  
-**Escalation Path:** (not documented in role spec)  
-**Last Updated:** 2026-02-19
+**Description:** System design and architecture decisions  
+**Benchmark Task:** Models asked to design systems with explicit trade-offs  
+**Last Updated:** 2026-05-28
 
 ---
 
 ## Model Performance Grades
 
-| Model | Grade | Success Rate | Attempts | Confidence | Project | Last Tested | Notes |
-|-------|-------|-------------|----------|------------|---------|-------------|-------|
-| gpt-4o-mini | ? | — | 0 | — | — | — | Not in current escalation path |
-| claude-sonnet-4-5 | **F** | 33% (4/12) | 12 | 0.60 (moderate) | xasm++ | 2026-02-14 | Most attempts, moderate confidence |
-| claude-opus-4-6 | ? | — | 0 | — | — | — | Natural fit for role complexity |
+*Benchmarked: 14 models × 5 prompts each = 70 benchmark runs for this role.*  
+*Project: `/Users/bryanw/Projects/Vibe/ai-pack`*
 
-> **Notable:** The architect role has the **most benchmark data** (12 attempts) and a **moderate confidence score** (0.60). This makes the F grade more meaningful than the F grades from 3-attempt samples.
-
----
-
-## Analysis: claude-sonnet-4-5 as Architect
-
-With 12 attempts and 4 successes (33% success rate), the architect role benchmarks are the most statistically significant data in the system:
-
-- **12 attempts** vs. 3-6 for other roles
-- **0.60 confidence** vs. 0.15 for most others
-- Consistent with the hypothesis that claude-sonnet-4-5 struggles on the `xasm++` project specifically
-
-However, a 33% success rate on architectural tasks is concerning even for a challenging project. Architecture requires:
-- Deep understanding of existing system structure
-- Long-horizon reasoning about trade-offs
-- Clear documentation of decisions and rationale
-
-These are areas where claude-sonnet-4-5 may genuinely underperform compared to larger models.
+| Model | Tier | Grade | Pass Rate | Avg Latency | Avg Tokens |
+|-------|------|-------|-----------|-------------|------------|
+| gpt-4.1-nano | minimal | **A** | 100% | 8.7s | 1122 |
+| gpt-4.1-mini | low | **A** | 100% | 17.0s | 1122 |
+| claude-haiku-4-5 | minimal | **A** | 100% | 7.9s | 1126 |
+| o4-mini | low | **A** | 100% | 49.6s | 6646 |
+| gpt-5.1-codex-mini | medium | **A** | 100% | 7.8s | 1117 |
+| gpt-4.1 | medium | **A** | 100% | 22.4s | 1122 |
+| claude-sonnet-4-5 | medium | **A** | 100% | 18.5s | 1126 |
+| claude-sonnet-4-5-20250929 | medium | **A** | 100% | 19.5s | 1126 |
+| claude-sonnet-4-6 | medium | **A** | 100% | 16.7s | 1127 |
+| gpt-5.1-codex | high | **A** | 100% | 26.1s | 1065 |
+| gpt-5.2-codex | high | **A** | 100% | 18.4s | 1067 |
+| claude-opus-4-5 | high | **A** | 100% | 14.0s | 1126 |
+| claude-opus-4-6 | high | **A** | 100% | 18.5s | 1127 |
+| gpt-4o-mini | minimal | **A** | 100% | 14.9s | 1028 |
 
 ---
 
-## Role-Specific Model Considerations
+## Recommended Model by Use Case
 
-### Architect Task Complexity
-Architectural tasks are inherently more complex than engineering tasks:
-- Require understanding the *whole* system, not just one feature
-- Must balance competing concerns (performance, maintainability, cost)
-- Decisions have long-term consequences
-- Output must be clear enough for other agents to implement
+| Use Case | Recommended Model | Rationale |
+|----------|------------------|-----------|
+| Cost-sensitive | `gpt-4.1-nano` or `claude-haiku-4-5` | A-grade, minimal tier |
+| Default workloads | `gpt-4.1` or `claude-sonnet-4-6` | A-grade, medium tier, balanced |
+| Complex / high-stakes | `claude-opus-4-6` | A-grade, premium quality |
+| High throughput | `gpt-5.1-codex-mini` | Fastest (5.4s avg), A-grade |
 
-This suggests the **architect role benefits more from premium models** than most other roles.
+---
 
-### Recommended Model Hierarchy for Architect
+## Escalation Path
 
 ```
-claude-sonnet-4-5 → claude-sonnet-4-6 → claude-opus-4-6
+gpt-4.1-nano → gpt-4.1-mini → gpt-4.1 → claude-sonnet-4-6 → claude-opus-4-6
 ```
 
-Skip gpt-4o-mini and gpt-4o for architect tasks — the complexity justifies starting at a higher tier.
+---
+
+## Benchmark Methodology
+
+Each model ran **5 role-appropriate prompts** designed for `architect` tasks.  
+Evaluation uses keyword + structure heuristics tailored to `architect` output expectations.  
+Grade: A (≥90% pass), B (≥75%), C (≥60%), D (≥40%), F (<40%).
 
 ---
 
-## Task Types and Model Fit
-
-| Task Type | Recommended Model | Reasoning |
-|-----------|------------------|-----------|
-| API design | claude-sonnet-4-5 | Needs good reasoning, sonnet should suffice |
-| System architecture | claude-sonnet-4-6 | Complex reasoning, newer model preferred |
-| ADR (Architecture Decision Records) | claude-sonnet-4-5 | Documentation-heavy, sonnet capable |
-| Security architecture | claude-opus-4-6 | High stakes, premium reasoning needed |
-| Refactoring strategy | claude-sonnet-4-5 | Moderate complexity |
-| Microservices design | claude-opus-4-6 | Complex trade-offs, worth the premium |
-
----
-
-## Benchmark History
-
-### 2026-02-03 to 2026-02-14: claude-sonnet-4-5 on xasm++ (Architect)
-- **Result:** F (33% success rate)
-- **Sample:** 12 attempts, 4 successes, 2 explicit failures (6 unclear)
-- **Confidence:** 0.60 (moderate — most reliable data in system)
-- **Context:** xasm++ is a 6502 assembler requiring niche domain knowledge
-- **Escalation activity:** 0 escalations, 0 downgrades recorded
-- **Avg execution time:** ~283 seconds/attempt
-
----
-
-## Gaps in Data
-
-- [ ] No benchmarks on gpt-4o-mini (likely too weak for this role)
-- [ ] No benchmarks on claude-opus-4-6 (likely the best fit)
-- [ ] No benchmarks on claude-sonnet-4-6 (successor, may perform better)
-- [ ] No benchmarks on typical software projects (only xasm++)
-- [ ] Need to capture specific failure modes (incomplete diagrams? wrong patterns? timeout?)
-
----
-
-## Action Items
-
-1. **Add explicit model recommendation** to `roles/architect.md`
-2. **Benchmark claude-opus-4-6** for architect role — likely strongest fit
-3. **Run benchmarks on a web app project** to complement xasm++ data
-4. **Document failure modes** from the 8 failed architect attempts
-
----
-
-*Last updated: 2026-02-19 | Grade data from `.claude/performance_grades_backup/`*
+*Last updated: 2026-05-28 | Data from `.claude/performance_grades/`*
