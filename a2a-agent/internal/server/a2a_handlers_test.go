@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
@@ -349,4 +350,133 @@ func TestHandleA2AStatusGET(t *testing.T) {
 	if contentType := resp.Header.Get("Content-Type"); contentType != "application/json" {
 		t.Errorf("Expected Content-Type 'application/json', got '%s'", contentType)
 	}
+}
+
+// TestHandleA2AExecute_PathTraversal_ProjectRoot tests that path traversal attempts
+// via project_root are rejected before any filesystem operations occur.
+func TestHandleA2AExecutePathTraversalProjectRoot(t *testing.T) {
+	cleanup := clearAuthEnvVars(t)
+	defer cleanup()
+
+	tmpDir := setupTestDir(t)
+	os.Setenv("ANTHROPIC_API_KEY", "test-token")
+	defer os.Unsetenv("ANTHROPIC_API_KEY")
+
+	cfg := config.DefaultConfig()
+	cfg.API.Mode = "direct"
+	server, err := NewAgentServer(tmpDir, 3, 4000, "claude-3-5-sonnet-20241022", cfg)
+	if err != nil {
+		t.Fatalf("Failed to create server: %v", err)
+	}
+
+	cases := []struct {
+		name        string
+		projectRoot string
+	}{
+		{"relative path", "../../etc"},
+		{"relative with dot", "./relative/path"},
+		{"traversal only", "../.."},
+		{"mixed traversal", "/valid/../../../etc"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			body := makeA2AExecuteBody(t, map[string]interface{}{
+				"role":         "engineer",
+				"task":         "ai-pack-abc-20260101000000-test",
+				"project_root": tc.projectRoot,
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/a2a/execute", body)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			server.handleA2AExecute(w, req)
+
+			resp := w.Result()
+			defer resp.Body.Close()
+
+			// Must return an error response (not 200 OK triggering filesystem ops)
+			var rpcResp map[string]interface{}
+			if err := json.NewDecoder(resp.Body).Decode(&rpcResp); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
+			}
+
+			if _, hasError := rpcResp["error"]; !hasError {
+				t.Errorf("expected JSON-RPC error for project_root=%q, got: %v", tc.projectRoot, rpcResp)
+			}
+		})
+	}
+}
+
+// TestHandleA2AExecute_PathTraversal_Role tests that path traversal attempts
+// via role are rejected before any filesystem operations occur.
+func TestHandleA2AExecutePathTraversalRole(t *testing.T) {
+	cleanup := clearAuthEnvVars(t)
+	defer cleanup()
+
+	tmpDir := setupTestDir(t)
+	os.Setenv("ANTHROPIC_API_KEY", "test-token")
+	defer os.Unsetenv("ANTHROPIC_API_KEY")
+
+	cfg := config.DefaultConfig()
+	cfg.API.Mode = "direct"
+	server, err := NewAgentServer(tmpDir, 3, 4000, "claude-3-5-sonnet-20241022", cfg)
+	if err != nil {
+		t.Fatalf("Failed to create server: %v", err)
+	}
+
+	cases := []struct {
+		name string
+		role string
+	}{
+		{"unix traversal", "../../malicious-role"},
+		{"windows traversal", `..\..\malicious-role`},
+		{"leading slash", "/etc/malicious"},
+		{"embedded slash", "roles/../../malicious"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			body := makeA2AExecuteBody(t, map[string]interface{}{
+				"role":         tc.role,
+				"task":         "ai-pack-abc-20260101000000-test",
+				"project_root": tmpDir,
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/a2a/execute", body)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			server.handleA2AExecute(w, req)
+
+			resp := w.Result()
+			defer resp.Body.Close()
+
+			var rpcResp map[string]interface{}
+			if err := json.NewDecoder(resp.Body).Decode(&rpcResp); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
+			}
+
+			if _, hasError := rpcResp["error"]; !hasError {
+				t.Errorf("expected JSON-RPC error for role=%q, got: %v", tc.role, rpcResp)
+			}
+		})
+	}
+}
+
+// makeA2AExecuteBody creates a JSON-RPC "tasks/execute" request body for testing.
+func makeA2AExecuteBody(t *testing.T, params map[string]interface{}) *strings.Reader {
+	t.Helper()
+	payload := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"method":  "tasks/execute",
+		"id":      "test-id",
+		"params":  params,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("failed to marshal request body: %v", err)
+	}
+	return strings.NewReader(string(data))
 }

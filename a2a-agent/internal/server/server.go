@@ -533,6 +533,20 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		return nil, fmt.Errorf("invalid task ID format. All tasks must be Beads tasks. Create with: bd create '<description>'")
 	}
 
+	// Sanitize projectRoot: reject relative paths (including traversal attempts).
+	if projectRoot != "" {
+		cleanedRoot := filepath.Clean(projectRoot)
+		if !filepath.IsAbs(cleanedRoot) {
+			return nil, fmt.Errorf("project_root must be an absolute path, got: %q", projectRoot)
+		}
+		projectRoot = cleanedRoot
+	}
+
+	// Sanitize role: reject names containing path separators to prevent traversal.
+	if strings.ContainsAny(role, "/\\") {
+		return nil, fmt.Errorf("role must not contain path separators, got: %q", role)
+	}
+
 	// If no project root specified, use server's root directory
 	if projectRoot == "" {
 		projectRoot = s.rootDir
