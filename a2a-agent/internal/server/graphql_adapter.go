@@ -646,7 +646,9 @@ func (a *GraphQLAdapter) DeleteTask(taskID string) error {
 	// Find the project root for this task (needed to set working directory for bd)
 	projectRoot := a.findProjectRootForTask(taskID)
 
-	// Run bd delete — this removes the task from the Beads database entirely
+	// Run bd delete — this removes the task from the Beads database entirely.
+	// Ignore failure: the Beads task may already be deleted while execution
+	// artifacts remain on disk (orphaned folders after a server crash, etc.).
 	cmd := exec.Command("bd", "delete", taskID)
 	if projectRoot != "" {
 		cmd.Dir = projectRoot
@@ -656,22 +658,42 @@ func (a *GraphQLAdapter) DeleteTask(taskID string) error {
 			"task_id", taskID,
 			"error", err.Error(),
 			"output", string(out))
-		// Don't return — still clean up local state
 	} else {
 		monitoring.Logger.Info("bd_delete_succeeded", "task_id", taskID)
 	}
 
-	// Remove from in-memory active tasks
+	// Remove from in-memory active tasks (both short Beads ID and any timestamped executions)
 	a.server.mu.Lock()
 	delete(a.server.activeTasks, taskID)
+	for id := range a.server.activeTasks {
+		if strings.HasPrefix(id, taskID+"-") {
+			delete(a.server.activeTasks, id)
+		}
+	}
 	a.server.mu.Unlock()
 
-	// Remove metadata directory from disk if present
+	// Remove all execution folders on disk: both exact match and timestamped variants
+	// (e.g. "xasm++-sduc" and "xasm++-sduc-20260218-170420")
 	if projectRoot != "" {
-		metadataDir := filepath.Join(projectRoot, ".beads", "tasks", taskID)
-		if err := os.RemoveAll(metadataDir); err != nil {
-			monitoring.Logger.Warn("failed_to_remove_task_metadata_dir",
-				"task_id", taskID, "path", metadataDir, "error", err.Error())
+		tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
+		prefix := taskID + "-"
+		entries, err := os.ReadDir(tasksDir)
+		if err == nil {
+			for _, entry := range entries {
+				if !entry.IsDir() {
+					continue
+				}
+				name := entry.Name()
+				if name == taskID || strings.HasPrefix(name, prefix) {
+					dir := filepath.Join(tasksDir, name)
+					if err := os.RemoveAll(dir); err != nil {
+						monitoring.Logger.Warn("failed_to_remove_task_dir",
+							"task_id", taskID, "path", dir, "error", err.Error())
+					} else {
+						monitoring.Logger.Info("removed_task_dir", "path", dir)
+					}
+				}
+			}
 		}
 	}
 
@@ -686,12 +708,33 @@ func (a *GraphQLAdapter) findProjectRootForTask(taskID string) string {
 		a.server.mu.RUnlock()
 		return root
 	}
+	// Also check timestamped execution IDs
+	prefix := taskID + "-"
+	for id, execution := range a.server.activeTasks {
+		if strings.HasPrefix(id, prefix) {
+			root := execution.ProjectRoot
+			a.server.mu.RUnlock()
+			return root
+		}
+	}
 	a.server.mu.RUnlock()
 
+	// Scan registered project roots for execution artifacts on disk.
+	// (bd show is global and cannot be used to determine the correct project root.)
 	for projectRoot := range a.server.projectRoots {
-		metadataPath := filepath.Join(projectRoot, ".beads", "tasks", taskID, "metadata.json")
-		if _, err := os.Stat(metadataPath); err == nil {
-			return projectRoot
+		tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
+		entries, err := os.ReadDir(tasksDir)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			if name == taskID || strings.HasPrefix(name, taskID+"-") {
+				return projectRoot
+			}
 		}
 	}
 	return ""
