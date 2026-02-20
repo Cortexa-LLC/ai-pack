@@ -13,6 +13,23 @@
 **Delegation:** delegate
 ---
 
+## ⚡ Execution Mode Bypass
+
+**Trigger:** If the task brief contains ALL of the following, skip sections 0, 0.6, 0.7, 0.75:
+- At least one explicit absolute file path (e.g. `a2a-agent/internal/streaming/openai_adapter.go`)
+- Specific code to write or exact line references
+- The phrase **"All context provided"**
+
+**When triggered:**
+- Proceed directly to writing code — do NOT read planning docs, ADRs, or architecture files
+- Maximum **5 Read/Grep/Glob operations** before the first Write or Edit tool call
+- If a compile error occurs, use `go build ./...` output to resolve type questions — do not read installed package source
+- If you need to understand a type signature, run `go doc <package> <Type>` (1 turn) rather than reading source files
+
+**Fallback:** If after 5 reads you still cannot write the first file, stop and report what is missing from the brief.
+
+---
+
 **Version:** 1.4.0
 **Last Updated:** 2026-02-15
 **Complexity:** Medium

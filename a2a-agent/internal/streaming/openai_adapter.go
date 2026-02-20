@@ -2,6 +2,7 @@ package streaming
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -45,20 +46,46 @@ func (f *OpenAIFactory) SupportsModel(model string) bool {
 func (f *OpenAIFactory) CreateStream(ctx context.Context, req StreamRequest) (StreamProvider, error) {
 	if isCodexModel(req.Model) {
 		// Use Responses API for codex models
-		// Build a single prompt string from messages
-		var promptParts []string
-		if req.SystemPrompt != "" {
-			promptParts = append(promptParts, req.SystemPrompt)
-		}
+		var inputItems []responses.ResponseInputItemUnionParam
 		for _, msg := range req.Messages {
-			promptParts = append(promptParts, msg.Content)
+			switch msg.Role {
+			case "user":
+				if len(msg.ToolResults) > 0 {
+					for _, tr := range msg.ToolResults {
+						inputItems = append(inputItems, responses.ResponseInputItemParamOfFunctionCallOutput(tr.ToolUseID, tr.Content))
+					}
+				} else {
+					inputItems = append(inputItems, responses.ResponseInputItemUnionParam{OfMessage: &responses.EasyInputMessageParam{
+						Role:    responses.EasyInputMessageRoleUser,
+						Content: responses.EasyInputMessageContentUnionParam{OfString: param.NewOpt(msg.Content)},
+					}})
+				}
+			case "assistant":
+				if len(msg.ToolUses) > 0 {
+					for _, tu := range msg.ToolUses {
+						argsJSON, _ := json.Marshal(tu.Input)
+						inputItems = append(inputItems, responses.ResponseInputItemParamOfFunctionCall(string(argsJSON), tu.ID, tu.Name))
+					}
+				} else {
+					inputItems = append(inputItems, responses.ResponseInputItemUnionParam{OfMessage: &responses.EasyInputMessageParam{
+						Role:    responses.EasyInputMessageRoleAssistant,
+						Content: responses.EasyInputMessageContentUnionParam{OfString: param.NewOpt(msg.Content)},
+					}})
+				}
+			}
 		}
-		prompt := strings.Join(promptParts, "\n")
+		params := responses.ResponseNewParams{
+			Model: responses.ResponsesModel(req.Model),
+			Input: responses.ResponseNewParamsInputUnion{OfInputItemList: inputItems},
+		}
+		if req.SystemPrompt != "" {
+			params.Instructions = param.NewOpt(req.SystemPrompt)
+		}
+		if req.MaxTokens > 0 {
+			params.MaxOutputTokens = param.NewOpt(int64(req.MaxTokens))
+		}
 
-		stream, err := f.StreamResponsesAPI(ctx, req.Model, prompt, req.MaxTokens)
-		if err != nil {
-			return nil, fmt.Errorf("openai responses stream: %w", err)
-		}
+		stream := f.client.Responses.NewStreaming(ctx, params)
 		return &OpenAIResponsesStreamAdapter{
 			stream:   stream,
 			model:    req.Model,
@@ -78,9 +105,33 @@ func (f *OpenAIFactory) CreateStream(ctx context.Context, req StreamRequest) (St
 	for _, msg := range req.Messages {
 		switch msg.Role {
 		case "user":
-			messages = append(messages, openai.UserMessage(msg.Content))
+			if len(msg.ToolResults) > 0 {
+				for _, tr := range msg.ToolResults {
+					messages = append(messages, openai.ToolMessage(tr.Content, tr.ToolUseID))
+				}
+			} else {
+				messages = append(messages, openai.UserMessage(msg.Content))
+			}
 		case "assistant":
-			messages = append(messages, openai.AssistantMessage(msg.Content))
+			if len(msg.ToolUses) > 0 {
+				var toolCalls []openai.ChatCompletionMessageToolCallParam
+				for _, tu := range msg.ToolUses {
+					argsJSON, _ := json.Marshal(tu.Input)
+					toolCalls = append(toolCalls, openai.ChatCompletionMessageToolCallParam{
+						ID:   tu.ID,
+						Type: "function",
+						Function: openai.ChatCompletionMessageToolCallFunctionParam{
+							Name:      tu.Name,
+							Arguments: string(argsJSON),
+						},
+					})
+				}
+				messages = append(messages, openai.ChatCompletionMessageParamUnion{
+					OfAssistant: &openai.ChatCompletionAssistantMessageParam{ToolCalls: toolCalls},
+				})
+			} else {
+				messages = append(messages, openai.AssistantMessage(msg.Content))
+			}
 		default:
 			messages = append(messages, openai.UserMessage(msg.Content))
 		}
@@ -136,6 +187,8 @@ func (f *OpenAIFactory) StreamChatCompletion(ctx context.Context, model string, 
 		params.MaxCompletionTokens = param.NewOpt(int64(maxTokens))
 	}
 
+	params.StreamOptions = openai.ChatCompletionStreamOptionsParam{IncludeUsage: param.NewOpt(true)}
+
 	stream := f.client.Chat.Completions.NewStreaming(ctx, params)
 	return stream, nil
 }
@@ -182,36 +235,54 @@ func usesMaxCompletionTokens(model string) bool {
 
 // OpenAIChatStreamAdapter wraps an OpenAI chat completion stream to implement StreamProvider
 type OpenAIChatStreamAdapter struct {
-	stream   *ssestream.Stream[openai.ChatCompletionChunk]
-	model    string
-	provider string
-	current  StreamEvent
-	message  *CompletedMessage
+	stream        *ssestream.Stream[openai.ChatCompletionChunk]
+	acc           openai.ChatCompletionAccumulator
+	pendingEvents []StreamEvent
+	done          bool
+	model         string
+	provider      string
+	current       StreamEvent
+	message       *CompletedMessage
 }
 
 func (a *OpenAIChatStreamAdapter) Next() bool {
+	if a.done {
+		return false
+	}
+	if len(a.pendingEvents) > 0 {
+		a.current = a.pendingEvents[0]
+		a.pendingEvents = a.pendingEvents[1:]
+		return true
+	}
 	for a.stream.Next() {
 		chunk := a.stream.Current()
-		if len(chunk.Choices) == 0 {
-			continue
+		a.acc.AddChunk(chunk)
+		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
+			text := chunk.Choices[0].Delta.Content
+			a.message.Content += text
+			a.current = StreamEvent{Type: "content_block_delta", Delta: &DeltaContent{Text: text, Type: "text_delta"}}
+			return true
 		}
-		choice := chunk.Choices[0]
-		if choice.Delta.Content == "" {
-			continue
-		}
-		text := choice.Delta.Content
-		a.message.Content += text
-		a.current = StreamEvent{
-			Type: "content_block_delta",
-			Delta: &DeltaContent{
-				Text: text,
-				Type: "text_delta",
-			},
-		}
-		return true
 	}
 	if err := a.stream.Err(); err != nil {
 		a.current = StreamEvent{Error: err}
+		a.done = true
+		return false
+	}
+	if len(a.acc.Choices) > 0 {
+		for _, tc := range a.acc.Choices[0].Message.ToolCalls {
+			var input map[string]interface{}
+			json.Unmarshal([]byte(tc.Function.Arguments), &input)
+			a.pendingEvents = append(a.pendingEvents, StreamEvent{Type: "tool_use", ToolUse: &ToolUse{ID: tc.ID, Name: tc.Function.Name, Input: input}})
+		}
+	}
+	a.message.InputTokens = int(a.acc.Usage.PromptTokens)
+	a.message.OutputTokens = int(a.acc.Usage.CompletionTokens)
+	a.done = true
+	if len(a.pendingEvents) > 0 {
+		a.current = a.pendingEvents[0]
+		a.pendingEvents = a.pendingEvents[1:]
+		return true
 	}
 	return false
 }
@@ -242,36 +313,56 @@ func (a *OpenAIChatStreamAdapter) GetProvider() string {
 
 // OpenAIResponsesStreamAdapter wraps an OpenAI Responses API stream to implement StreamProvider
 type OpenAIResponsesStreamAdapter struct {
-	stream   *ssestream.Stream[responses.ResponseStreamEventUnion]
-	model    string
-	provider string
-	current  StreamEvent
-	message  *CompletedMessage
+	stream        *ssestream.Stream[responses.ResponseStreamEventUnion]
+	pendingEvents []StreamEvent
+	done          bool
+	model         string
+	provider      string
+	current       StreamEvent
+	message       *CompletedMessage
 }
 
 func (a *OpenAIResponsesStreamAdapter) Next() bool {
+	if a.done {
+		return false
+	}
+	if len(a.pendingEvents) > 0 {
+		a.current = a.pendingEvents[0]
+		a.pendingEvents = a.pendingEvents[1:]
+		return true
+	}
 	for a.stream.Next() {
 		event := a.stream.Current()
-		// Extract text delta from responses stream event
-		if event.Type == "response.output_text.delta" {
+		switch event.Type {
+		case "response.output_text.delta":
 			delta := event.AsResponseOutputTextDelta()
-			text := delta.Delta
-			if text == "" {
+			if delta.Delta == "" {
 				continue
 			}
-			a.message.Content += text
-			a.current = StreamEvent{
-				Type: "content_block_delta",
-				Delta: &DeltaContent{
-					Text: text,
-					Type: "text_delta",
-				},
-			}
+			a.message.Content += delta.Delta
+			a.current = StreamEvent{Type: "content_block_delta", Delta: &DeltaContent{Text: delta.Delta, Type: "text_delta"}}
 			return true
+		case "response.output_item.done":
+			item := event.AsResponseOutputItemDone()
+			if item.Item.Type == "function_call" {
+				var input map[string]interface{}
+				json.Unmarshal([]byte(item.Item.Arguments), &input)
+				a.pendingEvents = append(a.pendingEvents, StreamEvent{Type: "tool_use", ToolUse: &ToolUse{ID: item.Item.CallID, Name: item.Item.Name, Input: input}})
+			}
+		case "response.completed":
+			completed := event.AsResponseCompleted()
+			a.message.InputTokens = int(completed.Response.Usage.InputTokens)
+			a.message.OutputTokens = int(completed.Response.Usage.OutputTokens)
 		}
 	}
 	if err := a.stream.Err(); err != nil {
 		a.current = StreamEvent{Error: err}
+	}
+	a.done = true
+	if len(a.pendingEvents) > 0 {
+		a.current = a.pendingEvents[0]
+		a.pendingEvents = a.pendingEvents[1:]
+		return true
 	}
 	return false
 }
