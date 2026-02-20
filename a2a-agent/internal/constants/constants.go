@@ -9,6 +9,7 @@ const (
 	StatusInProgress = "in_progress"
 	StatusCompleted  = "completed"
 	StatusFailed     = "failed"
+	StatusPaused     = "paused"
 	StatusOpen       = "open"
 	StatusClosed     = "closed"
 	StatusDone       = "done"
