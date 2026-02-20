@@ -26,7 +26,7 @@ Task packets are the fundamental unit of work tracking in the ai-pack framework.
 /ai-pack task-init <task-name>
 
 # Creates:
-.ai/tasks/YYYY-MM-DD_task-name/
+.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
 ├── 00-contract.md    # Requirements, acceptance criteria
 ├── 10-plan.md        # Implementation approach
 ├── 20-work-log.md    # Progress tracking
@@ -148,7 +148,7 @@ Sequential (shared auth service):
 
 **✅ CORRECT:**
 ```
-.ai/tasks/YYYY-MM-DD_task-name/
+.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
 ```
 
 **❌ NEVER:**

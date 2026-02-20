@@ -1,6 +1,6 @@
 # Work Log
 
-**Task ID:** [YYYY-MM-DD_task-name]
+**Task ID:** [beads-id-YYYYMMDDHHMMSS-short-desc]
 **Started:** [Date]
 **Status:** [Not Started | In Progress | Blocked | Completed]
 
@@ -366,7 +366,7 @@ Warnings: [X]
 
 ## Usage Instructions
 
-This template should be instantiated at: `.ai/tasks/YYYY-MM-DD_task-name/20-work-log.md`
+This template should be instantiated at: `.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/20-work-log.md`
 
 **When to create:**
 - At start of implementation

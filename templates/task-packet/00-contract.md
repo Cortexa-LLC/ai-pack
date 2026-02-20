@@ -1,6 +1,6 @@
 # Task Contract
 
-**Task ID:** [YYYY-MM-DD_task-name]
+**Task ID:** [beads-id-YYYYMMDDHHMMSS-short-desc]
 **Created:** [Date]
 **Requestor:** [User/Team]
 **Assigned Role:** [Orchestrator/Worker/Reviewer]
@@ -335,7 +335,7 @@ Cannot proceed until decomposed.
 
 ## Usage Instructions
 
-This template should be instantiated at: `.ai/tasks/YYYY-MM-DD_task-name/00-contract.md`
+This template should be instantiated at: `.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/00-contract.md`
 
 **When to create:**
 - At the start of any new task

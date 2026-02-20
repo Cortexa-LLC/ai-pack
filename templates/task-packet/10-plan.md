@@ -1,6 +1,6 @@
 # Implementation Plan
 
-**Task ID:** [YYYY-MM-DD_task-name]
+**Task ID:** [beads-id-YYYYMMDDHHMMSS-short-desc]
 **Created:** [Date]
 **Author:** [Agent Role]
 **Plan Version:** 1.0
@@ -359,7 +359,7 @@ v1.1 - [Date] - [Changes made]
 
 ## Usage Instructions
 
-This template should be instantiated at: `.ai/tasks/YYYY-MM-DD_task-name/10-plan.md`
+This template should be instantiated at: `.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/10-plan.md`
 
 **When to create:**
 - After contract established
