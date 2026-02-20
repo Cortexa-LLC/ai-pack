@@ -225,7 +225,7 @@ class TestGate35CodeQualityReview(unittest.TestCase):
         print("="*70)
 
         # Scenario: No review file
-        task_dir = self.test_dir / "tasks" / "2026-01-15_task1"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-task1"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         review_file = task_dir / "30-review.md"
@@ -268,7 +268,7 @@ class TestGate35CodeQualityReview(unittest.TestCase):
         print("="*70)
 
         # Scenario: Tester REJECTED
-        task_dir = self.test_dir / "tasks" / "2026-01-15_task2"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-task2"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         review_file = task_dir / "30-review.md"
@@ -316,7 +316,7 @@ class TestGate35CodeQualityReview(unittest.TestCase):
         print("="*70)
 
         # Scenario: Both approved
-        task_dir = self.test_dir / "tasks" / "2026-01-15_task3"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-task3"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         review_file = task_dir / "30-review.md"
@@ -390,14 +390,14 @@ class TestGate10PersistenceGate(unittest.TestCase):
 
         # Expected artifacts
         expected_artifacts = {
-            "Contract": self.test_dir / "tasks" / "2026-01-15_test" / "00-contract.md",
-            "Plan": self.test_dir / "tasks" / "2026-01-15_test" / "10-plan.md",
+            "Contract": self.test_dir / "tasks" / "local-20260115090000-test" / "00-contract.md",
+            "Plan": self.test_dir / "tasks" / "local-20260115090000-test" / "10-plan.md",
             "Code": self.test_dir / "src" / "feature.py",
             "Tests": self.test_dir / "tests" / "test_feature.py",
         }
 
         # Create some artifacts
-        (self.test_dir / "tasks" / "2026-01-15_test").mkdir(parents=True, exist_ok=True)
+        (self.test_dir / "tasks" / "local-20260115090000-test").mkdir(parents=True, exist_ok=True)
         (expected_artifacts["Contract"]).write_text("# Contract")
         (expected_artifacts["Plan"]).write_text("# Plan")
 
@@ -432,7 +432,7 @@ class TestGate10PersistenceGate(unittest.TestCase):
         print("="*70)
 
         # Create all expected artifacts
-        task_dir = self.test_dir / "tasks" / "2026-01-15_complete"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-complete"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         src_dir = self.test_dir / "src"

@@ -50,8 +50,8 @@ Background agents run in isolated contexts with different working directories. W
 
 1. **Create test task requiring file creation:**
    ```bash
-   mkdir -p .ai/tasks/2026-01-15_test-ba-003
-   cp .ai-pack/templates/task-packet/* .ai/tasks/2026-01-15_test-ba-003/
+   mkdir -p .ai/tasks/local-20260115090000-test-ba-003
+   cp .ai-pack/templates/task-packet/* .ai/tasks/local-20260115090000-test-ba-003/
    ```
 
 2. **Fill out contract:**
@@ -84,7 +84,7 @@ Background agents run in isolated contexts with different working directories. W
      - Directory: tools/schema-validation/
      - File: package.json with basic schema validation config
 
-     Task packet: .ai/tasks/2026-01-15_test-ba-003/
+     Task packet: .ai/tasks/local-20260115090000-test-ba-003/
      Follow TDD. Update work log.
      """,
      
@@ -143,7 +143,7 @@ Background agents run in isolated contexts with different working directories. W
      - Directory: /Users/user/project/tools/schema-validation/
      - File: package.json with basic schema validation config
 
-     Task packet: .ai/tasks/2026-01-15_test-ba-003/
+     Task packet: .ai/tasks/local-20260115090000-test-ba-003/
      Follow TDD. Update work log.
      """,
      

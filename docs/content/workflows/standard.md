@@ -880,7 +880,7 @@ For all work packages with code changes:
 
 ### Throughout Workflow
 
-**Initialize (.ai/tasks/YYYY-MM-DD_task-name/):**
+**Initialize (.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/):**
 ```text
 00-contract.md    - Define at Phase 1 start
 10-plan.md        - Create at Phase 2

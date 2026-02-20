@@ -101,7 +101,7 @@ epics:
 
 Epic-level task packet (optional):
 ```
-.ai/tasks/2026-01-18_user-authentication-system/
+.ai/tasks/local-20260118090000-user-authentication-system/
 ├── 00-contract.md         # Epic scope and acceptance criteria
 ├── 10-plan.md             # Epic breakdown and architecture
 └── 20-work-log.md         # Epic-level progress tracking
@@ -162,7 +162,7 @@ python3 scripts/github-integration.py export
 **MANDATORY** - Every story must have a task packet:
 
 ```
-.ai/tasks/2026-01-18_implement-jwt-tokens/
+.ai/tasks/local-20260118090000-implement-jwt-tokens/
 ├── 00-contract.md         # Requirements, acceptance criteria
 ├── 10-plan.md             # Implementation approach
 ├── 20-work-log.md         # Daily progress updates
@@ -378,7 +378,7 @@ python3 scripts/github-integration.py export
 Use **bugfix workflow**:
 
 ```
-.ai/tasks/2026-01-18_fix-login-special-chars/
+.ai/tasks/local-20260118090000-fix-login-special-chars/
 ├── 00-contract.md         # Bug description, reproduction steps
 ├── 10-plan.md             # Investigation and fix approach
 ├── 20-work-log.md         # Investigation notes, fix implementation

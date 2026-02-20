@@ -25,7 +25,7 @@ The Engineer is an implementation specialist responsible for executing specific,
 ```
 BEFORE starting work:
   IF task is non-trivial THEN
-    CHECK: Does .ai/tasks/YYYY-MM-DD_task-name/ exist?
+    CHECK: Does .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/ exist?
     CHECK: Does 00-contract.md exist with requirements?
     CHECK: Does 10-plan.md exist with implementation plan?
 
@@ -47,7 +47,7 @@ END BEFORE
 **What to Do if Missing:**
 ```
 IF orchestrator assigned task without packet THEN
-  "I need a task packet created at .ai/tasks/YYYY-MM-DD_task-name/
+  "I need a task packet created at .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
    before I can begin implementation. Please create the task packet
    infrastructure first with 00-contract.md and 10-plan.md."
   WAIT for task packet creation
@@ -159,7 +159,7 @@ docs/
 
 **Integration with Task Packet:**
 ```
-Task packet (.ai/tasks/YYYY-MM-DD_task-name/) contains:
+Task packet (.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/) contains:
   - 00-contract.md: Immediate task requirements
   - 10-plan.md: Implementation approach for this task
 

@@ -119,7 +119,7 @@ def test_divide_by_zero():
 ''')
 
         # Create work log documenting baseline
-        task_dir = self.test_dir / "tasks" / "2026-01-15_refactor-calculator"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-refactor-calculator"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         work_log = task_dir / "20-work-log.md"
@@ -197,7 +197,7 @@ class Calculator:
 ''')
 
         # Update work log
-        task_dir = self.test_dir / "tasks" / "2026-01-15_refactor-calculator"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-refactor-calculator"
         work_log = task_dir / "20-work-log.md"
 
         existing = work_log.read_text()
@@ -272,7 +272,7 @@ Refactoring complete, tests still green
         print("REFACTOR WORKFLOW TEST 4: Phase 4 - Review")
         print("="*70)
 
-        task_dir = self.test_dir / "tasks" / "2026-01-15_refactor-calculator"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-refactor-calculator"
 
         # Reviewer validates refactoring
         review = task_dir / "30-review.md"
@@ -413,7 +413,7 @@ class UserService:
 
         # Phase 4: Review
         print("\n👀 Phase 4: Review")
-        task_dir = self.test_dir / "tasks" / "2026-01-15_refactor-user-service"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-refactor-user-service"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         (task_dir / "30-review.md").write_text("""# Review

@@ -74,7 +74,7 @@ class TestClaudeCodeAgentSpawning(unittest.TestCase):
         print("="*70)
 
         # Create task packet for agent
-        task_dir = self.test_dir / "tasks" / "2026-01-15_test-spawn"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-test-spawn"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         contract = task_dir / "00-contract.md"

@@ -92,7 +92,7 @@ class TestTokenLimitStress(unittest.TestCase):
         print("="*70)
 
         # Create task packet
-        task_dir = self.test_dir / "tasks" / "2026-01-15_15-file-feature"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-15-file-feature"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         contract = task_dir / "00-contract.md"
@@ -216,7 +216,7 @@ Create 15 Python files:
         print("TOKEN STRESS TEST 2: 20 Files (Approaching Limit)")
         print("="*70)
 
-        task_dir = self.test_dir / "tasks" / "2026-01-15_20-file-feature"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-20-file-feature"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         print(f"\n📊 Token Budget Analysis:")
@@ -247,7 +247,7 @@ Create 15 Python files:
         print("TOKEN STRESS TEST 3: 25 Files (EXCEEDS Limit)")
         print("="*70)
 
-        task_dir = self.test_dir / "tasks" / "2026-01-15_25-file-feature"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-25-file-feature"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         print(f"\n📊 Token Budget Analysis:")
@@ -320,19 +320,19 @@ Create 15 Python files:
                 "name": "Backend API",
                 "files": 10,
                 "tokens": 10000,
-                "task_dir": self.test_dir / "tasks" / "2026-01-15_backend-api"
+                "task_dir": self.test_dir / "tasks" / "local-20260115090000-backend-api"
             },
             {
                 "name": "Frontend UI",
                 "files": 10,
                 "tokens": 10000,
-                "task_dir": self.test_dir / "tasks" / "2026-01-15_frontend-ui"
+                "task_dir": self.test_dir / "tasks" / "local-20260115090000-frontend-ui"
             },
             {
                 "name": "Integration Tests",
                 "files": 10,
                 "tokens": 10000,
-                "task_dir": self.test_dir / "tasks" / "2026-01-15_integration-tests"
+                "task_dir": self.test_dir / "tasks" / "local-20260115090000-integration-tests"
             }
         ]
 
@@ -479,7 +479,7 @@ def function_6():
         print("TOKEN RECOVERY TEST 2: Retry Strategy")
         print("="*70)
 
-        task_dir = self.test_dir / "tasks" / "2026-01-15_partial-completion"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-partial-completion"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         target_dir = self.test_dir / "retry-test"

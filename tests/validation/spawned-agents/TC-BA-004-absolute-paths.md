@@ -59,8 +59,8 @@ mkdir server/API
 
 2. **Create task packet:**
    ```bash
-   mkdir -p .ai/tasks/2026-01-15_test-ba-004
-   cp .ai-pack/templates/task-packet/* .ai/tasks/2026-01-15_test-ba-004/
+   mkdir -p .ai/tasks/local-20260115090000-test-ba-004
+   cp .ai-pack/templates/task-packet/* .ai/tasks/local-20260115090000-test-ba-004/
    ```
 
 3. **Fill contract:**
@@ -148,7 +148,7 @@ mkdir server/API
      2. Use absolute paths: mkdir "$PROJECT_ROOT/server/API"
      3. OR verify then relative: cd "$PROJECT_ROOT" && pwd && mkdir server/API
 
-     Task packet: .ai/tasks/2026-01-15_test-ba-004/
+     Task packet: .ai/tasks/local-20260115090000-test-ba-004/
      """,
      
    )

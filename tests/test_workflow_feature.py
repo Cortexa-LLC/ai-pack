@@ -188,7 +188,7 @@ Simpler client implementation.
         print("="*70)
 
         # Orchestrator creates task packet
-        task_dir = self.test_dir / "tasks" / "2026-01-15_user-profile"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-user-profile"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         # Contract
@@ -242,7 +242,7 @@ TDD with RED-GREEN-REFACTOR.
         print("FEATURE WORKFLOW TEST 5: Phase 2 - Implementation")
         print("="*70)
 
-        task_dir = self.test_dir / "tasks" / "2026-01-15_user-profile"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-user-profile"
 
         # Engineer creates tests (RED phase)
         tests_dir = self.test_dir / "tests"
@@ -327,7 +327,7 @@ class ProfileController:
         print("FEATURE WORKFLOW TEST 6: Phase 3 - Tester Review")
         print("="*70)
 
-        task_dir = self.test_dir / "tasks" / "2026-01-15_user-profile"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-user-profile"
 
         # Tester creates validation report
         review = task_dir / "30-review.md"
@@ -362,7 +362,7 @@ class ProfileController:
         print("FEATURE WORKFLOW TEST 7: Phase 3 - Reviewer Approval")
         print("="*70)
 
-        task_dir = self.test_dir / "tasks" / "2026-01-15_user-profile"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-user-profile"
         review = task_dir / "30-review.md"
 
         # Reviewer adds to review document
@@ -397,7 +397,7 @@ class ProfileController:
         print("FEATURE WORKFLOW TEST 8: Phase 4 - Acceptance")
         print("="*70)
 
-        task_dir = self.test_dir / "tasks" / "2026-01-15_user-profile"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-user-profile"
 
         # Orchestrator creates acceptance document
         acceptance = task_dir / "40-acceptance.md"
@@ -505,7 +505,7 @@ class TestFeatureWorkflowIntegration(unittest.TestCase):
         # Phase 1: Setup
         print("\n🎯 Phase 1: Setup")
 
-        task_dir = self.test_dir / "tasks" / "2026-01-15_dark-mode"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-dark-mode"
         task_dir.mkdir(parents=True, exist_ok=True)
         (task_dir / "00-contract.md").write_text("# Contract: Dark Mode\n## Objective\nDark mode toggle")
         (task_dir / "10-plan.md").write_text("# Plan\n## Approach\nTDD implementation")

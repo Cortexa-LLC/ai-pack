@@ -57,7 +57,7 @@
 ```
 
 This will:
-1. Create task packet directory: `.ai/tasks/YYYY-MM-DD_task-name/`
+1. Create task packet directory: `.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/`
 2. Copy ALL templates from `.ai-pack/templates/task-packet/`
 3. Set up contract, plan, work log, review, and acceptance documents
 
@@ -166,7 +166,7 @@ bd show <task-id>          # View full task info
 bd create "Title
 
 Working directory: /absolute/path/to/project
-Task packet: .ai/tasks/YYYY-MM-DD_task-name/
+Task packet: .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
 
 Detailed description..." --priority high
 ```
@@ -212,7 +212,7 @@ Include password hashing, email verification, and account lockout after failed a
    bd create "Agent: Engineer - Implement login API
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/2026-01-24_login-api/
+Task packet: .ai/tasks/ai-pack-4la-20260124090000-login-api/
 
 Create RESTful login endpoint with JWT generation, password validation, and rate limiting." \
      --assignee "Engineer-1" --priority high
@@ -356,7 +356,7 @@ All task packets go through these phases:
 
 **3. CRITICAL: Task Packet Location**
 
-✅ **Correct:** `.ai/tasks/YYYY-MM-DD_task-name/`
+✅ **Correct:** `.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/`
 ❌ **NEVER:** `.ai-pack/` (this is shared framework, not for task state)
 
 ---
@@ -482,7 +482,7 @@ If this project has specific rules beyond the shared standards:
 
 ### Working on Existing Task
 
-1. Read task packet in `.ai/tasks/YYYY-MM-DD_task-name/`
+1. Read task packet in `.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/`
 2. Review current phase
 3. Continue from where left off
 4. Update work log regularly
@@ -591,7 +591,7 @@ git commit -m "Update ai-pack framework"
 **Templates:** `.ai-pack/templates/`
 **Standards:** `.ai-pack/quality/`
 
-**Task Packets:** `.ai/tasks/YYYY-MM-DD_task-name/`
+**Task Packets:** `.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/`
 **Overrides:** `.ai/repo-overrides.md` (optional)
 
 ---

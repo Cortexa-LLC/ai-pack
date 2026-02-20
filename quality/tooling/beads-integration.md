@@ -348,7 +348,7 @@ Task(subagent_type="general-purpose",
 bd create "Agent: Engineer - Implement login feature" \
   --assignee "Engineer-1" \
   --priority high \
-  --description "Task packet: .ai/tasks/2026-01-14_login/"
+  --description "Task packet: .ai/tasks/ai-pack-4ef-20260114090000-login/"
 
 # Returns task ID, e.g., bd-a1b2
 

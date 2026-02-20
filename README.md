@@ -240,7 +240,7 @@ your-project/
 │
 ├── .ai/                             # Local workspace (your project)
 │   ├── tasks/                       # Active task packets (temporary)
-│   │   └── 2026-01-07_feature-x/   # Example task
+│   │   └── local-20260107090000-feature-x/   # Example task
 │   │       ├── 00-contract.md      # From template
 │   │       ├── 10-plan.md          # From template
 │   │       ├── 20-work-log.md      # From template

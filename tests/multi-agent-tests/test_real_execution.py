@@ -59,7 +59,7 @@ class TestTier2Setup(unittest.TestCase):
         print("="*70)
 
         # Create task packet
-        task_dir = self.test_dir / "tasks" / "2026-01-15_multi-agent-simple-task"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-multi-agent-simple-task"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         # Target directory

@@ -15,8 +15,8 @@ All work must follow these quality gates from the ai-pack framework.
 /ai-pack task-init <task-name>
 
 # Fill out contract and plan
-# Edit .ai/tasks/YYYY-MM-DD_task-name/00-contract.md
-# Edit .ai/tasks/YYYY-MM-DD_task-name/10-plan.md
+# Edit .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/00-contract.md
+# Edit .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/10-plan.md
 ```
 
 **Non-trivial = Any task that:**

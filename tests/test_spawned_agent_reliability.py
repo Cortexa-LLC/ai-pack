@@ -183,7 +183,7 @@ class TestBackgroundAgentArtifactPersistence(unittest.TestCase):
         print("="*70)
 
         # Define ALL expected deliverables
-        task_dir = self.test_dir / "tasks" / "2026-01-15_test-task"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-test-task"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         expected_deliverables = {
@@ -422,14 +422,14 @@ class TestBackgroundAgentWorkingDirectory(unittest.TestCase):
         """
         CRITICAL TEST: Prevent nested directory disasters
 
-        FAILURE MODE: Agent creates .ai/tasks/2026-01-15_task/.ai/tasks/...
+        FAILURE MODE: Agent creates .ai/tasks/local-20260115090000-task/.ai/tasks/...
         ROOT CAUSE: Agent uses relative paths, nests in CWD
         """
         print("\n" + "="*70)
         print("CRITICAL TEST 7: Nested Directory Prevention")
         print("="*70)
 
-        task_dir = self.test_dir / "tasks" / "2026-01-15_test"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-test"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         print(f"\n📋 Correct location: {task_dir}")

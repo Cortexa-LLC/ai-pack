@@ -59,7 +59,7 @@ class TestResearchWorkflowPhases(unittest.TestCase):
         print("="*70)
 
         # Create research task
-        task_dir = self.test_dir / "tasks" / "2026-01-15_research-graphql"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-research-graphql"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         contract = task_dir / "00-contract.md"
@@ -250,7 +250,7 @@ Revisit GraphQL when:
         print("RESEARCH WORKFLOW TEST 3: Work Log")
         print("="*70)
 
-        task_dir = self.test_dir / "tasks" / "2026-01-15_research-graphql"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-research-graphql"
 
         work_log = task_dir / "20-work-log.md"
         work_log.write_text(f"""# Work Log: GraphQL vs REST Research
@@ -350,7 +350,7 @@ class TestResearchWorkflowIntegration(unittest.TestCase):
 
         # Phase 1: Research Task
         print("\n📚 Phase 1: Research Task Setup")
-        task_dir = self.test_dir / "tasks" / "2026-01-15_research-database"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-research-database"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         (task_dir / "00-contract.md").write_text("""# Research: Database Selection

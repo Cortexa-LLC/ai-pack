@@ -181,7 +181,7 @@ def validate_password(plain_password: str, hashed_password: str) -> bool:
 ''')
 
         # Engineer updates work log
-        task_dir = self.test_dir / "tasks" / "2026-01-15_fix-login"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-fix-login"
         task_dir.mkdir(parents=True, exist_ok=True)
 
         work_log = task_dir / "20-work-log.md"
@@ -232,7 +232,7 @@ Changed line 42 in src/auth/login.py:
         print("BUGFIX WORKFLOW TEST 4: Phase 2 - Tester Validation")
         print("="*70)
 
-        task_dir = self.test_dir / "tasks" / "2026-01-15_fix-login"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-fix-login"
 
         # Tester validates the fix
         review = task_dir / "30-review.md"
@@ -289,7 +289,7 @@ Changed line 42 in src/auth/login.py:
         print("BUGFIX WORKFLOW TEST 5: Phase 3 - Reviewer Approval")
         print("="*70)
 
-        task_dir = self.test_dir / "tasks" / "2026-01-15_fix-login"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-fix-login"
         review = task_dir / "30-review.md"
 
         # Reviewer adds to review
@@ -404,7 +404,7 @@ Add null check
         print("  ✅ Engineer: Fix implemented")
         print("  ✅ Test PASSES (bug fixed)")
 
-        task_dir = self.test_dir / "tasks" / "2026-01-15_fix-null-pointer"
+        task_dir = self.test_dir / "tasks" / "local-20260115090000-fix-null-pointer"
         task_dir.mkdir(parents=True, exist_ok=True)
         (task_dir / "20-work-log.md").write_text("# Work Log\n## Fix\nAdded null check")
         print("  ✅ Engineer: Work log updated")

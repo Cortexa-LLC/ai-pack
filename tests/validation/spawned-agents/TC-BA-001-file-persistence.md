@@ -37,8 +37,8 @@ Validate that spawned agents successfully persist files to the repository and th
 
 1. Create test task packet:
    ```bash
-   mkdir -p .ai/tasks/2026-01-15_test-ba-001
-   cp .ai-pack/templates/task-packet/* .ai/tasks/2026-01-15_test-ba-001/
+   mkdir -p .ai/tasks/local-20260115090000-test-ba-001
+   cp .ai-pack/templates/task-packet/* .ai/tasks/local-20260115090000-test-ba-001/
    ```
 
 2. Fill out contract with clear file creation requirements:
@@ -68,7 +68,7 @@ Validate that spawned agents successfully persist files to the repository and th
 
      Task: Create file src/tests/sample-test.js with a simple test.
 
-     Update work log at .ai/tasks/2026-01-15_test-ba-001/20-work-log.md
+     Update work log at .ai/tasks/local-20260115090000-test-ba-001/20-work-log.md
      """,
      
    )

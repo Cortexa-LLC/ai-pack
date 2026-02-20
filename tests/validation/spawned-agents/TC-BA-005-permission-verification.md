@@ -46,8 +46,8 @@ Background agents (``) need Write(*) permission configured in `.claude/settings.
 
 1. **Create test task requiring artifact creation:**
    ```bash
-   mkdir -p .ai/tasks/2026-01-15_test-ba-005
-   cp .ai-pack/templates/task-packet/* .ai/tasks/2026-01-15_test-ba-005/
+   mkdir -p .ai/tasks/local-20260115090000-test-ba-005
+   cp .ai-pack/templates/task-packet/* .ai/tasks/local-20260115090000-test-ba-005/
    ```
 
 2. **Create two test scenarios:**
@@ -164,7 +164,7 @@ Background agents (``) need Write(*) permission configured in `.claude/settings.
 
      Persist to: docs/product/2026-01-15-feature-name/prd.md
 
-     Task packet: .ai/tasks/2026-01-15_test-ba-005/
+     Task packet: .ai/tasks/local-20260115090000-test-ba-005/
      """,
      
    )
