@@ -250,6 +250,21 @@ func TestGradeSummary(t *testing.T) {
 	if totalGradesInDistribution != 9 {
 		t.Errorf("Expected 9 total grades in distribution, got %d", totalGradesInDistribution)
 	}
+
+	// Verify AverageGrade is populated for models that have data (bug-fix regression check)
+	for _, model := range models {
+		modelSum, exists := summary.ByModel[model]
+		if !exists {
+			continue
+		}
+		if modelSum.TotalAttempts > 0 && modelSum.AverageGrade == "" {
+			t.Errorf("Model %s has %d attempts but AverageGrade is empty (attribution bug)", model, modelSum.TotalAttempts)
+		}
+		validGrades := map[string]bool{"A": true, "B": true, "C": true, "D": true, "F": true}
+		if modelSum.TotalAttempts > 0 && !validGrades[modelSum.AverageGrade] {
+			t.Errorf("Model %s has invalid AverageGrade %q (expected A/B/C/D/F)", model, modelSum.AverageGrade)
+		}
+	}
 }
 
 func TestConfidenceScore(t *testing.T) {
