@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -138,6 +139,14 @@ func (s *AgentServer) handleA2AExecute(w http.ResponseWriter, r *http.Request) {
 	result, err := s.spawnAgentTask(execReq.Role, execReq.Task, execReq.ProjectRoot)
 	if err != nil {
 		monitoring.Logger.Error("a2a_execute_failed", "role", execReq.Role, "error", err)
+		if errors.Is(err, ErrTaskQueueFull) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Retry-After", "5")
+			w.WriteHeader(http.StatusTooManyRequests)
+			response := protocol.NewJSONRPCError(req.ID, protocol.InternalError, "Too Many Requests", err.Error())
+			s.sendJSONRPCResponse(w, response)
+			return
+		}
 		response := protocol.NewJSONRPCError(req.ID, protocol.InternalError, "Execution failed", err.Error())
 		s.sendJSONRPCResponse(w, response)
 		return
@@ -553,6 +562,11 @@ func (s *AgentServer) HandleRetryTask(w http.ResponseWriter, r *http.Request) {
 	// Spawn a new agent task with the Beads task ID (not the timestamped execution folder)
 	newTaskResponse, err := s.spawnAgentTask(taskInfo.Role, beadsTaskID, projectRoot)
 	if err != nil {
+		if errors.Is(err, ErrTaskQueueFull) {
+			w.Header().Set("Retry-After", "5")
+			http.Error(w, "Too Many Requests: "+err.Error(), http.StatusTooManyRequests)
+			return
+		}
 		http.Error(w, fmt.Sprintf("Failed to retry task: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -644,7 +658,12 @@ func (s *AgentServer) HandleStartTask(w http.ResponseWriter, r *http.Request) {
 	response, err := s.spawnAgentTask(roleToSpawn, taskID, req.ProjectRoot)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
+		if errors.Is(err, ErrTaskQueueFull) {
+			w.Header().Set("Retry-After", "5")
+			w.WriteHeader(http.StatusTooManyRequests)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
 			"message": fmt.Sprintf("Failed to start agent: %v", err),

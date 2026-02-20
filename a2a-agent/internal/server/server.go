@@ -35,6 +35,7 @@ var Commit = "unknown"
 var BuildTime = "unknown"
 
 var ErrTaskPaused = errors.New("task paused: token budget exhausted")
+var ErrTaskQueueFull = errors.New("task queue full: server is at capacity")
 
 // Configuration field names (for markdown header parsing)
 const (
@@ -694,8 +695,15 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		s.mu.Unlock()
 	}
 
-	// Queue for execution
-	s.taskQueue <- execution
+	// Queue for execution — non-blocking: return immediately if queue is full
+	select {
+	case s.taskQueue <- execution:
+	default:
+		s.mu.Lock()
+		delete(s.activeTasks, taskID)
+		s.mu.Unlock()
+		return nil, ErrTaskQueueFull
+	}
 
 	// Log spawned event
 	if s.executionLog != nil {
