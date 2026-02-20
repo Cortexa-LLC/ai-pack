@@ -29,10 +29,12 @@ var ModelsByTier = map[ModelTier][]ModelInfo{
 		{ID: "gpt-4o-mini", Tier: TierMinimal, Provider: "openai", CostPerMIn: 0.15, CostPerMOut: 0.60},
 		{ID: "gpt-4.1-nano", Tier: TierMinimal, Provider: "openai", CostPerMIn: 0.10, CostPerMOut: 0.40},
 		{ID: "claude-haiku-4-5", Tier: TierMinimal, Provider: "anthropic", CostPerMIn: 1.00, CostPerMOut: 5.00},
+		{ID: "gemini-2.5-flash-lite", Tier: TierMinimal, Provider: "gemini", CostPerMIn: 0.10, CostPerMOut: 0.40},
 	},
 	TierLow: {
 		{ID: "gpt-4.1-mini", Tier: TierLow, Provider: "openai", CostPerMIn: 0.40, CostPerMOut: 1.60},
 		{ID: "o4-mini", Tier: TierLow, Provider: "openai", CostPerMIn: 1.10, CostPerMOut: 4.40},
+		{ID: "gemini-2.5-flash", Tier: TierLow, Provider: "gemini", CostPerMIn: 0.30, CostPerMOut: 2.50},
 	},
 	TierMedium: {
 		{ID: "gpt-5.1-codex-mini", Tier: TierMedium, Provider: "openai", CostPerMIn: 1.50, CostPerMOut: 6.00},
@@ -40,12 +42,14 @@ var ModelsByTier = map[ModelTier][]ModelInfo{
 		{ID: "claude-sonnet-4-6", Tier: TierMedium, Provider: "anthropic", CostPerMIn: 3.00, CostPerMOut: 15.00},
 		{ID: "claude-sonnet-4-5", Tier: TierMedium, Provider: "anthropic", CostPerMIn: 3.00, CostPerMOut: 15.00},
 		{ID: "claude-sonnet-4-5-20250929", Tier: TierMedium, Provider: "anthropic", CostPerMIn: 3.00, CostPerMOut: 15.00},
+		{ID: "gemini-2.5-pro", Tier: TierMedium, Provider: "gemini", CostPerMIn: 1.25, CostPerMOut: 10.00},
 	},
 	TierHigh: {
 		{ID: "gpt-5.1-codex", Tier: TierHigh, Provider: "openai", CostPerMIn: 3.00, CostPerMOut: 12.00},
 		{ID: "gpt-5.2-codex", Tier: TierHigh, Provider: "openai", CostPerMIn: 5.00, CostPerMOut: 20.00},
 		{ID: "claude-opus-4-5", Tier: TierHigh, Provider: "anthropic", CostPerMIn: 15.00, CostPerMOut: 75.00},
 		{ID: "claude-opus-4-6", Tier: TierHigh, Provider: "anthropic", CostPerMIn: 15.00, CostPerMOut: 75.00},
+		{ID: "gemini-3-pro-preview", Tier: TierHigh, Provider: "gemini", CostPerMIn: 5.00, CostPerMOut: 20.00},
 	},
 }
 

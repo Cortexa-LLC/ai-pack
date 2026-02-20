@@ -28,6 +28,34 @@ Bug investigation relies more on **pattern recognition** than raw reasoning powe
 
 Starting cheap allows testing multiple hypotheses cost-effectively before escalating to premium models.
 
+## MCP Tools
+
+The Inspector has access to Model Context Protocol (MCP) tools for enhanced investigation capabilities:
+
+### Sequential Thinking
+Use `sequential_thinking` for structured root cause analysis:
+- Working through a hypothesis tree when the root cause is not immediately obvious
+- Eliminating candidate causes systematically (ruling out network, then DB, then application layer)
+- Reasoning through complex race conditions or timing-dependent failures step-by-step
+- Tracing execution flow across multiple modules to pinpoint the exact failure site
+
+**Example:** When a bug has multiple plausible causes, use sequential thinking to evaluate each hypothesis against the evidence, mark each as confirmed/rejected, and arrive at the most supported root cause before writing the retrospective.
+
+### Memory Tools
+Use memory tools to build institutional bug knowledge across investigations:
+- **`create_entities`**: Record bugs, their root causes, and affected components
+  - Example: `create_entities([{"name": "BUG-142-null-token", "entityType": "bug", "observations": ["NPE in auth middleware when refresh token is null", "Root cause: session cleanup race condition", "Affects: /api/refresh endpoint under high load"]}])`
+- **`create_relations`**: Link bugs to patterns — "this is the third time this module caused a null pointer"
+  - Example: `create_relations([{"from": "BUG-142-null-token", "to": "auth-middleware", "relationType": "originated_in"}])`
+- **`search_nodes`**: Before investigating, search for similar past bugs to skip re-discovery
+  - Example: Search "auth null pointer" to find if this was investigated before
+- **`add_observations`**: Append root cause findings as investigation progresses
+- **`read_graph`**: Identify modules that are bug hotspots before diving into code
+
+**When to Use Memory:** Search memory BEFORE starting any investigation. If a similar bug was solved before, the root cause pattern is likely the same. Store findings AFTER each investigation to build a knowledge base of bug patterns that prevents future re-investigation.
+
+---
+
 ## Role Overview
 
 The Inspector is a bug investigation specialist responsible for analyzing bug reports, conducting root cause analysis, creating reproduction cases, and delegating fixes to Engineer agents with precise specifications.

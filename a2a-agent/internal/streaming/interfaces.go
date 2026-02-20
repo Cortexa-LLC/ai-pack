@@ -6,6 +6,7 @@ import "context"
 const (
 	ProviderAnthropic = "anthropic"
 	ProviderOpenAI    = "openai"
+	ProviderGemini    = "gemini"
 )
 
 // StreamEvent represents a single event in the stream

@@ -9,16 +9,17 @@ import (
 
 // SimpleModelSelector implements model selection logic
 type SimpleModelSelector struct {
-	defaultModel     string
-	openaiAvailable  bool
+	defaultModel      string
+	openaiAvailable   bool
+	geminiAvailable   bool
 	agentConfigGetter func(role string) string
 }
 
 // NewSimpleModelSelector creates a basic model selector
 func NewSimpleModelSelector(defaultModel string, openaiAvailable bool, agentConfigGetter func(role string) string) *SimpleModelSelector {
 	return &SimpleModelSelector{
-		defaultModel:     defaultModel,
-		openaiAvailable:  openaiAvailable,
+		defaultModel:      defaultModel,
+		openaiAvailable:   openaiAvailable,
 		agentConfigGetter: agentConfigGetter,
 	}
 }
@@ -49,6 +50,13 @@ func (s *SimpleModelSelector) SelectModel(role string, requestedModel string) (m
 		return requestedModel, "openai", nil
 	}
 
+	if strings.Contains(modelLower, "gemini") {
+		if !s.geminiAvailable {
+			return s.defaultModel, ProviderAnthropic, fmt.Errorf("gemini not available, falling back to anthropic")
+		}
+		return requestedModel, ProviderGemini, nil
+	}
+
 	// Claude or unknown model - use Anthropic
 	return requestedModel, "anthropic", nil
 }
@@ -59,15 +67,17 @@ type PerformanceGradeModelSelector struct {
 	projectID        string
 	defaultModel     string
 	openaiAvailable  bool
+	geminiAvailable  bool
 }
 
 // NewPerformanceGradeModelSelector creates a selector that uses performance grades
-func NewPerformanceGradeModelSelector(projectID string, defaultModel string, openaiAvailable bool) *PerformanceGradeModelSelector {
+func NewPerformanceGradeModelSelector(projectID string, defaultModel string, openaiAvailable bool, geminiAvailable bool) *PerformanceGradeModelSelector {
 	return &PerformanceGradeModelSelector{
 		gradeSelector:   monitoring.GlobalModelSelector,
 		projectID:       projectID,
 		defaultModel:    defaultModel,
 		openaiAvailable: openaiAvailable,
+		geminiAvailable: geminiAvailable,
 	}
 }
 
@@ -85,6 +95,15 @@ func (s *PerformanceGradeModelSelector) SelectModel(role string, requestedModel 
 				return s.defaultModel, "anthropic", nil
 			}
 			return requestedModel, "openai", nil
+		}
+		if strings.Contains(modelLower, "gemini") {
+			if !s.geminiAvailable {
+				monitoring.Logger.Warn("gemini_not_available_fallback",
+					"requested", requestedModel,
+					"falling_back_to", s.defaultModel)
+				return s.defaultModel, "anthropic", nil
+			}
+			return requestedModel, ProviderGemini, nil
 		}
 		return requestedModel, "anthropic", nil
 	}
@@ -113,6 +132,12 @@ func (s *PerformanceGradeModelSelector) SelectModel(role string, requestedModel 
 	// Check if provider is available
 	if providerName == "openai" && !s.openaiAvailable {
 		monitoring.Logger.Warn("openai_not_available_fallback",
+			"requested", modelID,
+			"falling_back_to", s.defaultModel)
+		return s.defaultModel, "anthropic", nil
+	}
+	if providerName == ProviderGemini && !s.geminiAvailable {
+		monitoring.Logger.Warn("gemini_not_available_fallback",
 			"requested", modelID,
 			"falling_back_to", s.defaultModel)
 		return s.defaultModel, "anthropic", nil
