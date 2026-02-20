@@ -441,6 +441,7 @@ type ModelSummary struct {
 	TotalAttempts int     `json:"total_attempts"`
 	Successes     int     `json:"successes"`
 	Failures      int     `json:"failures"`
+	TotalRetries  int     `json:"total_retries"`
 	SuccessRate   float64 `json:"success_rate"`
 	AverageGrade  string  `json:"average_grade"`
 }
@@ -494,6 +495,7 @@ func (m *PerformanceGradeManager) GetSummary() GradeSummary {
 		modelSum.TotalAttempts += grade.TotalAttempts
 		modelSum.Successes += grade.Successes
 		modelSum.Failures += grade.Failures
+		modelSum.TotalRetries += grade.Retries
 		if modelSum.TotalAttempts > 0 {
 			modelSum.SuccessRate = float64(modelSum.Successes) / float64(modelSum.TotalAttempts)
 		}
@@ -517,6 +519,15 @@ func (m *PerformanceGradeManager) GetSummary() GradeSummary {
 			if len(summary.NeedsImprovement) >= 10 {
 				break
 			}
+		}
+	}
+
+	// Calculate AverageGrade for each model using aggregated success/retry rates
+	for modelID, modelSum := range summary.ByModel {
+		if modelSum.TotalAttempts > 0 {
+			retryRate := float64(modelSum.TotalRetries) / float64(modelSum.TotalAttempts)
+			modelSum.AverageGrade = m.calculateLetterGrade(modelSum.SuccessRate, retryRate)
+			summary.ByModel[modelID] = modelSum
 		}
 	}
 
