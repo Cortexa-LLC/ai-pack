@@ -536,12 +536,13 @@ func executeGrep(input map[string]interface{}, workingDir string, settings *clau
 func executeGlob(input map[string]interface{}, workingDir string, settings *claude.Settings) (string, error) {
 	pattern, _ := input["pattern"].(string)
 
-	// Change to working directory for glob
-	oldDir, _ := os.Getwd()
-	os.Chdir(workingDir)
-	defer os.Chdir(oldDir)
+	// Build an absolute pattern so filepath.Glob works without os.Chdir.
+	// os.Chdir is process-wide and causes a race condition when multiple agents
+	// run concurrently — each call would overwrite the working directory for all
+	// goroutines. Using filepath.Join avoids that entirely.
+	absPattern := filepath.Join(workingDir, pattern)
 
-	matches, err := filepath.Glob(pattern)
+	matches, err := filepath.Glob(absPattern)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err), nil
 	}
@@ -551,13 +552,25 @@ func executeGlob(input map[string]interface{}, workingDir string, settings *clau
 	if err == nil && len(claudeIgnore.patterns) > 0 {
 		filtered := make([]string, 0, len(matches))
 		for _, match := range matches {
-			absMatch := filepath.Join(workingDir, match)
-			if !claudeIgnore.ShouldIgnore(absMatch) {
+			if !claudeIgnore.ShouldIgnore(match) {
 				filtered = append(filtered, match)
 			}
 		}
 		matches = filtered
 	}
+
+	// Return paths relative to workingDir so callers see the same short paths
+	// they would have seen before (e.g. "src/foo.go" instead of
+	// "/abs/path/to/src/foo.go").
+	rel := make([]string, 0, len(matches))
+	for _, match := range matches {
+		r, err := filepath.Rel(workingDir, match)
+		if err != nil {
+			r = match // fall back to absolute if Rel fails
+		}
+		rel = append(rel, r)
+	}
+	matches = rel
 
 	if len(matches) == 0 {
 		return "No files found matching pattern", nil
