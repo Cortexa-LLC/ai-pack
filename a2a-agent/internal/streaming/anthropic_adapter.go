@@ -82,7 +82,10 @@ func (f *AnthropicFactory) CreateStream(ctx context.Context, req StreamRequest) 
 				blocks = append(blocks, anthropic.NewTextBlock(msg.Content))
 			}
 			for _, tu := range msg.ToolUses {
-				inputJSON, _ := json.Marshal(tu.Input)
+				inputJSON, err := json.Marshal(tu.Input)
+				if err != nil {
+					return nil, fmt.Errorf("marshal tool input for %q: %w", tu.Name, err)
+				}
 				blocks = append(blocks, anthropic.NewToolUseBlock(tu.ID, json.RawMessage(inputJSON), tu.Name))
 			}
 			messages = append(messages, anthropic.NewAssistantMessage(blocks...))
@@ -96,9 +99,13 @@ func (f *AnthropicFactory) CreateStream(ctx context.Context, req StreamRequest) 
 	}
 
 	// Build request params
+	maxTokens := req.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = f.maxTokens
+	}
 	params := anthropic.MessageNewParams{
 		Model:     anthropic.Model(req.Model),
-		MaxTokens: int64(req.MaxTokens),
+		MaxTokens: int64(maxTokens),
 		Messages:  messages,
 	}
 
@@ -253,7 +260,9 @@ func (a *AnthropicStreamAdapter) Err() error {
 
 // Close releases resources
 func (a *AnthropicStreamAdapter) Close() error {
-	// Anthropic stream doesn't require explicit close
+	if closer, ok := a.stream.(interface{ Close() error }); ok {
+		return closer.Close()
+	}
 	return nil
 }
 
@@ -342,16 +351,22 @@ func (a *AnthropicStreamAdapter) convertEvent(event interface{}) StreamEvent {
 		// If this block was a tool call, emit the completed ToolUse now
 		if a.pendingToolCalls != nil {
 			if pending, exists := a.pendingToolCalls[blockIndex]; exists {
-				toolUse := &ToolUse{
+				delete(a.pendingToolCalls, blockIndex)
+				// Guard: skip emission if tool call metadata is incomplete
+				if pending.id == "" || pending.name == "" {
+					break
+				}
+				input := make(map[string]interface{})
+				if jsonStr := pending.jsonBuffer.String(); jsonStr != "" {
+					if err := json.Unmarshal([]byte(jsonStr), &input); err != nil {
+						input = map[string]interface{}{"_args": jsonStr}
+					}
+				}
+				genericEvent.ToolUse = &ToolUse{
 					ID:    pending.id,
 					Name:  pending.name,
-					Input: make(map[string]interface{}),
+					Input: input,
 				}
-				if jsonStr := pending.jsonBuffer.String(); jsonStr != "" {
-					json.Unmarshal([]byte(jsonStr), &toolUse.Input) //nolint:errcheck
-				}
-				genericEvent.ToolUse = toolUse
-				delete(a.pendingToolCalls, blockIndex)
 			}
 		}
 
