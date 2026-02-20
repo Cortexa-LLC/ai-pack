@@ -21,10 +21,6 @@ func (t *ProxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// Clone the request to avoid modifying the original
 	newReq := req.Clone(req.Context())
 
-	// DEBUG: Uncomment for troubleshooting
-	fmt.Printf("🔍 ProxyTransport called: %s %s\n", newReq.Method, newReq.URL.String())
-	fmt.Printf("   Headers: %v\n", newReq.Header)
-
 	// Rewrite URL to use custom base URL
 	// Parse the base URL and use its host/path components
 	if baseURL, err := url.Parse(t.BaseURL); err == nil {
@@ -37,19 +33,8 @@ func (t *ProxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 	}
 
-	// DEBUG: Uncomment for troubleshooting
-	fmt.Printf("🔄 Rewrote URL to: %s\n", newReq.URL.String())
-	fmt.Printf("   Headers: %v\n", newReq.Header)
-
 	// Execute the modified request
 	resp, err := t.Transport.RoundTrip(newReq)
-
-	// DEBUG: Uncomment for troubleshooting
-	if err != nil {
-		fmt.Printf("❌ Proxy request failed: %v\n", err)
-	} else {
-		fmt.Printf("✅ Proxy response: %d %s\n", resp.StatusCode, resp.Status)
-	}
 
 	return resp, err
 }
@@ -66,9 +51,6 @@ func (t *BearerTokenTransport) RoundTrip(req *http.Request) (*http.Response, err
 	// Clone the request to avoid modifying the original
 	newReq := req.Clone(req.Context())
 
-	// DEBUG: Uncomment for troubleshooting
-	fmt.Printf("🔍 BearerTokenTransport called: %s %s\n", newReq.Method, newReq.URL.String())
-
 	// Rewrite URL if using proxy
 	if t.BaseURL != "" {
 		if baseURL, err := url.Parse(t.BaseURL); err == nil {
@@ -78,7 +60,6 @@ func (t *BearerTokenTransport) RoundTrip(req *http.Request) (*http.Response, err
 			if baseURL.Path != "" && !strings.HasPrefix(newReq.URL.Path, baseURL.Path) {
 				newReq.URL.Path = baseURL.Path + newReq.URL.Path
 			}
-			fmt.Printf("🔄 Rewrote URL to: %s\n", newReq.URL.String())
 		}
 	}
 
@@ -86,7 +67,6 @@ func (t *BearerTokenTransport) RoundTrip(req *http.Request) (*http.Response, err
 	newReq.Header.Del("x-api-key")
 	newReq.Header.Del("X-Api-Key")
 	newReq.Header.Set("Authorization", "Bearer "+t.BearerToken)
-	fmt.Printf("   ✓ Set Bearer token authorization\n")
 
 	// Ensure anthropic-version header is set
 	if newReq.Header.Get("anthropic-version") == "" && newReq.Header.Get("Anthropic-Version") == "" {
@@ -95,13 +75,6 @@ func (t *BearerTokenTransport) RoundTrip(req *http.Request) (*http.Response, err
 
 	// Execute the request
 	resp, err := t.Transport.RoundTrip(newReq)
-
-	// DEBUG
-	if err != nil {
-		fmt.Printf("❌ Bearer token request failed: %v\n", err)
-	} else {
-		fmt.Printf("✅ Bearer token response: %d %s\n", resp.StatusCode, resp.Status)
-	}
 
 	return resp, err
 }
