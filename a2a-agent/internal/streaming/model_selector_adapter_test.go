@@ -182,7 +182,7 @@ func TestPerformanceGradeModelSelector_SelectModel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			selector := NewPerformanceGradeModelSelector(tt.projectID, tt.defaultModel, tt.openaiAvailable)
+			selector := NewPerformanceGradeModelSelector(tt.projectID, tt.defaultModel, tt.openaiAvailable, false)
 			model, provider, err := selector.SelectModel(tt.role, tt.requestedModel)
 
 			if err != nil {

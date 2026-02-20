@@ -148,6 +148,22 @@ func (s *Service) translateModelForProvider(model, fromProvider, toProvider stri
 		return "gpt-4o"
 	}
 
+	// Gemini -> Anthropic fallback
+	if fromProvider == ProviderGemini && toProvider == ProviderAnthropic {
+		if strings.Contains(strings.ToLower(model), "pro") {
+			return "claude-sonnet-4-6"
+		}
+		return "claude-haiku-4-5"
+	}
+
+	// Gemini -> OpenAI fallback
+	if fromProvider == ProviderGemini && toProvider == ProviderOpenAI {
+		if strings.Contains(strings.ToLower(model), "pro") {
+			return "gpt-4.1"
+		}
+		return "gpt-4.1-mini"
+	}
+
 	// No translation available, return original model
 	return model
 }

@@ -65,20 +65,21 @@ const (
 )
 
 type AgentServer struct {
-	rootDir          string
-	anthropicKey     string
-	client           anthropic.Client // SDK v1.19+ returns Client by value, store value to match
-	beadsClient      *beads.Client
-	claudeSettings   *claude.Settings // Claude Code settings (deny patterns, etc.)
-	executionLog     *execution_log.ExecutionLog // Persistent agent execution log
-	maxConcurrent    int              // Maximum concurrent agents (configurable)
-	maxTokens        int              // Maximum tokens per API call
+	rootDir              string
+	anthropicKey         string
+	client               anthropic.Client // SDK v1.19+ returns Client by value, store value to match
+	beadsClient          *beads.Client
+	claudeSettings       *claude.Settings // Claude Code settings (deny patterns, etc.)
+	executionLog         *execution_log.ExecutionLog // Persistent agent execution log
+	maxConcurrent        int              // Maximum concurrent agents (configurable)
+	maxTokens            int              // Maximum tokens per API call
 	model            string           // Default Anthropic model to use
 	maxInactiveTurns int              // Stop agent after N turns without progress
 	config           *config.Config   // Server configuration
 
 	// Multi-provider LLM support
 	openaiKey        string
+	geminiKey        string
 	openaiClient     openai.Client
 	anthropicProvider  *AnthropicProvider
 	openaiProvider     *OpenAIProvider
@@ -87,6 +88,7 @@ type AgentServer struct {
 	projectMetrics   map[string]*monitoring.PersistentMetrics // Per-project persistent metrics
 	providerCosts    map[string][2]float64 // Provider cost configuration
 	mcpManager       *mcp.Manager          // MCP server manager
+	complexityRiskAnalyzer *monitoring.ComplexityRiskAnalyzer // v2 structural risk scorer
 
 	// Concurrent execution tracking
 	mu           sync.RWMutex
@@ -250,6 +252,7 @@ func (s *AgentServer) getOrCreateProjectMetrics(projectRoot string) (*monitoring
 func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model string, cfg *config.Config) (*AgentServer, error) {
 	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
 	openaiKey := os.Getenv("OPENAI_API_KEY")
+	geminiKey := os.Getenv("GEMINI_API_KEY")
 
 	clientOpts := []openai_option.RequestOption{
 		openai_option.WithRequestTimeout(10 * time.Second),
@@ -334,6 +337,29 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	// Initialize complexity analyzer
 	monitoring.InitComplexityAnalyzer()
 
+	// Initialize v2 structural risk analyzer
+	if cfg != nil {
+		gcfg := cfg.ComplexityGate
+		server.complexityRiskAnalyzer = monitoring.NewComplexityRiskAnalyzer(
+			gcfg.Enabled,
+			gcfg.WarnThreshold,
+			gcfg.CriticalThreshold,
+			gcfg.Weights.Scope,
+			gcfg.Weights.MultiStep,
+			gcfg.Weights.Uncertainty,
+			gcfg.Weights.Structural,
+			gcfg.RoleMultipliers,
+			monitoring.GlobalGradeManager,
+		)
+	} else {
+		// Fallback: enabled with defaults
+		server.complexityRiskAnalyzer = monitoring.NewComplexityRiskAnalyzer(
+			true, 0.50, 0.75, 0.30, 0.25, 0.25, 0.20,
+			map[string]float64{"engineer": 1.0, "orchestrator": 0.8},
+			nil,
+		)
+	}
+
 	// Initialize model selector
 	if monitoring.GlobalGradeManager != nil && monitoring.GlobalComplexityAnalyzer != nil {
 		monitoring.InitModelSelector(monitoring.GlobalGradeManager, monitoring.GlobalComplexityAnalyzer)
@@ -343,6 +369,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	// Populate server fields that require pre-computed values
 	server.anthropicKey = anthropicKey
 	server.openaiKey = openaiKey
+	server.geminiKey = geminiKey
 	server.beadsClient = beads.NewClient()
 	server.claudeSettings = claudeSettings
 	server.executionLog = execLog
@@ -359,6 +386,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		rootDir,
 		model,
 		openaiKey != "",
+		geminiKey != "",
 	)
 	streamingService := streaming.NewService(streamingSelector, "anthropic")
 
@@ -366,6 +394,9 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	streamingService.RegisterProvider(streaming.NewAnthropicFactory(anthropicKey, maxTokens))
 	if openaiKey != "" {
 		streamingService.RegisterProvider(streaming.NewOpenAIFactory(openaiKey))
+	}
+	if geminiKey != "" {
+		streamingService.RegisterProvider(streaming.NewGeminiFactory(geminiKey, maxTokens))
 	}
 
 	server.streamingService = streamingService
@@ -504,6 +535,33 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		return nil, fmt.Errorf("failed to get task description: %w", err)
 	}
 
+	// Pre-spawn complexity gate: flag complex debug tasks before spawning an engineer.
+	complexityAssessment, needsInvestigation := monitoring.AssessDebugComplexity(role, taskDescription)
+	if needsInvestigation {
+		monitoring.Logger.Warn("debug_complexity_gate_triggered",
+			"task_id", taskInput,
+			"complexity_level", string(complexityAssessment.Level),
+			"debug_signals", complexityAssessment.DebugSignals,
+			"multi_module_signals", complexityAssessment.MultiModuleSignals,
+		)
+	}
+
+	// v2 structural risk assessment (all roles)
+	riskAssessment := s.complexityRiskAnalyzer.ComputeComplexityRisk(role, taskDescription)
+	monitoring.Logger.Info("complexity_risk_assessed",
+		"role", role,
+		"risk_level", string(riskAssessment.RiskLevel),
+		"adjusted_score", riskAssessment.AdjustedScore,
+		"base_score", riskAssessment.BaseScore,
+	)
+	if riskAssessment.ShouldWarn {
+		monitoring.Logger.Warn("complexity_risk_high",
+			"role", role,
+			"risk_level", string(riskAssessment.RiskLevel),
+			"recommendation", riskAssessment.Recommendation,
+		)
+	}
+
 	// If working directory not specified in task, use project root
 	if workingDir == "" {
 		workingDir = projectRoot
@@ -614,13 +672,43 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 	// Build stream URL
 	streamURL := fmt.Sprintf("/stream/%s", taskID)
 
-	return &protocol.ExecuteTaskResponse{
+	response := &protocol.ExecuteTaskResponse{
 		TaskID:    taskID,
 		Status:    constants.StatusQueued,
 		Message:   fmt.Sprintf("Agent %s queued for execution. Task ID: %s", role, taskID),
 		StreamURL: streamURL,
 		CreatedAt: time.Now(),
-	}, nil
+	}
+
+	// Attach complexity warning to the response when the pre-spawn gate triggered or v2 risk is high.
+	if needsInvestigation || riskAssessment.ShouldWarn {
+		warning := &protocol.ComplexityWarning{
+			Level:          string(complexityAssessment.Level),
+			Recommendation: complexityAssessment.Recommendation,
+			RiskLevel:      string(riskAssessment.RiskLevel),
+			Components: &protocol.RiskComponents{
+				ScopeScore:       riskAssessment.Components.ScopeScore,
+				MultiStepScore:   riskAssessment.Components.MultiStepScore,
+				UncertaintyScore: riskAssessment.Components.UncertaintyScore,
+				StructuralScore:  riskAssessment.Components.StructuralScore,
+				HistoricalScore:  riskAssessment.Components.HistoricalScore,
+				RoleMultiplier:   riskAssessment.Components.RoleMultiplier,
+			},
+		}
+		if needsInvestigation {
+			warning.DebugSignals = complexityAssessment.DebugSignals
+			warning.MultiModuleSignals = complexityAssessment.MultiModuleSignals
+			if warning.Recommendation == "" {
+				warning.Recommendation = complexityAssessment.Recommendation
+			}
+		}
+		if riskAssessment.Recommendation != "" {
+			warning.Recommendation = riskAssessment.Recommendation
+		}
+		response.ComplexityWarning = warning
+	}
+
+	return response, nil
 }
 
 func (s *AgentServer) getTaskStatus(taskID string) (*protocol.TaskStatusResponse, error) {

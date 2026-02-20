@@ -11,6 +11,26 @@ const (
 	defaultConfigFilename = "agent-server.json"
 )
 
+// ComplexityWeights controls how much each sub-score contributes to the
+// composite risk score before the role multiplier is applied.
+// All weights are normalised so they do not need to sum to 1.0;
+// they are applied proportionally during scoring.
+type ComplexityWeights struct {
+	Scope       float64 `json:"scope"`       // default: 0.30
+	MultiStep   float64 `json:"multi_step"`  // default: 0.25
+	Uncertainty float64 `json:"uncertainty"` // default: 0.25
+	Structural  float64 `json:"structural"`  // default: 0.20
+}
+
+// ComplexityGateConfig configures the v2 composite risk scorer.
+type ComplexityGateConfig struct {
+	Enabled           bool               `json:"enabled"`            // default: true
+	WarnThreshold     float64            `json:"warn_threshold"`     // default: 0.50
+	CriticalThreshold float64            `json:"critical_threshold"` // default: 0.75
+	Weights           ComplexityWeights  `json:"weights"`
+	RoleMultipliers   map[string]float64 `json:"role_multipliers"` // per-role weight
+}
+
 // Config holds all server configuration
 type Config struct {
 	Server          ServerConfig           `json:"server"`
@@ -22,6 +42,7 @@ type Config struct {
 	ProviderCosts   ProviderCostsConfig    `json:"provider_costs"`
 	GradingCriteria GradingCriteriaConfig  `json:"grading_criteria"`
 	MCP             MCPConfig              `json:"mcp"`
+	ComplexityGate  ComplexityGateConfig   `json:"complexity_gate"`
 	Projects        map[string]string      `json:"projects,omitempty"` // map[projectPath]lastAccessed
 }
 
@@ -158,6 +179,23 @@ func DefaultConfig() *Config {
 			Enabled:        false,                          // Disabled by default
 			Servers:        make(map[string]MCPServerConfig), // Empty by default
 			EnabledServers: []string{},                      // Empty means all available servers enabled
+		},
+		ComplexityGate: ComplexityGateConfig{
+			Enabled:           true,
+			WarnThreshold:     0.50,
+			CriticalThreshold: 0.75,
+			Weights: ComplexityWeights{
+				Scope:       0.30,
+				MultiStep:   0.25,
+				Uncertainty: 0.25,
+				Structural:  0.20,
+			},
+			RoleMultipliers: map[string]float64{
+				"engineer":     1.0,
+				"orchestrator": 0.8,
+				"inspector":    0.9,
+				"architect":    0.7,
+			},
 		},
 		Projects: make(map[string]string),
 	}

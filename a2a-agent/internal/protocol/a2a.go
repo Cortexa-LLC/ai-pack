@@ -49,6 +49,41 @@ type ExecuteTaskRequest struct {
 	Options     map[string]interface{} `json:"options,omitempty"`
 }
 
+// ComplexityWarning is attached to ExecuteTaskResponse when the pre-spawn
+// complexity gate detects that a debug task may be too complex to route
+// directly to an engineer without prior investigation.
+type ComplexityWarning struct {
+	// Level is the assessed complexity (e.g. "high", "very_high").
+	Level string `json:"level"`
+
+	// DebugSignals are the bug/debug keywords found in the task description.
+	DebugSignals []string `json:"debug_signals,omitempty"`
+
+	// MultiModuleSignals are cross-module indicators found in the task description.
+	MultiModuleSignals []string `json:"multi_module_signals,omitempty"`
+
+	// Recommendation is human-readable guidance for the orchestrator.
+	Recommendation string `json:"recommendation"`
+
+	// v2 fields — populated by the structural risk scorer.
+
+	// RiskLevel is the v2 risk tier (negligible | low | moderate | high | critical).
+	RiskLevel string `json:"risk_level,omitempty"`
+
+	// Components contains the individual sub-scores that produced the overall risk.
+	Components *RiskComponents `json:"components,omitempty"`
+}
+
+// RiskComponents carries the raw sub-scores from the v2 structural risk scorer.
+type RiskComponents struct {
+	ScopeScore       float64 `json:"scope_score"`
+	MultiStepScore   float64 `json:"multi_step_score"`
+	UncertaintyScore float64 `json:"uncertainty_score"`
+	StructuralScore  float64 `json:"structural_score"`
+	HistoricalScore  float64 `json:"historical_score"`
+	RoleMultiplier   float64 `json:"role_multiplier"`
+}
+
 // ExecuteTaskResponse represents a task execution response
 type ExecuteTaskResponse struct {
 	TaskID    string    `json:"task_id"`
@@ -56,6 +91,10 @@ type ExecuteTaskResponse struct {
 	Message   string    `json:"message"`
 	StreamURL string    `json:"stream_url,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
+
+	// ComplexityWarning is populated when the pre-spawn complexity assessment
+	// determines the task warrants an investigation step before engineer assignment.
+	ComplexityWarning *ComplexityWarning `json:"complexity_warning,omitempty"`
 }
 
 // TaskStatusRequest represents a task status query
