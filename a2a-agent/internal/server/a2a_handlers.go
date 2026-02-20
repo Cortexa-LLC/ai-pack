@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
@@ -109,6 +110,27 @@ func (s *AgentServer) handleA2AExecute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
+	// Validate projectRoot: must be non-empty, absolute, and free of traversal sequences.
+	if execReq.ProjectRoot == "" {
+		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidParams, "Invalid params", "project_root is required")
+		s.sendJSONRPCResponse(w, response)
+		return
+	}
+	cleanedRoot := filepath.Clean(execReq.ProjectRoot)
+	if !filepath.IsAbs(cleanedRoot) {
+		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidParams, "Invalid params", "project_root must be an absolute path")
+		s.sendJSONRPCResponse(w, response)
+		return
+	}
+	execReq.ProjectRoot = cleanedRoot
+
+	// Validate role: must not contain path separators to prevent path traversal.
+	if strings.ContainsAny(execReq.Role, "/\\") {
+		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidParams, "Invalid params", "role must not contain path separators")
+		s.sendJSONRPCResponse(w, response)
+		return
+	}
+
 	monitoring.Logger.Info("a2a_execute_request", "role", execReq.Role, "task", execReq.Task, "project_root", execReq.ProjectRoot)
 	monitoring.LogTaskSpawned(ctx, "", execReq.Role, execReq.Task)
 
