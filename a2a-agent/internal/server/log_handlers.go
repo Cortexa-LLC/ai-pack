@@ -509,10 +509,24 @@ func (s *AgentServer) streamTaskLogs(w http.ResponseWriter, r *http.Request, log
 // findBeadsTaskProjectRoot finds which project root contains the given beads task
 // Returns the project root path, or empty string if not found
 func (s *AgentServer) findBeadsTaskProjectRoot(taskID string) string {
-	// Try each registered project root
+	// First: look for actual execution artifacts in each project root.
+	// bd show is global (not directory-scoped), so calling GetTaskFromDir succeeds
+	// for any working directory and cannot be used to determine the correct project root.
+	prefix := taskID + "-"
 	for _, root := range s.GetProjectRoots() {
-		if _, err := s.beadsClient.GetTaskFromDir(taskID, root); err == nil {
-			return root
+		tasksDir := filepath.Join(root, ".beads", "tasks")
+		entries, err := os.ReadDir(tasksDir)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			if name == taskID || strings.HasPrefix(name, prefix) {
+				return root
+			}
 		}
 	}
 	return ""

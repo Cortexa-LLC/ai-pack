@@ -517,6 +517,7 @@ func main() {
 	mux.HandleFunc("/a2a/tasks/", s.HandleTaskLogs)        // Task-specific logs (trailing slash for subpaths)
 	mux.HandleFunc("/a2a/cancel/", s.HandleCancelTask)     // Cancel a running task
 	mux.HandleFunc("/a2a/retry/", s.HandleRetryTask)       // Retry a failed task
+	mux.HandleFunc("/a2a/resume/", s.HandleResumeTask)     // Resume a paused task
 	mux.HandleFunc("/a2a/start/", s.HandleStartTask)       // Start an agent for a task
 	mux.HandleFunc("/stream/", s.HandleStream)             // SSE streaming (tasks)
 	mux.HandleFunc("/logs/stream", s.HandleLogsStream)     // SSE streaming (logs)

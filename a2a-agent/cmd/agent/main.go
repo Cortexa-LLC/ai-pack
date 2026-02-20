@@ -53,6 +53,8 @@ func main() {
 		handleCancel(os.Args[2:])
 	case "retry":
 		handleRetry(os.Args[2:])
+	case "resume":
+		handleResume(os.Args[2:])
 	case "metrics":
 		handleMetrics(os.Args[2:])
 	case "performance", "perf":
@@ -1000,6 +1002,54 @@ func handleRetry(args []string) {
 	}
 
 	fmt.Printf("✅ Task %s retried successfully\n", taskID)
+}
+
+func handleResume(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: agent resume <task-id> [new-budget-tokens]")
+		os.Exit(1)
+	}
+
+	taskID := args[0]
+
+	var newBudget int64
+	if len(args) >= 2 {
+		fmt.Sscanf(args[1], "%d", &newBudget)
+	}
+
+	// POST to /a2a/resume/{taskID}
+	url := fmt.Sprintf("%s/a2a/resume/%s", ServerURL, taskID)
+	var body io.Reader
+	if newBudget > 0 {
+		payload := fmt.Sprintf(`{"new_budget":%d}`, newBudget)
+		body = strings.NewReader(payload)
+	}
+	resp, err := http.Post(url, "application/json", body)
+	if err != nil {
+		fmt.Printf("❌ Failed to resume task: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		fmt.Printf("❌ Failed to resume task: %s\n", string(respBody))
+		os.Exit(1)
+	}
+
+	respBody, _ := io.ReadAll(resp.Body)
+	var result map[string]interface{}
+	if err := json.Unmarshal(respBody, &result); err == nil {
+		if msg, ok := result["message"].(string); ok {
+			fmt.Printf("⏵  %s\n", msg)
+		}
+		if nb, ok := result["new_budget"].(float64); ok && nb > 0 {
+			fmt.Printf("   New budget: %.0f tokens\n", nb)
+		}
+		return
+	}
+
+	fmt.Printf("⏵  Task %s resuming from checkpoint\n", taskID)
 }
 
 func handleMetrics(args []string) {

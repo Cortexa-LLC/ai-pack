@@ -644,3 +644,65 @@ func (s *AgentServer) HandleStartTask(w http.ResponseWriter, r *http.Request) {
 		"status":  response.Status,
 	})
 }
+
+// HandleResumeTask resumes a paused task from its checkpoint with a new token budget.
+func (s *AgentServer) HandleResumeTask(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract task ID from URL path: /a2a/resume/{taskID}
+	taskID := strings.TrimPrefix(r.URL.Path, "/a2a/resume/")
+	if taskID == "" {
+		http.Error(w, "task ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Parse optional body for new budget
+	var req struct {
+		NewBudget int64 `json:"new_budget"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// Default: no additional budget specified, use 0 (unlimited)
+		req.NewBudget = 0
+	}
+
+	// Load task info to find project root
+	taskInfo, err := s.loadTaskStatusFromDisk(taskID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Task not found: %v", err), http.StatusNotFound)
+		return
+	}
+
+	// Verify task is paused
+	if taskInfo.Status != constants.StatusPaused {
+		http.Error(w, fmt.Sprintf("Task is not paused (status: %s)", taskInfo.Status), http.StatusBadRequest)
+		return
+	}
+
+	// Determine project root
+	projectRoot := s.rootDir
+	if pr, ok := taskInfo.Metadata["project_root"].(string); ok && pr != "" {
+		projectRoot = pr
+	}
+
+	// Load checkpoint
+	cp, err := loadCheckpoint(projectRoot, taskID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("No checkpoint found for task: %v", err), http.StatusNotFound)
+		return
+	}
+
+	// Launch resume in background
+	go s.resumeFromCheckpoint(taskID, projectRoot, cp, req.NewBudget)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    true,
+		"message":    "Task resuming from checkpoint",
+		"task_id":    taskID,
+		"budget_was": cp.BudgetUsed,
+		"new_budget": req.NewBudget,
+	})
+}

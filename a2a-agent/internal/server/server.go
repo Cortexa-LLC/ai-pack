@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -32,6 +33,8 @@ import (
 var Version = "dev"
 var Commit = "unknown"
 var BuildTime = "unknown"
+
+var ErrTaskPaused = errors.New("task paused: token budget exhausted")
 
 // Configuration field names (for markdown header parsing)
 const (
@@ -1427,7 +1430,7 @@ func (s *AgentServer) buildSystemPromptForProject(roleContext string, projectRoo
 }
 
 // executeAgenticLoop runs the agentic loop with tool support
-func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, role string, initialPrompt string, roleContext string, workingDir string, config *AgentConfig, logMsg func(string)) (string, error) {
+func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, role string, initialPrompt string, roleContext string, workingDir string, projectRoot string, config *AgentConfig, logMsg func(string)) (string, error) {
 	// Define tools (native + MCP tools) in provider-agnostic format
 	toolDefs := s.getAllTools()
 
@@ -1631,8 +1634,21 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			used := totalInputTokens + totalOutputTokens
 			limit := int64(config.Delegation.MaxBudgetTokens)
 			if used >= limit {
-				logMsg(fmt.Sprintf("❌ Token budget exhausted: %d/%d tokens used", used, limit))
-				return finalResult.String(), fmt.Errorf("token budget exceeded: used %d tokens (limit: %d)", used, limit)
+				logMsg(fmt.Sprintf("⏸️  Token budget exhausted: %d/%d tokens used — pausing", used, limit))
+				cp := &AgentCheckpoint{
+					TaskID: taskID, CreatedAt: time.Now(),
+					Turn: turn, TotalInputTokens: totalInputTokens, TotalOutputTokens: totalOutputTokens,
+					InactiveTurns: inactiveTurns, ConsecutiveErrorTurns: consecutiveErrorTurns,
+					LastTextLength: lastTextLength, LastToolSignature: lastToolSignature,
+					BudgetLimit: limit, BudgetUsed: used,
+					Messages: messages, PartialResult: finalResult.String(),
+					Role: role, ProjectRoot: projectRoot, Model: config.Model,
+				}
+				if err := writeCheckpoint(projectRoot, taskID, cp); err != nil {
+					logMsg(fmt.Sprintf("⚠️  Failed to write checkpoint: %v", err))
+					return finalResult.String(), fmt.Errorf("token budget exceeded and checkpoint failed: %w", err)
+				}
+				return finalResult.String(), ErrTaskPaused
 			}
 			// Warn at 80%
 			if used >= limit*8/10 {
@@ -1997,11 +2013,24 @@ func (s *AgentServer) buildAndSavePrompt(execution *TaskExecution, roleContext, 
 func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskExecution, prompt, roleContext, workingDir string, logMsg func(string)) (string, error) {
 	s.sendStreamEvent(execution, "api_call_start", map[string]interface{}{})
 
-	result, err := s.executeAgenticLoop(ctx, execution.TaskID, execution.Role, prompt, s.buildSystemPromptForProject(roleContext, execution.ProjectRoot), workingDir, execution.Config, logMsg)
+	result, err := s.executeAgenticLoop(ctx, execution.TaskID, execution.Role, prompt, s.buildSystemPromptForProject(roleContext, execution.ProjectRoot), workingDir, execution.ProjectRoot, execution.Config, logMsg)
 	if err != nil {
 		// Check if error is due to cancellation or timeout.
 		// context.Canceled: User-initiated cancellation via CancelTask()
 		// context.DeadlineExceeded: Task exceeded configured timeout
+		if errors.Is(err, ErrTaskPaused) {
+			logMsg(fmt.Sprintf("⏸️  Task %s paused at checkpoint", execution.TaskID))
+			s.sendStreamEvent(execution, "budget_paused", map[string]interface{}{
+				"used":            0,
+				"turn":            0,
+				"checkpoint_path": checkpointPath(execution.ProjectRoot, execution.TaskID),
+			})
+			if err2 := s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, constants.StatusPaused, ""); err2 != nil {
+				monitoring.Logger.Error("failed_to_update_paused_status", "task_id", execution.TaskID, "error", err2)
+			}
+			s.closeStream(execution)
+			return result, ErrTaskPaused
+		}
 		if ctx.Err() == context.Canceled {
 			logMsg("🛑 Task cancelled")
 			s.cancelTaskExecution(execution, "Task cancelled by user")
@@ -2553,6 +2582,9 @@ func (s *AgentServer) handleOrphanedTasks() {
 			beadsTasksByID[beadsTask.ID] = &beadsTask
 
 			// Check for orphaned tasks (marked in_progress in Beads but not running)
+			if beadsTask.Status == constants.StatusPaused {
+				continue
+			}
 			if beadsTask.Status == constants.StatusInProgress {
 				s.mu.RLock()
 				_, hasActiveTask := s.activeTasks[beadsTask.ID]
@@ -3082,4 +3114,97 @@ func (s *AgentServer) Shutdown(ctx context.Context) error {
 
 	monitoring.Logger.Info("shutdown_complete", "active_tasks", 0)
 	return nil
+}
+
+// resumeFromCheckpoint creates a new TaskExecution for a previously paused task,
+// rebuilds agent context from the checkpoint, and continues the agentic loop.
+// It is intended to be run as a goroutine.
+func (s *AgentServer) resumeFromCheckpoint(taskID, projectRoot string, cp *AgentCheckpoint, newBudget int64) {
+	// Load config for the role (picks up any role-file changes since the pause)
+	config, err := s.loadAgentConfig(cp.Role, projectRoot)
+	if err != nil {
+		monitoring.Logger.Error("resume_load_config_failed", "task_id", taskID, "error", err)
+		return
+	}
+
+	// Override budget with the new allocation (0 = unlimited)
+	config.Delegation.MaxBudgetTokens = int(newBudget)
+
+	// Rebuild a TaskExecution that mirrors how executeAgentTask works
+	execution := &TaskExecution{
+		TaskID:      taskID,
+		Role:        cp.Role,
+		Task:        cp.PartialResult, // used as context; real prompt built below
+		Config:      config,
+		StartTime:   time.Now(),
+		Status:      constants.StatusInProgress,
+		ProjectRoot: projectRoot,
+		metadata:    map[string]string{"project_root": projectRoot},
+		streamChan:  make(chan *protocol.StreamEvent, 100),
+		streamOpen:  true,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	execution.cancel = cancel
+	defer cancel()
+
+	// Register as active
+	s.mu.Lock()
+	s.activeTasks[taskID] = execution
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		delete(s.activeTasks, taskID)
+		s.mu.Unlock()
+	}()
+
+	logMsg := s.setupExecutionLogger(execution)
+	logMsg(fmt.Sprintf("▶️  Resuming task %s from checkpoint (turn %d, budget %d→%d)",
+		taskID, cp.Turn, cp.BudgetUsed, newBudget))
+
+	// Update disk status to in_progress
+	if err := s.updateTaskStatus(taskID, projectRoot, constants.StatusInProgress, ""); err != nil {
+		logMsg(fmt.Sprintf("⚠️  Failed to update status: %v", err))
+	}
+
+	// Build a resume prompt that injects prior partial result as context
+	var resumePrompt string
+	if cp.PartialResult != "" {
+		resumePrompt = fmt.Sprintf(
+			"You are resuming work on task %s after a token-budget pause.\n\n"+
+				"== PRIOR PARTIAL RESULT (from %d completed turns) ==\n%s\n\n"+
+				"== INSTRUCTIONS ==\n"+
+				"Continue from where you left off. Do not repeat work already done.\n"+
+				"Pick up where you left off and complete the remaining work.",
+			taskID, cp.Turn, cp.PartialResult)
+	} else {
+		resumePrompt = fmt.Sprintf(
+			"You are resuming work on task %s after a token-budget pause at turn %d. "+
+				"No partial result was saved. Start fresh and complete the task.",
+			taskID, cp.Turn)
+	}
+
+	roleContext, err := s.loadAndLogRoleContext(execution, logMsg)
+	if err != nil {
+		logMsg(fmt.Sprintf("⚠️  Could not load role context: %v", err))
+		roleContext = ""
+	}
+
+	_, workingDir := s.extractTaskMetadata(execution, logMsg)
+
+	// Run the agentic loop
+	result, loopErr := s.executeAgentWorkflow(ctx, execution, resumePrompt, roleContext, workingDir, logMsg)
+
+	if loopErr != nil {
+		if errors.Is(loopErr, ErrTaskPaused) {
+			// Already handled inside executeAgentWorkflow (checkpoint written, status set)
+			logMsg("⏸️  Task paused again at new budget limit")
+			return
+		}
+		logMsg(fmt.Sprintf("❌ Resume failed: %v", loopErr))
+		s.failTask(execution, loopErr.Error())
+		return
+	}
+
+	s.saveAndCompleteTask(ctx, execution, result, execution.StartTime, logMsg)
 }
