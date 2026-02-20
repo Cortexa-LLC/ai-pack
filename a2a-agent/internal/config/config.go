@@ -52,6 +52,7 @@ type ServerConfig struct {
 	Port                int    `json:"port"`
 	MaxConcurrentAgents int    `json:"max_concurrent_agents"`
 	WorkerPoolSize      int    `json:"worker_pool_size"`
+	APIKey              string `json:"api_key"`
 }
 
 // APIConfig holds API-related settings
