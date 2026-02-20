@@ -48,6 +48,7 @@ type PerformanceGrade struct {
 
 	// Metadata
 	LastTaskID string `json:"last_task_id,omitempty"` // For debugging
+	Source     string `json:"source,omitempty"`        // "benchmark" or "" (production)
 }
 
 // PerformanceGradeManager manages performance grades with persistent storage

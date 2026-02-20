@@ -150,6 +150,7 @@ type PerformanceGrade {
   downgradeCount: Int!
   lastUsed: String!
   firstUsed: String!
+  source: String!
 }
 
 type GradeSummary {

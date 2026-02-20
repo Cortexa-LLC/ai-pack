@@ -36,6 +36,7 @@ const PERFORMANCE_QUERY = `
       downgradeCount
       lastUsed
       firstUsed
+      source
     }
   }
 `;

@@ -103,6 +103,7 @@ type PerformanceGrade struct {
 	DowngradeCount       int     `json:"downgradeCount"`
 	LastUsed             string  `json:"lastUsed"`
 	FirstUsed            string  `json:"firstUsed"`
+	Source               string  `json:"source"`
 }
 
 type Query struct {
