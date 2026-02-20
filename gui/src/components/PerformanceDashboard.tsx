@@ -7,7 +7,9 @@ interface PerformanceDashboardProps {
 
 const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ apiUrl }) => {
   const { summary, grades, loading, error, refresh } = usePerformance(apiUrl);
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'models' | 'grades'>('overview');
+  const [selectedTab, setSelectedTab] = useState<'overview' | 'models' | 'grades' | 'benchmark'>('overview');
+  const [benchmarkRunning, setBenchmarkRunning] = useState(false);
+  const [benchmarkError, setBenchmarkError] = useState<string | null>(null);
   const [totalCost, setTotalCost] = useState<number | null>(null);
 
   useEffect(() => {
@@ -85,7 +87,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ apiUrl }) =
 
       {/* Tab Navigation */}
       <div className="flex gap-2 border-b border-gray-700">
-        {(['overview', 'models', 'grades'] as const).map((tab) => (
+        {(['overview', 'models', 'grades', 'benchmark'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setSelectedTab(tab)}
@@ -104,7 +106,33 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ apiUrl }) =
       <div>
         {selectedTab === 'overview' && <OverviewTab summary={summary} totalCost={totalCost} />}
         {selectedTab === 'models' && <ModelsTab summary={summary} />}
-        {selectedTab === 'grades' && <GradesTab grades={grades} />}
+        {selectedTab === 'grades' && <GradesTab grades={grades.filter((g: any) => g.source !== 'benchmark')} />}
+        {selectedTab === 'benchmark' && (
+          <BenchmarkTab
+            grades={grades.filter((g: any) => g.source === 'benchmark')}
+            apiUrl={apiUrl}
+            running={benchmarkRunning}
+            error={benchmarkError}
+            onRun={async () => {
+              setBenchmarkRunning(true);
+              setBenchmarkError(null);
+              try {
+                const res = await fetch(`${apiUrl}/api/benchmark/run`, { method: 'POST' });
+                if (!res.ok) {
+                  const body = await res.text();
+                  setBenchmarkError(`Server error ${res.status}: ${body}`);
+                } else {
+                  // Poll for new grades
+                  setTimeout(refresh, 3000);
+                }
+              } catch (err: any) {
+                setBenchmarkError(err.message || 'Network error');
+              } finally {
+                setBenchmarkRunning(false);
+              }
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -376,6 +404,148 @@ const GradesTab: React.FC<{ grades: any[] }> = ({ grades }) => {
       {sortedGrades.length === 0 && (
         <div className="text-center py-12 text-gray-400">
           No performance grades recorded yet. Grades will appear after task completions.
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Benchmark Tab ────────────────────────────────────────────────────────────
+interface BenchmarkTabProps {
+  grades: any[];
+  apiUrl: string;
+  running: boolean;
+  error: string | null;
+  onRun: () => void;
+}
+
+const BenchmarkTab: React.FC<BenchmarkTabProps> = ({ grades, running, error, onRun }) => {
+  const [sortBy, setSortBy] = useState<'grade' | 'model' | 'attempts'>('grade');
+
+  const sorted = [...grades].sort((a, b) => {
+    if (sortBy === 'grade') {
+      const ord: Record<string, number> = { A: 0, B: 1, C: 2, D: 3, F: 4 };
+      return (ord[a.grade] ?? 5) - (ord[b.grade] ?? 5);
+    }
+    if (sortBy === 'model') return (a.modelID || '').localeCompare(b.modelID || '');
+    return (b.totalAttempts || 0) - (a.totalAttempts || 0);
+  });
+
+  const gradeColor = (g: string) => {
+    const map: Record<string, string> = { A: 'text-green-400', B: 'text-blue-400', C: 'text-yellow-400', D: 'text-orange-400', F: 'text-red-400' };
+    return map[g] || 'text-gray-400';
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-white">Benchmark Results</h3>
+          <p className="text-sm text-gray-400">
+            Grades produced by <code>scripts/benchmark-models.py</code> — kept separate from
+            production grades.
+          </p>
+        </div>
+        <button
+          onClick={onRun}
+          disabled={running}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            running
+              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+              : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+          }`}
+        >
+          {running ? (
+            <>
+              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              Running…
+            </>
+          ) : (
+            <>
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Run Benchmark
+            </>
+          )}
+        </button>
+      </div>
+
+      {error && (
+        <div className="bg-red-900/30 border border-red-700 rounded-lg p-3 text-red-300 text-sm">
+          {error}
+        </div>
+      )}
+
+      {running && (
+        <div className="bg-indigo-900/20 border border-indigo-700 rounded-lg p-3 text-indigo-300 text-sm">
+          Benchmark is running in the background. Results will appear here once complete — this may
+          take a few minutes.
+        </div>
+      )}
+
+      {/* Sort Controls */}
+      <div className="flex gap-2">
+        {(['grade', 'model', 'attempts'] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setSortBy(s)}
+            className={`px-3 py-1 rounded text-sm transition-colors ${
+              sortBy === s ? 'bg-gray-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            Sort by {s}
+          </button>
+        ))}
+      </div>
+
+      {/* Results Table */}
+      {sorted.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-gray-400 border-b border-gray-700">
+                <th className="pb-2 pr-4">Model</th>
+                <th className="pb-2 pr-4">Role</th>
+                <th className="pb-2 pr-4">Grade</th>
+                <th className="pb-2 pr-4">Success Rate</th>
+                <th className="pb-2 pr-4">Attempts</th>
+                <th className="pb-2 pr-4">Avg Latency</th>
+                <th className="pb-2">Last Run</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-800">
+              {sorted.map((g, i) => {
+                const avgLatency = g.totalAttempts > 0
+                  ? Math.round(g.totalExecutionTimeMs / g.totalAttempts)
+                  : 0;
+                return (
+                  <tr key={i} className="hover:bg-gray-800/50 transition-colors">
+                    <td className="py-2 pr-4 font-mono text-xs text-white">{g.modelID}</td>
+                    <td className="py-2 pr-4 text-gray-300">{g.roleID || '—'}</td>
+                    <td className={`py-2 pr-4 font-bold text-lg ${gradeColor(g.grade)}`}>{g.grade}</td>
+                    <td className="py-2 pr-4 text-gray-300">
+                      {g.successRate !== undefined ? `${Math.round(g.successRate * 100)}%` : '—'}
+                    </td>
+                    <td className="py-2 pr-4 text-gray-300">{g.totalAttempts}</td>
+                    <td className="py-2 pr-4 text-gray-300">{avgLatency > 0 ? `${avgLatency} ms` : '—'}</td>
+                    <td className="py-2 text-gray-500 text-xs">
+                      {g.lastUsed ? new Date(g.lastUsed).toLocaleString() : '—'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="text-center py-12 text-gray-400">
+          No benchmark results yet. Click <strong>Run Benchmark</strong> to generate grades.
         </div>
       )}
     </div>

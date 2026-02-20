@@ -476,6 +476,7 @@ return &PerformanceGrade{
 	DowngradeCount:       mg.DowngradeCount,
 	LastUsed:             mg.LastUsed.Format(time.RFC3339),
 	FirstUsed:            mg.FirstUsed.Format(time.RFC3339),
+	Source:               mg.Source,
 }
 }
 func calculateCostSavings() *CostSavings {
