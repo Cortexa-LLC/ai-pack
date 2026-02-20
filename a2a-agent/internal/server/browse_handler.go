@@ -8,6 +8,21 @@ import (
 	"strings"
 )
 
+// isPathAllowed checks whether path is allowed given the set of allowed roots.
+// A path is allowed if it IS one of the roots, is under one of the roots, or is
+// a prefix of one of the roots (so the user can navigate up to reach a root).
+func isPathAllowed(path string, allowedRoots []string) bool {
+	cleanPath := filepath.Clean(path)
+	for _, root := range allowedRoots {
+		cleanRoot := filepath.Clean(root)
+		// Allow path if it IS an allowed root, is under one, or is a prefix of one
+		if strings.HasPrefix(cleanPath, cleanRoot) || strings.HasPrefix(cleanRoot, cleanPath) {
+			return true
+		}
+	}
+	return false
+}
+
 // HandleBrowseDirectories returns directory suggestions for autocomplete
 func (s *AgentServer) HandleBrowseDirectories(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -32,6 +47,18 @@ func (s *AgentServer) HandleBrowseDirectories(w http.ResponseWriter, r *http.Req
 		if err == nil {
 			partialPath = filepath.Join(home, partialPath[2:])
 		}
+	}
+
+	// Restrict browsing to allowed project roots (and their prefixes/ancestors)
+	allowedRoots := s.GetProjectRoots()
+	if len(allowedRoots) > 0 && !isPathAllowed(partialPath, allowedRoots) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "path not within allowed project roots",
+		})
+		return
 	}
 
 	// Get directory to search and prefix
