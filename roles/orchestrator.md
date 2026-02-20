@@ -13,14 +13,33 @@
 Coordinate multiple agents to complete complex tasks in parallel.
 
 **CRITICAL:** Use agent CLI commands via Bash tool for spawning and monitoring agents:
-- `agent engineer <task-id> --stream` (spawns and streams until completion)
-- `agent wait <task-id>` (blocks until agent completes)
-- `agent status <task-id>` (checks completion status)
+- `agent engineer <task-id> --stream` — spawns AND streams live output, blocks until done
+- `agent engineer <task-id>` — spawns in background (use for parallel batches)
+- `agent wait <task-id> --stream` — attaches to a running agent's live output, blocks until done (**preferred** for taking action after completion)
+- `agent wait <task-id>` — blocks silently until done (no output visibility)
+- `agent status <task-id>` — non-blocking status check
 
-**For parallel execution:**
-1. Create Beads tasks for each subtask using bd create
-2. Spawn agents with "agent engineer <task-id>" (do NOT use --stream for parallel)
-3. Wait for all agents: "agent wait <task-id>" for each
+**For sequential tasks:** use `--stream` at spawn time:
+```bash
+agent engineer "$task_id" --stream
+# agent completes here — take next action immediately
+```
+
+**For parallel batches:**
+1. Create Beads tasks + task packets for each subtask
+2. Spawn all agents without `--stream` (background):
+   ```bash
+   agent engineer "$task_id_1"
+   agent engineer "$task_id_2"
+   agent engineer "$task_id_3"
+   ```
+3. Wait on each with `--stream` to monitor and react:
+   ```bash
+   agent wait "$task_id_1" --stream
+   # task 1 done — review/commit its work here
+   agent wait "$task_id_2" --stream
+   # task 2 done — review/commit its work here
+   ```
 4. Verify all completed successfully before proceeding
 
 **NEVER do the work yourself - ALWAYS delegate to spawned agents.**
@@ -103,7 +122,7 @@ When starting complex coordination:
 task_id=$(bd create "Task Title
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/$(date +%Y-%m-%d)_task-name/
+Task packet: .ai/tasks/${task_id}-$(date +%Y%m%d%H%M%S)-task-name/
 
 Detailed description of what needs to be done..." \
   --priority high --json | jq -r '.id')
@@ -139,17 +158,17 @@ FOR every non-trivial task:
     task_id=$(bd create "Implement user authentication
 
 Working directory: /Users/yourname/Projects/your-project
-Task packet: .ai/tasks/2026-01-24_user-auth/
+Task packet: .ai/tasks/ai-pack-4gx-20260124093000-user-auth/
 
 Create login/logout endpoints with JWT tokens and session management." \
       --priority high --json | jq -r '.id')
 
-  STEP 2: Create task packet directory (.ai/tasks/YYYY-MM-DD_task-name/)
+  STEP 2: Create task packet directory (.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/)
 
   STEP 3: Copy all templates from .ai-pack/templates/task-packet/
 
   STEP 4: Link Beads ID in 00-contract.md
-    echo "**Beads Task:** ${task_id}" >> .ai/tasks/YYYY-MM-DD_task-name/00-contract.md
+    echo "**Beads Task:** ${task_id}" >> .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/00-contract.md
 
   STEP 5: Fill out 00-contract.md with requirements
 
@@ -165,7 +184,7 @@ ENFORCEMENT: Gate blocks if task packet exists without Beads task.
 1. Title (first line)
 2. Blank line
 3. `Working directory: /absolute/path/to/project`
-4. `Task packet: .ai/tasks/YYYY-MM-DD_task-name/`
+4. `Task packet: .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/`
 5. Blank line
 6. Detailed description of the task
 
@@ -174,7 +193,7 @@ ENFORCEMENT: Gate blocks if task packet exists without Beads task.
 The Beads task description MUST include these exact patterns on their own lines:
 ```
 Working directory: /absolute/path/to/project
-Task packet: .ai/tasks/YYYY-MM-DD_task-name/
+Task packet: .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
 ```
 
 **Why Both Are Required:**
@@ -189,7 +208,7 @@ Without these, agents will execute in the wrong project or fail to find the task
 bd create "Implement dark mode feature
 
 Working directory: /Users/yourname/Projects/my-app
-Task packet: .ai/tasks/2026-01-24_dark-mode/
+Task packet: .ai/tasks/ai-pack-4ab-20260124090000-dark-mode/
 
 Add theme toggle, persist user preference, update all components to support dark theme." \
   --priority high
@@ -197,7 +216,7 @@ Add theme toggle, persist user preference, update all components to support dark
 # Bad - missing working directory (single-project only, not recommended)
 bd create "Implement dark mode feature
 
-Task packet: .ai/tasks/2026-01-24_dark-mode/
+Task packet: .ai/tasks/ai-pack-4gx-20260124090000-dark-mode/
 
 Description..." --priority high
 
@@ -213,7 +232,7 @@ With working directory specified, a single A2A server can handle agents for mult
 bd create "Feature A
 
 Working directory: /Users/yourname/Projects/project-a
-Task packet: .ai/tasks/2026-01-24_feature-a/
+Task packet: .ai/tasks/ai-pack-4gx-20260124090000-feature-a/
 
 Description..." --priority high
 
@@ -221,7 +240,7 @@ Description..." --priority high
 bd create "Feature B
 
 Working directory: /Users/yourname/Projects/project-b
-Task packet: .ai/tasks/2026-01-24_feature-b/
+Task packet: .ai/tasks/ai-pack-4gy-20260124090100-feature-b/
 
 Description..." --priority high
 ```
@@ -248,7 +267,7 @@ This bi-directional linking ensures:
 
 **Task Packet Files (ALL REQUIRED):**
 ```
-.ai/tasks/YYYY-MM-DD_task-name/
+.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
 ├── 00-contract.md      # REQUIRED: Define task and acceptance criteria
 ├── 10-plan.md          # REQUIRED: Document implementation approach
 ├── 20-work-log.md      # REQUIRED: Track execution progress
@@ -288,7 +307,7 @@ BEFORE spawning ANY agent for non-trivial work:
 
   STEP 2: Verify prerequisites exist
     CHECK: Beads task created (`bd list` shows task ID)
-    CHECK: Task packet directory exists (`.ai/tasks/YYYY-MM-DD_name/`)
+    CHECK: Task packet directory exists (`.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/`)
     CHECK: 00-contract.md exists with requirements filled out
     CHECK: Task packet path in Beads description
     CHECK: Working directory in Beads description
@@ -335,14 +354,14 @@ END BEFORE
 task_id=$(bd create "Implement user authentication
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/2026-02-08_user-auth/
+Task packet: .ai/tasks/ai-pack-4cd-20260208120000-user-auth/
 
 Create login/logout endpoints with JWT." --priority high --json | jq -r '.id')
 
 # STEP 2-5: Create task packet infrastructure
-mkdir -p .ai/tasks/2026-02-08_user-auth/
-cp -r .ai-pack/templates/task-packet/* .ai/tasks/2026-02-08_user-auth/
-echo "**Beads Task:** ${task_id}" >> .ai/tasks/2026-02-08_user-auth/00-contract.md
+mkdir -p .ai/tasks/ai-pack-4cd-20260208120000-user-auth/
+cp -r .ai-pack/templates/task-packet/* .ai/tasks/ai-pack-4cd-20260208120000-user-auth/
+echo "**Beads Task:** ${task_id}" >> .ai/tasks/ai-pack-4cd-20260208120000-user-auth/00-contract.md
 # ... fill out contract ...
 
 # STEP 6: Verify checklist
@@ -362,7 +381,7 @@ agent spawn engineer ${task_id}
 task_id=$(bd create "Implement user authentication
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/2026-02-08_user-auth/
+Task packet: .ai/tasks/ai-pack-4cd-20260208120000-user-auth/
 
 Create login/logout endpoints with JWT." --priority high --json | jq -r '.id')
 
@@ -370,7 +389,7 @@ Create login/logout endpoints with JWT." --priority high --json | jq -r '.id')
 agent spawn engineer ${task_id}
 
 # RESULT: Engineer stops, requests task packet, marks as completed with error:
-# "Warning: beads update failed: Task packet missing at .ai/tasks/2026-02-08_user-auth/"
+# "Warning: beads update failed: Task packet missing at .ai/tasks/ai-pack-4cd-20260208120000-user-auth/"
 ```
 
 **✅ CORRECT - Trivial task without packet:**
@@ -434,7 +453,7 @@ STEP 2: MANDATORY - Create Beads tasks for each subtask
   task_id=$(bd create "Subtask 1 title
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/$(date +%Y-%m-%d)_subtask-1/
+Task packet: .ai/tasks/${task_id}-$(date +%Y%m%d%H%M%S)-subtask-1/
 
 Detailed description of what this subtask should accomplish." \
     --priority high --json | jq -r '.id')
@@ -443,7 +462,7 @@ STEP 3: MANDATORY - Set dependencies
   bd dep add <child-id> <parent-id>
 
 STEP 4: THEN create task packets for each Beads task
-  mkdir .ai/tasks/YYYY-MM-DD_subtask-1/
+  mkdir .ai/tasks/${task_id}-$(date +%Y%m%d%H%M%S)-subtask-1/
   echo "**Beads Task:** ${task_id}" >> 00-contract.md
 
 STEP 5: Verify with bd ready (should show only tasks with no dependencies)
@@ -476,7 +495,7 @@ Orchestrator breaks down into tasks:
 task1=$(bd create "Design authentication architecture
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/$(date +%Y-%m-%d)_auth-architecture/
+Task packet: .ai/tasks/${task1}-$(date +%Y%m%d%H%M%S)-auth-architecture/
 
 Create ADR, system diagram, implementation plan, security documentation, and API specification.
 Estimated 5 files." \
@@ -485,7 +504,7 @@ Estimated 5 files." \
 task2=$(bd create "Implement user model with password hashing
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/$(date +%Y-%m-%d)_user-model/
+Task packet: .ai/tasks/${task2}-$(date +%Y%m%d%H%M%S)-user-model/
 
 Create user model, service layer, repository pattern, validation rules, comprehensive tests,
 database migration, and seed data. Estimated 7 files." \
@@ -494,7 +513,7 @@ database migration, and seed data. Estimated 7 files." \
 task3=$(bd create "Create login API endpoint
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/$(date +%Y-%m-%d)_login-endpoint/
+Task packet: .ai/tasks/${task3}-$(date +%Y%m%d%H%M%S)-login-endpoint/
 
 Implement login controller, service logic, DTOs, validation, tests, and API documentation.
 Estimated 6 files." \
@@ -503,7 +522,7 @@ Estimated 6 files." \
 task4=$(bd create "Create registration API endpoint
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/$(date +%Y-%m-%d)_registration-endpoint/
+Task packet: .ai/tasks/${task4}-$(date +%Y%m%d%H%M%S)-registration-endpoint/
 
 Implement registration controller, service logic, DTOs, validation, tests, and API documentation.
 Estimated 6 files." \
@@ -512,7 +531,7 @@ Estimated 6 files." \
 task5=$(bd create "Add session management
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/$(date +%Y-%m-%d)_session-management/
+Task packet: .ai/tasks/${task5}-$(date +%Y%m%d%H%M%S)-session-management/
 
 Create session service, middleware, storage layer, configuration, tests, documentation, and examples.
 Estimated 7 files." \
@@ -521,7 +540,7 @@ Estimated 7 files." \
 task6=$(bd create "Implement authentication middleware
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/$(date +%Y-%m-%d)_auth-middleware/
+Task packet: .ai/tasks/${task6}-$(date +%Y%m%d%H%M%S)-auth-middleware/
 
 Create authentication middleware, error handling, tests, documentation, and usage examples.
 Estimated 5 files." \
@@ -530,7 +549,7 @@ Estimated 5 files." \
 task7=$(bd create "Add comprehensive integration tests
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/$(date +%Y-%m-%d)_integration-tests/
+Task packet: .ai/tasks/${task7}-$(date +%Y%m%d%H%M%S)-integration-tests/
 
 Create test suites for complete auth flow, edge cases, and security testing.
 Estimated 5 files." \
@@ -539,7 +558,7 @@ Estimated 5 files." \
 task8=$(bd create "Update documentation
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/$(date +%Y-%m-%d)_docs-update/
+Task packet: .ai/tasks/${task8}-$(date +%Y%m%d%H%M%S)-docs-update/
 
 Update README, API documentation, and security guide with authentication information.
 Estimated 3 files." \
@@ -1731,7 +1750,7 @@ WHEN spawning agent:
       subagent_type="general-purpose",
       description="Implement login feature",
       prompt="Act as Engineer from .ai-pack/roles/engineer.md.
-              Task packet: .ai/tasks/2026-01-14_login/
+              Task packet: .ai/tasks/ai-pack-4ef-20260114090000-login/
               Follow TDD. Update work log."
     )
 
@@ -1739,7 +1758,7 @@ WHEN spawning agent:
     bd create "Agent: Engineer - Implement login feature" \
       --assignee "Engineer-$$" \
       --priority high \
-      --description "Task packet: .ai/tasks/2026-01-14_login/"
+      --description "Task packet: .ai/tasks/ai-pack-4ef-20260114090000-login/"
 
     # Returns task ID (e.g., bd-a1b2)
 
@@ -1763,7 +1782,7 @@ END WHEN
 bd create "Agent: Engineer - Implement user profile API
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/2026-01-24_user-profile-api/
+Task packet: .ai/tasks/ai-pack-4gh-20260124090000-user-profile-api/
 
 Create REST endpoints for user profile CRUD operations with validation and tests." \
   --assignee "Engineer-1" \
@@ -1773,7 +1792,7 @@ Create REST endpoints for user profile CRUD operations with validation and tests
 bd create "Agent: Tester - Validate authentication tests
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/2026-01-24_auth-tests/
+Task packet: .ai/tasks/ai-pack-4ij-20260124093000-auth-tests/
 
 Run authentication test suite, validate coverage, and report failures." \
   --assignee "Tester-1" \
@@ -1783,7 +1802,7 @@ Run authentication test suite, validate coverage, and report failures." \
 bd create "Agent: Reviewer - Review login implementation
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/2026-01-24_login-review/
+Task packet: .ai/tasks/ai-pack-4kl-20260124094500-login-review/
 
 Review login endpoint code for security issues, code quality, and best practices." \
   --assignee "Reviewer-1" \
@@ -3056,14 +3075,14 @@ Task packets in `.ai/tasks/` should be archived (not deleted) for audit trail:
 Archive Structure:
 .ai/
 ├── tasks/                          # Active tasks only
-│   ├── 2026-01-26_feature-x/      # Current work
-│   └── 2026-01-26_bug-fix/        # Current work
+│   ├── ai-pack-4mn-20260126090000-feature-x/      # Current work
+│   └── ai-pack-4op-20260126090000-bug-fix/        # Current work
 └── tasks/.archived/                # Completed tasks (organized by month)
     ├── 2026-01/
-    │   ├── 2026-01-15_login-impl/
-    │   └── 2026-01-18_api-refactor/
+    │   ├── ai-pack-4qr-20260115090000-login-impl/
+    │   └── ai-pack-4st-20260118090000-api-refactor/
     └── 2026-02/
-        └── 2026-02-03_caching/
+        └── ai-pack-4uv-20260203090000-caching/
 
 Why archive instead of delete:
 ✓ Maintains history of what was worked on
