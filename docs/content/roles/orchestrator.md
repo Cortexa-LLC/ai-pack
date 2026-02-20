@@ -61,17 +61,17 @@ FOR every non-trivial task:
     task_id=$(bd create "Implement user authentication
 
 Working directory: /Users/yourname/Projects/your-project
-Task packet: .ai/tasks/2026-01-24_user-auth/
+Task packet: .ai/tasks/ai-pack-4cd-20260124090000-user-auth/
 
 Create login/logout endpoints with JWT tokens and session management." \
       --priority high --json | jq -r '.id')
 
-  STEP 2: Create task packet directory (.ai/tasks/YYYY-MM-DD_task-name/)
+  STEP 2: Create task packet directory (.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/)
 
   STEP 3: Copy all templates from .ai-pack/templates/task-packet/
 
   STEP 4: Link Beads ID in 00-contract.md
-    echo "**Beads Task:** ${task_id}" >> .ai/tasks/YYYY-MM-DD_task-name/00-contract.md
+    echo "**Beads Task:** ${task_id}" >> .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/00-contract.md
 
   STEP 5: Fill out 00-contract.md with requirements
 
@@ -87,7 +87,7 @@ ENFORCEMENT: Gate blocks if task packet exists without Beads task.
 1. Title (first line)
 2. Blank line
 3. `Working directory: /absolute/path/to/project`
-4. `Task packet: .ai/tasks/YYYY-MM-DD_task-name/`
+4. `Task packet: .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/`
 5. Blank line
 6. Detailed description of the task
 
@@ -96,7 +96,7 @@ ENFORCEMENT: Gate blocks if task packet exists without Beads task.
 The Beads task description MUST include these exact patterns on their own lines:
 ```
 Working directory: /absolute/path/to/project
-Task packet: .ai/tasks/YYYY-MM-DD_task-name/
+Task packet: .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
 ```
 
 **Why Both Are Required:**
@@ -111,7 +111,7 @@ Without these, agents will execute in the wrong project or fail to find the task
 bd create "Implement dark mode feature
 
 Working directory: /Users/yourname/Projects/my-app
-Task packet: .ai/tasks/2026-01-24_dark-mode/
+Task packet: .ai/tasks/ai-pack-4ab-20260124090000-dark-mode/
 
 Add theme toggle, persist user preference, update all components to support dark theme." \
   --priority high
@@ -119,7 +119,7 @@ Add theme toggle, persist user preference, update all components to support dark
 # Bad - missing working directory (single-project only, not recommended)
 bd create "Implement dark mode feature
 
-Task packet: .ai/tasks/2026-01-24_dark-mode/
+Task packet: .ai/tasks/ai-pack-4ab-20260124090000-dark-mode/
 
 Description..." --priority high
 
@@ -135,7 +135,7 @@ With working directory specified, a single A2A server can handle agents for mult
 bd create "Feature A
 
 Working directory: /Users/yourname/Projects/project-a
-Task packet: .ai/tasks/2026-01-24_feature-a/
+Task packet: .ai/tasks/ai-pack-4fa-20260124090000-feature-a/
 
 Description..." --priority high
 
@@ -143,7 +143,7 @@ Description..." --priority high
 bd create "Feature B
 
 Working directory: /Users/yourname/Projects/project-b
-Task packet: .ai/tasks/2026-01-24_feature-b/
+Task packet: .ai/tasks/ai-pack-4fb-20260124090000-feature-b/
 
 Description..." --priority high
 ```
@@ -170,7 +170,7 @@ This bi-directional linking ensures:
 
 **Task Packet Files (ALL REQUIRED):**
 ```
-.ai/tasks/YYYY-MM-DD_task-name/
+.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
 ├── 00-contract.md      # REQUIRED: Define task and acceptance criteria
 ├── 10-plan.md          # REQUIRED: Document implementation approach
 ├── 20-work-log.md      # REQUIRED: Track execution progress
@@ -232,7 +232,7 @@ STEP 3: MANDATORY - Set dependencies
   bd dep add <child-id> <parent-id>
 
 STEP 4: THEN create task packets for each Beads task
-  mkdir .ai/tasks/YYYY-MM-DD_subtask-1/
+  mkdir .ai/tasks/${task_id}-$(date +%Y%m%d%H%M%S)-subtask-1/
   echo "**Beads Task:** ${task_id}" >> 00-contract.md
 
 STEP 5: Verify with bd ready (should show only tasks with no dependencies)
@@ -1505,7 +1505,7 @@ WHEN spawning agent:
       subagent_type="general-purpose",
       description="Implement login feature",
       prompt="Act as Engineer from .ai-pack/roles/engineer.md.
-              Task packet: .ai/tasks/2026-01-14_login/
+              Task packet: .ai/tasks/ai-pack-4ef-20260114090000-login/
               Follow TDD. Update work log."
     )
 
@@ -1513,7 +1513,7 @@ WHEN spawning agent:
     bd create "Agent: Engineer - Implement login feature" \
       --assignee "Engineer-$$" \
       --priority high \
-      --description "Task packet: .ai/tasks/2026-01-14_login/"
+      --description "Task packet: .ai/tasks/ai-pack-4ef-20260114090000-login/"
 
     # Returns task ID (e.g., bd-a1b2)
 
@@ -1537,7 +1537,7 @@ END WHEN
 bd create "Agent: Engineer - Implement user profile API
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/2026-01-24_user-profile-api/
+Task packet: .ai/tasks/ai-pack-4gh-20260124090000-user-profile-api/
 
 Create REST endpoints for user profile CRUD operations with validation and tests." \
   --assignee "Engineer-1" \
@@ -1547,7 +1547,7 @@ Create REST endpoints for user profile CRUD operations with validation and tests
 bd create "Agent: Tester - Validate authentication tests
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/2026-01-24_auth-tests/
+Task packet: .ai/tasks/ai-pack-4ij-20260124093000-auth-tests/
 
 Run authentication test suite, validate coverage, and report failures." \
   --assignee "Tester-1" \
@@ -1557,7 +1557,7 @@ Run authentication test suite, validate coverage, and report failures." \
 bd create "Agent: Reviewer - Review login implementation
 
 Working directory: $(pwd)
-Task packet: .ai/tasks/2026-01-24_login-review/
+Task packet: .ai/tasks/ai-pack-4kl-20260124094500-login-review/
 
 Review login endpoint code for security issues, code quality, and best practices." \
   --assignee "Reviewer-1" \
@@ -2830,14 +2830,14 @@ Task packets in `.ai/tasks/` should be archived (not deleted) for audit trail:
 Archive Structure:
 .ai/
 ├── tasks/                          # Active tasks only
-│   ├── 2026-01-26_feature-x/      # Current work
-│   └── 2026-01-26_bug-fix/        # Current work
+│   ├── ai-pack-4mn-20260126090000-feature-x/      # Current work
+│   └── ai-pack-4op-20260126090000-bug-fix/        # Current work
 └── tasks/.archived/                # Completed tasks (organized by month)
     ├── 2026-01/
-    │   ├── 2026-01-15_login-impl/
-    │   └── 2026-01-18_api-refactor/
+    │   ├── ai-pack-4qr-20260115090000-login-impl/
+    │   └── ai-pack-4st-20260118090000-api-refactor/
     └── 2026-02/
-        └── 2026-02-03_caching/
+        └── ai-pack-4uv-20260203090000-caching/
 
 Why archive instead of delete:
 ✓ Maintains history of what was worked on

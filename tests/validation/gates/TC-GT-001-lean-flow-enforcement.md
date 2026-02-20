@@ -48,8 +48,8 @@ Gate 05 enforces Lean Flow principles from "Accelerate" (Gene Kim, Jez Humble, N
 
 1. **Create task packet with 3 files:**
    ```bash
-   mkdir -p .ai/tasks/2026-01-15_test-lean-flow-ideal
-   cp .ai-pack/templates/task-packet/* .ai/tasks/2026-01-15_test-lean-flow-ideal/
+   mkdir -p .ai/tasks/local-20260115090000-test-lean-flow-ideal
+   cp .ai-pack/templates/task-packet/* .ai/tasks/local-20260115090000-test-lean-flow-ideal/
    ```
 
 2. **Fill contract with 3-file estimate:**

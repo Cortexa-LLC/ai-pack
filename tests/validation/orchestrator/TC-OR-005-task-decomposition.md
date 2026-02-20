@@ -46,8 +46,8 @@ Added task size guidelines and decomposition strategy:
 
 1. **Create test task with large scope:**
    ```bash
-   mkdir -p .ai/tasks/2026-01-15_test-or-005
-   cp .ai-pack/templates/task-packet/* .ai/tasks/2026-01-15_test-or-005/
+   mkdir -p .ai/tasks/local-20260115090000-test-or-005
+   cp .ai-pack/templates/task-packet/* .ai/tasks/local-20260115090000-test-or-005/
    ```
 
 2. **Fill out contract with complex multi-component task:**
@@ -239,7 +239,7 @@ Added task size guidelines and decomposition strategy:
      description="Gateway Foundation (3 files)",
      prompt="""Engineer role. Working dir: /repo
      Task: Implement gateway foundation (3 config files)
-     Task packet: .ai/tasks/2026-01-15_gateway-foundation/
+     Task packet: .ai/tasks/local-20260115090000-gateway-foundation/
      Follow TDD. Update work log.""",
      
    )
@@ -250,7 +250,7 @@ Added task size guidelines and decomposition strategy:
      description="GraphQL Server (4 files)",
      prompt="""Engineer role. Working dir: /repo
      Task: Implement GraphQL server (4 files)
-     Task packet: .ai/tasks/2026-01-15_graphql-server/
+     Task packet: .ai/tasks/local-20260115090000-graphql-server/
      Follow TDD. Update work log.""",
      
    )
@@ -263,7 +263,7 @@ Added task size guidelines and decomposition strategy:
      description="GraphQL Schemas (9 files)",
      prompt="""Engineer role. Working dir: /repo
      Task: Implement GraphQL schemas (9 related files)
-     Task packet: .ai/tasks/2026-01-15_graphql-schemas/
+     Task packet: .ai/tasks/local-20260115090000-graphql-schemas/
      Follow TDD. Update work log.""",
      
    )
@@ -379,11 +379,11 @@ Documenting decomposition strategy in task packet..."
 ```
 Orchestrator: "Creating task packets for each component..."
 
-✓ Created .ai/tasks/2026-01-15_gateway-foundation/
-✓ Created .ai/tasks/2026-01-15_graphql-server/
-✓ Created .ai/tasks/2026-01-15_graphql-schemas/
-✓ Created .ai/tasks/2026-01-15_authentication/
-✓ Created .ai/tasks/2026-01-15_deployment/
+✓ Created .ai/tasks/local-20260115090000-gateway-foundation/
+✓ Created .ai/tasks/local-20260115090000-graphql-server/
+✓ Created .ai/tasks/local-20260115090000-graphql-schemas/
+✓ Created .ai/tasks/local-20260115090000-authentication/
+✓ Created .ai/tasks/local-20260115090000-deployment/
 ```
 
 **Step 5: Orchestrator spawns agents for subtasks**

@@ -8,7 +8,7 @@ Tests that task packets follow the proper lifecycle:
 - Work log updates (20-work-log.md)
 - Review documentation (30-review.md)
 - Acceptance sign-off (40-acceptance.md)
-- Proper directory structure (.ai/tasks/YYYY-MM-DD_task-name/)
+- Proper directory structure (.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/)
 - Cross-references between files
 
 Status: EXECUTABLE
@@ -42,9 +42,10 @@ class TestTaskPacketStructure(unittest.TestCase):
                 raise RuntimeError("Not in a git repository")
             cls.repo_root = cls.repo_root.parent
 
-        # Create test task packet
-        timestamp = datetime.now().strftime("%Y-%m-%d")
-        cls.task_name = f"{timestamp}_test-task-lifecycle-{int(time.time())}"
+        # Create test task packet using new naming convention:
+        # <beads-id>-<YYYYMMDDHHMMSS>-<short-desc>
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        cls.task_name = f"local-{timestamp}-test-task-lifecycle"
         cls.task_packet_dir = cls.repo_root / ".ai" / "tasks" / cls.task_name
         cls.task_packet_dir.mkdir(parents=True, exist_ok=True)
 
@@ -60,20 +61,22 @@ class TestTaskPacketStructure(unittest.TestCase):
             print(f"\n🧹 Cleaned up: {cls.task_packet_dir.parent.parent}")
 
     def test_01_task_packet_naming_convention(self):
-        """Test: Task packet uses YYYY-MM-DD_task-name format"""
+        """Test: Task packet uses <beads-id>-<YYYYMMDDHHMMSS>-<short-desc> format"""
         print("\n" + "="*70)
         print("TASK PACKET TEST 1: Naming Convention")
         print("="*70)
 
-        # Verify naming pattern
+        # Verify naming pattern: <beads-id>-<YYYYMMDDHHMMSS>-<short-desc>
+        # e.g. ai-pack-4gx-20260220073115-printf-tokens
+        # or local-20260220083116-test-task (for test/local tasks without Beads)
         import re
-        pattern = r"^\d{4}-\d{2}-\d{2}_[\w\-]+$"
+        pattern = r"^[a-z0-9][a-z0-9\-]+-\d{14}-[\w\-]+$"
 
         task_name = self.task_packet_dir.name
 
         self.assertTrue(
             re.match(pattern, task_name),
-            f"❌ Task packet name '{task_name}' doesn't match pattern YYYY-MM-DD_task-name"
+            f"❌ Task packet name '{task_name}' doesn't match pattern <beads-id>-<YYYYMMDDHHMMSS>-<short-desc>"
         )
 
         print(f"✅ Task packet name follows convention: {task_name}")

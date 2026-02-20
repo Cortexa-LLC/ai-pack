@@ -40,7 +40,7 @@ BEFORE starting ANY task:
 task_id=$(bd create "Implement user authentication" --priority high --json | jq -r '.id')
 
 # MANDATORY - Document in task packet
-echo "**Beads Task:** ${task_id}" >> .ai/tasks/2026-01-18_auth/00-contract.md
+echo "**Beads Task:** ${task_id}" >> .ai/tasks/ai-pack-4wx-20260118090000-auth/00-contract.md
 
 # Now work can begin
 ```text
@@ -53,8 +53,8 @@ echo "**Beads Task:** ${task_id}" >> .ai/tasks/2026-01-18_auth/00-contract.md
 **Violation:**
 ```bash
 # ❌ WRONG - Just creating task packet without Beads
-mkdir .ai/tasks/2026-01-18_auth
-cp templates/* .ai/tasks/2026-01-18_auth/
+mkdir .ai/tasks/ai-pack-4wx-20260118090000-auth
+cp templates/* .ai/tasks/ai-pack-4wx-20260118090000-auth/
 # Missing: bd create command!
 ```text
 
@@ -153,7 +153,7 @@ bd start ${task_id}
 ```bash
 # ❌ WRONG - Manual task selection
 ls .ai/tasks/
-cd .ai/tasks/2026-01-18_something
+cd .ai/tasks/ai-pack-4wx-20260118090000-something
 # Missing: bd ready to find correct task!
 ```text
 
@@ -261,14 +261,14 @@ WHEN spawning agent with Task tool:
 agent = Task(
   subagent_type="general-purpose",
   description="Implement login feature",
-  prompt="Act as Engineer. Task packet: .ai/tasks/2026-01-18_login/"
+  prompt="Act as Engineer. Task packet: .ai/tasks/local-20260118090000-login/"
 )
 
 # 2. MANDATORY - Create Beads task for agent
 agent_task_id=$(bd create "Agent: Engineer - Implement login feature" \
   --assignee "Engineer-1" \
   --priority high \
-  --description "Task packet: .ai/tasks/2026-01-18_login/" \
+  --description "Task packet: .ai/tasks/local-20260118090000-login/" \
   --json | jq -r '.id')
 
 # 3. MANDATORY - Mark as in-progress
@@ -313,11 +313,11 @@ echo "Spawned Engineer-1" >> work-log.md
 task_id=$(bd create "Understand authentication requirements" --priority high --json | jq -r '.id')
 
 # Create task packet
-mkdir -p .ai/tasks/2026-01-18_auth
+mkdir -p .ai/tasks/ai-pack-4wx-20260118090000-auth
 # Copy templates...
 
 # Link in contract
-echo "**Beads Task:** ${task_id}" > .ai/tasks/2026-01-18_auth/00-contract.md
+echo "**Beads Task:** ${task_id}" > .ai/tasks/ai-pack-4wx-20260118090000-auth/00-contract.md
 
 # Start work
 bd start ${task_id}
@@ -340,7 +340,7 @@ bd dep add ${impl_id} ${design_id}
 bd dep add ${test_id} ${impl_id}
 
 # Document in plan
-cat >> .ai/tasks/2026-01-18_auth/10-plan.md << EOF
+cat >> .ai/tasks/ai-pack-4wx-20260118090000-auth/10-plan.md << EOF
 ## Subtasks
 - ${design_id}: Design auth architecture
 - ${impl_id}: Implement auth service (depends on design)
@@ -496,9 +496,9 @@ echo "Beads tasks: ${task_count}, Task packets: ${packet_count}"
 **Symptom:**
 ```bash
 $ ls .ai/tasks/
-2026-01-18_feature-x/
+ai-pack-4wx-20260118090000-feature-x/
 
-$ grep "Beads Task:" .ai/tasks/2026-01-18_feature-x/00-contract.md
+$ grep "Beads Task:" .ai/tasks/ai-pack-4wx-20260118090000-feature-x/00-contract.md
 # No output - missing Beads reference!
 ```text
 
@@ -508,7 +508,7 @@ $ grep "Beads Task:" .ai/tasks/2026-01-18_feature-x/00-contract.md
 task_id=$(bd create "Feature X implementation" --priority high --json | jq -r '.id')
 
 # Link in contract
-echo "**Beads Task:** ${task_id}" >> .ai/tasks/2026-01-18_feature-x/00-contract.md
+echo "**Beads Task:** ${task_id}" >> .ai/tasks/ai-pack-4wx-20260118090000-feature-x/00-contract.md
 ```text
 
 ### Violation 2: Status Updated Only in Task Packet

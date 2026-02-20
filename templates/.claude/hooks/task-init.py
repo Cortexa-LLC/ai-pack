@@ -36,9 +36,12 @@ def create_task_packet(task_name):
         print(f"❌ Error: Invalid task name '{task_name}'")
         return 1
 
-    # Create task ID with timestamp
-    timestamp = datetime.now().strftime("%Y-%m-%d")
-    task_id = f"{timestamp}_{slug}"
+    # Create task ID with Beads ID placeholder and full timestamp
+    # Format: <beads-id>-<YYYYMMDDHHMMSS>-<short-desc>
+    # Note: Beads ID is assigned by orchestrator; use placeholder when running standalone
+    beads_id = os.environ.get("BEADS_TASK_ID", "local")
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    task_id = f"{beads_id}-{timestamp}-{slug}"
 
     # Define paths
     tasks_dir = Path(".ai/tasks")

@@ -416,7 +416,7 @@ def test_orchestrator_uses_beads_for_decomposition():
 **What to Test:**
 ```python
 ✅ test_create_task_packet()
-   - Create directory .ai/tasks/YYYY-MM-DD_task-name/
+   - Create directory .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
    - Copy all templates
    - All 5 files present (00-40)
 

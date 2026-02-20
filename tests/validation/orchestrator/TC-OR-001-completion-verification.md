@@ -47,8 +47,8 @@ Validate that orchestrators execute the complete verification protocol before de
 
 1. **Setup failed agent simulation:**
    ```bash
-   mkdir -p .ai/tasks/2026-01-15_test-or-001-fail
-   cp .ai-pack/templates/task-packet/* .ai/tasks/2026-01-15_test-or-001-fail/
+   mkdir -p .ai/tasks/local-20260115090000-test-or-001-fail
+   cp .ai-pack/templates/task-packet/* .ai/tasks/local-20260115090000-test-or-001-fail/
    ```
 
 2. **Create task requiring file creation:**
@@ -224,8 +224,8 @@ Validate that orchestrators execute the complete verification protocol before de
 
 7. **Setup successful agent scenario:**
    ```bash
-   mkdir -p .ai/tasks/2026-01-15_test-or-001-success
-   cp .ai-pack/templates/task-packet/* .ai/tasks/2026-01-15_test-or-001-success/
+   mkdir -p .ai/tasks/local-20260115090000-test-or-001-success
+   cp .ai-pack/templates/task-packet/* .ai/tasks/local-20260115090000-test-or-001-success/
    ```
 
 8. **Orchestrator spawns agent with concise prompt:**
@@ -237,7 +237,7 @@ Validate that orchestrators execute the complete verification protocol before de
 
      Working directory: /Users/user/project
      Task: Create src/services/UserService.cs
-     Task packet: .ai/tasks/2026-01-15_test-or-001-success/
+     Task packet: .ai/tasks/local-20260115090000-test-or-001-success/
      Follow TDD. Update work log.
      """,
      

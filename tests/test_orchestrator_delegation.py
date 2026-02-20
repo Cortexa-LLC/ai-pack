@@ -151,7 +151,7 @@ class TestOrchestratorDelegation(unittest.TestCase):
         print("="*70)
 
         # Orchestrator creates task packet for Engineer
-        task_packet_dir = self.test_dir / ".ai" / "tasks" / "2026-01-15_implement-auth"
+        task_packet_dir = self.test_dir / ".ai" / "tasks" / "local-20260115090000-implement-auth"
         task_packet_dir.mkdir(parents=True, exist_ok=True)
 
         # Contract
@@ -224,7 +224,7 @@ Ready for review
         print("   Decision: Delegate to Reviewer")
 
         # Simulate Reviewer completing review
-        task_packet_dir = self.test_dir / ".ai" / "tasks" / "2026-01-15_review-auth"
+        task_packet_dir = self.test_dir / ".ai" / "tasks" / "local-20260115090000-review-auth"
         task_packet_dir.mkdir(parents=True, exist_ok=True)
 
         review = task_packet_dir / "30-review.md"
@@ -427,7 +427,7 @@ class TestOrchestratorIntegration(unittest.TestCase):
 
         # Phase 4: Orchestrator delegates to Reviewer
         print("\nPhase 4: Review (Reviewer)")
-        task_dir = self.test_dir / ".ai" / "tasks" / "2026-01-15_feature"
+        task_dir = self.test_dir / ".ai" / "tasks" / "local-20260115090000-feature"
         task_dir.mkdir(parents=True, exist_ok=True)
         review_file = task_dir / "30-review.md"
         review_file.write_text("# Review\n\n## Verdict: APPROVED")

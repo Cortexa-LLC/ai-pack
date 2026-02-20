@@ -19,7 +19,7 @@ Creates a new task packet directory with all required templates from the ai-pack
 
 ## What This Does
 
-1. Creates `.ai/tasks/YYYY-MM-DD_<task-name>/` directory
+1. Creates `.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<task-name>/` directory
 2. Copies all templates from `.ai-pack/templates/task-packet/`:
    - `00-contract.md` - Requirements and acceptance criteria
    - `10-plan.md` - Implementation approach
@@ -37,7 +37,7 @@ Creates a new task packet directory with all required templates from the ai-pack
 After running this command, you'll have:
 
 ```
-.ai/tasks/2026-01-10_add-login-feature/
+.ai/tasks/local-20260110143022-add-login-feature/
 ├── 00-contract.md      # Start here: Define requirements
 ├── 10-plan.md          # Then: Plan implementation
 ├── 20-work-log.md      # During: Track progress

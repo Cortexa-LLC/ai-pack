@@ -150,7 +150,7 @@ bd status
 
 **IMPORTANT**: Both Task tool and A2A agents receive their context from:
 1. **Task description** passed during spawning
-2. **Task packet** files in `.ai/tasks/YYYY-MM-DD_task-name/`
+2. **Task packet** files in `.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/`
 
 **Neither agent type has access to conversation history** (see bug 13890).
 
@@ -162,7 +162,7 @@ bd status
 - **20-work-log.md**: Progress tracking (updated by agents)
 
 **Task description must include:**
-- Reference to task packet location: `.ai/tasks/2026-01-24_feature-name/`
+- Reference to task packet location: `.ai/tasks/ai-pack-4fn-20260124090000-feature-name/`
 - Role to assume: "Act as Engineer" or "Act as Tester"
 - Key requirements summary
 - Explicit instructions (e.g., "Follow TDD", "Update work log")
@@ -174,14 +174,14 @@ bd status
 Task(
   subagent_type="general-purpose",
   prompt="Act as Engineer from .ai-pack/roles/engineer.md.
-          Task packet: .ai/tasks/2026-01-24_auth-api/
+          Task packet: .ai/tasks/ai-pack-4aa-20260124090000-auth-api/
           Requirements: Implement /login and /logout endpoints.
           Follow TDD. Update work log when complete.",
   description="Implementing auth API endpoints"
 )
 
 # A2A agent (background)
-bd create "Act as Engineer. Task packet: .ai/tasks/2026-01-24_auth-api/.
+bd create "Act as Engineer. Task packet: .ai/tasks/ai-pack-4aa-20260124090000-auth-api/.
 Implement /login and /logout endpoints. Follow TDD. Update work log." \
   --priority high
 # Returns: xasm++-e3w
@@ -476,7 +476,7 @@ claude> "Review the auth implementation from background agents"
 ### Q: How do agents get context if they can't see conversation history?
 
 **A**: Both agent types rely on:
-1. **Task packet** (`.ai/tasks/YYYY-MM-DD_name/`) with contract, plan, and requirements
+1. **Task packet** (`.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/`) with contract, plan, and requirements
 2. **Task description** passed during spawning with role and instructions
 3. **Beads task** data for A2A agents
 

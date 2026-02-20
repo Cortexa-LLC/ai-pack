@@ -361,8 +361,8 @@ grep "Beads Enforcement Gate" roles/orchestrator.md roles/engineer.md
 ```bash
 # Orchestrator test: Create task
 task_id=$(bd create "Test feature" --priority high --json | jq -r '.id')
-mkdir -p .ai/tasks/2026-01-18_test/
-echo "**Beads Task:** ${task_id}" >> .ai/tasks/2026-01-18_test/00-contract.md
+mkdir -p .ai/tasks/ai-pack-4wx-20260118090000-test/
+echo "**Beads Task:** ${task_id}" >> .ai/tasks/ai-pack-4wx-20260118090000-test/00-contract.md
 
 # Engineer test: Start work
 bd start ${task_id}

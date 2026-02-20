@@ -37,11 +37,11 @@ bd dep add ${impl_id} ${design_id}  # impl depends on design
 bd dep add ${test_id} ${impl_id}    # tests depend on impl
 
 # STEP 3: Create task packet
-mkdir -p .ai/tasks/2026-01-18_auth
-cp .ai-pack/templates/task-packet/* .ai/tasks/2026-01-18_auth/
+mkdir -p .ai/tasks/ai-pack-4wx-20260118090000-auth
+cp .ai-pack/templates/task-packet/* .ai/tasks/ai-pack-4wx-20260118090000-auth/
 
 # STEP 4: Link in contract
-cat >> .ai/tasks/2026-01-18_auth/00-contract.md << EOF
+cat >> .ai/tasks/ai-pack-4wx-20260118090000-auth/00-contract.md << EOF
 **Beads Tasks:**
 - ${design_id}: Design auth architecture
 - ${impl_id}: Implement auth service
@@ -79,7 +79,7 @@ bd list --status closed
 engineer = Task(
   subagent_type="general-purpose",
   description="Implement authentication",
-  prompt="Act as Engineer. Task: .ai/tasks/2026-01-18_auth/"
+  prompt="Act as Engineer. Task: .ai/tasks/ai-pack-4wx-20260118090000-auth/"
 )
 
 # STEP 2: MANDATORY - Create Beads tracking task
@@ -92,7 +92,7 @@ agent_task=$(bd create "Agent: Engineer - Implement authentication" \
 bd start ${agent_task}
 
 # STEP 4: Document
-echo "Spawned Engineer-1 (Beads: ${agent_task})" >> .ai/tasks/2026-01-18_auth/20-work-log.md
+echo "Spawned Engineer-1 (Beads: ${agent_task})" >> .ai/tasks/ai-pack-4wx-20260118090000-auth/20-work-log.md
 
 # STEP 5: Monitor agent
 bd show ${agent_task}
@@ -383,15 +383,15 @@ tail -10 .ai/tasks/*/20-work-log.md
 
 ```bash
 # WRONG
-mkdir .ai/tasks/2026-01-18_feature
-cp templates/* .ai/tasks/2026-01-18_feature/
+mkdir .ai/tasks/ai-pack-4wx-20260118090000-feature
+cp templates/* .ai/tasks/ai-pack-4wx-20260118090000-feature/
 # Missing: bd create command!
 
 # CORRECT
 task_id=$(bd create "Feature implementation" --priority high --json | jq -r '.id')
-mkdir .ai/tasks/2026-01-18_feature
-cp templates/* .ai/tasks/2026-01-18_feature/
-echo "**Beads Task:** ${task_id}" >> .ai/tasks/2026-01-18_feature/00-contract.md
+mkdir .ai/tasks/ai-pack-4wx-20260118090000-feature
+cp templates/* .ai/tasks/ai-pack-4wx-20260118090000-feature/
+echo "**Beads Task:** ${task_id}" >> .ai/tasks/ai-pack-4wx-20260118090000-feature/00-contract.md
 ```
 
 ### ❌ Status Update Without Beads
@@ -410,7 +410,7 @@ echo "Starting implementation" >> .ai/tasks/*/20-work-log.md
 
 ```bash
 # WRONG
-cd .ai/tasks/2026-01-18_something
+cd .ai/tasks/ai-pack-4wx-20260118090000-something
 # Just picking a task arbitrarily
 
 # CORRECT

@@ -45,8 +45,8 @@ Validate that orchestrators detect when spawned agents hit token limits and corr
 
 1. Create test task packet for complex feature:
    ```bash
-   mkdir -p .ai/tasks/2026-01-15_test-ba-002
-   cp .ai-pack/templates/task-packet/* .ai/tasks/2026-01-15_test-ba-002/
+   mkdir -p .ai/tasks/local-20260115090000-test-ba-002
+   cp .ai-pack/templates/task-packet/* .ai/tasks/local-20260115090000-test-ba-002/
    ```
 
 2. Create intentionally verbose prompt (to trigger token limit):
@@ -84,7 +84,7 @@ Validate that orchestrators detect when spawned agents hit token limits and corr
      PLEASE FOLLOW THESE STEPS:
      [3000 words of step-by-step instructions...]
 
-     Task packet: .ai/tasks/2026-01-15_test-ba-002/
+     Task packet: .ai/tasks/local-20260115090000-test-ba-002/
      """,
      
    )
@@ -166,7 +166,7 @@ Validate that orchestrators detect when spawned agents hit token limits and corr
 
       Working directory: /path/to/repo
       Task: Implement gateway foundation (4 files)
-      Task packet: .ai/tasks/2026-01-15_test-ba-002/
+      Task packet: .ai/tasks/local-20260115090000-test-ba-002/
       Follow TDD. Update work log.
       """,
       

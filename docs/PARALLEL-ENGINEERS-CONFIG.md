@@ -359,7 +359,7 @@ Each parallel worker gets isolated task packet:
 
 ```
 .ai/tasks/
-├── 2026-01-07_work-package/
+├── local-20260107090000-work-package/
 │   ├── 00-contract.md              # Overall work package contract
 │   ├── 10-plan.md                  # Master plan with parallel strategy
 │   ├── worker-1/                   # Worker 1 isolated context
