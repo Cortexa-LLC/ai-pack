@@ -1693,6 +1693,14 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 						"task_id", taskID,
 						"error", err.Error())
 				}
+				// Sync selected model into in-memory metadata so grade recording
+				// in saveAndCompleteTask uses the actual model, not the server default.
+				s.mu.Lock()
+				if exec, ok := s.activeTasks[taskID]; ok {
+					exec.metadata["model"] = selectedModel
+					exec.metadata["provider"] = selectedProvider
+				}
+				s.mu.Unlock()
 			}
 		}
 
