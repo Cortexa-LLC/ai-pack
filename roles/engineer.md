@@ -783,9 +783,13 @@ FOR each logical unit of work:
 END FOR
 
 **Commit Policy:**
-```
-Check task packet for commit instructions.
-```
+
+Agents do not auto-commit. When your implementation is complete:
+1. Run `git diff --name-only` and include the list of modified files in your output
+2. Write a suggested commit message
+3. Do NOT run `git commit`, `git push`, or `git add` unless the contract's Acceptance Criteria explicitly includes `- [ ] Commit changes`
+
+See the [Commit Policy](shared/agent-policy.md#commit-policy) in Agent Policy for the full rule.
 
 **Progress Reporting:**
 ```
@@ -989,9 +993,8 @@ task, report what you attempted and where you got stuck — the orchestrator wil
 reassign or escalate.
 
 **Commit Handling:**
-```
-Check task packet for commit instructions.
-```
+
+Do NOT commit. Summarize changed files and write a suggested commit message. The human reviewer owns the commit. See [Commit Policy](shared/agent-policy.md#commit-policy).
 
 **⚠️ CRITICAL: Beads Task Closure (MANDATORY)**
 

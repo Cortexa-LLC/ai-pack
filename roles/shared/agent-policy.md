@@ -57,6 +57,41 @@ Every API call has a cost. Treat every turn as precious.
 
 ---
 
+## Commit Policy
+
+**Agents do not commit.** Write your changes, then stop.
+
+At the end of your task:
+1. List every file you created or modified (use `git status --short` or `git diff --name-only`)
+2. Write a suggested commit message in your output
+3. Do NOT run `git commit`, `git push`, or `git add` unless the contract explicitly says
+   `"commit your changes"` in the Acceptance Criteria
+
+**Why:** Multiple agents run concurrently against the same repository. Auto-committing
+causes mixed commits, race conditions, and bypasses human review. Small, human-reviewed
+commits are the standard — agents prepare the work, humans ship it.
+
+**Exception:** A contract may include `- [ ] Commit changes` in its Acceptance Criteria.
+In that case, commit only the files relevant to this task using specific file paths
+(`git add path/to/file.go`, never `git add .` or `git add -A`).
+
+---
+
+## Small-Batch Principle
+
+Each task should change one thing. When writing your summary, flag if your changes
+span more than one logical concern — the human reviewer will decide whether to split
+the commit.
+
+Signs your batch is too large:
+- You modified files in more than 2–3 unrelated packages
+- Your suggested commit message needs more than one `feat:`/`fix:` line
+- You changed both application code and role/config files in the same task
+
+If this happens: note it in your output. The orchestrator will coordinate the split.
+
+---
+
 ## Beads Task Workflow
 
 All agents that work on Beads tasks follow this lifecycle:
