@@ -13,6 +13,29 @@ import (
 	"github.com/openai/openai-go/responses"
 )
 
+const (
+	// maxOutputTokens16k is the 16384-token completion limit shared by the gpt-4o
+	// family (gpt-4o, gpt-4o-mini, etc.) and gpt-4.1-mini.
+	maxOutputTokens16k = 16384
+
+	// Model prefix constants used for routing and capability detection.
+	modelPrefixGPT    = "gpt-"
+	modelPrefixGPT4o  = "gpt-4o"
+	modelPrefixGPT5   = "gpt-5"
+	modelPrefixO1     = "o1"
+	modelPrefixO3     = "o3"
+	modelPrefixO4     = "o4"
+	modelPrefixCode   = "code-"
+	modelPrefixDavinci = "davinci"
+
+	// modelGPT41Mini is a full model ID (not a prefix) with a known token cap.
+	modelGPT41Mini    = "gpt-4.1-mini"
+
+	// Legacy codex identifiers.
+	modelPrefixDavinciCodex = "davinci-codex"
+	modelSubstrCodex        = "codex"
+)
+
 // OpenAIFactory creates OpenAI stream providers using the official SDK
 // Supports chat completion and responses API for codex models
 type OpenAIFactory struct {
@@ -33,13 +56,13 @@ func (f *OpenAIFactory) GetProviderName() string {
 // SupportsModel checks if this is an OpenAI model
 func (f *OpenAIFactory) SupportsModel(model string) bool {
 	lower := strings.ToLower(model)
-	return strings.HasPrefix(lower, "gpt-") ||
-		strings.HasPrefix(lower, "o1") ||
-		strings.HasPrefix(lower, "o3") ||
-		strings.HasPrefix(lower, "o4") ||
-		strings.HasPrefix(lower, "code-") ||
-		strings.HasPrefix(lower, "davinci") ||
-		strings.Contains(lower, "codex")
+	return strings.HasPrefix(lower, modelPrefixGPT) ||
+		strings.HasPrefix(lower, modelPrefixO1) ||
+		strings.HasPrefix(lower, modelPrefixO3) ||
+		strings.HasPrefix(lower, modelPrefixO4) ||
+		strings.HasPrefix(lower, modelPrefixCode) ||
+		strings.HasPrefix(lower, modelPrefixDavinci) ||
+		strings.Contains(lower, modelSubstrCodex)
 }
 
 // CreateStream creates an OpenAI streaming provider
@@ -231,18 +254,17 @@ func IsCodexModel(model string) bool {
 func isCodexModel(model string) bool {
 	lower := strings.ToLower(model)
 	// Match code- prefix (legacy), davinci-codex (legacy), and any model containing "codex"
-	return strings.HasPrefix(lower, "code-") ||
-		strings.HasPrefix(lower, "davinci-codex") ||
-		strings.Contains(lower, "codex")
+	return strings.HasPrefix(lower, modelPrefixCode) ||
+		strings.HasPrefix(lower, modelPrefixDavinciCodex) ||
+		strings.Contains(lower, modelSubstrCodex)
 }
 
 // modelMaxOutputTokens returns the per-model cap on output tokens (0 = no cap beyond server config).
 // Some models have lower limits than the server-wide max_tokens setting.
 func modelMaxOutputTokens(model string) int {
 	lower := strings.ToLower(model)
-	// gpt-4o-mini and gpt-4.1-mini: 16384 completion token limit
-	if lower == "gpt-4o-mini" || lower == "gpt-4.1-mini" {
-		return 16384
+	if strings.HasPrefix(lower, modelPrefixGPT4o) || lower == modelGPT41Mini {
+		return maxOutputTokens16k
 	}
 	return 0
 }
@@ -259,13 +281,13 @@ func cappedMaxTokens(model string, maxTokens int) int {
 func usesMaxCompletionTokens(model string) bool {
 	lower := strings.ToLower(model)
 	// o1, o3, o4 series use max_completion_tokens
-	if strings.HasPrefix(lower, "o1") ||
-		strings.HasPrefix(lower, "o3") ||
-		strings.HasPrefix(lower, "o4") {
+	if strings.HasPrefix(lower, modelPrefixO1) ||
+		strings.HasPrefix(lower, modelPrefixO3) ||
+		strings.HasPrefix(lower, modelPrefixO4) {
 		return true
 	}
 	// gpt-5 and above (gpt-5, gpt-5-mini, gpt-5.x, gpt-5.x-codex, etc.)
-	if strings.HasPrefix(lower, "gpt-5") {
+	if strings.HasPrefix(lower, modelPrefixGPT5) {
 		return true
 	}
 	return false
