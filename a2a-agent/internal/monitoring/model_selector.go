@@ -2,6 +2,7 @@ package monitoring
 
 import (
 	"fmt"
+	"sort"
 )
 
 // ModelTier represents model cost/capability tiers
@@ -71,6 +72,8 @@ type ModelSelector struct {
 	minTier            ModelTier
 	maxTier            ModelTier
 	enabled            bool
+	openaiAvailable    bool
+	geminiAvailable    bool
 }
 
 // ModelSelectionResult holds the selection decision and reasoning
@@ -84,13 +87,15 @@ type ModelSelectionResult struct {
 }
 
 // NewModelSelector creates a new adaptive model selector
-func NewModelSelector(gradeManager *PerformanceGradeManager, complexityAnalyzer *ComplexityAnalyzer) *ModelSelector {
+func NewModelSelector(gradeManager *PerformanceGradeManager, complexityAnalyzer *ComplexityAnalyzer, openaiAvailable, geminiAvailable bool) *ModelSelector {
 	return &ModelSelector{
 		gradeManager:       gradeManager,
 		complexityAnalyzer: complexityAnalyzer,
 		minTier:            TierMinimal,
 		maxTier:            TierMedium, // Cap at Sonnet 4.6 - Premium tier requires explicit user approval
 		enabled:            true,
+		openaiAvailable:    openaiAvailable,
+		geminiAvailable:    geminiAvailable,
 	}
 }
 
@@ -141,8 +146,9 @@ func (ms *ModelSelector) SelectModel(
 	defaultModel := ms.getBestModelFromTier(defaultTier)
 	grade = ms.gradeManager.GetGrade(defaultModel.ID, role, projectID)
 
-	// 5. Adjust tier based on performance history (if confident)
-	if grade != nil && grade.ConfidenceScore > 0.5 {
+	// 5. Adjust tier based on performance history (if confident enough).
+	// Threshold 0.1 ≈ 5 samples — low enough for benchmark data to influence selection.
+	if grade != nil && grade.ConfidenceScore > 0.1 {
 		switch grade.Grade {
 		case "A":
 			// Performing excellently - can we downgrade to save cost?
@@ -203,8 +209,8 @@ func (ms *ModelSelector) SelectModel(
 		selectedTier = ms.maxTier
 	}
 
-	// 8. Select best model from tier
-	selectedModel := ms.getBestModelFromTier(selectedTier)
+	// 8. Select best available model from tier (cheapest with passing grade, or cheapest available)
+	selectedModel := ms.getBestAvailableModelFromTier(selectedTier, role, projectID)
 
 	// 9. Build default reasoning if none set
 	if reasoning == "" {
@@ -235,16 +241,58 @@ func (ms *ModelSelector) getDefaultTier(role string) ModelTier {
 	return TierLow // Default fallback
 }
 
-// getBestModelFromTier selects the best (usually cheapest/preferred) model from a tier
+// getBestModelFromTier returns the first model in a tier (used for grade lookups,
+// where we want a deterministic "representative" model, not cost-optimised).
 func (ms *ModelSelector) getBestModelFromTier(tier ModelTier) ModelInfo {
 	models, exists := ModelsByTier[tier]
 	if !exists || len(models) == 0 {
-		// Fallback to tier 2 if tier not found
+		models = ModelsByTier[TierLow]
+	}
+	return models[0]
+}
+
+// getBestAvailableModelFromTier returns the cheapest available model from a tier
+// that has an acceptable grade (A or B).  Falls back to cheapest available when
+// no grade data is present or no model achieves a passing grade yet.
+func (ms *ModelSelector) getBestAvailableModelFromTier(tier ModelTier, role, projectID string) ModelInfo {
+	models, exists := ModelsByTier[tier]
+	if !exists || len(models) == 0 {
 		models = ModelsByTier[TierLow]
 	}
 
-	// Return first model (preferred)
-	return models[0]
+	// Filter to providers that are available.
+	available := make([]ModelInfo, 0, len(models))
+	for _, m := range models {
+		if m.Provider == "openai" && !ms.openaiAvailable {
+			continue
+		}
+		if m.Provider == "gemini" && !ms.geminiAvailable {
+			continue
+		}
+		available = append(available, m)
+	}
+	if len(available) == 0 {
+		available = models // all providers unavailable — fall back to full list
+	}
+
+	// Sort by combined cost (cheapest first) as the default preference.
+	sort.Slice(available, func(i, j int) bool {
+		costI := available[i].CostPerMIn + available[i].CostPerMOut
+		costJ := available[j].CostPerMIn + available[j].CostPerMOut
+		return costI < costJ
+	})
+
+	// Find cheapest model with a confirmed passing grade (A or B).
+	for _, m := range available {
+		grade := ms.gradeManager.GetGrade(m.ID, role, projectID)
+		if grade != nil && grade.ConfidenceScore > 0.1 && (grade.Grade == "A" || grade.Grade == "B") {
+			return m
+		}
+	}
+
+	// No confirmed passing model yet — return cheapest available so we start
+	// gathering real performance data on the most cost-effective option.
+	return available[0]
 }
 
 // GetModelInfo looks up model information by ID
@@ -285,6 +333,6 @@ func EstimateCost(modelID string, inputTokens, outputTokens int64) float64 {
 var GlobalModelSelector *ModelSelector
 
 // InitModelSelector initializes the global model selector
-func InitModelSelector(gradeManager *PerformanceGradeManager, complexityAnalyzer *ComplexityAnalyzer) {
-	GlobalModelSelector = NewModelSelector(gradeManager, complexityAnalyzer)
+func InitModelSelector(gradeManager *PerformanceGradeManager, complexityAnalyzer *ComplexityAnalyzer, openaiAvailable, geminiAvailable bool) {
+	GlobalModelSelector = NewModelSelector(gradeManager, complexityAnalyzer, openaiAvailable, geminiAvailable)
 }

@@ -60,26 +60,29 @@ DEFAULT_RUNS = 5
 # api_model_name is the string sent to the API (may differ from the registry ID)
 MODELS = [
     # TierMinimal
-    ("gpt-4o-mini",     "openai",     "minimal", "gpt-4o-mini"),
-    ("gpt-4.1-nano",    "openai",     "minimal", "gpt-4.1-nano"),
-    ("claude-haiku-4-5","anthropic",  "minimal", "claude-haiku-4-5"),
+    ("gpt-4o-mini",           "openai",     "minimal", "gpt-4o-mini"),
+    ("gpt-4.1-nano",          "openai",     "minimal", "gpt-4.1-nano"),
+    ("claude-haiku-4-5",      "anthropic",  "minimal", "claude-haiku-4-5"),
+    ("gemini-2.5-flash-lite", "gemini",     "minimal", "gemini-2.5-flash-lite-preview-06-17"),
 
     # TierLow
-    ("gpt-4.1-mini",    "openai",     "low",     "gpt-4.1-mini"),
-    ("o4-mini",         "openai",     "low",     "o4-mini"),
+    ("gpt-4.1-mini",          "openai",     "low",     "gpt-4.1-mini"),
+    ("o4-mini",               "openai",     "low",     "o4-mini"),
+    ("gemini-2.5-flash",      "gemini",     "low",     "gemini-2.5-flash"),
 
     # TierMedium
-    ("gpt-5.1-codex-mini","openai",   "medium",  "gpt-5.1-codex-mini"),
-    ("gpt-4.1",         "openai",     "medium",  "gpt-4.1"),
-    ("claude-sonnet-4-6","anthropic", "medium",  "claude-sonnet-4-6"),
-    ("claude-sonnet-4-5","anthropic", "medium",  "claude-sonnet-4-5-20250929"),
-    ("claude-sonnet-4-5-20250929","anthropic","medium","claude-sonnet-4-5-20250929"),
+    ("gpt-5.1-codex-mini",    "openai",     "medium",  "gpt-5.1-codex-mini"),
+    ("gpt-4.1",               "openai",     "medium",  "gpt-4.1"),
+    ("claude-sonnet-4-6",     "anthropic",  "medium",  "claude-sonnet-4-6"),
+    ("claude-sonnet-4-5",     "anthropic",  "medium",  "claude-sonnet-4-5-20250929"),
+    ("claude-sonnet-4-5-20250929","anthropic","medium", "claude-sonnet-4-5-20250929"),
+    ("gemini-2.5-pro",        "gemini",     "medium",  "gemini-2.5-pro"),
 
     # TierHigh
-    ("gpt-5.1-codex",   "openai",     "high",    "gpt-5.1-codex"),
-    ("gpt-5.2-codex",   "openai",     "high",    "gpt-5.2-codex"),
-    ("claude-opus-4-5", "anthropic",  "high",    "claude-opus-4-5-20251101"),
-    ("claude-opus-4-6", "anthropic",  "high",    "claude-opus-4-6"),
+    ("gpt-5.1-codex",         "openai",     "high",    "gpt-5.1-codex"),
+    ("gpt-5.2-codex",         "openai",     "high",    "gpt-5.2-codex"),
+    ("claude-opus-4-5",       "anthropic",  "high",    "claude-opus-4-5-20251101"),
+    ("claude-opus-4-6",       "anthropic",  "high",    "claude-opus-4-6"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -1356,6 +1359,65 @@ def call_anthropic(api_model: str, prompt: dict, timeout: int = 60) -> dict:
         }
 
 
+def call_gemini(api_model: str, prompt: dict, timeout: int = 60) -> dict:
+    """Call Google Gemini API and return timing + token data."""
+    try:
+        import google.generativeai as genai
+    except ImportError:
+        return {
+            "success": False,
+            "text": "",
+            "tokens_in": 0,
+            "tokens_out": 0,
+            "total_tokens": 0,
+            "elapsed_ms": 0.0,
+            "error": "google-generativeai not installed; run: pip install google-generativeai",
+        }
+
+    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+
+    system_instruction = prompt.get("system") or None
+    model = genai.GenerativeModel(
+        model_name=api_model,
+        system_instruction=system_instruction,
+    )
+
+    start = time.monotonic()
+    try:
+        resp = model.generate_content(
+            prompt["user"],
+            generation_config=genai.GenerationConfig(
+                max_output_tokens=1024,
+                temperature=0.3,
+            ),
+        )
+        elapsed_ms = (time.monotonic() - start) * 1000
+        text = resp.text if hasattr(resp, "text") and resp.text else ""
+        usage = resp.usage_metadata if hasattr(resp, "usage_metadata") else None
+        tokens_in = usage.prompt_token_count if usage else 0
+        tokens_out = usage.candidates_token_count if usage else 0
+        return {
+            "success": True,
+            "text": text,
+            "tokens_in": tokens_in,
+            "tokens_out": tokens_out,
+            "total_tokens": tokens_in + tokens_out,
+            "elapsed_ms": elapsed_ms,
+            "error": None,
+        }
+    except Exception as exc:
+        elapsed_ms = (time.monotonic() - start) * 1000
+        return {
+            "success": False,
+            "text": "",
+            "tokens_in": 0,
+            "tokens_out": 0,
+            "total_tokens": 0,
+            "elapsed_ms": elapsed_ms,
+            "error": str(exc),
+        }
+
+
 # ---------------------------------------------------------------------------
 # Grade file helpers (mirrors Go performance_grading.go logic)
 # ---------------------------------------------------------------------------
@@ -1486,11 +1548,14 @@ def run_benchmark(
 
     openai_key = os.environ.get("OPENAI_API_KEY", "")
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
 
     if not openai_key:
         print("⚠️  OPENAI_API_KEY not set – OpenAI models will be skipped")
     if not anthropic_key:
         print("⚠️  ANTHROPIC_API_KEY not set – Anthropic models will be skipped")
+    if not gemini_key:
+        print("⚠️  GEMINI_API_KEY not set – Gemini models will be skipped")
 
     total_models = len(MODELS)
     results_summary = []  # (model_id, role, grade, success_rate, avg_latency)
@@ -1504,6 +1569,8 @@ def run_benchmark(
         if provider == "openai" and not openai_key:
             continue
         if provider == "anthropic" and not anthropic_key:
+            continue
+        if provider == "gemini" and not gemini_key:
             continue
 
         for role in roles:
@@ -1531,6 +1598,8 @@ def run_benchmark(
 
                 if provider == "openai":
                     result = call_openai(api_model, prompt)
+                elif provider == "gemini":
+                    result = call_gemini(api_model, prompt)
                 else:
                     result = call_anthropic(api_model, prompt)
 
