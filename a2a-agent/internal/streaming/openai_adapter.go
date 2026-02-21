@@ -82,7 +82,7 @@ func (f *OpenAIFactory) CreateStream(ctx context.Context, req StreamRequest) (St
 			params.Instructions = param.NewOpt(req.SystemPrompt)
 		}
 		if req.MaxTokens > 0 {
-			params.MaxOutputTokens = param.NewOpt(int64(req.MaxTokens))
+			params.MaxOutputTokens = param.NewOpt(int64(cappedMaxTokens(req.Model, req.MaxTokens)))
 		}
 		if len(req.Tools) > 0 {
 			tools := make([]responses.ToolUnionParam, 0, len(req.Tools))
@@ -153,7 +153,7 @@ func (f *OpenAIFactory) CreateStream(ctx context.Context, req StreamRequest) (St
 		StreamOptions: openai.ChatCompletionStreamOptionsParam{IncludeUsage: param.NewOpt(true)},
 	}
 	if req.MaxTokens > 0 {
-		chatParams.MaxCompletionTokens = param.NewOpt(int64(req.MaxTokens))
+		chatParams.MaxCompletionTokens = param.NewOpt(int64(cappedMaxTokens(req.Model, req.MaxTokens)))
 	}
 	if len(req.Tools) > 0 {
 		chatTools := make([]openai.ChatCompletionToolParam, 0, len(req.Tools))
@@ -234,6 +234,25 @@ func isCodexModel(model string) bool {
 	return strings.HasPrefix(lower, "code-") ||
 		strings.HasPrefix(lower, "davinci-codex") ||
 		strings.Contains(lower, "codex")
+}
+
+// modelMaxOutputTokens returns the per-model cap on output tokens (0 = no cap beyond server config).
+// Some models have lower limits than the server-wide max_tokens setting.
+func modelMaxOutputTokens(model string) int {
+	lower := strings.ToLower(model)
+	// gpt-4o-mini and gpt-4.1-mini: 16384 completion token limit
+	if lower == "gpt-4o-mini" || lower == "gpt-4.1-mini" {
+		return 16384
+	}
+	return 0
+}
+
+// cappedMaxTokens returns min(maxTokens, per-model cap) so we never exceed the model's limit.
+func cappedMaxTokens(model string, maxTokens int) int {
+	if cap := modelMaxOutputTokens(model); cap > 0 && maxTokens > cap {
+		return cap
+	}
+	return maxTokens
 }
 
 // usesMaxCompletionTokens returns true for models that use max_completion_tokens instead of max_tokens
