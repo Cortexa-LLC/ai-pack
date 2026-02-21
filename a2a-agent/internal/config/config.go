@@ -204,42 +204,57 @@ func DefaultConfig() *Config {
 
 // LoadConfig loads configuration from file with environment variable overrides
 // Config search order:
-// 1. Explicit configPath parameter (--config flag)
-// 2. AGENT_SERVER_CONFIG environment variable
-// 3. ~/.claude/agent-server.json (user config - DEFAULT)
-// 4. ./agent-server.json (current directory - backward compat)
-// 5. Built-in defaults
+// Config is loaded by merging sources in priority order (later wins):
+// 1. Built-in defaults
+// 2. ~/.claude/agent-server.json (user baseline)
+// 3. ./agent-server.json (project config — overrides user baseline)
+// 4. AGENT_SERVER_CONFIG or explicit --config path (explicit override)
+// 5. Environment variables (highest priority)
 func LoadConfig(configPath string) (*Config, error) {
-	// Start with defaults
 	cfg := DefaultConfig()
 
-	// Determine which config file to load
-	resolvedPath := resolveConfigPath(configPath)
-
-	// Load from file if it exists
-	if resolvedPath != "" {
-		data, err := os.ReadFile(resolvedPath)
+	// Helper to merge a file into cfg (ignores missing files)
+	mergeFile := func(path string) error {
+		data, err := os.ReadFile(path)
 		if err != nil {
-			if !os.IsNotExist(err) {
-				return nil, fmt.Errorf("failed to read config file %s: %w", resolvedPath, err)
+			if os.IsNotExist(err) {
+				return nil
 			}
-			// File doesn't exist, use defaults
-		} else {
-			if err := json.Unmarshal(data, cfg); err != nil {
-				return nil, fmt.Errorf("failed to parse config file %s: %w", resolvedPath, err)
-			}
+			return fmt.Errorf("failed to read config file %s: %w", path, err)
+		}
+		if err := json.Unmarshal(data, cfg); err != nil {
+			return fmt.Errorf("failed to parse config file %s: %w", path, err)
+		}
+		return nil
+	}
+
+	// 2. User baseline
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		_ = mergeFile(homeDir + "/.claude/" + defaultConfigFilename)
+	}
+
+	// 3. Project config (overrides user baseline)
+	if err := mergeFile(defaultConfigFilename); err != nil {
+		return nil, err
+	}
+
+	// 4. Explicit path (--config flag or AGENT_SERVER_CONFIG env)
+	if explicitPath := resolveExplicitConfigPath(configPath); explicitPath != "" {
+		if err := mergeFile(explicitPath); err != nil {
+			return nil, err
 		}
 	}
 
-	// Override with environment variables
+	// 5. Environment variables
 	applyEnvOverrides(cfg)
 
 	return cfg, nil
 }
 
-// resolveConfigPath resolves the config file path using the search order
-func resolveConfigPath(explicitPath string) string {
-	// 1. Explicit path provided (--config flag)
+// resolveExplicitConfigPath returns an explicit override path from --config flag or env var.
+// Returns "" if no explicit override is set.
+func resolveExplicitConfigPath(explicitPath string) string {
+	// 1. Explicit path provided (--config flag), but not the default filename
 	if explicitPath != "" && explicitPath != defaultConfigFilename {
 		return explicitPath
 	}
@@ -249,19 +264,6 @@ func resolveConfigPath(explicitPath string) string {
 		if _, err := os.Stat(envPath); err == nil {
 			return envPath
 		}
-	}
-
-	// 3. ~/.claude/agent-server.json (user config - DEFAULT)
-	if homeDir, err := os.UserHomeDir(); err == nil {
-		claudePath := homeDir + "/.claude/" + defaultConfigFilename
-		if _, err := os.Stat(claudePath); err == nil {
-			return claudePath
-		}
-	}
-
-	// 4. ./agent-server.json (current directory - backward compat)
-	if _, err := os.Stat(defaultConfigFilename); err == nil {
-		return defaultConfigFilename
 	}
 
 	// 5. Return empty to use built-in defaults
