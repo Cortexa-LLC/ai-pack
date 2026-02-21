@@ -1360,9 +1360,10 @@ def call_anthropic(api_model: str, prompt: dict, timeout: int = 60) -> dict:
 
 
 def call_gemini(api_model: str, prompt: dict, timeout: int = 60) -> dict:
-    """Call Google Gemini API and return timing + token data."""
+    """Call Google Gemini API (google-genai SDK) and return timing + token data."""
     try:
-        import google.generativeai as genai
+        from google import genai
+        from google.genai import types as genai_types
     except ImportError:
         return {
             "success": False,
@@ -1371,29 +1372,28 @@ def call_gemini(api_model: str, prompt: dict, timeout: int = 60) -> dict:
             "tokens_out": 0,
             "total_tokens": 0,
             "elapsed_ms": 0.0,
-            "error": "google-generativeai not installed; run: pip install google-generativeai",
+            "error": "google-genai not installed; run: pip install google-genai",
         }
 
-    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
-    system_instruction = prompt.get("system") or None
-    model = genai.GenerativeModel(
-        model_name=api_model,
-        system_instruction=system_instruction,
+    config = genai_types.GenerateContentConfig(
+        max_output_tokens=1024,
+        temperature=0.3,
     )
+    if prompt.get("system"):
+        config.system_instruction = prompt["system"]
 
     start = time.monotonic()
     try:
-        resp = model.generate_content(
-            prompt["user"],
-            generation_config=genai.GenerationConfig(
-                max_output_tokens=1024,
-                temperature=0.3,
-            ),
+        resp = client.models.generate_content(
+            model=api_model,
+            contents=prompt["user"],
+            config=config,
         )
         elapsed_ms = (time.monotonic() - start) * 1000
-        text = resp.text if hasattr(resp, "text") and resp.text else ""
-        usage = resp.usage_metadata if hasattr(resp, "usage_metadata") else None
+        text = resp.text if resp.text else ""
+        usage = resp.usage_metadata
         tokens_in = usage.prompt_token_count if usage else 0
         tokens_out = usage.candidates_token_count if usage else 0
         return {
