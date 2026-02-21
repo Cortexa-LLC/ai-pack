@@ -7,6 +7,24 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
 
+// resolveProvider returns the provider name for a model ID based on naming convention.
+func resolveProvider(modelID string, openaiAvailable, geminiAvailable bool, defaultModel string) (string, string, error) {
+	lower := strings.ToLower(modelID)
+	if strings.HasPrefix(lower, "gpt-") || strings.HasPrefix(lower, "o1") || strings.HasPrefix(lower, "o3") || strings.HasPrefix(lower, "o4") {
+		if !openaiAvailable {
+			return defaultModel, ProviderAnthropic, fmt.Errorf("openai not available, falling back to default")
+		}
+		return modelID, ProviderOpenAI, nil
+	}
+	if strings.Contains(lower, "gemini") {
+		if !geminiAvailable {
+			return defaultModel, ProviderAnthropic, fmt.Errorf("gemini not available, falling back to default")
+		}
+		return modelID, ProviderGemini, nil
+	}
+	return modelID, ProviderAnthropic, nil
+}
+
 // SimpleModelSelector implements model selection logic
 type SimpleModelSelector struct {
 	defaultModel      string
@@ -81,37 +99,27 @@ func NewPerformanceGradeModelSelector(projectID string, defaultModel string, ope
 	}
 }
 
-// SelectModel uses performance grades to select the best model
+// SelectModel uses performance grades to select the best model.
+//
+//   - requestedModel == "" → grade-based selection runs; picks cheapest effective model
+//   - requestedModel != "" → explicit role-config pin; honored as-is (bypasses grades)
+//
+// The server passes "" when the role config has no explicit model so grades decide.
+// It passes the pinned model ID only when the role config explicitly requests one.
 func (s *PerformanceGradeModelSelector) SelectModel(role string, requestedModel string) (model string, provider string, err error) {
-	// If a specific model is explicitly requested (e.g. from role config), honor it.
-	// The grade selector only provides defaults when no model is pinned.
+	// Explicit pin in role config — honor it without consulting grades.
 	if requestedModel != "" {
-		modelLower := strings.ToLower(requestedModel)
-		if strings.HasPrefix(modelLower, "gpt-") || strings.HasPrefix(modelLower, "o1") || strings.HasPrefix(modelLower, "o3") || strings.HasPrefix(modelLower, "o4") {
-			if !s.openaiAvailable {
-				monitoring.Logger.Warn("openai_not_available_fallback",
-					"requested", requestedModel,
-					"falling_back_to", s.defaultModel)
-				return s.defaultModel, "anthropic", nil
-			}
-			return requestedModel, "openai", nil
-		}
-		if strings.Contains(modelLower, "gemini") {
-			if !s.geminiAvailable {
-				monitoring.Logger.Warn("gemini_not_available_fallback",
-					"requested", requestedModel,
-					"falling_back_to", s.defaultModel)
-				return s.defaultModel, "anthropic", nil
-			}
-			return requestedModel, ProviderGemini, nil
-		}
-		return requestedModel, "anthropic", nil
+		monitoring.Logger.Info("model_pinned_by_role_config",
+			"role", role,
+			"model", requestedModel,
+		)
+		return s.resolveProviderForModel(requestedModel)
 	}
 
-	// If no performance-grade selector available, fall back to default
+	// If no performance-grade selector available, fall back to default model
 	if s.gradeSelector == nil {
 		monitoring.Logger.Warn("performance_grade_selector_not_initialized", "falling_back_to", s.defaultModel)
-		return s.defaultModel, "anthropic", nil
+		return s.resolveProviderForModel(s.defaultModel)
 	}
 
 	// Use empty string for taskDescription - selector will use role defaults
@@ -129,19 +137,25 @@ func (s *PerformanceGradeModelSelector) SelectModel(role string, requestedModel 
 	providerName := result.SelectedModel.Provider
 	modelID := result.SelectedModel.ID
 
-	// Check if provider is available
-	if providerName == "openai" && !s.openaiAvailable {
+	// Check if provider is available; if not, fall back to the Anthropic default.
+	if providerName == ProviderOpenAI && !s.openaiAvailable {
 		monitoring.Logger.Warn("openai_not_available_fallback",
 			"requested", modelID,
 			"falling_back_to", s.defaultModel)
-		return s.defaultModel, "anthropic", nil
+		return s.defaultModel, ProviderAnthropic, nil
 	}
 	if providerName == ProviderGemini && !s.geminiAvailable {
 		monitoring.Logger.Warn("gemini_not_available_fallback",
 			"requested", modelID,
 			"falling_back_to", s.defaultModel)
-		return s.defaultModel, "anthropic", nil
+		return s.defaultModel, ProviderAnthropic, nil
 	}
 
 	return modelID, providerName, nil
+}
+
+// resolveProviderForModel resolves the provider for a given model ID, respecting
+// availability of OpenAI/Gemini keys and falling back to the Anthropic default.
+func (s *PerformanceGradeModelSelector) resolveProviderForModel(modelID string) (string, string, error) {
+	return resolveProvider(modelID, s.openaiAvailable, s.geminiAvailable, s.defaultModel)
 }

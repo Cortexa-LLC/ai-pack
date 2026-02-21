@@ -395,7 +395,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 
 	// Initialize model selector
 	if monitoring.GlobalGradeManager != nil && monitoring.GlobalComplexityAnalyzer != nil {
-		monitoring.InitModelSelector(monitoring.GlobalGradeManager, monitoring.GlobalComplexityAnalyzer)
+		monitoring.InitModelSelector(monitoring.GlobalGradeManager, monitoring.GlobalComplexityAnalyzer, openaiKey != "", geminiKey != "")
 		monitoring.Logger.Info("adaptive_model_selection_enabled")
 	}
 
@@ -1640,9 +1640,11 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			truncatedMessages = compacted
 		}
 
-		// Prepare streaming request — messages already in provider-agnostic format
-		// Use role-configured model if set, otherwise fall back to server default
-		requestModel := s.model
+		// Prepare streaming request — messages already in provider-agnostic format.
+		// Pass the role-configured model as the explicit override only when it is set
+		// in the role config file. When no model is pinned, pass "" so the
+		// performance-grade model selector picks the most cost-effective option.
+		requestModel := ""
 		if config.Model != "" {
 			requestModel = config.Model
 		}
