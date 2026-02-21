@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
@@ -339,8 +340,17 @@ func (s *AgentServer) HandleBenchmarkRun(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Launch detached so the HTTP response returns immediately
-	cmd := exec.Command("python3", scriptPath, "--project", projectRoot)
+	// Pass the canonical data dir so benchmark grades land in the same store
+	// the server reads from, regardless of where either binary is invoked.
+	dataDir, err := config.DataDir()
+	if err != nil {
+		w.Header().Set("Content-Type", constants.ContentTypeJSON)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	gradesDir := filepath.Join(dataDir, "performance_grades")
+	cmd := exec.Command("python3", scriptPath, "--project", projectRoot, "--grades-dir", gradesDir)
 	cmd.Dir = projectRoot
 	if err := cmd.Start(); err != nil {
 		w.Header().Set("Content-Type", constants.ContentTypeJSON)

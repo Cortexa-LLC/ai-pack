@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 )
 
@@ -322,6 +324,42 @@ func applyEnvOverrides(cfg *Config) {
 	applyServerOverrides(cfg)
 	applyAPIOverrides(cfg)
 	applyLoggingOverrides(cfg)
+}
+
+// DataDir returns the root directory for all persistent runtime data
+// (performance grades, metrics, execution logs).
+//
+// Resolution order:
+//  1. AGENT_DATA_DIR environment variable — set this for service installs:
+//       Linux/macOS service:  AGENT_DATA_DIR=/var/lib/ai-pack
+//       Windows service:      AGENT_DATA_DIR=C:\ProgramData\ai-pack
+//  2. Platform default (user-mode dev / interactive runs):
+//       Windows:  %APPDATA%\ai-pack\   (e.g. C:\Users\name\AppData\Roaming\ai-pack)
+//       macOS:    ~/.claude/            (aligns with Claude Code's own data dir)
+//       Linux:    ~/.claude/            (aligns with Claude Code's own data dir)
+//
+// The path is always absolute and independent of the process working directory,
+// so /usr/local/bin/agent-server and ./bin/agent-server store data identically.
+func DataDir() (string, error) {
+	if dir := os.Getenv("AGENT_DATA_DIR"); dir != "" {
+		return dir, nil
+	}
+	if runtime.GOOS == "windows" {
+		// %APPDATA% is the standard per-user application data location on Windows.
+		// For system services, callers should set AGENT_DATA_DIR=C:\ProgramData\ai-pack.
+		appData, err := os.UserConfigDir()
+		if err != nil {
+			return "", fmt.Errorf("cannot determine AppData directory: %w", err)
+		}
+		return filepath.Join(appData, "ai-pack"), nil
+	}
+	// Unix/macOS: co-locate with ~/.claude/agent-server.json so all Claude-
+	// related runtime data lives in one well-known directory.
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("cannot determine home directory: %w", err)
+	}
+	return filepath.Join(home, ".claude"), nil
 }
 
 // SaveConfig saves configuration to file

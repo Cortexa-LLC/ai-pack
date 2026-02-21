@@ -350,13 +350,20 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		}
 	}
 
-	// Initialize performance grading system
+	// Initialize performance grading system.
+	// Grades are stored in DataDir (home-relative) so the path is identical
+	// whether the binary runs from /usr/local/bin or a dev checkout.
 	if cfg != nil {
-		gradesDir := filepath.Join(rootDir, ".claude", "performance_grades")
-		if err := monitoring.InitGradeManager(gradesDir, &cfg.GradingCriteria); err != nil {
-			monitoring.Logger.Warn("failed_to_init_grade_manager", "error", err.Error())
+		dataDir, err := config.DataDir()
+		if err != nil {
+			monitoring.Logger.Warn("failed_to_resolve_data_dir", "error", err.Error())
 		} else {
-			monitoring.Logger.Info("performance_grading_initialized", "grades_dir", gradesDir)
+			gradesDir := filepath.Join(dataDir, "performance_grades")
+			if err := monitoring.InitGradeManager(gradesDir, &cfg.GradingCriteria); err != nil {
+				monitoring.Logger.Warn("failed_to_init_grade_manager", "error", err.Error())
+			} else {
+				monitoring.Logger.Info("performance_grading_initialized", "grades_dir", gradesDir)
+			}
 		}
 	}
 

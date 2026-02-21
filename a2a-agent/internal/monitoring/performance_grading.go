@@ -13,6 +13,13 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/config"
 )
 
+const (
+	// GradeSourceBenchmark identifies grades produced by the benchmark script.
+	GradeSourceBenchmark = "benchmark"
+	// GradeSourceProduction identifies grades recorded from live task executions.
+	GradeSourceProduction = "production"
+)
+
 // PerformanceGrade tracks model performance per role and project
 type PerformanceGrade struct {
 	ModelID   string `json:"model_id"`   // e.g., "gpt-4o-mini"
@@ -27,7 +34,7 @@ type PerformanceGrade struct {
 
 	// Quality indicators
 	TotalTokensUsed       int64   `json:"total_tokens_used"`       // Sum of all tokens
-	TotalExecutionTimeMs  int64   `json:"total_execution_time_ms"` // Sum of all execution times
+	TotalExecutionTimeMs  float64 `json:"total_execution_time_ms"` // Sum of all execution times (ms)
 	AverageTokens         int     `json:"average_tokens"`          // Calculated
 	AverageExecutionTime  float64 `json:"average_execution_time"`  // Calculated in seconds
 	ErrorRate             float64 `json:"error_rate"`              // Failures / TotalAttempts
@@ -48,7 +55,7 @@ type PerformanceGrade struct {
 
 	// Metadata
 	LastTaskID string `json:"last_task_id,omitempty"` // For debugging
-	Source     string `json:"source,omitempty"`        // "benchmark" or "" (production)
+	Source     string `json:"source,omitempty"`        // GradeSourceBenchmark or GradeSourceProduction
 }
 
 // PerformanceGradeManager manages performance grades with persistent storage
@@ -118,6 +125,7 @@ func (m *PerformanceGradeManager) RecordTaskCompletion(
 			RoleID:    roleID,
 			ProjectID: projectID,
 			FirstUsed: time.Now(),
+			Source:    GradeSourceProduction,
 		}
 		m.grades[key] = grade
 	}
@@ -135,7 +143,7 @@ func (m *PerformanceGradeManager) RecordTaskCompletion(
 
 	grade.Retries += retries
 	grade.TotalTokensUsed += tokensUsed
-	grade.TotalExecutionTimeMs += executionTimeMs
+	grade.TotalExecutionTimeMs += float64(executionTimeMs)
 
 	if wasEscalated {
 		grade.EscalationCount++
@@ -169,7 +177,7 @@ func (m *PerformanceGradeManager) recalculateGrade(grade *PerformanceGrade) {
 	// Calculate averages
 	if grade.TotalAttempts > 0 {
 		grade.AverageTokens = int(grade.TotalTokensUsed / int64(grade.TotalAttempts))
-		grade.AverageExecutionTime = float64(grade.TotalExecutionTimeMs) / float64(grade.TotalAttempts) / 1000.0
+		grade.AverageExecutionTime = grade.TotalExecutionTimeMs / float64(grade.TotalAttempts) / 1000.0
 	}
 
 	// Calculate confidence score (0.0 to 1.0)

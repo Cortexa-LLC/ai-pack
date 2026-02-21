@@ -1612,7 +1612,19 @@ def main() -> None:
         "--list-roles", action="store_true",
         help="List all available roles and exit",
     )
+    parser.add_argument(
+        "--grades-dir", type=str, default=None,
+        help="Override the directory where grade JSON files are written "
+             "(default: <project-root>/.claude/performance_grades)",
+    )
     args = parser.parse_args()
+
+    # Redirect grade storage if --grades-dir was provided by the caller
+    # (e.g. the agent server passes its own .claude/performance_grades path so
+    # benchmark results land in the same store the server reads from).
+    if args.grades_dir:
+        global GRADES_DIR
+        GRADES_DIR = Path(args.grades_dir)
 
     if args.list_roles:
         print("Available roles:")
