@@ -184,6 +184,7 @@ type ComplexityRoot struct {
 		Retries              func(childComplexity int) int
 		RetryRate            func(childComplexity int) int
 		RoleID               func(childComplexity int) int
+		Source               func(childComplexity int) int
 		SuccessRate          func(childComplexity int) int
 		Successes            func(childComplexity int) int
 		TotalAttempts        func(childComplexity int) int
@@ -961,6 +962,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.PerformanceGrade.RoleID(childComplexity), true
+	case "PerformanceGrade.source":
+		if e.complexity.PerformanceGrade.Source == nil {
+			break
+		}
+
+		return e.complexity.PerformanceGrade.Source(childComplexity), true
 	case "PerformanceGrade.successRate":
 		if e.complexity.PerformanceGrade.SuccessRate == nil {
 			break
@@ -4914,6 +4921,35 @@ func (ec *executionContext) fieldContext_PerformanceGrade_firstUsed(_ context.Co
 	return fc, nil
 }
 
+func (ec *executionContext) _PerformanceGrade_source(ctx context.Context, field graphql.CollectedField, obj *PerformanceGrade) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PerformanceGrade_source,
+		func(ctx context.Context) (any, error) {
+			return obj.Source, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PerformanceGrade_source(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformanceGrade",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ProjectCost_projectRoot(ctx context.Context, field graphql.CollectedField, obj *ProjectCost) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6080,6 +6116,8 @@ func (ec *executionContext) fieldContext_Query_performanceGrades(_ context.Conte
 				return ec.fieldContext_PerformanceGrade_lastUsed(ctx, field)
 			case "firstUsed":
 				return ec.fieldContext_PerformanceGrade_firstUsed(ctx, field)
+			case "source":
+				return ec.fieldContext_PerformanceGrade_source(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type PerformanceGrade", field.Name)
 		},
@@ -6189,6 +6227,8 @@ func (ec *executionContext) fieldContext_Query_performanceByRole(ctx context.Con
 				return ec.fieldContext_PerformanceGrade_lastUsed(ctx, field)
 			case "firstUsed":
 				return ec.fieldContext_PerformanceGrade_firstUsed(ctx, field)
+			case "source":
+				return ec.fieldContext_PerformanceGrade_source(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type PerformanceGrade", field.Name)
 		},
@@ -6266,6 +6306,8 @@ func (ec *executionContext) fieldContext_Query_performanceByProject(ctx context.
 				return ec.fieldContext_PerformanceGrade_lastUsed(ctx, field)
 			case "firstUsed":
 				return ec.fieldContext_PerformanceGrade_firstUsed(ctx, field)
+			case "source":
+				return ec.fieldContext_PerformanceGrade_source(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type PerformanceGrade", field.Name)
 		},
@@ -10018,6 +10060,11 @@ func (ec *executionContext) _PerformanceGrade(ctx context.Context, sel ast.Selec
 			}
 		case "firstUsed":
 			out.Values[i] = ec._PerformanceGrade_firstUsed(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "source":
+			out.Values[i] = ec._PerformanceGrade_source(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
