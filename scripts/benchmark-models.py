@@ -31,7 +31,10 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 # ---------------------------------------------------------------------------
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-GRADES_DIR = PROJECT_ROOT / ".claude" / "performance_grades"
+# Default matches the agent server's DataDir (~/.claude on macOS/Linux).
+# Override with --grades-dir if needed.
+_DATA_DIR = Path(os.environ.get("AGENT_DATA_DIR", Path.home() / ".claude"))
+GRADES_DIR = _DATA_DIR / "performance_grades"
 PROJECT_ID = str(PROJECT_ROOT)       # matches what the Go agent records
 
 # Roles to benchmark – now covers all roles in RoleDefaultTier
