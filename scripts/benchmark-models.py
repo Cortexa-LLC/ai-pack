@@ -67,7 +67,7 @@ MODELS = [
     ("gpt-4o-mini",           "openai",     "minimal", "gpt-4o-mini"),
     ("gpt-4.1-nano",          "openai",     "minimal", "gpt-4.1-nano"),
     ("claude-haiku-4-5",      "anthropic",  "minimal", "claude-haiku-4-5"),
-    ("gemini-2.5-flash-lite", "gemini",     "minimal", "gemini-2.5-flash-lite-preview-06-17"),
+    ("gemini-2.5-flash-lite", "gemini",     "minimal", "gemini-2.5-flash-lite"),
 
     # TierLow
     ("gpt-4.1-mini",          "openai",     "low",     "gpt-4.1-mini"),
