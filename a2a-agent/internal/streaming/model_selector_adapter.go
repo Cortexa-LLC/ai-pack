@@ -8,17 +8,19 @@ import (
 )
 
 // resolveProvider returns the provider name for a model ID based on naming convention.
+// When the required provider is unavailable it falls back to the Anthropic default
+// without returning an error — the fallback is a successful resolution.
 func resolveProvider(modelID string, openaiAvailable, geminiAvailable bool, defaultModel string) (string, string, error) {
 	lower := strings.ToLower(modelID)
 	if strings.HasPrefix(lower, "gpt-") || strings.HasPrefix(lower, "o1") || strings.HasPrefix(lower, "o3") || strings.HasPrefix(lower, "o4") {
 		if !openaiAvailable {
-			return defaultModel, ProviderAnthropic, fmt.Errorf("openai not available, falling back to default")
+			return defaultModel, ProviderAnthropic, nil
 		}
 		return modelID, ProviderOpenAI, nil
 	}
 	if strings.Contains(lower, "gemini") {
 		if !geminiAvailable {
-			return defaultModel, ProviderAnthropic, fmt.Errorf("gemini not available, falling back to default")
+			return defaultModel, ProviderAnthropic, nil
 		}
 		return modelID, ProviderGemini, nil
 	}
