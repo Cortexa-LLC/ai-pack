@@ -15,6 +15,13 @@ const (
 	StatusDone       = "done"
 )
 
+// LLM Providers
+const (
+	ProviderAnthropic = "anthropic"
+	ProviderOpenAI    = "openai"
+	ProviderGemini    = "gemini"
+)
+
 // Agent Roles
 const (
 	RoleOrchestrator = "orchestrator"

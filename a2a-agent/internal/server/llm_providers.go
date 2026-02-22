@@ -8,6 +8,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	openai "github.com/openai/openai-go"
 	"github.com/openai/openai-go/shared"
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/streaming"
 )
 
@@ -65,7 +66,7 @@ func NewAnthropicProvider(client *anthropic.Client, model string, maxTokens int)
 }
 
 func (p *AnthropicProvider) GetProviderName() string {
-	return "anthropic"
+	return constants.ProviderAnthropic
 }
 
 func (p *AnthropicProvider) GetModelName() string {
@@ -100,7 +101,7 @@ func NewOpenAIProvider(client *openai.Client, model string, maxTokens int) *Open
 }
 
 func (p *OpenAIProvider) GetProviderName() string {
-	return "openai"
+	return constants.ProviderOpenAI
 }
 
 func (p *OpenAIProvider) GetModelName() string {

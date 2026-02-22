@@ -65,9 +65,9 @@ func (s *SimpleModelSelector) SelectModel(role string, requestedModel string, _ 
 		// OpenAI model requested
 		if !s.openaiAvailable {
 			// OpenAI not available, fall back to Anthropic
-			return s.defaultModel, "anthropic", fmt.Errorf("openai not available, falling back to anthropic")
+			return s.defaultModel, ProviderAnthropic, fmt.Errorf("openai not available, falling back to anthropic")
 		}
-		return requestedModel, "openai", nil
+		return requestedModel, ProviderOpenAI, nil
 	}
 
 	if strings.Contains(modelLower, "gemini") {
@@ -78,7 +78,7 @@ func (s *SimpleModelSelector) SelectModel(role string, requestedModel string, _ 
 	}
 
 	// Claude or unknown model - use Anthropic
-	return requestedModel, "anthropic", nil
+	return requestedModel, ProviderAnthropic, nil
 }
 
 // PerformanceGradeModelSelector adapts monitoring.ModelSelector to streaming.ModelSelector interface

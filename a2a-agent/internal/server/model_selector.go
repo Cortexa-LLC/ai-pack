@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
 
@@ -33,7 +34,7 @@ func (ms *ModelSelector) SelectProviderWithFallback(requestedModel string) (LLMP
 		}
 		// Check if OpenAI is available
 		if ms.server.openaiProvider != nil {
-			monitoring.Logger.Info("model_selected", "requested", requestedModel, "provider", "openai")
+			monitoring.Logger.Info("model_selected", "requested", requestedModel, "provider", constants.ProviderOpenAI)
 			return NewOpenAIProvider(&ms.server.openaiClient, requestedModel, ms.server.maxTokens), requestedModel, nil
 		}
 
@@ -48,7 +49,7 @@ func (ms *ModelSelector) SelectProviderWithFallback(requestedModel string) (LLMP
 	}
 
 	// Claude model requested or default
-	monitoring.Logger.Info("model_selected", "requested", requestedModel, "provider", "anthropic")
+	monitoring.Logger.Info("model_selected", "requested", requestedModel, "provider", constants.ProviderAnthropic)
 	return NewAnthropicProvider(&ms.server.client, requestedModel, ms.server.maxTokens), requestedModel, nil
 }
 
