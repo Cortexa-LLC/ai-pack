@@ -99,7 +99,7 @@ func TestSimpleModelSelector_SelectModel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			selector := NewSimpleModelSelector(tt.defaultModel, tt.openaiAvailable, nil)
-			model, provider, err := selector.SelectModel(tt.role, tt.requestedModel)
+			model, provider, err := selector.SelectModel(tt.role, tt.requestedModel, 0)
 
 			if (err != nil) != tt.expectError {
 				t.Errorf("SelectModel() error = %v, expectError %v", err, tt.expectError)
@@ -183,7 +183,7 @@ func TestPerformanceGradeModelSelector_SelectModel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			selector := NewPerformanceGradeModelSelector(tt.projectID, tt.defaultModel, tt.openaiAvailable, false)
-			model, provider, err := selector.SelectModel(tt.role, tt.requestedModel)
+			model, provider, err := selector.SelectModel(tt.role, tt.requestedModel, 0)
 
 			if err != nil {
 				t.Errorf("SelectModel() unexpected error = %v", err)

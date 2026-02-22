@@ -43,7 +43,7 @@ func NewSimpleModelSelector(defaultModel string, openaiAvailable bool, agentConf
 }
 
 // SelectModel selects the appropriate model and provider for a role
-func (s *SimpleModelSelector) SelectModel(role string, requestedModel string) (model string, provider string, err error) {
+func (s *SimpleModelSelector) SelectModel(role string, requestedModel string, _ int) (model string, provider string, err error) {
 	// Get model from agent config if role is provided
 	if role != "" && s.agentConfigGetter != nil {
 		configModel := s.agentConfigGetter(role)
@@ -106,7 +106,7 @@ func NewPerformanceGradeModelSelector(projectID string, defaultModel string, ope
 //
 // The server passes "" when the role config has no explicit model so grades decide.
 // It passes the pinned model ID only when the role config explicitly requests one.
-func (s *PerformanceGradeModelSelector) SelectModel(role string, requestedModel string) (model string, provider string, err error) {
+func (s *PerformanceGradeModelSelector) SelectModel(role string, requestedModel string, minContextTokens int) (model string, provider string, err error) {
 	// Explicit pin in role config — honor it without consulting grades.
 	if requestedModel != "" {
 		monitoring.Logger.Info("model_pinned_by_role_config",
@@ -123,7 +123,7 @@ func (s *PerformanceGradeModelSelector) SelectModel(role string, requestedModel 
 	}
 
 	// Use empty string for taskDescription - selector will use role defaults
-	result := s.gradeSelector.SelectModel(role, s.projectID, "")
+	result := s.gradeSelector.SelectModel(role, s.projectID, "", minContextTokens)
 
 	monitoring.Logger.Info("model_selected_by_performance",
 		"role", role,

@@ -164,16 +164,16 @@ func TestModelSelector(t *testing.T) {
 	}
 
 	analyzer := NewComplexityAnalyzer()
-	selector := NewModelSelector(mgr, analyzer)
+	selector := NewModelSelector(mgr, analyzer, false, false)
 
 	// Test 1: No history, low complexity - should use tier 1
-	result := selector.SelectModel("engineer", "/test", "Fix a simple typo")
+	result := selector.SelectModel("engineer", "/test", "Fix a simple typo", 0)
 	if result.Tier != TierMinimal {
 		t.Errorf("Expected tier 1 for simple task with no history, got %d", result.Tier)
 	}
 
 	// Test 2: No history, high complexity - should escalate
-	result = selector.SelectModel("engineer", "/test", "Redesign the entire architecture with microservices")
+	result = selector.SelectModel("engineer", "/test", "Redesign the entire architecture with microservices", 0)
 	if result.Tier < TierMedium {
 		t.Errorf("Expected at least tier 3 for complex task, got %d", result.Tier)
 	}
@@ -184,7 +184,7 @@ func TestModelSelector(t *testing.T) {
 		mgr.RecordTaskCompletion("task-"+string(rune(i)), "gpt-4o-mini", "engineer", "/test", false, 0, 10000, 1000, false, false)
 	}
 
-	result = selector.SelectModel("engineer", "/test", "Normal task")
+	result = selector.SelectModel("engineer", "/test", "Normal task", 0)
 	if result.Tier <= TierMinimal {
 		t.Errorf("Expected tier escalation after failures, got %d", result.Tier)
 	}
