@@ -132,9 +132,11 @@ type ProviderCost struct {
 type TaskStatus = string
 
 const (
+	TaskStatusOpen       TaskStatus = "OPEN"
 	TaskStatusInProgress TaskStatus = "IN_PROGRESS"
 	TaskStatusCompleted  TaskStatus = "COMPLETED"
 	TaskStatusFailed     TaskStatus = "FAILED"
+	TaskStatusClosed     TaskStatus = "CLOSED"
 )
 
 // HealthFeatures represents the feature-flag section of the health response.

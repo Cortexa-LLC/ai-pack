@@ -10,13 +10,19 @@ import (
 // uppercase GraphQL TaskStatus constants.
 func convertStatusToGraphQL(status string) TaskStatus {
 	switch status {
-	case "completed":
-		return TaskStatusCompleted
-	case "failed":
-		return TaskStatusFailed
-	default:
-		// "in_progress", "queued", and anything unknown → IN_PROGRESS
+	case "open", "queued":
+		return TaskStatusOpen
+	case "in_progress":
 		return TaskStatusInProgress
+	case "completed", "done":
+		return TaskStatusCompleted
+	case "failed", "cancelled":
+		return TaskStatusFailed
+	case "closed":
+		return TaskStatusClosed
+	default:
+		// Unknown status — treat as open so it doesn't appear as actively running
+		return TaskStatusOpen
 	}
 }
 
