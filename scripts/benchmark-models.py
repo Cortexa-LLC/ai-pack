@@ -1341,13 +1341,13 @@ def judge_response(role: str, prompt: dict, response_text: str,
         "user": (
             f"{rubric}\n\n"
             f"TASK:\n{prompt['user'][:600]}\n\n"
-            f"RESPONSE:\n{response_text[:2500]}"
+            f"RESPONSE:\n{response_text[:4000]}"
         )
     }
     if openai_key:
-        result = call_with_retry("openai", "gpt-4o-mini", judge_prompt)
+        result = call_with_retry("openai", "gpt-4o-mini", judge_prompt, temperature=0.0)
     elif anthropic_key:
-        result = call_with_retry("anthropic", "claude-haiku-4-5", judge_prompt)
+        result = call_with_retry("anthropic", "claude-haiku-4-5", judge_prompt, temperature=0.0)
     else:
         return True  # No judge available — fall back to lenient pass
     if not result["success"]:
@@ -1359,7 +1359,7 @@ def judge_response(role: str, prompt: dict, response_text: str,
 # API wrappers
 # ---------------------------------------------------------------------------
 
-def call_openai(api_model: str, prompt: dict, timeout: int = 60) -> dict:
+def call_openai(api_model: str, prompt: dict, timeout: int = 60, temperature: float = 0.3) -> dict:
     """Call OpenAI and return timing + token data.
 
     Routes to the appropriate API endpoint based on model family:
@@ -1410,7 +1410,7 @@ def call_openai(api_model: str, prompt: dict, timeout: int = 60) -> dict:
                     model=api_model,
                     messages=messages,
                     max_tokens=1024,
-                    temperature=0.3,
+                    temperature=temperature,
                 )
             elapsed_ms = (time.monotonic() - start) * 1000
             text = resp.choices[0].message.content or "" if resp.choices else ""
@@ -1439,7 +1439,7 @@ def call_openai(api_model: str, prompt: dict, timeout: int = 60) -> dict:
         }
 
 
-def call_anthropic(api_model: str, prompt: dict, timeout: int = 60) -> dict:
+def call_anthropic(api_model: str, prompt: dict, timeout: int = 60, temperature: float = 0.3) -> dict:
     """Call Anthropic messages API and return timing + token data."""
     import anthropic
 
@@ -1450,6 +1450,7 @@ def call_anthropic(api_model: str, prompt: dict, timeout: int = 60) -> dict:
         model=api_model,
         messages=messages,
         max_tokens=1024,
+        temperature=temperature,
     )
     if prompt.get("system"):
         kwargs["system"] = prompt["system"]
@@ -1664,16 +1665,16 @@ MAX_RETRIES = 3
 RETRY_BASE_DELAY = 5.0  # seconds; doubled on each retry
 
 
-def call_with_retry(provider: str, api_model: str, prompt: dict) -> dict:
+def call_with_retry(provider: str, api_model: str, prompt: dict, temperature: float = 0.3) -> dict:
     """Call the appropriate API with exponential-backoff retry on failure."""
     last_result = None
     for attempt in range(MAX_RETRIES):
         if provider == "openai":
-            result = call_openai(api_model, prompt)
+            result = call_openai(api_model, prompt, temperature=temperature)
         elif provider == "gemini":
             result = call_gemini(api_model, prompt)
         else:
-            result = call_anthropic(api_model, prompt)
+            result = call_anthropic(api_model, prompt, temperature=temperature)
 
         if result["success"]:
             return result
