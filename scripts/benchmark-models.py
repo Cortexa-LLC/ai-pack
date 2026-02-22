@@ -1502,7 +1502,7 @@ def call_gemini(api_model: str, prompt: dict, timeout: int = 60) -> dict:
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
     config = genai_types.GenerateContentConfig(
-        max_output_tokens=1024,
+        max_output_tokens=8192,  # thinking models (2.5-flash, 2.5-pro) use tokens for reasoning
         temperature=0.3,
     )
     if prompt.get("system"):
@@ -1518,8 +1518,8 @@ def call_gemini(api_model: str, prompt: dict, timeout: int = 60) -> dict:
         elapsed_ms = (time.monotonic() - start) * 1000
         text = resp.text if resp.text else ""
         usage = resp.usage_metadata
-        tokens_in = usage.prompt_token_count if usage else 0
-        tokens_out = usage.candidates_token_count if usage else 0
+        tokens_in = (usage.prompt_token_count or 0) if usage else 0
+        tokens_out = (usage.candidates_token_count or 0) if usage else 0
         return {
             "success": True,
             "text": text,
