@@ -1,12 +1,17 @@
 package streaming
 
-import "context"
+import (
+	"context"
 
-// Provider constants
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
+)
+
+// Re-export provider constants from the shared constants package so existing
+// streaming-internal code can reference them without a package qualifier change.
 const (
-	ProviderAnthropic = "anthropic"
-	ProviderOpenAI    = "openai"
-	ProviderGemini    = "gemini"
+	ProviderAnthropic = constants.ProviderAnthropic
+	ProviderOpenAI    = constants.ProviderOpenAI
+	ProviderGemini    = constants.ProviderGemini
 )
 
 // StreamEvent represents a single event in the stream

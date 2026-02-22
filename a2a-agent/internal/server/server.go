@@ -421,7 +421,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		openaiKey != "",
 		geminiKey != "",
 	)
-	streamingService := streaming.NewService(streamingSelector, "anthropic")
+	streamingService := streaming.NewService(streamingSelector, constants.ProviderAnthropic)
 
 	// Register provider factories
 	streamingService.RegisterProvider(streaming.NewAnthropicFactory(anthropicKey, maxTokens))
@@ -434,7 +434,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 
 	server.streamingService = streamingService
 	monitoring.Logger.Info("streaming_service_initialized",
-		"default", "anthropic")
+		"default", constants.ProviderAnthropic)
 
 	// Initialize MCP manager if enabled
 	server.mcpManager = mcp.NewManager()

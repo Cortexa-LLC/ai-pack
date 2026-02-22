@@ -3,6 +3,8 @@ package monitoring
 import (
 	"fmt"
 	"sort"
+
+	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 )
 
 // ModelTier represents model cost/capability tiers
@@ -28,30 +30,30 @@ type ModelInfo struct {
 // ModelsByTier maps tiers to available models (ordered by preference)
 var ModelsByTier = map[ModelTier][]ModelInfo{
 	TierMinimal: {
-		{ID: "gpt-4o-mini", Tier: TierMinimal, Provider: "openai", CostPerMIn: 0.15, CostPerMOut: 0.60, ContextWindow: 128_000},
-		{ID: "gpt-4.1-nano", Tier: TierMinimal, Provider: "openai", CostPerMIn: 0.10, CostPerMOut: 0.40, ContextWindow: 1_047_576},
-		{ID: "claude-haiku-4-5", Tier: TierMinimal, Provider: "anthropic", CostPerMIn: 1.00, CostPerMOut: 5.00, ContextWindow: 200_000},
-		{ID: "gemini-2.5-flash-lite", Tier: TierMinimal, Provider: "gemini", CostPerMIn: 0.10, CostPerMOut: 0.40, ContextWindow: 1_048_576},
+		{ID: "gpt-4o-mini", Tier: TierMinimal, Provider: constants.ProviderOpenAI, CostPerMIn: 0.15, CostPerMOut: 0.60, ContextWindow: 128_000},
+		{ID: "gpt-4.1-nano", Tier: TierMinimal, Provider: constants.ProviderOpenAI, CostPerMIn: 0.10, CostPerMOut: 0.40, ContextWindow: 1_047_576},
+		{ID: "claude-haiku-4-5", Tier: TierMinimal, Provider: constants.ProviderAnthropic, CostPerMIn: 1.00, CostPerMOut: 5.00, ContextWindow: 200_000},
+		{ID: "gemini-2.5-flash-lite", Tier: TierMinimal, Provider: constants.ProviderGemini, CostPerMIn: 0.10, CostPerMOut: 0.40, ContextWindow: 1_048_576},
 	},
 	TierLow: {
-		{ID: "gpt-4.1-mini", Tier: TierLow, Provider: "openai", CostPerMIn: 0.40, CostPerMOut: 1.60, ContextWindow: 1_047_576},
-		{ID: "o4-mini", Tier: TierLow, Provider: "openai", CostPerMIn: 1.10, CostPerMOut: 4.40, ContextWindow: 200_000},
-		{ID: "gemini-2.5-flash", Tier: TierLow, Provider: "gemini", CostPerMIn: 0.30, CostPerMOut: 2.50, ContextWindow: 1_048_576},
+		{ID: "gpt-4.1-mini", Tier: TierLow, Provider: constants.ProviderOpenAI, CostPerMIn: 0.40, CostPerMOut: 1.60, ContextWindow: 1_047_576},
+		{ID: "o4-mini", Tier: TierLow, Provider: constants.ProviderOpenAI, CostPerMIn: 1.10, CostPerMOut: 4.40, ContextWindow: 200_000},
+		{ID: "gemini-2.5-flash", Tier: TierLow, Provider: constants.ProviderGemini, CostPerMIn: 0.30, CostPerMOut: 2.50, ContextWindow: 1_048_576},
 	},
 	TierMedium: {
-		{ID: "gpt-5.1-codex-mini", Tier: TierMedium, Provider: "openai", CostPerMIn: 1.50, CostPerMOut: 6.00, ContextWindow: 0},
-		{ID: "gpt-4.1", Tier: TierMedium, Provider: "openai", CostPerMIn: 2.00, CostPerMOut: 8.00, ContextWindow: 1_047_576},
-		{ID: "claude-sonnet-4-6", Tier: TierMedium, Provider: "anthropic", CostPerMIn: 3.00, CostPerMOut: 15.00, ContextWindow: 200_000},
-		{ID: "claude-sonnet-4-5", Tier: TierMedium, Provider: "anthropic", CostPerMIn: 3.00, CostPerMOut: 15.00, ContextWindow: 200_000},
-		{ID: "claude-sonnet-4-5-20250929", Tier: TierMedium, Provider: "anthropic", CostPerMIn: 3.00, CostPerMOut: 15.00, ContextWindow: 200_000},
-		{ID: "gemini-2.5-pro", Tier: TierMedium, Provider: "gemini", CostPerMIn: 1.25, CostPerMOut: 10.00, ContextWindow: 1_048_576},
+		{ID: "gpt-5.1-codex-mini", Tier: TierMedium, Provider: constants.ProviderOpenAI, CostPerMIn: 1.50, CostPerMOut: 6.00, ContextWindow: 0},
+		{ID: "gpt-4.1", Tier: TierMedium, Provider: constants.ProviderOpenAI, CostPerMIn: 2.00, CostPerMOut: 8.00, ContextWindow: 1_047_576},
+		{ID: "claude-sonnet-4-6", Tier: TierMedium, Provider: constants.ProviderAnthropic, CostPerMIn: 3.00, CostPerMOut: 15.00, ContextWindow: 200_000},
+		{ID: "claude-sonnet-4-5", Tier: TierMedium, Provider: constants.ProviderAnthropic, CostPerMIn: 3.00, CostPerMOut: 15.00, ContextWindow: 200_000},
+		{ID: "claude-sonnet-4-5-20250929", Tier: TierMedium, Provider: constants.ProviderAnthropic, CostPerMIn: 3.00, CostPerMOut: 15.00, ContextWindow: 200_000},
+		{ID: "gemini-2.5-pro", Tier: TierMedium, Provider: constants.ProviderGemini, CostPerMIn: 1.25, CostPerMOut: 10.00, ContextWindow: 1_048_576},
 	},
 	TierHigh: {
-		{ID: "gpt-5.1-codex", Tier: TierHigh, Provider: "openai", CostPerMIn: 3.00, CostPerMOut: 12.00, ContextWindow: 0},
-		{ID: "gpt-5.2-codex", Tier: TierHigh, Provider: "openai", CostPerMIn: 5.00, CostPerMOut: 20.00, ContextWindow: 0},
-		{ID: "claude-opus-4-5", Tier: TierHigh, Provider: "anthropic", CostPerMIn: 15.00, CostPerMOut: 75.00, ContextWindow: 200_000},
-		{ID: "claude-opus-4-6", Tier: TierHigh, Provider: "anthropic", CostPerMIn: 15.00, CostPerMOut: 75.00, ContextWindow: 200_000},
-		{ID: "gemini-3-pro-preview", Tier: TierHigh, Provider: "gemini", CostPerMIn: 5.00, CostPerMOut: 20.00, ContextWindow: 0},
+		{ID: "gpt-5.1-codex", Tier: TierHigh, Provider: constants.ProviderOpenAI, CostPerMIn: 3.00, CostPerMOut: 12.00, ContextWindow: 0},
+		{ID: "gpt-5.2-codex", Tier: TierHigh, Provider: constants.ProviderOpenAI, CostPerMIn: 5.00, CostPerMOut: 20.00, ContextWindow: 0},
+		{ID: "claude-opus-4-5", Tier: TierHigh, Provider: constants.ProviderAnthropic, CostPerMIn: 15.00, CostPerMOut: 75.00, ContextWindow: 200_000},
+		{ID: "claude-opus-4-6", Tier: TierHigh, Provider: constants.ProviderAnthropic, CostPerMIn: 15.00, CostPerMOut: 75.00, ContextWindow: 200_000},
+		{ID: "gemini-3-pro-preview", Tier: TierHigh, Provider: constants.ProviderGemini, CostPerMIn: 5.00, CostPerMOut: 20.00, ContextWindow: 0},
 	},
 }
 
@@ -268,10 +270,10 @@ func (ms *ModelSelector) getBestAvailableModelFromTier(tier ModelTier, role, pro
 	// Filter to providers that are available and meet the context window requirement.
 	available := make([]ModelInfo, 0, len(models))
 	for _, m := range models {
-		if m.Provider == "openai" && !ms.openaiAvailable {
+		if m.Provider == constants.ProviderOpenAI && !ms.openaiAvailable {
 			continue
 		}
-		if m.Provider == "gemini" && !ms.geminiAvailable {
+		if m.Provider == constants.ProviderGemini && !ms.geminiAvailable {
 			continue
 		}
 		// Skip models with a known context window that is too small for the role.
