@@ -44,8 +44,16 @@ func (m *MockServerInterface) SpawnAgent(role, task, projectRoot string) (*TaskI
 	return taskInfo, nil
 }
 
-func (m *MockServerInterface) GetMetrics() *MetricsInfo {
-	return m.metrics
+func (m *MockServerInterface) GetAllTasks() map[string]*TaskInfo {
+	return m.tasks
+}
+
+func (m *MockServerInterface) CancelTask(taskID string) error   { return nil }
+func (m *MockServerInterface) CloseTask(taskID string) error    { return nil }
+func (m *MockServerInterface) DeleteTask(taskID string) error   { return nil }
+func (m *MockServerInterface) GetMetrics() *MetricsInfo         { return m.metrics }
+func (m *MockServerInterface) GetProjectCostsData() ([]map[string]interface{}, error) {
+	return nil, nil
 }
 
 func TestHealthQuery(t *testing.T) {
@@ -85,7 +93,7 @@ func TestSpawnAgentMutation(t *testing.T) {
 	ctx := context.Background()
 
 	// Execute
-	result, err := resolver.Mutation().SpawnAgent(ctx, "engineer", "task-123")
+	result, err := resolver.Mutation().SpawnAgent(ctx, "engineer", "task-123", nil)
 
 	// Assert
 	require.NoError(t, err)

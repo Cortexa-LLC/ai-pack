@@ -28,6 +28,7 @@ type TaskInfo struct {
 	Role        string
 	Task        string
 	Status      string
+	Progress    float64
 	CreatedAt   string
 	UpdatedAt   string
 	CompletedAt *string

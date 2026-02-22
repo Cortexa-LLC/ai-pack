@@ -15,16 +15,27 @@ import (
 
 // SpawnAgent is the resolver for the spawnAgent field.
 func (r *mutationResolver) SpawnAgent(ctx context.Context, role string, task string, projectRoot *string) (*AgentTask, error) {
-	// TODO: Implement actual agent spawning logic with Beads integration
-	_ = projectRoot // Will be used when implementing
-	return &AgentTask{
-		TaskID:    "task-" + fmt.Sprintf("%d", time.Now().Unix()),
-		Role:      role,
-		Task:      task,
-		Status:    "pending",
-		CreatedAt: time.Now().Format(time.RFC3339),
-		UpdatedAt: time.Now().Format(time.RFC3339),
-	}, nil
+	root := ""
+	if projectRoot != nil {
+		root = *projectRoot
+	}
+	taskInfo, err := r.server.SpawnAgent(role, task, root)
+	if err != nil {
+		msg := err.Error()
+		return &AgentTask{
+			Role:      role,
+			Task:      task,
+			Status:    TaskStatusFailed,
+			UpdatedAt: time.Now().Format(time.RFC3339),
+			Success:   false,
+			Message:   &msg,
+		}, nil
+	}
+	result := convertTaskInfoToGraphQL(taskInfo)
+	msg := fmt.Sprintf("Agent %s started (task %s)", role, result.TaskID)
+	result.Success = true
+	result.Message = &msg
+	return result, nil
 }
 
 // CancelAgent is the resolver for the cancelAgent field.
@@ -75,33 +86,35 @@ func (r *mutationResolver) DeleteTask(ctx context.Context, taskID string) (*Dele
 
 // Health is the resolver for the health field.
 func (r *queryResolver) Health(ctx context.Context) (*HealthStatus, error) {
-	features := map[string]interface{}{
-		"graphql":       true,
-		"rest":          true,
-		"a2a_protocol":  true,
-		"sse_streaming": true,
-	}
-
 	return &HealthStatus{
-		Status:   "healthy",
-		Version:  "1.0.0",
-		Server:   "a2a-agent",
-		Features: features,
+		Status:  "healthy",
+		Version: "2.1.0",
+		Server:  "a2a-agent",
+		Features: &HealthFeatures{
+			GraphQL:           true,
+			Rest:              true,
+			A2aProtocol:       true,
+			SseStreaming:       true,
+			Monitoring:        true,
+			ParallelExecution: true,
+		},
 	}, nil
 }
 
 // Tasks is the resolver for the tasks field.
-func (r *queryResolver) Tasks(ctx context.Context) ([]*AgentTask, error) {
+func (r *queryResolver) Tasks(ctx context.Context, status *string) ([]*AgentTask, error) {
 	if r.server == nil {
 		return []*AgentTask{}, nil
 	}
 
-	// Get all tasks (active + historical)
 	tasksMap := r.server.GetAllTasks()
 	tasks := make([]*AgentTask, 0, len(tasksMap))
 
 	for _, taskInfo := range tasksMap {
-		task := convertTaskInfoToAgentTask(taskInfo)
+		task := convertTaskInfoToGraphQL(taskInfo)
+		if status != nil && task.Status != *status {
+			continue
+		}
 		tasks = append(tasks, task)
 	}
 
@@ -139,21 +152,34 @@ func (r *queryResolver) BeadsTask(ctx context.Context, id string) (*BeadsTask, e
 func (r *queryResolver) Metrics(ctx context.Context) (*Metrics, error) {
 	metricsInfo := r.server.GetMetrics()
 
+	inputTokens := int(metricsInfo.InputTokens)
+	outputTokens := int(metricsInfo.OutputTokens)
+	apiTotal := int(metricsInfo.APICalls)
+	apiSuccess := int(metricsInfo.APISuccess)
+	apiFailed := int(metricsInfo.APIFailed)
+
 	return &Metrics{
 		TasksSpawned:      metricsInfo.TasksSpawned,
 		TasksCompleted:    metricsInfo.TasksCompleted,
 		TasksFailed:       metricsInfo.TasksFailed,
 		TasksActive:       metricsInfo.TasksActive,
+		TasksInProgress:   metricsInfo.TasksActive,
 		AverageDurationMs: metricsInfo.AverageDurationMs,
+		AvgDurationMs:     metricsInfo.AverageDurationMs,
+		TotalInputTokens:  inputTokens,
+		TotalOutputTokens: outputTokens,
+		APICallsTotal:     apiTotal,
+		APICallsSuccess:   apiSuccess,
+		APICallsFailed:    apiFailed,
 		TokenUsage: &TokenUsage{
 			TotalTokens:  int(metricsInfo.TotalTokens),
-			InputTokens:  int(metricsInfo.InputTokens),
-			OutputTokens: int(metricsInfo.OutputTokens),
+			InputTokens:  inputTokens,
+			OutputTokens: outputTokens,
 		},
 		APICalls: &APICalls{
-			Total:   int(metricsInfo.APICalls),
-			Success: int(metricsInfo.APISuccess),
-			Failed:  int(metricsInfo.APIFailed),
+			Total:   apiTotal,
+			Success: apiSuccess,
+			Failed:  apiFailed,
 		},
 		Performance: &Performance{
 			Uptime: metricsInfo.Uptime,
@@ -164,9 +190,15 @@ func (r *queryResolver) Metrics(ctx context.Context) (*Metrics, error) {
 // Performance is the resolver for the performance field.
 func (r *queryResolver) Performance(ctx context.Context) (*Performance, error) {
 	metricsInfo := r.server.GetMetrics()
-	return &Performance{
+	perf := &Performance{
 		Uptime: metricsInfo.Uptime,
-	}, nil
+	}
+	if r.monitor != nil {
+		snap := r.monitor.GetSnapshot()
+		perf.TaskTokenUsage = snap.TaskTokenUsage
+		perf.RecentTurns = snap.TurnTokenData
+	}
+	return perf, nil
 }
 
 // Logs is the resolver for the logs field.

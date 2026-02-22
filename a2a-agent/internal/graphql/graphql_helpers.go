@@ -6,26 +6,55 @@ import (
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
 )
 
-func convertTaskInfoToAgentTask(taskInfo *TaskInfo) *AgentTask {
-	// Convert metadata from map[string]string to map[string]interface{}
+// convertStatusToGraphQL maps internal snake_case task statuses to the
+// uppercase GraphQL TaskStatus constants.
+func convertStatusToGraphQL(status string) TaskStatus {
+	switch status {
+	case "completed":
+		return TaskStatusCompleted
+	case "failed":
+		return TaskStatusFailed
+	default:
+		// "in_progress", "queued", and anything unknown → IN_PROGRESS
+		return TaskStatusInProgress
+	}
+}
+
+// convertTaskInfoToGraphQL converts a server TaskInfo to the GraphQL AgentTask type.
+func convertTaskInfoToGraphQL(taskInfo *TaskInfo) *AgentTask {
 	metadata := make(map[string]interface{})
 	for k, v := range taskInfo.Metadata {
 		metadata[k] = v
+	}
+
+	// Resolve ProjectRoot: prefer the explicit field, fall back to metadata key.
+	projectRoot := taskInfo.ProjectRoot
+	if projectRoot == nil {
+		if v, ok := taskInfo.Metadata["project_root"]; ok && v != "" {
+			projectRoot = &v
+		}
 	}
 
 	return &AgentTask{
 		TaskID:      taskInfo.TaskID,
 		Role:        taskInfo.Role,
 		Task:        taskInfo.Task,
-		Status:      taskInfo.Status,
+		Description: taskInfo.Task,
+		Status:      convertStatusToGraphQL(taskInfo.Status),
+		Progress:    taskInfo.Progress,
 		CreatedAt:   taskInfo.CreatedAt,
 		UpdatedAt:   taskInfo.UpdatedAt,
 		CompletedAt: taskInfo.CompletedAt,
 		Result:      taskInfo.Result,
 		Error:       taskInfo.Error,
 		Metadata:    metadata,
-		ProjectRoot: taskInfo.ProjectRoot,
+		ProjectRoot: projectRoot,
 	}
+}
+
+// convertTaskInfoToAgentTask is a backwards-compatible alias.
+func convertTaskInfoToAgentTask(taskInfo *TaskInfo) *AgentTask {
+	return convertTaskInfoToGraphQL(taskInfo)
 }
 
 func convertMonitoringGrade(mg *monitoring.PerformanceGrade) *PerformanceGrade {
