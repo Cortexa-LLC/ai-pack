@@ -62,12 +62,13 @@ type StreamProvider interface {
 
 // StreamRequest represents a provider-agnostic streaming request
 type StreamRequest struct {
-	Messages      []Message
-	SystemPrompt  string
-	MaxTokens     int
-	Tools         []Tool
-	Model         string
-	ProviderHints map[string]interface{} // Provider-specific options
+	Messages         []Message
+	SystemPrompt     string
+	MaxTokens        int
+	Tools            []Tool
+	Model            string
+	MinContextTokens int                    // Minimum context window required; filters out models that are too small (0 = no constraint)
+	ProviderHints    map[string]interface{} // Provider-specific options
 }
 
 // Message represents a chat message with optional tool call history.

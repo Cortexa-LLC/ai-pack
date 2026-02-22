@@ -1649,11 +1649,12 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			requestModel = config.Model
 		}
 		streamReq := streaming.StreamRequest{
-			Messages:     truncatedMessages,
-			SystemPrompt: systemPrompt,
-			MaxTokens:    s.maxTokens,
-			Model:        requestModel,
-			Tools:        toolDefs,
+			Messages:         truncatedMessages,
+			SystemPrompt:     systemPrompt,
+			MaxTokens:        s.maxTokens,
+			Model:            requestModel,
+			Tools:            toolDefs,
+			MinContextTokens: config.Delegation.MaxContext,
 		}
 
 		// Note: Extended thinking support requires newer SDK version

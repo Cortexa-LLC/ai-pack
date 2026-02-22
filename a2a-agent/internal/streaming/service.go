@@ -17,7 +17,7 @@ type Service struct {
 
 // ModelSelector selects the appropriate model and provider
 type ModelSelector interface {
-	SelectModel(role string, requestedModel string) (model string, provider string, err error)
+	SelectModel(role string, requestedModel string, minContextTokens int) (model string, provider string, err error)
 }
 
 // NewService creates a new streaming service
@@ -37,7 +37,7 @@ func (s *Service) RegisterProvider(factory ProviderFactory) {
 // CreateStream creates a stream using model selection
 func (s *Service) CreateStream(ctx context.Context, role string, req StreamRequest) (StreamProvider, error) {
 	// Use model selector to determine which provider to use
-	selectedModel, providerName, err := s.modelSelector.SelectModel(role, req.Model)
+	selectedModel, providerName, err := s.modelSelector.SelectModel(role, req.Model, req.MinContextTokens)
 	if err != nil {
 		monitoring.Logger.Warn("model_selection_failed",
 			"role", role,

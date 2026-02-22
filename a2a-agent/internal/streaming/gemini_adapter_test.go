@@ -231,7 +231,7 @@ func TestSimpleModelSelector_GeminiRouting(t *testing.T) {
 		"gemini-3-pro-preview",
 	}
 	for _, m := range geminiModels {
-		model, provider, err := selector.SelectModel("engineer", m)
+		model, provider, err := selector.SelectModel("engineer", m, 0)
 		if err != nil {
 			t.Errorf("SelectModel(%q) unexpected error: %v", m, err)
 			continue
@@ -249,7 +249,7 @@ func TestSimpleModelSelector_GeminiRouting_NotAvailable(t *testing.T) {
 	selector := NewSimpleModelSelector("claude-haiku-4-5", false, nil)
 	// geminiAvailable defaults to false
 
-	_, provider, err := selector.SelectModel("engineer", "gemini-2.5-pro")
+	_, provider, err := selector.SelectModel("engineer", "gemini-2.5-pro", 0)
 	if err == nil {
 		t.Error("expected error when gemini not available, got nil")
 	}
@@ -264,7 +264,7 @@ type alwaysDefaultSelector struct {
 	provider string
 }
 
-func (s *alwaysDefaultSelector) SelectModel(_ string, requested string) (string, string, error) {
+func (s *alwaysDefaultSelector) SelectModel(_ string, requested string, _ int) (string, string, error) {
 	if requested != "" {
 		return requested, s.provider, nil
 	}
