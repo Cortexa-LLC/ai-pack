@@ -313,7 +313,7 @@ type MutationResolver interface {
 }
 type QueryResolver interface {
 	Health(ctx context.Context) (*HealthStatus, error)
-	Tasks(ctx context.Context) ([]*AgentTask, error)
+	Tasks(ctx context.Context, status *string) ([]*AgentTask, error)
 	Task(ctx context.Context, taskID string) (*AgentTask, error)
 	BeadsTasks(ctx context.Context, status *string) ([]*BeadsTask, error)
 	BeadsTask(ctx context.Context, id string) (*BeadsTask, error)
@@ -5503,7 +5503,7 @@ func (ec *executionContext) _Query_tasks(ctx context.Context, field graphql.Coll
 		field,
 		ec.fieldContext_Query_tasks,
 		func(ctx context.Context) (any, error) {
-			return ec.resolvers.Query().Tasks(ctx)
+			return ec.resolvers.Query().Tasks(ctx, nil)
 		},
 		nil,
 		ec.marshalNAgentTask2ᚕᚖgithubᚗcomᚋcortexaᚑllcᚋaiᚑpackᚋa2aᚑagentᚋinternalᚋgraphqlᚐAgentTaskᚄ,

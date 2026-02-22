@@ -6,7 +6,11 @@ type AgentTask struct {
 	TaskID      string         `json:"taskID"`
 	Role        string         `json:"role"`
 	Task        string         `json:"task"`
-	Status      string         `json:"status"`
+	Description string         `json:"description"`
+	Status      TaskStatus     `json:"status"`
+	Progress    float64        `json:"progress"`
+	Success     bool           `json:"success"`
+	Message     *string        `json:"message,omitempty"`
 	CreatedAt   string         `json:"createdAt"`
 	UpdatedAt   string         `json:"updatedAt"`
 	CompletedAt *string        `json:"completedAt,omitempty"`
@@ -69,10 +73,10 @@ type GradeSummary struct {
 }
 
 type HealthStatus struct {
-	Status   string         `json:"status"`
-	Version  string         `json:"version"`
-	Server   string         `json:"server"`
-	Features map[string]any `json:"features"`
+	Status   string          `json:"status"`
+	Version  string          `json:"version"`
+	Server   string          `json:"server"`
+	Features *HealthFeatures `json:"features"`
 }
 
 type LogEntry struct {

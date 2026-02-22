@@ -124,6 +124,28 @@ func GetBaseURL(cfg *config.APIConfig) string {
 	return ""
 }
 
+// extractHost returns the host (and port if present) from a URL string.
+// Works with or without a scheme prefix.
+func extractHost(rawURL string) string {
+	if !strings.Contains(rawURL, "://") {
+		rawURL = "//" + rawURL
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	return parsed.Host
+}
+
+// extractPath returns the path component of a URL string, or "" if none.
+func extractPath(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	return parsed.Path
+}
+
 // LogProxyMode logs the current proxy configuration
 func LogProxyMode(cfg *config.APIConfig) string {
 	if cfg.Mode == "proxy" && cfg.Proxy != nil {

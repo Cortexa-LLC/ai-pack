@@ -1,5 +1,7 @@
 package graphql
 
+import "github.com/cortexa-llc/ai-pack/a2a-agent/internal/monitoring"
+
 // TokenUsage represents token usage statistics
 type TokenUsage struct {
 	TotalTokens  int `json:"totalTokens"`
@@ -16,8 +18,10 @@ type APICalls struct {
 
 // Performance represents system performance metrics
 type Performance struct {
-	CPUUsage float64 `json:"cpuUsage"`
-	Uptime   string  `json:"uptime"`
+	CPUUsage       float64                      `json:"cpuUsage"`
+	Uptime         string                       `json:"uptime"`
+	TaskTokenUsage []monitoring.TaskTokenUsage  `json:"taskTokenUsage"`
+	RecentTurns    []monitoring.TurnTokenData   `json:"recentTurns"`
 }
 
 // Metrics represents aggregated system metrics
@@ -26,8 +30,15 @@ type Metrics struct {
 	TasksCompleted       int               `json:"tasksCompleted"`
 	TasksFailed          int               `json:"tasksFailed"`
 	TasksActive          int               `json:"tasksActive"`
+	TasksInProgress      int               `json:"tasksInProgress"`      // alias for TasksActive
 	AverageDurationMs    float64           `json:"averageDurationMs"`
+	AvgDurationMs        float64           `json:"avgDurationMs"`         // flat alias
 	AverageTokensPerTask int               `json:"averageTokensPerTask"`
+	TotalInputTokens     int               `json:"totalInputTokens"`      // flat field
+	TotalOutputTokens    int               `json:"totalOutputTokens"`     // flat field
+	APICallsTotal        int               `json:"apiCallsTotal"`         // flat field
+	APICallsSuccess      int               `json:"apiCallsSuccess"`       // flat field
+	APICallsFailed       int               `json:"apiCallsFailed"`        // flat field
 	TokenUsage           *TokenUsage       `json:"tokenUsage"`
 	APICalls             *APICalls         `json:"apiCalls"`
 	Performance          *Performance      `json:"performance"`
@@ -114,6 +125,26 @@ type ProviderCost struct {
 	InputTokens  int     `json:"inputTokens"`
 	OutputTokens int     `json:"outputTokens"`
 	Cost         float64 `json:"cost"`
+}
+
+// TaskStatus represents the GraphQL status of a task (uppercase convention).
+// It is a string alias so it is directly comparable to string literals.
+type TaskStatus = string
+
+const (
+	TaskStatusInProgress TaskStatus = "IN_PROGRESS"
+	TaskStatusCompleted  TaskStatus = "COMPLETED"
+	TaskStatusFailed     TaskStatus = "FAILED"
+)
+
+// HealthFeatures represents the feature-flag section of the health response.
+type HealthFeatures struct {
+	GraphQL           bool `json:"graphql"`
+	Rest              bool `json:"rest"`
+	A2aProtocol       bool `json:"a2aProtocol"`
+	SseStreaming       bool `json:"sseStreaming"`
+	Monitoring        bool `json:"monitoring"`
+	ParallelExecution bool `json:"parallelExecution"`
 }
 
 // Package graphql provides GraphQL API types and resolvers
