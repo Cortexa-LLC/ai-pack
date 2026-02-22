@@ -20,6 +20,7 @@ import argparse
 import re
 from pathlib import Path
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Suppress deprecation warnings from third-party libraries
 import warnings
@@ -75,7 +76,6 @@ MODELS = [
     ("gpt-4.1",               "openai",     "medium",  "gpt-4.1"),
     ("claude-sonnet-4-6",     "anthropic",  "medium",  "claude-sonnet-4-6"),
     ("claude-sonnet-4-5",     "anthropic",  "medium",  "claude-sonnet-4-5-20250929"),
-    ("claude-sonnet-4-5-20250929","anthropic","medium", "claude-sonnet-4-5-20250929"),
     ("gemini-2.5-pro",        "gemini",     "medium",  "gemini-2.5-pro"),
 
     # TierHigh
@@ -1232,6 +1232,127 @@ ROLE_EVALUATORS = {
 
 
 # ---------------------------------------------------------------------------
+# LLM-as-judge rubrics — stricter quality gate applied after basic evaluator
+# ---------------------------------------------------------------------------
+
+JUDGE_RUBRICS = {
+    "engineer": (
+        "Evaluate this code response. Reply YES if: (1) the code is syntactically valid Python, "
+        "(2) it correctly implements the described algorithm with no obvious logic errors, "
+        "(3) it handles the core requirements (e.g. edge cases mentioned). "
+        "Reply NO if the code is incomplete, pseudocode only, has wrong logic, or is missing key requirements. "
+        "Reply with only YES or NO, nothing else."
+    ),
+    "tester": (
+        "Evaluate this pytest test code. Reply YES if: (1) it contains properly named test functions (def test_...), "
+        "(2) assertions test the specific behaviors described in the task, "
+        "(3) it covers at least 2 distinct scenarios or cases. "
+        "Reply NO if tests are trivial stubs, missing meaningful assertions, or don't test what was asked. "
+        "Reply with only YES or NO, nothing else."
+    ),
+    "reviewer": (
+        "Evaluate this code review response. Reply YES if: (1) it identifies at least 2 specific issues, "
+        "(2) it explains WHY each is a problem (not just names it), "
+        "(3) it provides actionable fixes or improvements. "
+        "Reply NO if it only gives vague feedback, misses critical issues, or is a single paragraph. "
+        "Reply with only YES or NO, nothing else."
+    ),
+    "orchestrator": (
+        "Evaluate this task delegation plan. Reply YES if: (1) it assigns specific tasks to named agent roles, "
+        "(2) it specifies what each agent produces as output, "
+        "(3) it addresses task ordering or dependencies between agents. "
+        "Reply NO if agent assignments are vague, outputs are unspecified, or it's just a generic plan. "
+        "Reply with only YES or NO, nothing else."
+    ),
+    "architect": (
+        "Evaluate this system design response. Reply YES if: (1) it names and describes specific components, "
+        "(2) it addresses the stated scale/performance numbers from the task, "
+        "(3) it explicitly discusses at least one trade-off. "
+        "Reply NO if the design is generic, ignores the stated requirements, or lacks any trade-off analysis. "
+        "Reply with only YES or NO, nothing else."
+    ),
+    "inspector": (
+        "Evaluate this root cause analysis. Reply YES if: (1) it proposes at least 2 specific hypotheses, "
+        "(2) each hypothesis has a causal explanation tied to the described symptoms, "
+        "(3) it suggests concrete diagnostic steps to confirm each. "
+        "Reply NO if hypotheses are generic, lack causal reasoning, or miss the key symptoms. "
+        "Reply with only YES or NO, nothing else."
+    ),
+    "spelunker": (
+        "Evaluate this code navigation guidance. Reply YES if: (1) it names specific files, directories, "
+        "or modules to check, (2) it explains what to look for in each location, "
+        "(3) the search strategy is logical and actionable for a developer. "
+        "Reply NO if the advice is too vague to act on or doesn't reference concrete code locations. "
+        "Reply with only YES or NO, nothing else."
+    ),
+    "cartographer": (
+        "Evaluate this codebase architecture description. Reply YES if: (1) it correctly identifies the "
+        "architectural pattern, (2) it describes the specific responsibility of key directories, "
+        "(3) it explains how components interact. "
+        "Reply NO if it misidentifies the architecture or gives only surface-level descriptions. "
+        "Reply with only YES or NO, nothing else."
+    ),
+    "archaeologist": (
+        "Evaluate this legacy code analysis. Reply YES if: (1) it constructs a plausible historical narrative "
+        "explaining how the artifact evolved, (2) it identifies at least 2 specific risks or debt items, "
+        "(3) it proposes a concrete remediation approach. "
+        "Reply NO if it only describes what's visible without explaining history or risks. "
+        "Reply with only YES or NO, nothing else."
+    ),
+    "product-manager": (
+        "Evaluate this product requirements response. Reply YES if: (1) it includes user stories with "
+        "clear user/action/benefit structure, (2) acceptance criteria are specific and testable, "
+        "(3) at least one success metric is quantifiable (e.g. percentage, time, count). "
+        "Reply NO if stories are vague, criteria are untestable, or metrics are unmeasurable. "
+        "Reply with only YES or NO, nothing else."
+    ),
+    "designer": (
+        "Evaluate this UX flow description. Reply YES if: (1) it describes specific screens or steps "
+        "the user goes through, (2) it addresses at least one error state or edge case, "
+        "(3) it specifies user feedback at key interaction points. "
+        "Reply NO if the flow is incomplete, skips error handling, or is too abstract to implement. "
+        "Reply with only YES or NO, nothing else."
+    ),
+    "strategist": (
+        "Evaluate this business strategy response. Reply YES if: (1) it analyzes the specific problem "
+        "with evidence-based reasoning, (2) it proposes at least 2 concrete strategic options, "
+        "(3) it defines measurable success criteria or KPIs. "
+        "Reply NO if the strategy is generic, avoids the specific constraints, or lacks measurable outcomes. "
+        "Reply with only YES or NO, nothing else."
+    ),
+}
+
+_DEFAULT_JUDGE_RUBRIC = (
+    "Evaluate whether this response fully and specifically addresses the task. "
+    "Reply YES if the response is detailed, accurate, and directly answers what was asked. "
+    "Reply NO if it's vague, incomplete, or off-topic. "
+    "Reply with only YES or NO, nothing else."
+)
+
+
+def judge_response(role: str, prompt: dict, response_text: str,
+                   openai_key: str, anthropic_key: str) -> bool:
+    """Call a cheap judge model to evaluate response quality. Returns True = pass."""
+    rubric = JUDGE_RUBRICS.get(role, _DEFAULT_JUDGE_RUBRIC)
+    judge_prompt = {
+        "user": (
+            f"{rubric}\n\n"
+            f"TASK:\n{prompt['user'][:600]}\n\n"
+            f"RESPONSE:\n{response_text[:2500]}"
+        )
+    }
+    if openai_key:
+        result = call_with_retry("openai", "gpt-4o-mini", judge_prompt)
+    elif anthropic_key:
+        result = call_with_retry("anthropic", "claude-haiku-4-5", judge_prompt)
+    else:
+        return True  # No judge available — fall back to lenient pass
+    if not result["success"]:
+        return True  # Judge call failed — be lenient
+    return result["text"].strip().upper().startswith("YES")
+
+
+# ---------------------------------------------------------------------------
 # API wrappers
 # ---------------------------------------------------------------------------
 
@@ -1564,6 +1685,71 @@ def call_with_retry(provider: str, api_model: str, prompt: dict) -> dict:
     return last_result
 
 
+def benchmark_combo(
+    model_idx: int,
+    total_models: int,
+    model_id: str,
+    provider: str,
+    tier: str,
+    api_model: str,
+    role: str,
+    runs: int,
+    skip_completed: bool,
+    reset: bool,
+    openai_key: str,
+    anthropic_key: str,
+) -> tuple:
+    """Run benchmark for one (model, role) combo. Thread-safe — each combo writes
+    to a unique grade file so there is no cross-thread file contention."""
+    lines = [f"\n[{model_idx}/{total_models}] {model_id} ({tier}) → role={role}"]
+
+    prompts = ROLE_PROMPTS.get(role, ENGINEER_PROMPTS)
+    evaluator = ROLE_EVALUATORS.get(role, evaluate_quality)
+
+    grade = load_or_create_grade(model_id, role, PROJECT_ID)
+    if reset:
+        grade["total_attempts"] = 0
+        grade["successes"] = 0
+        grade["failures"] = 0
+
+    if skip_completed and not reset and grade["total_attempts"] >= runs:
+        lines.append(f"  → Already complete ({grade['total_attempts']} runs, "
+                     f"grade={grade['grade']}), skipping")
+        return (model_id, role, grade["grade"], grade["success_rate"],
+                grade["average_execution_time"], "\n".join(lines))
+
+    for run_num in range(1, runs + 1):
+        prompt_idx = (run_num - 1) % len(prompts)
+        prompt = prompts[prompt_idx]
+
+        result = call_with_retry(provider, api_model, prompt)
+
+        if not result["success"]:
+            lines.append(f"  run {run_num}/{runs} prompt[{prompt_idx}]... ERROR: {result['error']}")
+            success = False
+            tokens = 0
+        else:
+            tokens = result["total_tokens"]
+            # Fast pre-filter first; if it passes, apply the LLM judge for real quality
+            if evaluator(result["text"], prompt_idx):
+                success = judge_response(role, prompt, result["text"], openai_key, anthropic_key)
+            else:
+                success = False
+            status = "✓" if success else "✗"
+            lines.append(f"  run {run_num}/{runs} prompt[{prompt_idx}]... {status}"
+                         f"  ({result['elapsed_ms']:.0f}ms, {tokens} tok)")
+
+        grade = update_grade(grade, result["elapsed_ms"], tokens, success)
+
+    save_grade(grade)
+    lines.append(f"\n  → Grade: {grade['grade']}  "
+                 f"success={grade['success_rate']:.0%}  "
+                 f"avg_latency={grade['average_execution_time']:.0f}ms  "
+                 f"avg_tokens={grade['average_tokens']}")
+    return (model_id, role, grade["grade"], grade["success_rate"],
+            grade["average_execution_time"], "\n".join(lines))
+
+
 def run_benchmark(
     runs: int = DEFAULT_RUNS,
     roles: list = None,
@@ -1571,6 +1757,7 @@ def run_benchmark(
     model_filter: str = None,
     reset: bool = False,
     skip_completed: bool = False,
+    workers: int = 6,
 ) -> None:
     if roles is None:
         roles = DEFAULT_ROLES
@@ -1587,75 +1774,50 @@ def run_benchmark(
         print("⚠️  GEMINI_API_KEY not set – Gemini models will be skipped")
 
     total_models = len(MODELS)
-    results_summary = []  # (model_id, role, grade, success_rate, avg_latency)
+    results_summary = []
 
+    # Build list of (model, role) combos to run
+    combos = []
     for model_idx, (model_id, provider, tier, api_model) in enumerate(MODELS, 1):
-        # Optional filter
         if model_filter and model_filter.lower() not in model_id.lower():
             continue
-
-        # Skip providers where keys are absent
         if provider == "openai" and not openai_key:
             continue
         if provider == "anthropic" and not anthropic_key:
             continue
         if provider == "gemini" and not gemini_key:
             continue
-
         for role in roles:
-            print(f"\n[{model_idx}/{total_models}] {model_id} ({tier}) → role={role}")
-
-            prompts = ROLE_PROMPTS.get(role, ENGINEER_PROMPTS)
-            evaluator = ROLE_EVALUATORS.get(role, evaluate_quality)
-
             if dry_run:
-                print(f"  [DRY RUN] Would run {runs} × {len(prompts)} prompts")
+                prompts = ROLE_PROMPTS.get(role, ENGINEER_PROMPTS)
+                print(f"[{model_idx}/{total_models}] {model_id} ({tier}) → role={role}"
+                      f"  [DRY RUN] {runs} runs × {len(prompts)} prompts")
                 continue
+            combos.append((model_idx, total_models, model_id, provider, tier, api_model, role))
 
-            # Load or initialise grade record
-            grade = load_or_create_grade(model_id, role, PROJECT_ID)
-            if reset:
-                grade["total_attempts"] = 0
-                grade["successes"] = 0
-                grade["failures"] = 0
+    if dry_run:
+        return
 
-            # Skip if already has enough samples (unless resetting)
-            if skip_completed and not reset and grade["total_attempts"] >= runs:
-                print(f"  → Already complete ({grade['total_attempts']} runs, "
-                      f"grade={grade['grade']}), skipping")
-                results_summary.append((model_id, role, grade["grade"],
-                                        grade["success_rate"],
-                                        grade["average_execution_time"]))
-                continue
+    print(f"\nRunning {len(combos)} combos with {workers} parallel workers "
+          f"(LLM judge enabled)...\n")
 
-            for run_num in range(1, runs + 1):
-                prompt_idx = (run_num - 1) % len(prompts)
-                prompt = prompts[prompt_idx]
-
-                print(f"  run {run_num}/{runs} prompt[{prompt_idx}]...", end=" ", flush=True)
-
-                result = call_with_retry(provider, api_model, prompt)
-
-                if not result["success"]:
-                    print(f"ERROR: {result['error']}")
-                    success = False
-                    tokens = 0
-                else:
-                    success = evaluator(result["text"], prompt_idx)
-                    tokens = result["total_tokens"]
-                    status = "✓" if success else "✗"
-                    print(f"{status}  ({result['elapsed_ms']:.0f}ms, {tokens} tok)")
-
-                grade = update_grade(grade, result["elapsed_ms"], tokens, success)
-
-            save_grade(grade)
-            print(f"\n  → Grade: {grade['grade']}  "
-                  f"success={grade['success_rate']:.0%}  "
-                  f"avg_latency={grade['average_execution_time']:.0f}ms  "
-                  f"avg_tokens={grade['average_tokens']}")
-            results_summary.append((model_id, role, grade["grade"],
-                                    grade["success_rate"],
-                                    grade["average_execution_time"]))
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        future_to_combo = {
+            executor.submit(
+                benchmark_combo,
+                *combo,
+                runs, skip_completed, reset, openai_key, anthropic_key,
+            ): combo
+            for combo in combos
+        }
+        for future in as_completed(future_to_combo):
+            try:
+                model_id, role, grade_letter, sr, lat, output = future.result()
+                print(output, flush=True)
+                results_summary.append((model_id, role, grade_letter, sr, lat))
+            except Exception as exc:
+                combo = future_to_combo[future]
+                print(f"\nERROR in {combo[2]}/{combo[6]}: {exc}", flush=True)
 
     # Final summary table
     print("\n" + "=" * 70)
@@ -1715,6 +1877,10 @@ def main() -> None:
         help="Skip model/role combos that already have >= --runs samples",
     )
     parser.add_argument(
+        "--workers", type=int, default=6,
+        help="Number of parallel workers (default: 6)",
+    )
+    parser.add_argument(
         "--list-roles", action="store_true",
         help="List all available roles and exit",
     )
@@ -1760,6 +1926,7 @@ def main() -> None:
         model_filter=args.model,
         reset=args.reset,
         skip_completed=args.skip_completed,
+        workers=args.workers,
     )
 
 
