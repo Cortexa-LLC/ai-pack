@@ -32,13 +32,12 @@ func (s *AgentServer) loadAgentConfigForRole(role string) (*AgentConfig, error) 
 		filepath.Join(s.rootDir, "roles", fmt.Sprintf("%s.md", role)),
 	}
 
-	// Special case for orchestrator in chat mode
-	if role == "orchestrator" {
-		locations = append([]string{
-			filepath.Join(s.rootDir, ".ai-pack", "agents", "orchestrator-chat.md"),
-			filepath.Join(s.rootDir, "roles", "orchestrator-chat.md"),
-		}, locations...)
+	// Convention: check for a {role}-chat.md variant first (any role may have one).
+	chatLocations := []string{
+		filepath.Join(s.rootDir, ".ai-pack", "agents", fmt.Sprintf("%s-chat.md", role)),
+		filepath.Join(s.rootDir, "roles", fmt.Sprintf("%s-chat.md", role)),
 	}
+	locations = append(chatLocations, locations...)
 
 	for _, path := range locations {
 		if _, err := os.Stat(path); err == nil {
@@ -61,10 +60,13 @@ func (s *AgentServer) parseAgentConfig(path string) (*AgentConfig, error) {
 	roleName = roleName[:len(roleName)-3] // Remove .md extension
 
 	// Parse using markdown config parser
-	config, _, err := parseMarkdownConfig(data, roleName)
+	config, roleContent, err := parseMarkdownConfig(data, roleName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse markdown config from %s: %w", path, err)
 	}
+
+	config.Context.RoleContent = roleContent
+	config.Context.RoleFile = path
 
 	return config, nil
 }

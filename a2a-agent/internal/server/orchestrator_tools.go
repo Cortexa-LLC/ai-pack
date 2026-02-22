@@ -46,8 +46,7 @@ func GetOrchestratorTools() []anthropic.ToolUnionParam {
 				Properties: map[string]interface{}{
 					"role": map[string]interface{}{
 						"type":        "string",
-						"description": "The agent role to spawn (engineer, reviewer, architect, tester, etc.)",
-						"enum":        []string{"engineer", "reviewer", "architect", "tester", "designer", "archaeologist", "spelunker"},
+						"description": "The agent role to spawn (must match a role file in the project roles/ directory)",
 					},
 					"task_id": map[string]interface{}{
 						"type":        "string",

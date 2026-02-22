@@ -166,10 +166,10 @@ func TestModelSelector(t *testing.T) {
 	analyzer := NewComplexityAnalyzer()
 	selector := NewModelSelector(mgr, analyzer, false, false)
 
-	// Test 1: No history, low complexity - should use tier 1
+	// Test 1: No history, low complexity - should use TierLow (the generic default)
 	result := selector.SelectModel("engineer", "/test", "Fix a simple typo", 0)
-	if result.Tier != TierMinimal {
-		t.Errorf("Expected tier 1 for simple task with no history, got %d", result.Tier)
+	if result.Tier != TierLow {
+		t.Errorf("Expected TierLow for simple task with no history, got %d", result.Tier)
 	}
 
 	// Test 2: No history, high complexity - should escalate
@@ -178,15 +178,15 @@ func TestModelSelector(t *testing.T) {
 		t.Errorf("Expected at least tier 3 for complex task, got %d", result.Tier)
 	}
 
-	// Test 3: Poor performance history - should escalate
-	// Record several failures
+	// Test 3: Poor performance history - should escalate.
+	// Record failures for the representative model of TierLow ("gpt-4.1-mini").
 	for i := 0; i < 10; i++ {
-		mgr.RecordTaskCompletion("task-"+string(rune(i)), "gpt-4o-mini", "engineer", "/test", false, 0, 10000, 1000, false, false)
+		mgr.RecordTaskCompletion("task-"+string(rune(i)), "gpt-4.1-mini", "engineer", "/test", false, 0, 10000, 1000, false, false)
 	}
 
 	result = selector.SelectModel("engineer", "/test", "Normal task", 0)
-	if result.Tier <= TierMinimal {
-		t.Errorf("Expected tier escalation after failures, got %d", result.Tier)
+	if result.Tier <= TierLow {
+		t.Errorf("Expected tier escalation beyond TierLow after failures, got %d", result.Tier)
 	}
 	if !result.WasAdjusted {
 		t.Error("Expected WasAdjusted to be true after escalation")

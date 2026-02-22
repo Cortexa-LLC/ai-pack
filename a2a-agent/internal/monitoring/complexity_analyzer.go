@@ -274,23 +274,17 @@ var multiModulePatterns = []string{
 	"cascading", "propagates", "affects multiple",
 }
 
-// AssessDebugComplexity is a pre-spawn complexity gate for engineer debug tasks.
+// AssessDebugComplexity is a pre-spawn complexity gate for debug tasks.
 //
-// It only activates when role == "engineer" and the task description contains
-// bug/debug signals. When the task is also assessed as high-complexity AND spans
-// multiple modules, the function returns (assessment, true), signalling that the
-// orchestrator should route the task through Inspector before assigning it to an
-// engineer.
+// When the task description contains bug/debug signals and is assessed as
+// high-complexity AND spans multiple modules, the function returns
+// (assessment, true), signalling that a deeper investigation may be warranted
+// before proceeding with the task.
 //
-// For all other roles, or when the task is simple, the function returns
+// When the task is simple or contains no debug signals, the function returns
 // (assessment, false) and the caller should proceed normally.
 func AssessDebugComplexity(role, taskDescription string) (ComplexityAssessment, bool) {
 	assessment := ComplexityAssessment{}
-
-	// Gate only applies to the engineer role.
-	if !strings.EqualFold(role, "engineer") {
-		return assessment, false
-	}
 
 	lower := strings.ToLower(taskDescription)
 

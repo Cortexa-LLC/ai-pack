@@ -5,19 +5,25 @@ import (
 	"testing"
 )
 
-func TestAssessDebugComplexity_NonEngineerRole(t *testing.T) {
-	// Gate must be inactive for non-engineer roles.
-	roles := []string{"orchestrator", "inspector", "architect", ""}
-	description := "fix a crash across multiple modules and services with cascading failures"
+func TestAssessDebugComplexity_AllRolesAssessed(t *testing.T) {
+	// All roles are now assessed equally — no role-name gate.
+	// A high-complexity, multi-module debug task should trigger investigation
+	// regardless of the role.
+	roles := []string{"orchestrator", "inspector", "architect", "engineer", ""}
+	// Use a description that is definitively high-complexity + multi-module.
+	description := "debug a critical crash that propagates across multiple services and cascading failures in distributed microservice architecture end-to-end"
 
 	for _, role := range roles {
 		t.Run("role="+role, func(t *testing.T) {
 			assessment, needsInvestigation := AssessDebugComplexity(role, description)
-			if needsInvestigation {
-				t.Errorf("role %q should not trigger investigation gate", role)
+			// The description has both debug signals AND multi-module signals at very_high
+			// complexity, so the gate must fire for every role (including empty role).
+			if !needsInvestigation {
+				t.Errorf("role %q: expected investigation gate to trigger for complex multi-module debug task; got level=%s debugSignals=%v multiModuleSignals=%v",
+					role, assessment.Level, assessment.DebugSignals, assessment.MultiModuleSignals)
 			}
-			if assessment.Level != "" {
-				t.Errorf("role %q should return zero-value assessment, got level %q", role, assessment.Level)
+			if assessment.Level == "" {
+				t.Errorf("role %q: expected a non-empty complexity level", role)
 			}
 		})
 	}

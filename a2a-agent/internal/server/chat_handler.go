@@ -183,10 +183,18 @@ func (s *AgentServer) HandleChat(w http.ResponseWriter, r *http.Request) {
 
 // handleAgentMode spawns an agent task
 func (s *AgentServer) handleAgentMode(w http.ResponseWriter, r *http.Request, req *ChatRequest) {
-	// Default role if not specified
+	// Role is required for agent mode
 	role := req.Role
 	if role == "" {
-		role = "engineer"
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"status":  "error",
+			"message": "Role is required for agent mode.",
+		})
+		return
 	}
 
 	// Require project root for agent mode - agents must work in a specific project context
@@ -336,25 +344,20 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 		Content: req.Message,
 	})
 
-	// Load role context as system prompt
+	// Load role context and config as system prompt
 	if req.Role != "" {
-		roleFile := fmt.Sprintf("../.ai-pack/agents/%s.md", req.Role)
-		if req.Role == "orchestrator" {
-			roleFile = "../.ai-pack/agents/orchestrator-chat.md"
-		}
-
-		roleContext, err := s.loadRoleContext(roleFile, s.rootDir)
+		roleConfig, err := s.loadAgentConfigForRole(req.Role)
 		if err != nil {
 			monitoring.Logger.Warn("chat_role_load_failed", "role", req.Role, "error", err)
 		} else {
-			streamReq.SystemPrompt = roleContext
-		}
+			streamReq.SystemPrompt = roleConfig.Context.RoleContent
 
-		// Add tools for orchestrator role
-		if req.Role == "orchestrator" {
-			anthropicTools := GetOrchestratorTools()
-			streamReq.Tools = convertAnthropicToolsToStreaming(anthropicTools)
-			monitoring.Logger.Info("orchestrator_tools_enabled", "tool_count", len(streamReq.Tools))
+			// Inject chat tools if the role config declares ChatTools: true
+			if roleConfig.ChatTools {
+				anthropicTools := GetOrchestratorTools()
+				streamReq.Tools = convertAnthropicToolsToStreaming(anthropicTools)
+				monitoring.Logger.Info("chat_tools_enabled", "role", req.Role, "tool_count", len(streamReq.Tools))
+			}
 		}
 	}
 
@@ -412,7 +415,7 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 	message := stream.GetMessage()
 
 	// Handle tool calls if any were detected
-	if len(toolCalls) > 0 && req.Role == "orchestrator" {
+	if len(toolCalls) > 0 {
 		monitoring.Logger.Info("executing_tools", "count", len(toolCalls))
 
 		// Execute each tool and collect results
