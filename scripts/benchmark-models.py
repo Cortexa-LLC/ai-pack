@@ -1536,12 +1536,41 @@ def save_grade(grade: dict) -> None:
 # Main benchmark runner
 # ---------------------------------------------------------------------------
 
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 5.0  # seconds; doubled on each retry
+
+
+def call_with_retry(provider: str, api_model: str, prompt: dict) -> dict:
+    """Call the appropriate API with exponential-backoff retry on failure."""
+    last_result = None
+    for attempt in range(MAX_RETRIES):
+        if provider == "openai":
+            result = call_openai(api_model, prompt)
+        elif provider == "gemini":
+            result = call_gemini(api_model, prompt)
+        else:
+            result = call_anthropic(api_model, prompt)
+
+        if result["success"]:
+            return result
+
+        last_result = result
+        if attempt < MAX_RETRIES - 1:
+            delay = RETRY_BASE_DELAY * (2 ** attempt)
+            print(f"FAIL ({result['error']}) — retry {attempt + 1}/{MAX_RETRIES - 1} in {delay:.0f}s...",
+                  end=" ", flush=True)
+            time.sleep(delay)
+
+    return last_result
+
+
 def run_benchmark(
     runs: int = DEFAULT_RUNS,
     roles: list = None,
     dry_run: bool = False,
     model_filter: str = None,
     reset: bool = False,
+    skip_completed: bool = False,
 ) -> None:
     if roles is None:
         roles = DEFAULT_ROLES
@@ -1590,18 +1619,22 @@ def run_benchmark(
                 grade["successes"] = 0
                 grade["failures"] = 0
 
+            # Skip if already has enough samples (unless resetting)
+            if skip_completed and not reset and grade["total_attempts"] >= runs:
+                print(f"  → Already complete ({grade['total_attempts']} runs, "
+                      f"grade={grade['grade']}), skipping")
+                results_summary.append((model_id, role, grade["grade"],
+                                        grade["success_rate"],
+                                        grade["average_execution_time"]))
+                continue
+
             for run_num in range(1, runs + 1):
                 prompt_idx = (run_num - 1) % len(prompts)
                 prompt = prompts[prompt_idx]
 
                 print(f"  run {run_num}/{runs} prompt[{prompt_idx}]...", end=" ", flush=True)
 
-                if provider == "openai":
-                    result = call_openai(api_model, prompt)
-                elif provider == "gemini":
-                    result = call_gemini(api_model, prompt)
-                else:
-                    result = call_anthropic(api_model, prompt)
+                result = call_with_retry(provider, api_model, prompt)
 
                 if not result["success"]:
                     print(f"ERROR: {result['error']}")
@@ -1678,6 +1711,10 @@ def main() -> None:
         help="Reset existing grade data before benchmarking",
     )
     parser.add_argument(
+        "--skip-completed", action="store_true",
+        help="Skip model/role combos that already have >= --runs samples",
+    )
+    parser.add_argument(
         "--list-roles", action="store_true",
         help="List all available roles and exit",
     )
@@ -1722,6 +1759,7 @@ def main() -> None:
         dry_run=args.dry_run,
         model_filter=args.model,
         reset=args.reset,
+        skip_completed=args.skip_completed,
     )
 
 
