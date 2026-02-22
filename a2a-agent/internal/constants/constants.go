@@ -22,12 +22,6 @@ const (
 	ProviderGemini    = "gemini"
 )
 
-// Agent Roles
-const (
-	RoleOrchestrator = "orchestrator"
-	RoleEngineer     = "engineer"
-)
-
 // Message Roles (for LLM conversations)
 const (
 	MessageRoleUser      = "user"
@@ -192,9 +186,6 @@ const (
 
 // Default Values
 const (
-	// Default role when none specified
-	DefaultRole = RoleEngineer
-
 	// Default log level
 	DefaultLogLevel = "info"
 

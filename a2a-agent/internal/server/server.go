@@ -50,6 +50,7 @@ const (
 	configFieldDelegation      = "Delegation"
 	configFieldTools           = "Tools"
 	configFieldGates           = "Gates"
+	configFieldChatTools       = "ChatTools"
 )
 
 // Configuration defaults
@@ -168,6 +169,7 @@ type AgentConfig struct {
 	SuccessCriteria []string
 	Metadata        map[string]interface{}
 	ExtendedThinking bool
+	ChatTools        bool // If true, inject chat-mode tools (spawn_agent, query_tasks, etc.)
 }
 
 // GetProjectRoots returns all known project roots
@@ -388,7 +390,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		// Fallback: enabled with defaults
 		server.complexityRiskAnalyzer = monitoring.NewComplexityRiskAnalyzer(
 			true, 0.50, 0.75, 0.30, 0.25, 0.25, 0.20,
-			map[string]float64{"engineer": 1.0, "orchestrator": 0.8},
+			map[string]float64{},
 			nil,
 		)
 	}
@@ -899,6 +901,8 @@ func parseMarkdownConfig(data []byte, roleName string) (*AgentConfig, string, er
 						config.Context.Gates = append(config.Context.Gates, gate)
 					}
 				}
+			case configFieldChatTools:
+				config.ChatTools = strings.EqualFold(value, "true")
 			}
 		}
 	}

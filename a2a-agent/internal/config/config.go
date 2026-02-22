@@ -193,12 +193,7 @@ func DefaultConfig() *Config {
 				Uncertainty: 0.25,
 				Structural:  0.20,
 			},
-			RoleMultipliers: map[string]float64{
-				"engineer":     1.0,
-				"orchestrator": 0.8,
-				"inspector":    0.9,
-				"architect":    0.7,
-			},
+			RoleMultipliers: map[string]float64{},
 		},
 		Projects: make(map[string]string),
 	}

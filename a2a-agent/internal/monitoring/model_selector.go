@@ -57,17 +57,6 @@ var ModelsByTier = map[ModelTier][]ModelInfo{
 	},
 }
 
-// RoleDefaultTier maps roles to their default starting tiers
-var RoleDefaultTier = map[string]ModelTier{
-	"engineer":     TierMinimal, // Start cheap
-	"orchestrator": TierLow,     // Needs more capability
-	"inspector":    TierMinimal, // Pattern recognition, not raw intelligence
-	"architect":    TierMedium,  // Design needs good reasoning
-	"reviewer":     TierLow,     // Code review is moderate complexity
-	"tester":       TierMinimal, // Test writing is straightforward
-	"spelunker":    TierMedium,  // Deep investigation requires strong reasoning
-}
-
 // ModelSelector selects the best model based on performance and complexity
 type ModelSelector struct {
 	gradeManager       *PerformanceGradeManager
@@ -239,12 +228,11 @@ func (ms *ModelSelector) SelectModel(
 	}
 }
 
-// getDefaultTier returns the default tier for a role
+// getDefaultTier returns the default starting tier.
+// Roles specify their preferred tier via the **Tier:** field in their .md file;
+// the model selector always starts at TierLow as a generic baseline.
 func (ms *ModelSelector) getDefaultTier(role string) ModelTier {
-	if tier, exists := RoleDefaultTier[role]; exists {
-		return tier
-	}
-	return TierLow // Default fallback
+	return TierLow
 }
 
 // getBestModelFromTier returns the first model in a tier (used for grade lookups,

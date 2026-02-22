@@ -600,14 +600,13 @@ func (s *AgentServer) HandleStartTask(w http.ResponseWriter, r *http.Request) {
 		ProjectRoot string `json:"project_root"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		// If no body, use defaults
-		req.Role = "engineer"
 		req.ProjectRoot = ""
 	}
 
-	// Default to engineer if no role specified
+	// Role is required
 	if req.Role == "" {
-		req.Role = "engineer"
+		http.Error(w, "role is required", http.StatusBadRequest)
+		return
 	}
 
 	// Use server root if no project root specified
@@ -644,15 +643,19 @@ func (s *AgentServer) HandleStartTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If no task packet exists, spawn orchestrator to create it and delegate work
-	// Otherwise spawn the requested role directly
-	roleToSpawn := req.Role
+	// Require a task packet — without one the agent has no contract to work from.
 	if taskPacketPath == "" {
-		roleToSpawn = "orchestrator"
-		monitoring.Logger.Info("start_task_no_packet", "task_id", taskID, "spawning", "orchestrator")
-	} else {
-		monitoring.Logger.Info("start_task_with_packet", "task_id", taskID, "spawning", req.Role, "packet_path", taskPacketPath)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": fmt.Sprintf("No task packet found for task %s. Create a task packet before starting an agent.", taskID),
+		})
+		return
 	}
+
+	roleToSpawn := req.Role
+	monitoring.Logger.Info("start_task_with_packet", "task_id", taskID, "spawning", roleToSpawn, "packet_path", taskPacketPath)
 
 	// Spawn agent for this Beads task
 	response, err := s.spawnAgentTask(roleToSpawn, taskID, req.ProjectRoot)
@@ -671,10 +674,7 @@ func (s *AgentServer) HandleStartTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	message := fmt.Sprintf("Agent started for task %s", taskID)
-	if roleToSpawn == "orchestrator" {
-		message = fmt.Sprintf("Orchestrator started to create task packet and delegate work for task %s", taskID)
-	}
+	message := fmt.Sprintf("Agent (%s) started for task %s", roleToSpawn, taskID)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
