@@ -287,10 +287,14 @@ func TestConvertTaskStatusMapping(t *testing.T) {
 		expectedStatus TaskStatus
 	}{
 		{"in_progress maps to IN_PROGRESS", "in_progress", TaskStatusInProgress},
-		{"queued maps to IN_PROGRESS", "queued", TaskStatusInProgress},
+		{"open maps to OPEN", "open", TaskStatusOpen},
+		{"queued maps to OPEN", "queued", TaskStatusOpen},
 		{"completed maps to COMPLETED", "completed", TaskStatusCompleted},
+		{"done maps to COMPLETED", "done", TaskStatusCompleted},
 		{"failed maps to FAILED", "failed", TaskStatusFailed},
-		{"unknown defaults to IN_PROGRESS", "unknown", TaskStatusInProgress},
+		{"cancelled maps to FAILED", "cancelled", TaskStatusFailed},
+		{"closed maps to CLOSED", "closed", TaskStatusClosed},
+		{"unknown defaults to OPEN", "unknown", TaskStatusOpen},
 	}
 
 	for _, tt := range tests {
