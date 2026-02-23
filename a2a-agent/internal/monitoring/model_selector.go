@@ -3,6 +3,7 @@ package monitoring
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/cortexa-llc/ai-pack/a2a-agent/internal/constants"
 )
@@ -66,6 +67,7 @@ type ModelSelector struct {
 	enabled            bool
 	openaiAvailable    bool
 	geminiAvailable    bool
+	roleDefaultTiers   map[string]ModelTier // per-role starting tier from **Tier:** role config
 }
 
 // ModelSelectionResult holds the selection decision and reasoning
@@ -100,6 +102,32 @@ func (ms *ModelSelector) SetTierLimits(minTier, maxTier ModelTier) {
 // SetEnabled enables or disables adaptive selection
 func (ms *ModelSelector) SetEnabled(enabled bool) {
 	ms.enabled = enabled
+}
+
+// SetRoleDefaultTier registers a per-role starting tier from the **Tier:** role config field.
+// This allows role .md files to influence where grade-based selection begins.
+func (ms *ModelSelector) SetRoleDefaultTier(role string, tier ModelTier) {
+	if ms.roleDefaultTiers == nil {
+		ms.roleDefaultTiers = make(map[string]ModelTier)
+	}
+	ms.roleDefaultTiers[role] = tier
+}
+
+// ParseTierString converts a tier name string (from role config) to a ModelTier.
+// Returns 0 (unset) if the string is empty or unrecognized.
+func ParseTierString(s string) ModelTier {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "minimal":
+		return TierMinimal
+	case "low":
+		return TierLow
+	case "medium":
+		return TierMedium
+	case "high":
+		return TierHigh
+	default:
+		return 0 // unset
+	}
 }
 
 // SelectModel chooses the best model for a task.
@@ -228,10 +256,15 @@ func (ms *ModelSelector) SelectModel(
 	}
 }
 
-// getDefaultTier returns the default starting tier.
-// Roles specify their preferred tier via the **Tier:** field in their .md file;
-// the model selector always starts at TierLow as a generic baseline.
+// getDefaultTier returns the default starting tier for a role.
+// Uses the per-role override registered via SetRoleDefaultTier (from **Tier:** in .md),
+// falling back to TierLow when no override is set.
 func (ms *ModelSelector) getDefaultTier(role string) ModelTier {
+	if ms.roleDefaultTiers != nil {
+		if tier, ok := ms.roleDefaultTiers[role]; ok && tier > 0 {
+			return tier
+		}
+	}
 	return TierLow
 }
 
