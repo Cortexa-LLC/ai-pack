@@ -15,10 +15,12 @@ import (
 
 // OrchestratorSession manages a persistent orchestrator chat session
 type OrchestratorSession struct {
+	id              string
 	sessionID       string
 	projectRoot     string
 	monitoring      bool
 	lastTaskCheck   time.Time
+	lastActivity    time.Time
 	knownTasks      map[string]string // task_id -> status
 	updateChan      chan OrchestratorUpdate
 	stopChan        chan bool
@@ -37,8 +39,9 @@ type OrchestratorUpdate struct {
 }
 
 var (
-	sessions   = make(map[string]*OrchestratorSession)
-	sessionsMu sync.RWMutex
+	sessions    = make(map[string]*OrchestratorSession)
+	sessionsMu  sync.RWMutex
+	cleanerOnce sync.Once
 )
 
 // GetOrCreateSession gets or creates an orchestrator session for a project
@@ -57,10 +60,12 @@ func GetOrCreateSession(server *AgentServer, projectRoot string) *OrchestratorSe
 
 	// Create new session
 	session := &OrchestratorSession{
+		id:            sessionID,
 		sessionID:     sessionID,
 		projectRoot:   projectRoot,
 		monitoring:    true,
 		lastTaskCheck: time.Now(),
+		lastActivity:  time.Now(),
 		knownTasks:    make(map[string]string),
 		updateChan:    make(chan OrchestratorUpdate, 100),
 		stopChan:      make(chan bool),
@@ -69,12 +74,41 @@ func GetOrCreateSession(server *AgentServer, projectRoot string) *OrchestratorSe
 
 	sessions[sessionID] = session
 
+	// Start TTL cleaner (once per process)
+	startSessionCleaner()
+
 	// Start monitoring loop
 	go session.monitorLoop()
 
 	monitoring.Logger.Info("orchestrator_session_created", "session_id", sessionID, "project", projectRoot)
 
 	return session
+}
+
+// startSessionCleaner starts a background goroutine that removes sessions
+// inactive for more than 30 minutes. Runs at most once per process lifetime.
+func startSessionCleaner() {
+	cleanerOnce.Do(func() {
+		go func() {
+			ticker := time.NewTicker(5 * time.Minute)
+			defer ticker.Stop()
+			for range ticker.C {
+				var stale []*OrchestratorSession
+				sessionsMu.Lock()
+				for id, s := range sessions {
+					if time.Since(s.lastActivity) > 30*time.Minute {
+						stale = append(stale, s)
+						delete(sessions, id)
+					}
+				}
+				sessionsMu.Unlock()
+				// Stop goroutines outside the lock to avoid deadlock
+				for _, s := range stale {
+					s.stopWithoutMapRemoval()
+				}
+			}
+		}()
+	})
 }
 
 // monitorLoop runs in background and monitors task system
@@ -98,6 +132,7 @@ func (s *OrchestratorSession) monitorLoop() {
 // checkForUpdates queries the task system and detects changes
 func (s *OrchestratorSession) checkForUpdates() {
 	s.mu.Lock()
+	s.lastActivity = time.Now()
 	defer s.mu.Unlock()
 
 	// Query tasks via GraphQL
@@ -241,6 +276,15 @@ func (s *OrchestratorSession) sendUpdate(update OrchestratorUpdate) {
 
 // Stop stops the monitoring loop
 func (s *OrchestratorSession) Stop() {
+	s.stopWithoutMapRemoval()
+	sessionsMu.Lock()
+	delete(sessions, s.id)
+	sessionsMu.Unlock()
+}
+
+// stopWithoutMapRemoval stops the session goroutine without touching the sessions map.
+// Used by startSessionCleaner which already holds/manages the map lock.
+func (s *OrchestratorSession) stopWithoutMapRemoval() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

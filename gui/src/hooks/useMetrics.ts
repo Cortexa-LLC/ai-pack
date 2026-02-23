@@ -1,4 +1,5 @@
 import { useGraphQLQuery } from './useGraphQLQuery';
+import type { ProviderUsage } from '../types/graphql-types';
 
 /**
  * GraphQL query for fetching system metrics
@@ -36,16 +37,8 @@ const METRICS_QUERY = `
   }
 `;
 
-/**
- * Provider usage breakdown
- */
-export interface ProviderUsage {
-  provider: string;
-  model: string;
-  calls: number;
-  inputTokens: number;
-  outputTokens: number;
-}
+// ProviderUsage is imported from ../types/graphql-types
+export type { ProviderUsage };
 
 /**
  * Metrics data type

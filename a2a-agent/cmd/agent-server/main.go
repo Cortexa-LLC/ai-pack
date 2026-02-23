@@ -504,6 +504,7 @@ func main() {
 
 	// Setup routes with logging middleware
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /.well-known/agent.json", s.HandleAgentCard) // A2A AgentCard (public)
 	mux.HandleFunc("/health", handleHealth)                          // Health check
 	mux.HandleFunc("/metrics", handleMetrics(s))                     // Metrics endpoint
 	mux.HandleFunc("/metrics/daily", handleDailyMetrics(s))          // Daily usage

@@ -26,31 +26,25 @@ const (
 // A2A Protocol Handlers
 // Implements A2A protocol endpoints using JSON-RPC 2.0
 
-// handleA2ADiscovery handles the /a2a/discovery endpoint
-// Get /.well-known/agent.json
+// handleAgentCard serves GET /.well-known/agent.json (A2A AgentCard).
+// This endpoint is publicly accessible (exempt from API key middleware).
 func (s *AgentServer) handleAgentCard(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	
-	discoveryResponse := protocol.DiscoveryResponse{
-		Name: "Agent Name",
-		Version: "1.0.0",
-		Description: "Agent Description",
-		Capabilities: /* populate capabilities */, 
-	}
-
+	discovery := s.getDiscoveryResponse()
 	result := struct {
 		*protocol.DiscoveryResponse
-		AuthSchemes []protocol.AgentAuthentication `json:"auth_schemes"`
+		Authentication protocol.AgentAuthentication `json:"authentication"`
 	}{
-		DiscoveryResponse: &discoveryResponse,
-		AuthSchemes: []protocol.AgentAuthentication{{
-			AuthScheme: "Bearer Token",
-			Description: "Use a bearer token for authentication",
-		}},
+		DiscoveryResponse: discovery,
+		Authentication: protocol.AgentAuthentication{
+			Schemes: []string{"bearer", "api-key"},
+		},
 	}
-	
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
-} {
+}
+
+// handleA2ADiscovery handles the /a2a/discovery endpoint
+func (s *AgentServer) handleA2ADiscovery(w http.ResponseWriter, r *http.Request) {
 	// Discovery can be GET or POST (JSON-RPC)
 	if r.Method == http.MethodGet {
 		s.handleDiscoveryGET(w, r)

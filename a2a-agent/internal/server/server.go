@@ -584,17 +584,6 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		return nil, fmt.Errorf("failed to get task description: %w", err)
 	}
 
-	// Pre-spawn complexity gate: flag complex debug tasks before spawning an engineer.
-	complexityAssessment, needsInvestigation := monitoring.AssessDebugComplexity(role, taskDescription)
-	if needsInvestigation {
-		monitoring.Logger.Warn("debug_complexity_gate_triggered",
-			"task_id", taskInput,
-			"complexity_level", string(complexityAssessment.Level),
-			"debug_signals", complexityAssessment.DebugSignals,
-			"multi_module_signals", complexityAssessment.MultiModuleSignals,
-		)
-	}
-
 	// v2 structural risk assessment (all roles)
 	riskAssessment := s.complexityRiskAnalyzer.ComputeComplexityRisk(role, taskDescription)
 	monitoring.Logger.Info("complexity_risk_assessed",
@@ -737,11 +726,9 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 	}
 
 	// Attach complexity warning to the response when the pre-spawn gate triggered or v2 risk is high.
-	if needsInvestigation || riskAssessment.ShouldWarn {
+	if riskAssessment.ShouldWarn {
 		warning := &protocol.ComplexityWarning{
-			Level:          string(complexityAssessment.Level),
-			Recommendation: complexityAssessment.Recommendation,
-			RiskLevel:      string(riskAssessment.RiskLevel),
+			RiskLevel: string(riskAssessment.RiskLevel),
 			Components: &protocol.RiskComponents{
 				ScopeScore:       riskAssessment.Components.ScopeScore,
 				MultiStepScore:   riskAssessment.Components.MultiStepScore,
@@ -750,13 +737,6 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 				HistoricalScore:  riskAssessment.Components.HistoricalScore,
 				RoleMultiplier:   riskAssessment.Components.RoleMultiplier,
 			},
-		}
-		if needsInvestigation {
-			warning.DebugSignals = complexityAssessment.DebugSignals
-			warning.MultiModuleSignals = complexityAssessment.MultiModuleSignals
-			if warning.Recommendation == "" {
-				warning.Recommendation = complexityAssessment.Recommendation
-			}
 		}
 		if riskAssessment.Recommendation != "" {
 			warning.Recommendation = riskAssessment.Recommendation
