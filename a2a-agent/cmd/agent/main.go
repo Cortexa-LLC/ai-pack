@@ -903,15 +903,33 @@ func handleListLocalDeprecated(args []string) {
 func handleWait(args []string) {
 	fs := flag.NewFlagSet("wait", flag.ExitOnError)
 	timeout := fs.Duration("timeout", 4*time.Hour, "Maximum time to wait before giving up (e.g. 30m, 2h)")
+	stream := fs.Bool("stream", false, "Stream live output while waiting for completion")
+	inactiveTimeout := fs.Duration("inactive-timeout", 10*time.Minute, "Disconnect stream after this much inactivity")
 	fs.Parse(args)
 
 	remaining := fs.Args()
 	if len(remaining) < 1 {
-		fmt.Println("Usage: agent wait [--timeout 4h] <task-id>")
+		fmt.Println("Usage: agent wait [--timeout 4h] [--stream] <task-id>")
 		os.Exit(1)
 	}
 
 	taskID := remaining[0]
+
+	if *stream {
+		// Resolve Beads task ID → internal task ID for streaming
+		internalTaskID := findInternalTaskIDFromServer(taskID)
+		if internalTaskID == "" {
+			internalTaskID = findInternalTaskID(taskID)
+		}
+		if internalTaskID == "" {
+			fmt.Printf("❌ No agent found for Beads task: %s\n", taskID)
+			fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", taskID)
+			os.Exit(1)
+		}
+		streamTaskProgressWithInactivity(internalTaskID, *inactiveTimeout)
+		return
+	}
+
 	waitForTaskCompletion(taskID, *timeout)
 }
 
@@ -1824,7 +1842,7 @@ func usage() {
 	fmt.Println("  agent logs <task-id> [--tail N] [--follow] [--json] Show agent logs")
 	fmt.Println("  agent logs --server [--tail N] [--follow] [--json]  Show server logs")
 	fmt.Println("  agent list [--all|--running|--completed|--failed] [--verbose|--json|--server] List agents")
-	fmt.Println("  agent wait [--timeout 4h] <task-id>                Wait for completion")
+	fmt.Println("  agent wait [--timeout 4h] [--stream] <task-id>     Wait for completion (--stream: show live output)")
 	fmt.Println("  agent diff <task-id>                                Show git diff")
 	fmt.Println("  agent files <task-id>                               List modified files")
 	fmt.Println("  agent cancel|stop <task-id>                         Cancel a running task")
