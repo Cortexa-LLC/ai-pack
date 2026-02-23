@@ -38,6 +38,31 @@ func (a *GraphQLAdapter) GetActiveTasks() map[string]*graphql.TaskInfo {
 	return tasks
 }
 
+// resolveBeadsRoot walks up from dir until it finds a .beads/ directory
+// containing an actual beads database (beads.db or issues.jsonl).
+// A .beads/ with only a tasks/ subdirectory (agent execution scratch space)
+// is not a real database root and is skipped.
+// Falls back to the original dir if no database is found.
+func resolveBeadsRoot(dir string) string {
+	current := dir
+	for {
+		beadsDir := filepath.Join(current, constants.BeadsDir)
+		// Check for a real beads database file
+		if _, err := os.Stat(filepath.Join(beadsDir, "beads.db")); err == nil {
+			return current
+		}
+		if _, err := os.Stat(filepath.Join(beadsDir, "issues.jsonl")); err == nil {
+			return current
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+		current = parent
+	}
+	return dir
+}
+
 // GetAllTasks returns all tasks (active from memory + beads tasks from all project roots)
 func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 	tasks := make(map[string]*graphql.TaskInfo)
@@ -49,8 +74,20 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 	}
 	a.server.mu.RUnlock()
 
-	// Get all project roots to scan (server root + registered projects)
-	projectRoots := a.server.GetProjectRoots()
+	// Get all project roots to scan (server root + registered projects).
+	// Resolve each to its canonical beads root (walk up to find .beads/tasks)
+	// and deduplicate — prevents a subdir (e.g. a2a-agent/) and its parent
+	// (ai-pack/) from both being scanned when they share the same .beads/.
+	rawRoots := a.server.GetProjectRoots()
+	seen := make(map[string]bool)
+	var projectRoots []string
+	for _, r := range rawRoots {
+		canonical := resolveBeadsRoot(r)
+		if !seen[canonical] {
+			seen[canonical] = true
+			projectRoots = append(projectRoots, canonical)
+		}
+	}
 
 	// Then, get beads tasks from each project using bd list
 	beadsClient := a.server.beadsClient
