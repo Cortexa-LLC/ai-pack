@@ -1449,7 +1449,7 @@ def call_anthropic(api_model: str, prompt: dict, timeout: int = 60, temperature:
     kwargs = dict(
         model=api_model,
         messages=messages,
-        max_tokens=1024,
+        max_tokens=4096,
         temperature=temperature,
     )
     if prompt.get("system"):
