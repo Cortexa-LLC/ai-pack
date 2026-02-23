@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useGraphQLQuery } from './useGraphQLQuery';
+import { GradeSummary, PerformanceGrade } from '../types/graphql-types';
 
 const PERFORMANCE_QUERY = `
   query PerformanceData {
@@ -42,8 +43,8 @@ const PERFORMANCE_QUERY = `
 `;
 
 interface PerformanceData {
-  summary: any;
-  grades: any[];
+  summary: GradeSummary | null;
+  grades: PerformanceGrade[];
   loading: boolean;
   error: string | null;
   /** Re-fetches already-loaded data from the GraphQL cache / server. */
@@ -57,8 +58,8 @@ interface PerformanceData {
 
 export const usePerformance = (_apiUrl: string): PerformanceData => {
   const { data, isLoading, error, refetch } = useGraphQLQuery<{
-    performanceSummary: any;
-    performanceGrades: any[];
+    performanceSummary: GradeSummary;
+    performanceGrades: PerformanceGrade[];
   }>('performance', PERFORMANCE_QUERY, undefined, {
     refetchInterval: 30000, // Auto-refresh every 30 seconds
   });

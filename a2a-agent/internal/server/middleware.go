@@ -52,7 +52,7 @@ func isLocalhostOrigin(origin string) bool {
 // The /health endpoint is always exempt.
 func APIKeyMiddleware(apiKey string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if apiKey == "" || r.URL.Path == "/health" {
+		if apiKey == "" || r.URL.Path == "/health" || r.URL.Path == "/.well-known/agent.json" {
 			next.ServeHTTP(w, r)
 			return
 		}

@@ -55,6 +55,11 @@ func (s *AgentServer) ExecuteTaskSync(role, task string) (*protocol.ExecuteTaskR
 	}
 }
 
+// HandleAgentCard is the public handler for GET /.well-known/agent.json
+func (s *AgentServer) HandleAgentCard(w http.ResponseWriter, r *http.Request) {
+	s.handleAgentCard(w, r)
+}
+
 // HandleA2ADiscovery is the public handler for A2A discovery
 func (s *AgentServer) HandleA2ADiscovery(w http.ResponseWriter, r *http.Request) {
 	s.handleA2ADiscovery(w, r)

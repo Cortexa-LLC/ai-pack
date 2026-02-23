@@ -1,7 +1,6 @@
 package monitoring
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -233,100 +232,10 @@ func GetMinimumTier(complexity ComplexityLevel) int {
 	}
 }
 
-// Global complexity analyzer instance
+// GlobalComplexityAnalyzer is the global complexity analyzer instance
 var GlobalComplexityAnalyzer *ComplexityAnalyzer
 
 // InitComplexityAnalyzer initializes the global complexity analyzer
 func InitComplexityAnalyzer() {
 	GlobalComplexityAnalyzer = NewComplexityAnalyzer()
 }
-
-// ── Debug complexity gate ─────────────────────────────────────────────────────
-
-// ComplexityAssessment captures the result of a debug-task complexity pre-check.
-type ComplexityAssessment struct {
-	// Level is the overall complexity of the task description.
-	Level ComplexityLevel
-
-	// DebugSignals are the bug/debug keywords found in the task description.
-	DebugSignals []string
-
-	// MultiModuleSignals are cross-module indicators found in the task description.
-	MultiModuleSignals []string
-
-	// Recommendation is a human-readable guidance string for the orchestrator.
-	Recommendation string
-}
-
-// debugTaskPatterns are keywords that indicate this is a bug-fix / debug task.
-var debugTaskPatterns = []string{
-	"bug", "fix", "debug", "error", "crash", "fail", "broken", "issue",
-	"regression", "flaky", "panic", "exception", "traceback", "stack trace",
-	"not working", "incorrect", "unexpected", "wrong output",
-}
-
-// multiModulePatterns indicate that the issue spans more than one module.
-var multiModulePatterns = []string{
-	"multiple modules", "across modules", "several packages",
-	"multiple files", "multiple services", "cross-service",
-	"multiple components", "across packages", "end-to-end",
-	"integration", "distributed", "microservice",
-	"cascading", "propagates", "affects multiple",
-}
-
-// AssessDebugComplexity is a pre-spawn complexity gate for debug tasks.
-//
-// When the task description contains bug/debug signals and is assessed as
-// high-complexity AND spans multiple modules, the function returns
-// (assessment, true), signalling that a deeper investigation may be warranted
-// before proceeding with the task.
-//
-// When the task is simple or contains no debug signals, the function returns
-// (assessment, false) and the caller should proceed normally.
-func AssessDebugComplexity(role, taskDescription string) (ComplexityAssessment, bool) {
-	assessment := ComplexityAssessment{}
-
-	lower := strings.ToLower(taskDescription)
-
-	// Collect matching debug signals.
-	for _, p := range debugTaskPatterns {
-		if strings.Contains(lower, p) {
-			assessment.DebugSignals = append(assessment.DebugSignals, p)
-		}
-	}
-
-	// No debug signals → not a debug task; proceed normally.
-	if len(assessment.DebugSignals) == 0 {
-		return assessment, false
-	}
-
-	// Collect matching multi-module signals.
-	for _, p := range multiModulePatterns {
-		if strings.Contains(lower, p) {
-			assessment.MultiModuleSignals = append(assessment.MultiModuleSignals, p)
-		}
-	}
-
-	// Determine overall complexity using the standard analyzer.
-	analyzer := NewComplexityAnalyzer()
-	assessment.Level = analyzer.AnalyzeComplexity(taskDescription)
-
-	// Trigger the investigation gate only when both conditions hold:
-	//   1. the task is rated High or VeryHigh complexity, AND
-	//   2. at least one multi-module signal was detected.
-	needsInvestigation := (assessment.Level == ComplexityHigh || assessment.Level == ComplexityVeryHigh) &&
-		len(assessment.MultiModuleSignals) > 0
-
-	if needsInvestigation {
-		assessment.Recommendation = fmt.Sprintf(
-			"Complex debug task detected (complexity: %s) with multi-module signals: [%s]. "+
-				"Recommend routing through the Inspector role for root-cause analysis before "+
-				"assigning to an engineer to avoid thrashing on an unbounded debugging session.",
-			assessment.Level,
-			strings.Join(assessment.MultiModuleSignals, ", "),
-		)
-	}
-
-	return assessment, needsInvestigation
-}
-

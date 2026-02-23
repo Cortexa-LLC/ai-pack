@@ -9,10 +9,10 @@ import { graphqlClient } from '../lib/graphql';
  * @param options - Additional React Query options
  * @returns React Query result object
  */
-export function useGraphQLQuery<T = any>(
+export function useGraphQLQuery<T = unknown>(
   queryKey: string,
   query: string,
-  variables?: Record<string, any>,
+  variables?: Record<string, unknown>,
   options?: {
     refetchInterval?: number;
     enabled?: boolean;

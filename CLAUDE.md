@@ -12,7 +12,7 @@ This is the AI-Pack multi-agent system with an agent server (a2a-agent) and GUI.
 - Contains performance grading data for intelligent model selection
 - Used by the adaptive performance grading system
 - Files are named: `{model}_{role}_{project}.json`
-- **Regeneration requires historical task data** - deletion causes loss of optimization data
+- **Regeneration is fast** — run `python3 scripts/seed-grades.py` (fetches live LiveBench scores, no API key needed)
 
 ### `.claude/metrics/daily/`
 - Contains daily token usage and cost tracking per project
@@ -31,12 +31,42 @@ These directories are in `.gitignore` because they contain project-specific runt
 If these files were deleted, they can be regenerated:
 
 ```bash
-# Regenerate performance grades (requires task history)
-python3 a2a-agent/scripts/backfill-performance-grades.py
+# Regenerate performance grades from LiveBench (no API key needed)
+python3 scripts/seed-grades.py
 
 # Regenerate daily metrics (requires Anthropic CSV exports in ~/Downloads)
 python3 a2a-agent/scripts/backfill-metrics.py
 ```
+
+## Performance Grades — Setup & Maintenance
+
+Grade files in `.claude/performance_grades/` seed the model selector so it picks
+the best cost/quality model for each role. They are populated from
+[LiveBench](https://livebench.ai) coding scores (contamination-free, externally maintained).
+
+### Initial setup / after wiping grades
+```bash
+python3 scripts/seed-grades.py
+```
+Fetches two LiveBench CSV releases and writes 192 grade files (16 models × 12 roles).
+No API keys required.
+
+### When LiveBench publishes a new release
+1. Check `https://livebench.ai/table_YYYY_MM_DD.csv` for the new date
+2. Add an entry to `LIVEBENCH_SOURCES` in `scripts/seed-grades.py` with the URL and its coding column names
+3. Re-run `python3 scripts/seed-grades.py`
+
+### Grade thresholds (LiveBench coding score out of 100)
+| Grade | Score | Effect |
+|-------|-------|--------|
+| A | ≥ 60 | Preferred — selector picks cheapest A first |
+| B | ≥ 45 | Acceptable — selected if no A in tier |
+| C | ≥ 30 | Avoided — only used as last-resort fallback |
+| D | < 30 | Excluded from selection |
+
+### Current grades (Jan 2026 data)
+Models without LiveBench data are left ungraded; real task runs will populate them.
+The selector falls back to cheapest-in-tier for ungraded models.
 
 ## .claudeignore - Context Management
 

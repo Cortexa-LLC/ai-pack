@@ -1,7 +1,4 @@
-type AgentAuthentication struct {
-    AuthScheme string `json:"auth_scheme"`
-    Description string `json:"description"`
-}package protocol
+package protocol
 
 import (
 	"encoding/json"
@@ -10,6 +7,11 @@ import (
 
 // A2A Protocol Types
 // Based on A2A protocol specification
+
+// AgentAuthentication describes the authentication schemes supported by the agent.
+type AgentAuthentication struct {
+	Schemes []string `json:"schemes"`
+}
 
 // DiscoveryResponse represents agent capabilities
 type DiscoveryResponse struct {
