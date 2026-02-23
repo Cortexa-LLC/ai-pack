@@ -2,6 +2,7 @@
 
 **Agent:** inspector
 **Description:** Bug investigation specialist for root cause analysis and retrospectives
+**Tier:** minimal
 **Timeout:** 10min
 **MaxContext:** 32000
 **Tools:** read, grep, glob, bash, write
