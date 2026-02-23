@@ -1003,6 +1003,11 @@ function App() {
                                     <div className="text-xs text-gray-500 mb-1">
                                       {task.taskID}
                                     </div>
+                                    {task.metadata?.model && (
+                                      <div className="text-xs text-blue-400 mb-1">
+                                        {task.metadata.model}
+                                      </div>
+                                    )}
                                     {task.createdAt && (
                                       <div className="text-xs text-gray-500">
                                         Created: {new Date(task.createdAt).toLocaleString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
@@ -1071,6 +1076,11 @@ function App() {
                                   <div className="text-xs text-gray-500 mb-1">
                                     {task.taskID}
                                   </div>
+                                  {task.metadata?.model && (
+                                    <div className="text-xs text-blue-400 mb-1">
+                                      {task.metadata.model}
+                                    </div>
+                                  )}
                                   {task.createdAt && (
                                     <div className="text-xs text-gray-500">
                                       Created: {new Date(task.createdAt).toLocaleString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
@@ -1127,6 +1137,11 @@ function App() {
                                   <div className="text-xs text-gray-500 mb-1">
                                     {task.taskID}
                                   </div>
+                                  {task.metadata?.model && (
+                                    <div className="text-xs text-blue-400 mb-1">
+                                      {task.metadata.model}
+                                    </div>
+                                  )}
                                   {task.error && (
                                     <div className="text-xs text-orange-400 mt-1 line-clamp-2" title={task.error}>
                                       ⚠️ {task.error}
@@ -1203,6 +1218,11 @@ function App() {
                                   <div className="text-xs text-gray-500 mb-1">
                                     {task.taskID}
                                   </div>
+                                  {task.metadata?.model && (
+                                    <div className="text-xs text-blue-400 mb-1">
+                                      {task.metadata.model}
+                                    </div>
+                                  )}
                                   {task.completedAt && (
                                     <div className="text-xs text-gray-500">
                                       Completed: {new Date(task.completedAt).toLocaleString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
@@ -1264,6 +1284,11 @@ function App() {
                                   <div className="text-xs text-gray-500 mb-1">
                                     {task.taskID}
                                   </div>
+                                  {task.metadata?.model && (
+                                    <div className="text-xs text-blue-400 mb-1">
+                                      {task.metadata.model}
+                                    </div>
+                                  )}
                                   {(task.completedAt || task.updatedAt) && (
                                     <div className="text-xs text-gray-500">
                                       Failed: {new Date(task.completedAt || task.updatedAt).toLocaleString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}

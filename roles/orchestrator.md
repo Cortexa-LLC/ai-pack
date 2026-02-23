@@ -286,6 +286,96 @@ END IF
 
 ---
 
+## 🔴 CRITICAL: Mandatory Post-Implementation Review
+
+**EVERY task that modifies code MUST be followed by a Reviewer agent. This is NON-NEGOTIABLE.**
+
+### When Required
+
+The rule is simple: **If an engineer/tester agent wrote or modified any code, a reviewer MUST validate it before the task is considered complete.**
+
+This applies to:
+- Any `agent engineer` task that completes
+- Any `agent tester` task that completes
+- Any code-modifying subtask in a parallel batch
+
+### Why
+
+Models make plausible-looking mistakes — stub files with `...` placeholders, hollow implementations, broken syntax. A reviewer on a **different model** catches what the engineer missed. Without this gate, broken code silently enters the codebase.
+
+### Mandatory Review Protocol
+
+```
+AFTER any engineer or tester agent completes:
+
+  STEP 1: Check the contract's Requires Review flag
+    cat .ai/tasks/<slug>/00-contract.md | grep "Requires Review"
+    IF "Requires Review: false" THEN
+      Review still RECOMMENDED but may be skipped for trivial patches
+    ELSE (default: true)
+      CONTINUE TO STEP 2
+
+  STEP 2: Create a review Beads task
+    review_id=$(bd create "Review: <original task description>
+
+Working directory: $(pwd)
+Task packet: .ai/tasks/<original-slug>/
+
+Review the code changes from <original-beads-id>. Check for:
+- Completeness (no placeholder stubs, no ... ellipsis)
+- Correctness (builds, tests pass)
+- Scope discipline (only changed what was asked)
+- Security issues" \
+      --priority P1 --json | jq -r '.id')
+
+  STEP 3: Spawn reviewer with DIFFERENT model than engineer used
+    agent reviewer "$review_id" --stream
+
+    # ⚠️ The reviewer role selects its own model via grade-based selection.
+    # If the engineer used gpt-4o-mini, the reviewer will typically use a
+    # higher-grade model — this cross-model validation is intentional.
+
+  STEP 4: Act on reviewer verdict
+    IF verdict = APPROVE THEN
+      Mark original task complete: bd update <original-id> -s closed
+    ELSE IF verdict = REQUEST CHANGES THEN
+      Fix issues: spawn another engineer with specific fixes listed
+      Then re-review: goto STEP 3
+    ELSE IF verdict = BLOCK THEN
+      Escalate immediately — DO NOT mark complete
+      Report blockers to user before proceeding
+```
+
+### In Parallel Batch Workflows
+
+When running parallel engineer agents, queue reviewer tasks AFTER each agent completes:
+
+```bash
+# Spawn engineers in parallel
+agent engineer "$task_id_1"
+agent engineer "$task_id_2"
+agent engineer "$task_id_3"
+
+# Wait + review each one sequentially
+agent wait "$task_id_1" --stream
+# task 1 done — immediately spawn reviewer
+agent reviewer "$review_id_1" --stream
+
+agent wait "$task_id_2" --stream
+agent reviewer "$review_id_2" --stream
+
+agent wait "$task_id_3" --stream
+agent reviewer "$review_id_3" --stream
+```
+
+### Contract Flag
+
+Every task packet's `00-contract.md` has a `**Requires Review:**` field:
+- `**Requires Review:** true` — mandatory (default for all code changes)
+- `**Requires Review:** false` — explicit opt-out (trivial patches only, must justify)
+
+---
+
 ## ⚠️ CRITICAL: Pre-Delegation Verification
 
 **MANDATORY BEFORE SPAWNING ANY AGENT FOR NON-TRIVIAL WORK**

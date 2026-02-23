@@ -232,6 +232,8 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 		Result      string            `json:"result,omitempty"`
 		Error       string            `json:"error,omitempty"`
 		Metadata    map[string]string `json:"metadata,omitempty"`
+		Model       string            `json:"model,omitempty"`
+		Provider    string            `json:"provider,omitempty"`
 	}
 
 	if err := json.Unmarshal(data, &status); err != nil {
@@ -281,6 +283,14 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 	// Copy metadata
 	for k, v := range status.Metadata {
 		taskInfo.Metadata[k] = v
+	}
+
+	// Promote top-level model/provider into metadata so the GUI can display them
+	if status.Model != "" {
+		taskInfo.Metadata["model"] = status.Model
+	}
+	if status.Provider != "" {
+		taskInfo.Metadata["provider"] = status.Provider
 	}
 
 	// Add project root to metadata if not already there
