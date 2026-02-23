@@ -1,4 +1,7 @@
-package protocol
+type AgentAuthentication struct {
+    AuthScheme string `json:"auth_scheme"`
+    Description string `json:"description"`
+}package protocol
 
 import (
 	"encoding/json"
@@ -49,23 +52,11 @@ type ExecuteTaskRequest struct {
 	Options     map[string]interface{} `json:"options,omitempty"`
 }
 
-// ComplexityWarning is attached to ExecuteTaskResponse when the pre-spawn
-// complexity gate detects that a debug task may be too complex to route
-// directly to an engineer without prior investigation.
+// ComplexityWarning is attached to ExecuteTaskResponse when the structural
+// risk scorer detects elevated complexity.
 type ComplexityWarning struct {
-	// Level is the assessed complexity (e.g. "high", "very_high").
-	Level string `json:"level"`
-
-	// DebugSignals are the bug/debug keywords found in the task description.
-	DebugSignals []string `json:"debug_signals,omitempty"`
-
-	// MultiModuleSignals are cross-module indicators found in the task description.
-	MultiModuleSignals []string `json:"multi_module_signals,omitempty"`
-
 	// Recommendation is human-readable guidance for the orchestrator.
 	Recommendation string `json:"recommendation"`
-
-	// v2 fields — populated by the structural risk scorer.
 
 	// RiskLevel is the v2 risk tier (negligible | low | moderate | high | critical).
 	RiskLevel string `json:"risk_level,omitempty"`
