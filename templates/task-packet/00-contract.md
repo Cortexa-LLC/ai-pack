@@ -5,6 +5,7 @@
 **Requestor:** [User/Team]
 **Assigned Role:** [Orchestrator/Worker/Reviewer]
 **Workflow:** [Standard/Feature/Bugfix/Refactor/Research]
+**Requires Review:** true
 
 ---
 
