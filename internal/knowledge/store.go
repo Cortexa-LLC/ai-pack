@@ -72,7 +72,8 @@ func (s *Store) initSchema() error {
 			type STRING,
 			project_id STRING,
 			created_at TIMESTAMP,
-			updated_at TIMESTAMP
+			updated_at TIMESTAMP,
+			embedding FLOAT[1536]
 		)`,
 
 		// Observation node table
@@ -80,7 +81,8 @@ func (s *Store) initSchema() error {
 			id STRING PRIMARY KEY,
 			entity_id STRING,
 			content STRING,
-			created_at TIMESTAMP
+			created_at TIMESTAMP,
+			embedding FLOAT[1536]
 		)`,
 
 		// Relationship tables
@@ -101,6 +103,31 @@ func (s *Store) initSchema() error {
 		result, err := s.conn.Query(stmt)
 		if err != nil {
 			return fmt.Errorf("execute schema statement: %w", err)
+		}
+		result.Close()
+	}
+
+	// Migrate existing tables to add embedding column if missing
+	if err := s.migrateEmbeddings(); err != nil {
+		return fmt.Errorf("migrate embeddings: %w", err)
+	}
+
+	return nil
+}
+
+// migrateEmbeddings adds embedding columns to existing tables if they don't exist
+func (s *Store) migrateEmbeddings() error {
+	migrations := []string{
+		`ALTER TABLE Entity ADD embedding FLOAT[1536]`,
+		`ALTER TABLE Observation ADD embedding FLOAT[1536]`,
+	}
+
+	for _, stmt := range migrations {
+		result, err := s.conn.Query(stmt)
+		if err != nil {
+			// Ignore errors if column already exists
+			// Kuzu will return an error if we try to add a column that exists
+			continue
 		}
 		result.Close()
 	}

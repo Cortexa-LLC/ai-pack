@@ -8,12 +8,12 @@ DEST="lib/kuzu/$PLATFORM"
 case "$PLATFORM" in
   linux-amd64)  KUZU_ARCH="linux-x86_64"  ;;
   linux-arm64)  KUZU_ARCH="linux-aarch64" ;;
-  darwin-arm64) KUZU_ARCH="macos-arm64"   ;;
-  darwin-amd64) KUZU_ARCH="macos-x86_64"  ;;
+  darwin-arm64) KUZU_ARCH="osx-universal"   ;;
+  darwin-amd64) KUZU_ARCH="osx-universal"  ;;
   *) echo "Unsupported platform: $PLATFORM"; exit 1 ;;
 esac
 
-URL="https://github.com/kuzudb/kuzu/releases/download/v${VERSION}/kuzu_${KUZU_ARCH}.tar.gz"
+URL="https://github.com/kuzudb/kuzu/releases/download/v${VERSION}/libkuzu-${KUZU_ARCH}.tar.gz"
 
 echo "Downloading Kuzu $VERSION for $PLATFORM..."
 mkdir -p "$DEST"

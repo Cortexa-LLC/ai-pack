@@ -12,7 +12,7 @@ LAUNCHD_DIR := $(HOME)/Library/LaunchAgents
 GUI_DIR := gui
 
 # Kuzu configuration
-KUZU_VERSION := 0.8.2
+KUZU_VERSION := 0.11.3
 GOOS   := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
 PLATFORM := $(GOOS)-$(GOARCH)

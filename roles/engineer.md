@@ -4,7 +4,7 @@
 **Description:** Implementation specialist following TDD workflow
 **Tier:** medium
 **Class:** agentic
-**Timeout:** 10min
+**Timeout:** 30min
 **MaxBudgetTokens:** 0
 **MaxTurns:** 600
 **MaxContext:** 32000
