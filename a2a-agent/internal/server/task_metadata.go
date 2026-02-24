@@ -97,8 +97,19 @@ func (s *AgentServer) updateTaskPacketMetadataInProject(taskID string, runtimeMe
 }
 
 func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatusResponse, error) {
-	// Search across all registered project roots (not just server root)
-	projectRoots := s.GetProjectRoots()
+	// Search across all registered project roots (not just server root).
+	// Deduplicate by canonical beads root to avoid searching a2a-agent/ when
+	// the real .beads/beads.db is at the parent project root.
+	rawRoots := s.GetProjectRoots()
+	seen := make(map[string]bool)
+	var projectRoots []string
+	for _, r := range rawRoots {
+		canonical := resolveBeadsRoot(r)
+		if !seen[canonical] {
+			seen[canonical] = true
+			projectRoots = append(projectRoots, canonical)
+		}
+	}
 
 	var metadataPath string
 	var data []byte
