@@ -1721,21 +1721,56 @@ func findTaskIDAndProjectFromServer(beadsTaskID string) (string, string) {
 }
 
 func findInternalTaskID(beadsTaskID string) string {
-	// First try: Search server's .beads/tasks/ directory
-	// (Server creates tasks in its own working directory)
-	serverTasksDir := "/Users/bryanw/Projects/Vibe/ai-pack/a2a-agent/.beads/tasks"
-	taskID := searchTasksDir(serverTasksDir, beadsTaskID)
-	if taskID != "" {
-		return taskID
+	// Search candidate .beads/tasks directories, walking up from cwd to find
+	// the canonical project root (the one with beads.db or issues.jsonl).
+	searchDirs := []string{}
+
+	// Walk up from cwd to find the real beads root
+	cwd, _ := os.Getwd()
+	current := cwd
+	for {
+		beadsDir := filepath.Join(current, ".beads")
+		if _, err := os.Stat(filepath.Join(beadsDir, "beads.db")); err == nil {
+			searchDirs = append(searchDirs, filepath.Join(beadsDir, "tasks"))
+			break
+		}
+		if _, err := os.Stat(filepath.Join(beadsDir, "issues.jsonl")); err == nil {
+			searchDirs = append(searchDirs, filepath.Join(beadsDir, "tasks"))
+			break
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+		current = parent
 	}
 
-	// Fallback: Search current directory's .beads/tasks/
-	taskID = searchTasksDir(".beads/tasks", beadsTaskID)
-	return taskID
+	// Also check cwd/.beads/tasks as direct fallback
+	searchDirs = append(searchDirs, ".beads/tasks")
+
+	for _, dir := range searchDirs {
+		taskID := searchTasksDir(dir, beadsTaskID)
+		if taskID != "" {
+			return taskID
+		}
+	}
+	return ""
 }
 
 func searchTasksDir(tasksDir string, beadsTaskID string) string {
-	matches, _ := filepath.Glob(filepath.Join(tasksDir, "task-*"))
+	// Match both legacy "task-*" and current "beads-id-timestamp" naming patterns
+	var allMatches []string
+	if m, _ := filepath.Glob(filepath.Join(tasksDir, "task-*")); m != nil {
+		allMatches = append(allMatches, m...)
+	}
+	if m, _ := filepath.Glob(filepath.Join(tasksDir, beadsTaskID+"-*")); m != nil {
+		allMatches = append(allMatches, m...)
+	}
+	// Also check if the directory IS the task (exact match with beadsTaskID)
+	if m, _ := filepath.Glob(filepath.Join(tasksDir, beadsTaskID)); m != nil {
+		allMatches = append(allMatches, m...)
+	}
+	matches := allMatches
 	for _, taskDir := range matches {
 		metaFile := filepath.Join(taskDir, "00-metadata.json")
 		data, err := os.ReadFile(metaFile)
@@ -1748,18 +1783,29 @@ func searchTasksDir(tasksDir string, beadsTaskID string) string {
 			continue
 		}
 
+		dirName := filepath.Base(taskDir)
+		// Fast path: directory name starts with beadsTaskID — it's a match
+		if dirName == beadsTaskID || strings.HasPrefix(dirName, beadsTaskID+"-") {
+			return dirName
+		}
+
 		// Check metadata.beads_task_id (new location)
 		if metadata, ok := meta["metadata"].(map[string]interface{}); ok {
 			if btid, ok := metadata["beads_task_id"].(string); ok && btid == beadsTaskID {
-				return filepath.Base(taskDir)
+				return dirName
 			}
+		}
+
+		// Check top-level beads_task_id field
+		if btid, ok := meta["beads_task_id"].(string); ok && btid == beadsTaskID {
+			return dirName
 		}
 
 		// Fallback: Check config.metadata.beads_task_id (old location)
 		if config, ok := meta["config"].(map[string]interface{}); ok {
 			if configMeta, ok := config["metadata"].(map[string]interface{}); ok {
 				if btid, ok := configMeta["beads_task_id"].(string); ok && btid == beadsTaskID {
-					return filepath.Base(taskDir)
+					return dirName
 				}
 			}
 		}
