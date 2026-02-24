@@ -277,7 +277,7 @@ func (s *AgentServer) discoverAvailableAgents() []protocol.AgentDescription {
 
 	// Try multiple locations for agent configs:
 	// 1. Production: .ai-pack/agents/ (when deployed as submodule)
-	// 2. Development: ../agents/ (when running from a2a-agent dir)
+	// 2. Development: ../agents/ (when running from bin/ directory)
 	// 3. Development: agents/ (when running from repo root)
 	frameworkAgentsDirs := []string{
 		s.rootDir + "/.ai-pack/agents",
@@ -341,7 +341,6 @@ func (s *AgentServer) discoverAvailableAgents() []protocol.AgentDescription {
 	}
 
 	// Load each agent config and build description
-	// For discovery, use a2a-agent directory as fallback since this is not project-specific
 	for role := range agentRoles {
 		config, err := s.loadAgentConfig(role, s.rootDir)
 		if err != nil {
