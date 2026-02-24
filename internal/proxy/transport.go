@@ -1,0 +1,155 @@
+package proxy
+
+import (
+	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
+
+	"github.com/cortexa-llc/ai-pack/internal/config"
+)
+
+// ProxyTransport wraps http.RoundTripper to rewrite URLs for corporate proxies
+// This only does URL rewriting - auth headers are handled separately
+type ProxyTransport struct {
+	Transport http.RoundTripper
+	BaseURL   string // Full proxy base URL
+}
+
+// RoundTrip implements http.RoundTripper
+func (t *ProxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Clone the request to avoid modifying the original
+	newReq := req.Clone(req.Context())
+
+	// Rewrite URL to use custom base URL
+	// Parse the base URL and use its host/path components
+	if baseURL, err := url.Parse(t.BaseURL); err == nil {
+		newReq.URL.Scheme = "https"
+		newReq.URL.Host = baseURL.Host
+
+		// If there's a path in the base URL, prepend it (but avoid doubling)
+		if baseURL.Path != "" && !strings.HasPrefix(newReq.URL.Path, baseURL.Path) {
+			newReq.URL.Path = baseURL.Path + newReq.URL.Path
+		}
+	}
+
+	// Execute the modified request
+	resp, err := t.Transport.RoundTrip(newReq)
+
+	return resp, err
+}
+
+// BearerTokenTransport wraps http.RoundTripper to add Bearer token authentication
+type BearerTokenTransport struct {
+	Transport   http.RoundTripper
+	BearerToken string
+	BaseURL     string // Optional: for proxy mode
+}
+
+// RoundTrip implements http.RoundTripper for Bearer token auth
+func (t *BearerTokenTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Clone the request to avoid modifying the original
+	newReq := req.Clone(req.Context())
+
+	// Rewrite URL if using proxy
+	if t.BaseURL != "" {
+		if baseURL, err := url.Parse(t.BaseURL); err == nil {
+			newReq.URL.Scheme = "https"
+			newReq.URL.Host = baseURL.Host
+
+			if baseURL.Path != "" && !strings.HasPrefix(newReq.URL.Path, baseURL.Path) {
+				newReq.URL.Path = baseURL.Path + newReq.URL.Path
+			}
+		}
+	}
+
+	// Set Bearer token (replaces any x-api-key header from SDK)
+	newReq.Header.Del("x-api-key")
+	newReq.Header.Del("X-Api-Key")
+	newReq.Header.Set("Authorization", "Bearer "+t.BearerToken)
+
+	// Ensure anthropic-version header is set
+	if newReq.Header.Get("anthropic-version") == "" && newReq.Header.Get("Anthropic-Version") == "" {
+		newReq.Header.Set("anthropic-version", "2023-06-01")
+	}
+
+	// Execute the request
+	resp, err := t.Transport.RoundTrip(newReq)
+
+	return resp, err
+}
+
+// NewHTTPClient creates an HTTP client with proxy support (API key mode only)
+func NewHTTPClient(cfg *config.APIConfig) *http.Client {
+	if cfg.Mode == "proxy" && cfg.Proxy != nil {
+		client := &http.Client{
+			Transport: &ProxyTransport{
+				Transport: http.DefaultTransport,
+				BaseURL:   cfg.Proxy.BaseURL,
+			},
+		}
+		return client
+	}
+
+	// Direct mode - return nil so SDK uses its default
+	return nil
+}
+
+// NewBearerTokenClient creates an HTTP client with Bearer token authentication
+func NewBearerTokenClient(bearerToken string, cfg *config.APIConfig) *http.Client {
+	baseURL := ""
+	if cfg.Mode == "proxy" && cfg.Proxy != nil {
+		baseURL = cfg.Proxy.BaseURL
+	}
+
+	return &http.Client{
+		Transport: &BearerTokenTransport{
+			Transport:   http.DefaultTransport,
+			BearerToken: bearerToken,
+			BaseURL:     baseURL,
+		},
+	}
+}
+
+// GetBaseURL returns the base URL for the Anthropic SDK
+func GetBaseURL(cfg *config.APIConfig) string {
+	if cfg.Mode == "proxy" && cfg.Proxy != nil {
+		// For proxy mode, we still need to provide a base URL
+		// But our transport will rewrite it anyway
+		// Return empty to use SDK default, transport will fix it
+		return ""
+	}
+
+	// Direct mode - no custom base URL
+	return ""
+}
+
+// extractHost returns the host (and port if present) from a URL string.
+// Works with or without a scheme prefix.
+func extractHost(rawURL string) string {
+	if !strings.Contains(rawURL, "://") {
+		rawURL = "//" + rawURL
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	return parsed.Host
+}
+
+// extractPath returns the path component of a URL string, or "" if none.
+func extractPath(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	return parsed.Path
+}
+
+// LogProxyMode logs the current proxy configuration
+func LogProxyMode(cfg *config.APIConfig) string {
+	if cfg.Mode == "proxy" && cfg.Proxy != nil {
+		return fmt.Sprintf("Proxy mode (base URL: %s)", cfg.Proxy.BaseURL)
+	}
+	return "Direct mode"
+}
