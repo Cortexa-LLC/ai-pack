@@ -1,7 +1,7 @@
-.PHONY: test test-short test-coverage build build-gui clean clean-all sonarqube help
+.PHONY: test test-short test-coverage build build-gui build-kg clean clean-all sonarqube help
 .PHONY: install install-agent uninstall uninstall-agent
 .PHONY: start-server start-gui start-all stop-all
-.PHONY: setup-launchd uninstall-launchd status-launchd
+.PHONY: setup-launchd uninstall-launchd status-launchd setup-kuzu
 
 # Default target
 .DEFAULT_GOAL := help
@@ -10,6 +10,22 @@
 PROJECT_ROOT := $(shell pwd)
 LAUNCHD_DIR := $(HOME)/Library/LaunchAgents
 GUI_DIR := gui
+
+# Kuzu configuration
+KUZU_VERSION := 0.8.2
+GOOS   := $(shell go env GOOS)
+GOARCH := $(shell go env GOARCH)
+PLATFORM := $(GOOS)-$(GOARCH)
+KUZU_DIR := lib/kuzu/$(PLATFORM)
+
+ifeq ($(GOOS),darwin)
+  CXX_LIBS := -lc++
+else
+  CXX_LIBS := -lstdc++
+endif
+
+CGO_CFLAGS_KG  := -I$(abspath $(KUZU_DIR)/include)
+CGO_LDFLAGS_KG := -L$(abspath $(KUZU_DIR)) -lkuzu $(CXX_LIBS) -lm -ldl -lpthread
 
 help: ## Show this help message
 	@echo "AI-Pack Build System"
@@ -26,10 +42,26 @@ help: ## Show this help message
 # BUILD TARGETS
 # ============================================================================
 
-build: ## Build a2a-agent binaries
-	@echo "Building a2a-agent..."
-	@cd a2a-agent && $(MAKE) build
-	@echo "✅ Binaries built in a2a-agent/bin/"
+build: build-agent build-server ## Build agent and agent-server binaries
+	@echo "✅ Binaries built in bin/"
+
+build-agent: ## Build the agent binary
+	@mkdir -p bin
+	CGO_ENABLED=0 go build -o bin/agent ./cmd/agent
+
+build-server: ## Build the agent-server binary
+	@mkdir -p bin
+	CGO_ENABLED=0 go build -o bin/agent-server ./cmd/server
+
+build-kg: ## Build the kg binary (requires: make setup-kuzu first)
+	@mkdir -p bin
+	CGO_ENABLED=1 \
+	CGO_CFLAGS="$(CGO_CFLAGS_KG)" \
+	CGO_LDFLAGS="$(CGO_LDFLAGS_KG)" \
+	go build -o bin/kg ./cmd/kg
+
+setup-kuzu: ## Download Kuzu static library for current platform
+	@bash scripts/download-kuzu.sh $(KUZU_VERSION) $(PLATFORM)
 
 build-gui: ## Build GUI for production
 	@echo "Building GUI..."
@@ -50,14 +82,15 @@ install: install-agent ## Install binaries to /usr/local/bin (run with: sudo mak
 
 install-agent: build ## Install agent binaries to /usr/local/bin
 	@echo "Installing agent binaries..."
-	@cd a2a-agent && $(MAKE) install
+	@install -m 755 bin/agent /usr/local/bin/agent
+	@install -m 755 bin/agent-server /usr/local/bin/agent-server
 	@echo "✅ Agent binaries installed to /usr/local/bin"
 
 uninstall: uninstall-agent ## Uninstall binaries from /usr/local/bin (run with: sudo make uninstall)
 
 uninstall-agent: ## Uninstall agent binaries from /usr/local/bin
 	@echo "Uninstalling agent binaries..."
-	@cd a2a-agent && $(MAKE) uninstall
+	@rm -f /usr/local/bin/agent /usr/local/bin/agent-server /usr/local/bin/kg
 	@echo "✅ Agent binaries uninstalled"
 
 # ============================================================================
@@ -108,18 +141,18 @@ status-launchd: ## Show launchd service status (macOS)
 # ============================================================================
 
 test: ## Run all tests
-	@echo "Running Go tests in a2a-agent..."
-	@cd a2a-agent && go test ./... -v
+	@echo "Running Go tests..."
+	@go test ./... -v
 
 test-short: ## Run tests in short mode (skip slow tests)
-	@echo "Running Go tests (short mode) in a2a-agent..."
-	@cd a2a-agent && go test ./... -short
+	@echo "Running Go tests (short mode)..."
+	@go test ./... -short
 
 test-coverage: ## Run tests with coverage report
 	@echo "Running Go tests with coverage..."
-	@cd a2a-agent && go test ./... -coverprofile=coverage.out
-	@cd a2a-agent && go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: a2a-agent/coverage.html"
+	@go test ./... -coverprofile=coverage.out
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
 
 test-gui: ## Run GUI tests
 	@echo "Running GUI tests..."
@@ -130,10 +163,9 @@ test-gui: ## Run GUI tests
 # ============================================================================
 
 clean: ## Clean build artifacts and test caches
-	@echo "Cleaning a2a-agent..."
-	@cd a2a-agent && go clean
-	@cd a2a-agent && rm -rf bin/ coverage.out coverage.html
-	@rm -rf .scannerwork/
+	@echo "Cleaning build artifacts..."
+	@go clean
+	@rm -rf bin/ coverage.out coverage.html .scannerwork/
 	@echo "✅ Clean complete"
 
 clean-gui: ## Clean GUI build artifacts
@@ -147,18 +179,18 @@ clean-all: clean clean-gui ## Clean everything (agent + GUI)
 # CODE QUALITY TARGETS
 # ============================================================================
 
-sonarqube: ## Run SonarQube analysis on a2a-agent
+sonarqube: ## Run SonarQube analysis
 	@echo "Running SonarQube analysis..."
-	@python3 scripts/validate-with-sonarqube.py a2a-agent --format text
+	@python3 scripts/validate-with-sonarqube.py . --format text
 
 sonarqube-json: ## Run SonarQube analysis with JSON output
 	@echo "Running SonarQube analysis (JSON)..."
-	@python3 scripts/validate-with-sonarqube.py a2a-agent --format json
+	@python3 scripts/validate-with-sonarqube.py . --format json
 
 lint: ## Run Go linters
 	@echo "Running Go linters..."
-	@cd a2a-agent && go vet ./...
-	@cd a2a-agent && go fmt ./...
+	@go vet ./...
+	@go fmt ./...
 
 lint-gui: ## Run GUI linters
 	@echo "Running GUI linters..."
@@ -166,4 +198,4 @@ lint-gui: ## Run GUI linters
 
 fmt: ## Format Go code
 	@echo "Formatting Go code..."
-	@cd a2a-agent && go fmt ./...
+	@go fmt ./...
