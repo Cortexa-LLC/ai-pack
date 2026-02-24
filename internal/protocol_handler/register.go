@@ -62,17 +62,15 @@ func ensureAgentServerBinary(targetPath string) error {
 		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
 
-	// Find the a2a-agent source directory
+	// Find the ai-pack source directory
 	// Try to locate it relative to the current executable or working directory
 	var sourceDir string
 
 	// First, try current working directory
 	if wd, err := os.Getwd(); err == nil {
-		// Check if we're in the a2a-agent directory
-		if _, err := os.Stat(filepath.Join(wd, "cmd/agent-server/main.go")); err == nil {
+		// Check if we're in the ai-pack project root
+		if _, err := os.Stat(filepath.Join(wd, "cmd/server/main.go")); err == nil {
 			sourceDir = wd
-		} else if _, err := os.Stat(filepath.Join(wd, "a2a-agent/cmd/agent-server/main.go")); err == nil {
-			sourceDir = filepath.Join(wd, "a2a-agent")
 		}
 	}
 
@@ -80,14 +78,13 @@ func ensureAgentServerBinary(targetPath string) error {
 	if sourceDir == "" {
 		if exePath, err := os.Executable(); err == nil {
 			exeDir := filepath.Dir(exePath)
-			// Try various common locations
+			// Try various common locations (binary may be in bin/ subdirectory)
 			candidates := []string{
 				filepath.Join(exeDir, ".."),
 				filepath.Join(exeDir, "../.."),
-				filepath.Join(exeDir, "../../a2a-agent"),
 			}
 			for _, candidate := range candidates {
-				if _, err := os.Stat(filepath.Join(candidate, "cmd/agent-server/main.go")); err == nil {
+				if _, err := os.Stat(filepath.Join(candidate, "cmd/server/main.go")); err == nil {
 					sourceDir = candidate
 					break
 				}
@@ -96,16 +93,16 @@ func ensureAgentServerBinary(targetPath string) error {
 	}
 
 	if sourceDir == "" {
-		return fmt.Errorf("cannot find a2a-agent source directory with cmd/agent-server/main.go\n"+
+		return fmt.Errorf("cannot find ai-pack source directory with cmd/server/main.go\n"+
 			"Please build manually:\n"+
-			"  cd <ai-pack>/a2a-agent\n"+
-			"  go build -o \"%s\" ./cmd/agent-server", targetPath)
+			"  cd <ai-pack>\n"+
+			"  go build -o \"%s\" ./cmd/server", targetPath)
 	}
 
 	fmt.Printf("Building from source: %s\n", sourceDir)
 
 	// Build the binary
-	cmd := exec.Command("go", "build", "-o", targetPath, "./cmd/agent-server")
+	cmd := exec.Command("go", "build", "-o", targetPath, "./cmd/server")
 	cmd.Dir = sourceDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -114,7 +111,7 @@ func ensureAgentServerBinary(targetPath string) error {
 		return fmt.Errorf("failed to build agent-server: %w\n"+
 			"Try building manually:\n"+
 			"  cd %s\n"+
-			"  go build -o \"%s\" ./cmd/agent-server", err, sourceDir, targetPath)
+			"  go build -o \"%s\" ./cmd/server", err, sourceDir, targetPath)
 	}
 
 	fmt.Printf("✓ Built agent-server binary: %s\n", targetPath)
