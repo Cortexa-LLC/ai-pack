@@ -54,7 +54,7 @@ const (
 // Configuration defaults
 const (
 	defaultTier            = "minimal"
-	defaultModel           = "gpt-4o-mini"
+	defaultModel           = "" // No model default: grade selector chooses per-role
 	defaultDelegation      = "delegate"
 	defaultTimeout         = "10min"
 	defaultMaxContext      = 32000
