@@ -357,6 +357,12 @@ func parseMarkdownConfig(data []byte, roleName string) (*AgentConfig, string, er
 				if tier := monitoring.ParseTierString(value); tier > 0 && monitoring.GlobalModelSelector != nil {
 					monitoring.GlobalModelSelector.SetRoleDefaultTier(roleName, tier)
 				}
+			case configFieldClass:
+				config.Class = value
+				// Register class filter so only models of this class are eligible.
+				if class := monitoring.ParseClassString(value); class != "" && monitoring.GlobalModelSelector != nil {
+					monitoring.GlobalModelSelector.SetRoleRequiredClass(roleName, class)
+				}
 			case configFieldTimeout:
 				config.Delegation.Timeout = value
 			case configFieldMaxContext:

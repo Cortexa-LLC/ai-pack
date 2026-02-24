@@ -4,6 +4,7 @@
 **Description:** Multi-agent task coordinator for parallel execution and complex workflows
 **Model:** gpt-4o
 **Tier:** low
+**Class:** agentic
 **Timeout:** 30min
 **MaxContext:** 64000
 **Tools:** read, write, edit, bash, grep, glob

@@ -313,3 +313,44 @@ func TestConfidenceScore(t *testing.T) {
 		}
 	}
 }
+
+func TestModelClassFiltering(t *testing.T) {
+	tmpDir := t.TempDir()
+	mgr, err := NewPerformanceGradeManager(tmpDir, nil)
+	if err != nil {
+		t.Fatalf("Failed to create grade manager: %v", err)
+	}
+
+	analyzer := NewComplexityAnalyzer()
+	selector := NewModelSelector(mgr, analyzer, true, false)
+	selector.SetRoleDefaultTier("engineer", TierMedium)
+	selector.SetRoleRequiredClass("engineer", ClassAgentic)
+
+	// With ClassAgentic filter, gpt-5.1-codex-mini (ClassCompletion) must not be selected.
+	result := selector.SelectModel("engineer", "/test/project", "implement a feature", 0)
+	if result.SelectedModel.Class == ClassCompletion {
+		t.Errorf("ClassAgentic filter allowed a ClassCompletion model: %s", result.SelectedModel.ID)
+	}
+	if result.SelectedModel.Class != ClassAgentic {
+		t.Errorf("Expected ClassAgentic model, got class=%q model=%s", result.SelectedModel.Class, result.SelectedModel.ID)
+	}
+}
+
+func TestModelClassFallbackWhenNoMatch(t *testing.T) {
+	tmpDir := t.TempDir()
+	mgr, err := NewPerformanceGradeManager(tmpDir, nil)
+	if err != nil {
+		t.Fatalf("Failed to create grade manager: %v", err)
+	}
+
+	analyzer := NewComplexityAnalyzer()
+	// TierMinimal has no ClassCompletion models — selector must not panic or return empty.
+	selector := NewModelSelector(mgr, analyzer, true, false)
+	selector.SetRoleDefaultTier("codegen", TierMinimal)
+	selector.SetRoleRequiredClass("codegen", ClassCompletion)
+
+	result := selector.SelectModel("codegen", "/test/project", "generate code", 0)
+	if result.SelectedModel.ID == "" {
+		t.Error("Expected a model even when class filter has no matches in tier")
+	}
+}

@@ -8,6 +8,7 @@
 **MaxContext:** 32000
 **Tools:** read, grep, glob, bash
 **Tier:** medium
+**Class:** agentic
 **Gates:** code-quality-review, architectural-review
 **Delegation:** delegate
 ---

@@ -49,6 +49,7 @@ const (
 	configFieldTools           = "Tools"
 	configFieldGates           = "Gates"
 	configFieldChatTools       = "ChatTools"
+	configFieldClass           = "Class"
 )
 
 // Configuration defaults
@@ -135,6 +136,7 @@ type AgentConfig struct {
 	Name            string
 	Description     string
 	Tier            string
+	Class           string // Model class filter: "agentic", "completion", "reasoning" (empty = no filter)
 	Model           string // LLM model to use (e.g., "gpt-4o-mini", "claude-sonnet-3-5-20241022")
 	Context         struct {
 		RoleFile               string

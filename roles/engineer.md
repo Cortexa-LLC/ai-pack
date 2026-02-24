@@ -3,6 +3,7 @@
 **Agent:** engineer
 **Description:** Implementation specialist following TDD workflow
 **Tier:** medium
+**Class:** agentic
 **Timeout:** 10min
 **MaxBudgetTokens:** 0
 **MaxTurns:** 600

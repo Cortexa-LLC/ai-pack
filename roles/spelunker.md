@@ -8,6 +8,7 @@
 **MaxContext:** 32000
 **Tools:** read, grep, glob, bash, write
 **Tier:** medium
+**Class:** agentic
 **Delegation:** delegate
 ---
 
