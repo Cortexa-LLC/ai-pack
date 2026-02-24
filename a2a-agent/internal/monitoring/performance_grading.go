@@ -18,6 +18,13 @@ const (
 	GradeSourceBenchmark = "benchmark"
 	// GradeSourceProduction identifies grades recorded from live task executions.
 	GradeSourceProduction = "production"
+	// GradeSourceLiveBench is the prefix used by seed-grades.py for LiveBench-derived grades.
+	GradeSourceLiveBench = "livebench"
+
+	// minSamplesForRuntimeGrade is the number of real task executions required before
+	// runtime success/failure data is trusted enough to override a LiveBench-seeded grade.
+	// Below this threshold, the seeded grade is preserved as the authoritative signal.
+	minSamplesForRuntimeGrade = 5
 )
 
 // PerformanceGrade tracks model performance per role and project
@@ -184,7 +191,17 @@ func (m *PerformanceGradeManager) recalculateGrade(grade *PerformanceGrade) {
 	// Full confidence at 20+ samples
 	grade.ConfidenceScore = math.Min(1.0, float64(grade.TotalAttempts)/20.0)
 
-	// Calculate letter grade based on success rate and retry rate
+	// Preserve LiveBench-seeded grades until we have enough real samples to trust
+	// runtime data. Task completion (success=true) only means the agent finished
+	// without crashing — it says nothing about output quality. The LiveBench coding
+	// score is a more reliable capability signal for low-sample situations.
+	if strings.HasPrefix(grade.Source, GradeSourceLiveBench) && grade.TotalAttempts < minSamplesForRuntimeGrade {
+		// Rates/averages above are updated for visibility, but the letter grade
+		// stays anchored to the seeded value until we have minSamplesForRuntimeGrade runs.
+		return
+	}
+
+	// Calculate letter grade based on runtime success rate and retry rate
 	grade.Grade = m.calculateLetterGrade(grade.SuccessRate, grade.RetryRate)
 }
 

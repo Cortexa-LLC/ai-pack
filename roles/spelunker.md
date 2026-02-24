@@ -7,6 +7,7 @@
 **MaxTurns:** 250
 **MaxContext:** 32000
 **Tools:** read, grep, glob, bash, write
+**Tier:** medium
 **Delegation:** delegate
 ---
 
