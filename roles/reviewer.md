@@ -7,6 +7,7 @@
 **MaxBudgetTokens:** 500000
 **MaxContext:** 32000
 **Tools:** read, grep, glob, bash
+**Tier:** medium
 **Gates:** code-quality-review, architectural-review
 **Delegation:** delegate
 ---
