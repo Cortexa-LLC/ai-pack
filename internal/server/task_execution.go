@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/cortexa-llc/ai-pack/internal/constants"
-	"github.com/cortexa-llc/ai-pack/internal/knowledge"
+	"github.com/cortexa-llc/ai-pack/internal/kgclient"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/internal/protocol"
 	"github.com/cortexa-llc/ai-pack/internal/streaming"
@@ -503,7 +503,7 @@ func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskE
 
 	// Pre-flight: inject knowledge-graph context into system prompt (best-effort, 2 s timeout).
 	systemPrompt := s.buildSystemPromptForProject(roleContext, execution.ProjectRoot)
-	if kgBlock := knowledge.PreflightContext(ctx, s.mcpManager, execution.Task, execution.ProjectRoot); kgBlock != "" {
+	if kgBlock := kgclient.PreflightContext(ctx, s.mcpManager, execution.Task, execution.ProjectRoot); kgBlock != "" {
 		systemPrompt = kgBlock + "\n---\n\n" + systemPrompt
 	}
 

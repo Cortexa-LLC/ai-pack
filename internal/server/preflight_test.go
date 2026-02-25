@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cortexa-llc/ai-pack/internal/knowledge"
+	"github.com/cortexa-llc/ai-pack/internal/kgclient"
 	"github.com/cortexa-llc/ai-pack/internal/mcp"
 )
 
@@ -12,7 +12,7 @@ import (
 // string (best-effort) when no MCP manager is available.
 func TestPreflightContextNilManager(t *testing.T) {
 	ctx := context.Background()
-	result := knowledge.PreflightContext(ctx, nil, "implement feature X", "/tmp/proj")
+	result := kgclient.PreflightContext(ctx, nil, "implement feature X", "/tmp/proj")
 	if result != "" {
 		t.Errorf("expected empty string from nil manager, got %q", result)
 	}
@@ -24,7 +24,7 @@ func TestPreflightContextEmptyManager(t *testing.T) {
 	ctx := context.Background()
 	mgr := mcp.NewManager()
 	// No servers started — CallTool will return an error, preflight is skipped.
-	result := knowledge.PreflightContext(ctx, mgr, "implement feature X", "/tmp/proj")
+	result := kgclient.PreflightContext(ctx, mgr, "implement feature X", "/tmp/proj")
 	if result != "" {
 		t.Errorf("expected empty string from manager with no kg server, got %q", result)
 	}
