@@ -34,6 +34,9 @@ func DefineTools() []streaming.Tool {
 		// Shell operations
 		defineBashTool(),
 
+		// Task lifecycle
+		defineTaskCompleteTool(),
+
 		// NOTE: Web operations disabled - not yet implemented
 		// defineWebSearchTool(),
 		// defineWebFetchTool(),
@@ -241,6 +244,29 @@ func defineWebFetchTool() streaming.Tool {
 }
 
 // ExecuteTool executes a tool call and returns the result
+// defineTaskCompleteTool creates the TaskComplete signal tool. Agents MUST call
+// this to end the task. Text-only responses are never accepted as completion —
+// the loop nudges the model to continue until this tool is called.
+func defineTaskCompleteTool() streaming.Tool {
+	return streaming.Tool{
+		Name: "TaskComplete",
+		Description: "Signal that the task is fully complete. " +
+			"Call this tool when ALL work described in the task is done and verified. " +
+			"Provide a clear summary of what was accomplished (files changed, decisions made). " +
+			"This is the ONLY way to end the task — text-only responses will be nudged to continue.",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"summary": map[string]interface{}{
+					"type":        "string",
+					"description": "Concise summary of what was accomplished: key files changed, approach taken, and any caveats.",
+				},
+			},
+			"required": []string{"summary"},
+		},
+	}
+}
+
 func ExecuteTool(toolName string, toolInput map[string]interface{}, workingDir string, settings *claude.Settings) (string, error) {
 	switch toolName {
 	case "Bash":
@@ -261,6 +287,14 @@ func ExecuteTool(toolName string, toolInput map[string]interface{}, workingDir s
 		return executeWebSearch(toolInput, workingDir, settings)
 	case "WebFetch":
 		return executeWebFetch(toolInput, workingDir, settings)
+	case "TaskComplete":
+		// The agentic loop intercepts TaskComplete before dispatch.
+		// This path is a safety net in case it is called outside the loop.
+		summary, _ := toolInput["summary"].(string)
+		if summary == "" {
+			return "", fmt.Errorf("TaskComplete requires a non-empty summary")
+		}
+		return fmt.Sprintf("Task marked complete: %s", summary), nil
 	default:
 		return "", fmt.Errorf("unknown tool: %s", toolName)
 	}
