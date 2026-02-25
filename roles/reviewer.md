@@ -3,8 +3,8 @@
 **Agent:** reviewer
 **Description:** Code review specialist focused on quality and security
 **Timeout:** 10min
-**MaxTurns:** 100
-**MaxBudgetTokens:** 500000
+**MaxTurns:** 150
+**MaxBudgetTokens:** 1000000
 **MaxContext:** 32000
 **Tools:** read, grep, glob, bash
 **Tier:** medium
