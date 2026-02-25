@@ -1,4 +1,4 @@
-.PHONY: test test-short test-coverage build build-gui build-kg clean clean-all sonarqube help
+.PHONY: test test-short test-coverage build build-gui build-kg codegen-gui clean clean-all sonarqube help
 .PHONY: install install-agent uninstall uninstall-agent
 .PHONY: start-server start-gui start-all stop-all
 .PHONY: setup-launchd uninstall-launchd status-launchd setup-kuzu
@@ -63,7 +63,16 @@ build-kg: ## Build the kg binary (requires: make setup-kuzu first)
 setup-kuzu: ## Download Kuzu static library for current platform
 	@bash scripts/download-kuzu.sh $(KUZU_VERSION) $(PLATFORM)
 
-build-gui: ## Build GUI for production
+codegen-gui: ## Regenerate GraphQL TypeScript types from schema
+	@echo "Generating GraphQL types..."
+	@if [ ! -d "$(GUI_DIR)/node_modules" ]; then \
+		echo "Installing GUI dependencies..."; \
+		cd $(GUI_DIR) && npm install; \
+	fi
+	@cd $(GUI_DIR) && npm run codegen
+	@echo "✅ GraphQL types generated in $(GUI_DIR)/src/types/graphql-types.ts"
+
+build-gui: codegen-gui ## Build GUI for production
 	@echo "Building GUI..."
 	@if [ ! -d "$(GUI_DIR)/node_modules" ]; then \
 		echo "Installing GUI dependencies..."; \
