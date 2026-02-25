@@ -22,6 +22,7 @@ func (s *Store) CreateRelation(fromID, toID, relType, projectID string) error {
 	validTypes := map[string]bool{
 		"CALLS":      true,
 		"IMPORTS":    true,
+		"CONTAINS":   true,
 		"FIXES":      true,
 		"SUPERSEDES": true,
 		"CAUSED_BY":  true,

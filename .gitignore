@@ -93,3 +93,7 @@ tests/workflow_test_workspace/
 .scannerwork/
 
 a2a-agent/metrics/
+
+# Knowledge graph CLI binary and database
+/kg
+/.kuzu/

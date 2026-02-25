@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/cortexa-llc/ai-pack/internal/knowledge"
@@ -21,6 +22,8 @@ func main() {
 	switch command {
 	case "index":
 		handleIndex(os.Args[2:])
+	case "stats":
+		handleStats(os.Args[2:])
 	case "query":
 		handleQuery(os.Args[2:])
 	case "init":
@@ -135,19 +138,99 @@ func handleQuery(args []string) {
 	// Display results
 	if result.HasNext() {
 		fmt.Println("Results:")
+		rowNum := 0
 		for result.HasNext() {
-			row, err := result.Next()
+			tuple, err := result.Next()
 			if err != nil {
 				fmt.Printf("❌ Error reading result: %v\n", err)
 				break
 			}
-			fmt.Println(row)
+			// Convert tuple to slice for easier iteration
+			row, err := tuple.GetAsSlice()
+			if err != nil {
+				fmt.Printf("❌ Error converting row: %v\n", err)
+				break
+			}
+			// Print each column in the row
+			for i, val := range row {
+				if i > 0 {
+					fmt.Print(" | ")
+				}
+				fmt.Printf("%v", val)
+			}
+			fmt.Println()
+			rowNum++
 		}
+		fmt.Printf("\nReturned %d row(s)\n", rowNum)
 	} else {
 		fmt.Println("(no results)")
 	}
 }
 
+func handleStats(args []string) {
+	fs := flag.NewFlagSet("stats", flag.ExitOnError)
+	dbPath := fs.String("db", ".kuzu/kg.db", "Database path")
+	fs.Parse(args)
+
+	// Open store
+	store, err := knowledge.OpenStore(*dbPath)
+	if err != nil {
+		fmt.Printf("❌ Failed to open database: %v\n", err)
+		os.Exit(1)
+	}
+	defer store.Close()
+
+	fmt.Println("📊 Knowledge Graph Statistics")
+	fmt.Println("=" + strings.Repeat("=", 50))
+	
+	// Count entities by type
+	fmt.Println("\n🗂️  Entities by Type:")
+	result, err := store.Execute("MATCH (e:Entity) RETURN e.type, count(e) ORDER BY count(e) DESC")
+	if err != nil {
+		fmt.Printf("❌ Query failed: %v\n", err)
+		os.Exit(1)
+	}
+	
+	totalEntities := 0
+	for result.HasNext() {
+		result.Next()
+		totalEntities++
+	}
+	fmt.Printf("   Total entity types: %d\n", totalEntities)
+	
+	// Count total entities
+	result, err = store.Execute("MATCH (e:Entity) RETURN count(e)")
+	if err == nil && result.HasNext() {
+		result.Next()
+		fmt.Printf("   Total entities: (see query output)\n")
+	}
+	
+	// Count relations by type
+	fmt.Println("\n🔗 Relations by Type:")
+	result, err = store.Execute("MATCH ()-[r]->() RETURN type(r), count(r) ORDER BY count(r) DESC")
+	if err != nil {
+		fmt.Printf("❌ Query failed: %v\n", err)
+	} else {
+		totalRelTypes := 0
+		for result.HasNext() {
+			result.Next()
+			totalRelTypes++
+		}
+		fmt.Printf("   Total relation types: %d\n", totalRelTypes)
+	}
+	
+	// Count total relations
+	result, err = store.Execute("MATCH ()-[r]->() RETURN count(r)")
+	if err == nil && result.HasNext() {
+		result.Next()
+		fmt.Printf("   Total relations: (see query output)\n")
+	}
+	
+	fmt.Println("\n" + strings.Repeat("=", 50))
+	fmt.Println("✅ Use 'kg query' for detailed queries")
+}
+
+// formatRow attempts to format a query result row for display
 func getProjectRoot() string {
 	// Try to find .git directory
 	dir, err := os.Getwd()
