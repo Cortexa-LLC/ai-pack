@@ -39,8 +39,9 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 	// Progress tracking for turn counter reset
 	turn := 1
 	inactiveTurns := 0
-	consecutiveErrorTurns := 0 // Turns where EVERY tool call returned an error (different-path looping)
-	totalToolCalls := 0        // Cumulative tool calls across all turns; used to detect acknowledgement-only responses
+	consecutiveErrorTurns := 0    // Turns where EVERY tool call returned an error (different-path looping)
+	consecutiveTextOnlyTurns := 0 // Consecutive turns with text and no tool calls; triggers failure after limit
+	totalToolCalls := 0           // Cumulative tool calls across all turns
 	lastTextLength := 0
 	lastToolSignature := "" // Tracks tool names + input hash for better progress detection
 
@@ -294,11 +295,16 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		}
 
 		// If no tool uses: text-only response. Completion is ONLY signalled by calling
-		// TaskComplete — never by text alone. Nudge unconditionally on every turn.
+		// TaskComplete — never by text alone. Nudge, but fail after too many in a row.
 		if len(toolUses) == 0 {
 			if hasText {
+				consecutiveTextOnlyTurns++
 				preview := responseTextStr[:min(60, len(responseTextStr))]
-				logMsg(fmt.Sprintf("⚠️  Text-only response (turn %d) — nudging to use tools: %q", turn, preview))
+				logMsg(fmt.Sprintf("⚠️  Text-only response (turn %d, %d consecutive) — nudging to use tools: %q", turn, consecutiveTextOnlyTurns, preview))
+				const maxTextOnlyTurns = 5
+				if consecutiveTextOnlyTurns >= maxTextOnlyTurns {
+					return "", fmt.Errorf("agent produced %d consecutive text-only responses without making a tool call", maxTextOnlyTurns)
+				}
 				messages = append(messages, streaming.Message{
 					Role:    "assistant",
 					Content: responseTextStr,
@@ -312,6 +318,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			}
 			return "", fmt.Errorf("no output from agent on turn %d", turn)
 		}
+		consecutiveTextOnlyTurns = 0 // reset on any turn with tool calls
 
 		// Execute tools and accumulate results.
 		// TaskComplete is intercepted here — other tools run normally first,
