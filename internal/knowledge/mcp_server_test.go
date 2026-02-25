@@ -1,18 +1,34 @@
 package knowledge
 
 import (
-	"testing"
+	"bufio"
 	"bytes"
 	"encoding/json"
-	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/cortexa-llc/ai-pack/internal/mcp"
 )
 
+// testStore creates a temporary Store for testing and returns a cleanup function.
+func testStore(t *testing.T) (*Store, func()) {
+	t.Helper()
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store, err := OpenStore(dbPath)
+	if err != nil {
+		t.Fatalf("testStore: OpenStore failed: %v", err)
+	}
+	return store, func() { store.Close() }
+}
+
 func TestGetPreflightContext(t *testing.T) {
-	// Assumes in-memory store setup
 	store, cleanup := testStore(t)
 	defer cleanup()
 	projectID := "testproj"
-	store.CreateEntity("TestEntity", "file", projectID)
+	if _, err := store.CreateEntity("TestEntity", "file", projectID); err != nil {
+		t.Fatalf("CreateEntity failed: %v", err)
+	}
 
 	in := new(bytes.Buffer)
 	out := new(bytes.Buffer)
@@ -40,27 +56,46 @@ func TestGetPreflightContext(t *testing.T) {
 			return res, nil
 		},
 	}
-	server := mcp.NewServer(tools, handlers, in, out)
+	server := mcp.NewServer(tools, handlers, bufio.NewReader(in), out)
 
-	// Emulate MCP preflight query
+	// Encode a callTool JSON-RPC request into the input buffer.
 	msg := map[string]interface{}{
-		"tool": "get_preflight_context",
-		"arguments": map[string]interface{}{"task": "TestEntity"},
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "callTool",
+		"params": map[string]interface{}{
+			"name":      "get_preflight_context",
+			"arguments": map[string]interface{}{"task": "TestEntity"},
+		},
 	}
-	_ = json.NewEncoder(in).Encode(msg)
-	os.Stdin = in
-	os.Stdout = out
-	
-	go server.Serve()
+	if err := json.NewEncoder(in).Encode(msg); err != nil {
+		t.Fatalf("failed to encode request: %v", err)
+	}
 
-	// Parse output and check contents
-	var response map[string]interface{}
-	_ = json.NewDecoder(out).Decode(&response)
-	result, ok := response["result"].(string)
-	if !ok || result == "" {
-		t.Fatalf("expected non-empty result, got %v", response)
+	// Serve processes the buffer and returns when it reaches EOF.
+	if err := server.Serve(); err != nil {
+		t.Fatalf("server.Serve() error: %v", err)
 	}
-	if !(bytes.Contains([]byte(result), []byte("TestEntity"))) {
+
+	// The server writes a capabilities announcement first, then the tool response.
+	// Decode both messages and find the one with "result".
+	dec := json.NewDecoder(out)
+	var result string
+	for dec.More() {
+		var response map[string]interface{}
+		if err := dec.Decode(&response); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		if r, ok := response["result"]; ok {
+			result, _ = r.(string)
+			break
+		}
+	}
+
+	if result == "" {
+		t.Fatalf("expected non-empty result from get_preflight_context")
+	}
+	if !bytes.Contains([]byte(result), []byte("TestEntity")) {
 		t.Fatalf("expected context to include entity name, got: %s", result)
 	}
 }
