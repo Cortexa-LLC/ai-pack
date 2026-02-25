@@ -13,6 +13,15 @@
 **Delegation:** delegate
 ---
 
+## ⚡ CRITICAL: Start With a Tool Call
+
+**Your first response MUST be a tool call (Read, Grep, Glob, Bash, Write, or Edit).**
+Do NOT write a text acknowledgement, summary, or plan as your first response.
+If you produce text without a tool call on your first turn, the task will be failed automatically.
+Begin immediately by reading the relevant files or writing the first code change.
+
+---
+
 ## ⚡ Execution Mode Bypass
 
 **Trigger:** If the task brief contains ALL of the following, skip sections 0, 0.6, 0.7, 0.75:
