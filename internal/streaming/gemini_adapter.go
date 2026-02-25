@@ -233,8 +233,8 @@ func (p *GeminiStreamProvider) GetProvider() string {
 func buildGeminiContents(messages []Message) ([]*genai.Content, error) {
 	var contents []*genai.Content
 	for _, msg := range messages {
-		switch msg.Role {
-		case "tool_result":
+		switch {
+		case len(msg.ToolResults) > 0:
 			// All function responses from one turn go into a single Content with multiple Parts.
 			// Gemini requires the function NAME (not our internal ToolUseID).
 			var parts []*genai.Part
@@ -256,20 +256,18 @@ func buildGeminiContents(messages []Message) ([]*genai.Content, error) {
 			if len(parts) > 0 {
 				contents = append(contents, &genai.Content{Role: string(genai.RoleUser), Parts: parts})
 			}
-		case "assistant":
-			if len(msg.ToolUses) > 0 {
-				// All function calls from one turn must be in a single Content with multiple Parts.
-				var parts []*genai.Part
-				if msg.Content != "" {
-					parts = append(parts, genai.NewPartFromText(msg.Content))
-				}
-				for _, tu := range msg.ToolUses {
-					parts = append(parts, genai.NewPartFromFunctionCall(tu.Name, tu.Input))
-				}
-				contents = append(contents, &genai.Content{Role: string(genai.RoleModel), Parts: parts})
-			} else {
-				contents = append(contents, genai.NewContentFromText(msg.Content, genai.RoleModel))
+		case len(msg.ToolUses) > 0:
+			// All function calls from one turn must be in a single Content with multiple Parts.
+			var parts []*genai.Part
+			if msg.Content != "" {
+				parts = append(parts, genai.NewPartFromText(msg.Content))
 			}
+			for _, tu := range msg.ToolUses {
+				parts = append(parts, genai.NewPartFromFunctionCall(tu.Name, tu.Input))
+			}
+			contents = append(contents, &genai.Content{Role: string(genai.RoleModel), Parts: parts})
+		case msg.Role == "assistant":
+			contents = append(contents, genai.NewContentFromText(msg.Content, genai.RoleModel))
 		default:
 			// user / system treated as user
 			contents = append(contents, genai.NewContentFromText(msg.Content, genai.RoleUser))
