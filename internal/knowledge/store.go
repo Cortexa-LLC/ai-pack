@@ -10,9 +10,10 @@ import (
 
 // Store manages the Kuzu knowledge graph database
 type Store struct {
-	db   *kuzu.Database
-	conn *kuzu.Connection
-	path string
+	db      *kuzu.Database
+	conn    *kuzu.Connection
+	path    string
+	hnswIdx *vectorIndexCache // per-project lazy HNSW index
 }
 
 // OpenStore opens or creates a Kuzu database at the given path
@@ -37,9 +38,10 @@ func OpenStore(dbPath string) (*Store, error) {
 	}
 
 	store := &Store{
-		db:   db,
-		conn: conn,
-		path: dbPath,
+		db:      db,
+		conn:    conn,
+		path:    dbPath,
+		hnswIdx: newVectorIndexCache(),
 	}
 
 	// Initialize schema
