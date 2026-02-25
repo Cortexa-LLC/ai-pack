@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -90,7 +91,9 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 	}
 
 	// Then, get beads tasks from each project using bd list
+	a.server.mu.RLock()
 	beadsClient := a.server.beadsClient
+	a.server.mu.RUnlock()
 	monitoring.Logger.Info("fetching_tasks_from_projects", "project_count", len(projectRoots))
 	for _, projectRoot := range projectRoots {
 		beadsTasks, err := beadsClient.ListAllTasksFromDir(projectRoot)
@@ -186,13 +189,9 @@ func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, beadsID string) *g
 	}
 
 	// Sort by time (most recent first)
-	for i := 0; i < len(executions); i++ {
-		for j := i + 1; j < len(executions); j++ {
-			if executions[j].modTime.After(executions[i].modTime) {
-				executions[i], executions[j] = executions[j], executions[i]
-			}
-		}
-	}
+	sort.Slice(executions, func(i, j int) bool {
+		return executions[i].modTime.After(executions[j].modTime)
+	})
 
 	// Find first non-superseded execution
 	for _, exec := range executions {
