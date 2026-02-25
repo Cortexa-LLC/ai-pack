@@ -39,6 +39,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 	turn := 1
 	inactiveTurns := 0
 	consecutiveErrorTurns := 0 // Turns where EVERY tool call returned an error (different-path looping)
+	totalToolCalls := 0        // Cumulative tool calls across all turns; used to detect acknowledgement-only responses
 	lastTextLength := 0
 	lastToolSignature := "" // Tracks tool names + input hash for better progress detection
 
@@ -291,9 +292,16 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			}
 		}
 
-		// If no tool uses and we have text, we're done
+		// If no tool uses and we have text, the agent is signalling completion.
+		// Require at least one prior tool call so a model that simply acknowledges
+		// the task on turn 1 (without doing any work) is not accepted as done.
 		if len(toolUses) == 0 {
 			if hasText {
+				if turn == 1 && totalToolCalls == 0 {
+					// Model acknowledged but did nothing — treat as a missed start,
+					// return an error so the task can be retried or escalated.
+					return "", fmt.Errorf("agent produced no tool calls on turn 1 (acknowledgement without work)")
+				}
 				logMsg(fmt.Sprintf("✅ Agent completed in %d turns", turn))
 				logMsg(fmt.Sprintf("   Total tokens: %d (in:%d out:%d)", totalInputTokens+totalOutputTokens, totalInputTokens, totalOutputTokens))
 				break
@@ -302,6 +310,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		}
 
 		// Execute tools and accumulate results
+		totalToolCalls += len(toolUses)
 		var toolResults []streaming.ToolResult
 		for _, toolUse := range toolUses {
 			// Execute tool (native or MCP)
