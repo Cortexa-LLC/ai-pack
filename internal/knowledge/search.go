@@ -154,9 +154,9 @@ func (s *Store) GetTopObservations(entityID, projectID string, limit int) ([]*Ob
 	return observations, nil
 }
 
-// VectorSearch performs semantic search using embedding cosine similarity.
-// For now, this is a placeholder implementation that returns empty results
-// since the schema doesn't yet include embedding vectors.
+// VectorSearch performs semantic search using cosine similarity over stored entity embeddings.
+// Entities must have been previously embedded via SetEmbedding / BatchEmbed.
+// Results are sorted by descending cosine similarity and capped at limit.
 func (s *Store) VectorSearch(projectID string, queryEmbedding []float64, limit int) ([]*SearchResult, error) {
 	if len(queryEmbedding) == 0 {
 		return nil, fmt.Errorf("query embedding cannot be empty")
@@ -165,10 +165,135 @@ func (s *Store) VectorSearch(projectID string, queryEmbedding []float64, limit i
 		limit = 20
 	}
 
-	// TODO: Add embedding field to Entity schema
-	// TODO: Implement cosine similarity calculation
-	// For now, return empty results
-	return []*SearchResult{}, nil
+	// Retrieve all entities for this project that have a stored embedding.
+	// We fetch them in Go and compute cosine similarity here because Kuzu does
+	// not yet expose a native vector-similarity function.
+	cypherQuery := fmt.Sprintf(`
+		MATCH (e:Entity)
+		WHERE e.project_id = '%s' AND e.embedding IS NOT NULL
+		RETURN e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at, e.embedding
+	`, escapeCypher(projectID))
+
+	result, err := s.conn.Query(cypherQuery)
+	if err != nil {
+		return nil, fmt.Errorf("query entities with embeddings: %w", err)
+	}
+	defer result.Close()
+
+	type candidate struct {
+		entity    *Entity
+		embedding []float32
+	}
+	var candidates []candidate
+
+	for result.HasNext() {
+		tuple, err := result.Next()
+		if err != nil {
+			return nil, fmt.Errorf("get next: %w", err)
+		}
+
+		row, err := tuple.GetAsSlice()
+		if err != nil {
+			return nil, fmt.Errorf("get row as slice: %w", err)
+		}
+		tuple.Close()
+
+		entity := &Entity{
+			ID:        row[0].(string),
+			Name:      row[1].(string),
+			Type:      row[2].(string),
+			ProjectID: row[3].(string),
+		}
+
+		if ts, ok := row[4].(int64); ok {
+			entity.CreatedAt = time.UnixMicro(ts).UTC()
+		}
+		if ts, ok := row[5].(int64); ok {
+			entity.UpdatedAt = time.UnixMicro(ts).UTC()
+		}
+
+		// row[6] is the embedding returned as []any containing float32 values
+		rawEmb, ok := row[6].([]any)
+		if !ok || len(rawEmb) == 0 {
+			continue
+		}
+		emb := make([]float32, len(rawEmb))
+		for i, v := range rawEmb {
+			if f, ok := v.(float32); ok {
+				emb[i] = f
+			}
+		}
+
+		candidates = append(candidates, candidate{entity: entity, embedding: emb})
+	}
+
+	if len(candidates) == 0 {
+		return []*SearchResult{}, nil
+	}
+
+	// Compute cosine similarity for each candidate
+	type scored struct {
+		entity *Entity
+		score  float64
+	}
+	scores := make([]scored, 0, len(candidates))
+	for _, c := range candidates {
+		sim := cosineSimilarity(queryEmbedding, c.embedding)
+		scores = append(scores, scored{entity: c.entity, score: sim})
+	}
+
+	// Sort descending by score
+	sort.Slice(scores, func(i, j int) bool {
+		return scores[i].score > scores[j].score
+	})
+
+	// Truncate to limit
+	if len(scores) > limit {
+		scores = scores[:limit]
+	}
+
+	// Build SearchResult slice with top observations
+	results := make([]*SearchResult, 0, len(scores))
+	for _, s2 := range scores {
+		obs, err := s.GetTopObservations(s2.entity.ID, projectID, 3)
+		if err != nil {
+			obs = []*Observation{}
+		}
+		results = append(results, &SearchResult{
+			Entity:       s2.entity,
+			Observations: obs,
+			Score:        s2.score,
+			MatchType:    "vector",
+		})
+	}
+
+	return results, nil
+}
+
+// cosineSimilarity computes the cosine similarity between a float64 query
+// vector and a float32 stored vector.  Returns 0 if either vector is zero.
+func cosineSimilarity(query []float64, stored []float32) float64 {
+	// Use the shorter length to avoid index out-of-range if dimensions differ.
+	n := len(query)
+	if len(stored) < n {
+		n = len(stored)
+	}
+	if n == 0 {
+		return 0
+	}
+
+	var dot, normQ, normS float64
+	for i := 0; i < n; i++ {
+		q := query[i]
+		s := float64(stored[i])
+		dot += q * s
+		normQ += q * q
+		normS += s * s
+	}
+	if normQ == 0 || normS == 0 {
+		return 0
+	}
+	return dot / (math.Sqrt(normQ) * math.Sqrt(normS))
 }
 
 // HybridSearch combines keyword and vector search with configurable weights
