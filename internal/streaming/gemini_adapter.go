@@ -235,38 +235,38 @@ func buildGeminiContents(messages []Message) ([]*genai.Content, error) {
 	for _, msg := range messages {
 		switch msg.Role {
 		case "tool_result":
-			// Tool results come back as user-role function responses.
-			// Gemini requires the function NAME (not our internal ToolUseID) in the response.
-			// Our IDs are formatted as "gemini-fc-<name>-<idx>" — extract the name.
+			// All function responses from one turn go into a single Content with multiple Parts.
+			// Gemini requires the function NAME (not our internal ToolUseID).
+			var parts []*genai.Part
 			for _, tr := range msg.ToolResults {
-				fnName := tr.ToolName // prefer explicit name if available
+				fnName := tr.ToolName
 				if fnName == "" {
-					// Fall back to parsing "gemini-fc-<name>-<idx>" IDs
 					fnName = tr.ToolUseID
 					const prefix = "gemini-fc-"
 					if strings.HasPrefix(fnName, prefix) {
 						rest := fnName[len(prefix):]
-						// strip trailing "-<idx>"
 						if idx := strings.LastIndex(rest, "-"); idx >= 0 {
 							rest = rest[:idx]
 						}
 						fnName = rest
 					}
 				}
-				c := genai.NewContentFromFunctionResponse(
-					fnName,
-					map[string]any{"output": tr.Content},
-					genai.RoleUser,
-				)
-				contents = append(contents, c)
+				parts = append(parts, genai.NewPartFromFunctionResponse(fnName, map[string]any{"output": tr.Content}))
+			}
+			if len(parts) > 0 {
+				contents = append(contents, &genai.Content{Role: string(genai.RoleUser), Parts: parts})
 			}
 		case "assistant":
 			if len(msg.ToolUses) > 0 {
-				// Assistant tool calls.
-				for _, tu := range msg.ToolUses {
-					c := genai.NewContentFromFunctionCall(tu.Name, tu.Input, genai.RoleModel)
-					contents = append(contents, c)
+				// All function calls from one turn must be in a single Content with multiple Parts.
+				var parts []*genai.Part
+				if msg.Content != "" {
+					parts = append(parts, genai.NewPartFromText(msg.Content))
 				}
+				for _, tu := range msg.ToolUses {
+					parts = append(parts, genai.NewPartFromFunctionCall(tu.Name, tu.Input))
+				}
+				contents = append(contents, &genai.Content{Role: string(genai.RoleModel), Parts: parts})
 			} else {
 				contents = append(contents, genai.NewContentFromText(msg.Content, genai.RoleModel))
 			}
