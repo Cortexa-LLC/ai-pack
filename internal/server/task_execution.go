@@ -378,6 +378,8 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		if completionSummary != "" {
 			logMsg(fmt.Sprintf("✅ Agent called TaskComplete in %d turns", turn))
 			logMsg(fmt.Sprintf("   Total tokens: %d (in:%d out:%d)", totalInputTokens+totalOutputTokens, totalInputTokens, totalOutputTokens))
+			monitoring.LogAPICall(ctx, taskID, s.model, int(totalInputTokens+totalOutputTokens))
+			monitoring.GlobalMetrics.RecordTokenUsage(taskID, totalInputTokens, totalOutputTokens, int64(turn-1))
 			if hasText && responseTextStr != "" {
 				return responseTextStr + "\n\n" + completionSummary, nil
 			}
@@ -472,13 +474,6 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			return finalResult.String(), fmt.Errorf("turn budget exceeded: %d turns (limit: %d)", turn-1, config.Delegation.MaxTurns)
 		}
 	}
-
-	monitoring.LogAPICall(ctx, taskID, s.model, int(totalInputTokens+totalOutputTokens))
-
-	// Record token usage for this session
-	monitoring.GlobalMetrics.RecordTokenUsage(taskID, totalInputTokens, totalOutputTokens, int64(turn-1))
-
-	return finalResult.String(), nil
 }
 
 func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
