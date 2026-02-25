@@ -191,6 +191,13 @@ func (ms *ModelSelector) SelectModel(
 	taskDescription string,
 	minContextTokens int,
 ) ModelSelectionResult {
+	// Reload grades from disk on every selection to reflect real-time failures.
+	if ms.gradeManager != nil {
+		if err := ms.gradeManager.ReloadGrades(); err != nil {
+			Logger.Warn("grade_reload_failed", "error", err.Error())
+		}
+	}
+
 	// If adaptive selection is disabled, use default
 	if !ms.enabled {
 		defaultTier := ms.getDefaultTier(role)
