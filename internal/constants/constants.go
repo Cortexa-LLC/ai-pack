@@ -114,9 +114,13 @@ const (
 
 // A2A Protocol Methods
 const (
-	MethodExecute    = "execute"
-	MethodStream     = "stream"
-	MethodA2AExecute = "a2a.execute"
+	MethodExecute      = "execute"
+	MethodStream       = "stream"
+	MethodA2AExecute   = "a2a.execute"
+	MethodStatus       = "status"
+	MethodA2AStatus    = "a2a.status"
+	MethodDiscovery    = "discovery"
+	MethodA2ADiscovery = "a2a.discovery"
 )
 
 // Beads Actions
