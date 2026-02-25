@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -91,8 +90,7 @@ func handleIndex(args []string) {
 	fmt.Printf("🔍 Indexing codebase at %s...\n", *root)
 	startTime := time.Now()
 
-	ctx := context.Background()
-	stats, err := indexer.Index(ctx)
+	stats, err := indexer.Index()
 	if err != nil {
 		fmt.Printf("❌ Indexing failed: %v\n", err)
 		os.Exit(1)
