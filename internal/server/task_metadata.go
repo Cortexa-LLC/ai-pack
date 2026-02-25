@@ -228,36 +228,40 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 		if beadsTask, err := s.beadsClient.GetTaskFromDir(beadsTaskID, foundProjectRoot); err == nil {
 			beadsStatus := strings.ToLower(beadsTask.Status)
 
-			// If Beads shows closed/completed but execution shows blocked/failed, reconcile
-			if (beadsStatus == constants.StatusClosed || beadsStatus == constants.StatusCompleted) &&
-				(status == "blocked" || status == "failed") {
-				monitoring.Logger.Info("reconciling_stale_execution_metadata",
-					"task_id", beadsTaskID,
-					"old_status", status,
-					"beads_status", beadsStatus,
-					"execution_folder", executionFolder)
+			// A task closed in Beads is always completed, regardless of execution outcome.
+			if beadsStatus == constants.StatusClosed || beadsStatus == constants.StatusDone {
+				if status != constants.StatusCompleted {
+					monitoring.Logger.Info("reconciling_stale_execution_metadata",
+						"task_id", beadsTaskID,
+						"old_status", status,
+						"beads_status", beadsStatus,
+						"execution_folder", executionFolder)
 
-				// Update metadata
-				metadata["status"] = constants.StatusCompleted
-				metadata["error"] = nil
-				metadata["updated_at"] = time.Now().Format(time.RFC3339)
-				metadata["reconciled"] = true
-				metadata["reconciled_at"] = time.Now().Format(time.RFC3339)
+					// Update metadata
+					metadata["status"] = constants.StatusCompleted
+					metadata["error"] = nil
+					metadata["updated_at"] = time.Now().Format(time.RFC3339)
+					metadata["reconciled"] = true
+					metadata["reconciled_at"] = time.Now().Format(time.RFC3339)
 
-				// Store the Beads task ID if it was missing
-				if _, ok := metadata["beads_task_id"]; !ok || metadata["beads_task_id"] == nil {
-					metadata["beads_task_id"] = beadsTaskID
-				}
-
-				// Write back to disk
-				if updatedData, err := json.MarshalIndent(metadata, "", "  "); err == nil {
-					if err := os.WriteFile(metadataPath, updatedData, 0644); err == nil {
-						status = constants.StatusCompleted
-						updatedAt = time.Now()
-						monitoring.Logger.Info("reconciled_execution_metadata",
-							"task_id", beadsTaskID,
-							"execution_folder", executionFolder)
+					// Store the Beads task ID if it was missing
+					if _, ok := metadata["beads_task_id"]; !ok || metadata["beads_task_id"] == nil {
+						metadata["beads_task_id"] = beadsTaskID
 					}
+
+					// Write back to disk
+					if updatedData, err := json.MarshalIndent(metadata, "", "  "); err == nil {
+						if err := os.WriteFile(metadataPath, updatedData, 0644); err == nil {
+							status = constants.StatusCompleted
+							updatedAt = time.Now()
+							monitoring.Logger.Info("reconciled_execution_metadata",
+								"task_id", beadsTaskID,
+								"execution_folder", executionFolder)
+						}
+					}
+				} else {
+					// Already correct, ensure error field is not set
+					status = constants.StatusCompleted
 				}
 			}
 		}

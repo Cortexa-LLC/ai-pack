@@ -266,7 +266,17 @@ func (s *AgentServer) getTaskStatus(taskID string) (*protocol.TaskStatusResponse
 		Error:     execution.Error,
 	}
 
-	if execution.Status == constants.StatusCompleted || execution.Status == constants.StatusFailed {
+	// Override status based on Beads status: a task closed in Beads is always
+	// "completed" regardless of the internal execution outcome.
+	if beadsTaskID, ok := execution.metadata["beads_task_id"]; ok && beadsTaskID != "" {
+		if beadsTask, err := s.beadsClient.GetTask(beadsTaskID); err == nil {
+			if beadsTask.Status == constants.StatusClosed || beadsTask.Status == constants.StatusDone {
+				response.Status = constants.StatusCompleted
+			}
+		}
+	}
+
+	if response.Status == constants.StatusCompleted || response.Status == constants.StatusFailed {
 		completedAt := time.Now()
 		response.CompletedAt = &completedAt
 	}
