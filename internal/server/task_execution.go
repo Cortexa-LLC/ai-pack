@@ -293,23 +293,19 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			}
 		}
 
-		// If no tool uses: text-only response. Reject turn-1 acknowledgements; nudge all others.
-		// Completion is ONLY signalled by calling TaskComplete — never by text alone.
+		// If no tool uses: text-only response. Completion is ONLY signalled by calling
+		// TaskComplete — never by text alone. Nudge unconditionally on every turn.
 		if len(toolUses) == 0 {
 			if hasText {
-				if turn == 1 && totalToolCalls == 0 {
-					return "", fmt.Errorf("agent produced no tool calls on turn 1 (acknowledgement without work)")
-				}
-				// Unconditional nudge: text-only responses are never accepted as completion.
 				preview := responseTextStr[:min(60, len(responseTextStr))]
-				logMsg(fmt.Sprintf("⚠️  Text-only response — nudging to call TaskComplete: %q", preview))
+				logMsg(fmt.Sprintf("⚠️  Text-only response (turn %d) — nudging to use tools: %q", turn, preview))
 				messages = append(messages, streaming.Message{
 					Role:    "assistant",
 					Content: responseTextStr,
 				})
 				messages = append(messages, streaming.Message{
 					Role:    "user",
-					Content: "If your work is fully complete, call the TaskComplete tool with a summary. If you have more work to do, make a tool call to continue.",
+					Content: "Start with a tool call. If your work is fully complete, call TaskComplete with a summary. If not, use Read/Grep/Glob/Bash/Write/Edit to continue working.",
 				})
 				turn++
 				continue
