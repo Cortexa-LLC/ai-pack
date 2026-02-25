@@ -154,7 +154,9 @@ func (s *Store) GetTopObservations(entityID, projectID string, limit int) ([]*Ob
 	return observations, nil
 }
 
-// VectorSearch performs semantic search using cosine similarity over stored entity embeddings.
+// VectorSearch performs semantic search using an in-memory HNSW index.
+// The index is lazily built on the first call per project and invalidated
+// whenever SetEmbedding writes a new embedding, so results are always fresh.
 // Entities must have been previously embedded via SetEmbedding / BatchEmbed.
 // Results are sorted by descending cosine similarity and capped at limit.
 func (s *Store) VectorSearch(projectID string, queryEmbedding []float64, limit int) ([]*SearchResult, error) {
@@ -165,107 +167,54 @@ func (s *Store) VectorSearch(projectID string, queryEmbedding []float64, limit i
 		limit = 20
 	}
 
-	// Retrieve all entities for this project that have a stored embedding.
-	// We fetch them in Go and compute cosine similarity here because Kuzu does
-	// not yet expose a native vector-similarity function.
-	cypherQuery := fmt.Sprintf(`
-		MATCH (e:Entity)
-		WHERE e.project_id = '%s' AND e.embedding IS NOT NULL
-		RETURN e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at, e.embedding
-	`, escapeCypher(projectID))
-
-	result, err := s.conn.Query(cypherQuery)
+	// Obtain (or lazily build) the HNSW index for this project.
+	idx, err := s.hnswIdx.get(projectID, func() (*projectIndex, error) {
+		return s.buildIndex(projectID)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("query entities with embeddings: %w", err)
-	}
-	defer result.Close()
-
-	type candidate struct {
-		entity    *Entity
-		embedding []float32
-	}
-	var candidates []candidate
-
-	for result.HasNext() {
-		tuple, err := result.Next()
-		if err != nil {
-			return nil, fmt.Errorf("get next: %w", err)
-		}
-
-		row, err := tuple.GetAsSlice()
-		if err != nil {
-			return nil, fmt.Errorf("get row as slice: %w", err)
-		}
-		tuple.Close()
-
-		entity := &Entity{
-			ID:        row[0].(string),
-			Name:      row[1].(string),
-			Type:      row[2].(string),
-			ProjectID: row[3].(string),
-		}
-
-		if ts, ok := row[4].(int64); ok {
-			entity.CreatedAt = time.UnixMicro(ts).UTC()
-		}
-		if ts, ok := row[5].(int64); ok {
-			entity.UpdatedAt = time.UnixMicro(ts).UTC()
-		}
-
-		// row[6] is the embedding returned as []any containing float32 values
-		rawEmb, ok := row[6].([]any)
-		if !ok || len(rawEmb) == 0 {
-			continue
-		}
-		emb := make([]float32, len(rawEmb))
-		for i, v := range rawEmb {
-			if f, ok := v.(float32); ok {
-				emb[i] = f
-			}
-		}
-
-		candidates = append(candidates, candidate{entity: entity, embedding: emb})
+		return nil, fmt.Errorf("build vector index: %w", err)
 	}
 
-	if len(candidates) == 0 {
+	if len(idx.entities) == 0 {
 		return []*SearchResult{}, nil
 	}
 
-	// Compute cosine similarity for each candidate
-	type scored struct {
-		entity *Entity
-		score  float64
-	}
-	scores := make([]scored, 0, len(candidates))
-	for _, c := range candidates {
-		sim := cosineSimilarity(queryEmbedding, c.embedding)
-		scores = append(scores, scored{entity: c.entity, score: sim})
+	// Convert query from float64 to float32 for the HNSW library.
+	qVec := make([]float32, len(queryEmbedding))
+	for i, v := range queryEmbedding {
+		qVec[i] = float32(v)
 	}
 
-	// Sort descending by score
-	sort.Slice(scores, func(i, j int) bool {
-		return scores[i].score > scores[j].score
-	})
+	// Search returns the k nearest neighbours sorted by ascending distance.
+	// Node.Value is the stored vector; we compute cosine similarity ourselves.
+	neighbours := idx.graph.Search(qVec, limit)
 
-	// Truncate to limit
-	if len(scores) > limit {
-		scores = scores[:limit]
-	}
+	results := make([]*SearchResult, 0, len(neighbours))
+	for _, node := range neighbours {
+		entity, ok := idx.entities[node.Key]
+		if !ok {
+			continue
+		}
+		// Compute cosine similarity between the query and the stored vector.
+		similarity := cosineSimilarity(queryEmbedding, node.Value)
 
-	// Build SearchResult slice with top observations
-	results := make([]*SearchResult, 0, len(scores))
-	for _, s2 := range scores {
-		obs, err := s.GetTopObservations(s2.entity.ID, projectID, 3)
+		obs, err := s.GetTopObservations(entity.ID, projectID, 3)
 		if err != nil {
 			obs = []*Observation{}
 		}
 		results = append(results, &SearchResult{
-			Entity:       s2.entity,
+			Entity:       entity,
 			Observations: obs,
-			Score:        s2.score,
+			Score:        similarity,
 			MatchType:    "vector",
 		})
 	}
+
+	// Sort results by descending cosine similarity so the caller always gets
+	// the best matches first, regardless of the order HNSW returns them.
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Score > results[j].Score
+	})
 
 	return results, nil
 }

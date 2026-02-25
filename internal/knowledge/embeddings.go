@@ -141,8 +141,16 @@ func (s *Store) GetUnembeddedObservations(projectID string) ([]Observation, erro
 	return observations, nil
 }
 
-// SetEmbedding stores an embedding vector for an entity
+// SetEmbedding stores an embedding vector for an entity and invalidates the
+// in-memory HNSW index for the entity's project so that the next VectorSearch
+// call rebuilds the index with the new vector.
 func (s *Store) SetEmbedding(entityID string, embedding []float32) error {
+	// Look up the project_id so we can invalidate the correct HNSW index.
+	projectID, err := s.entityProjectID(entityID)
+	if err != nil {
+		return fmt.Errorf("set embedding (lookup project): %w", err)
+	}
+
 	query := fmt.Sprintf(`
 		MATCH (e:Entity {id: '%s'})
 		SET e.embedding = %s
@@ -154,7 +162,45 @@ func (s *Store) SetEmbedding(entityID string, embedding []float32) error {
 	}
 	defer result.Close()
 
+	// Invalidate the HNSW index so the next VectorSearch rebuilds it.
+	if projectID != "" {
+		s.hnswIdx.invalidate(projectID)
+	}
+
 	return nil
+}
+
+// entityProjectID returns the project_id for entityID, or "" if not found.
+func (s *Store) entityProjectID(entityID string) (string, error) {
+	q := fmt.Sprintf(`
+		MATCH (e:Entity {id: '%s'})
+		RETURN e.project_id
+	`, escapeCypher(entityID))
+
+	result, err := s.conn.Query(q)
+	if err != nil {
+		return "", fmt.Errorf("query entity project_id: %w", err)
+	}
+	defer result.Close()
+
+	if result.HasNext() {
+		tuple, err := result.Next()
+		if err != nil {
+			return "", fmt.Errorf("next: %w", err)
+		}
+		row, err := tuple.GetAsSlice()
+		tuple.Close()
+		if err != nil {
+			return "", fmt.Errorf("get slice: %w", err)
+		}
+		if row[0] == nil {
+			return "", nil
+		}
+		if pid, ok := row[0].(string); ok {
+			return pid, nil
+		}
+	}
+	return "", nil
 }
 
 // SetObservationEmbedding stores an embedding vector for an observation
