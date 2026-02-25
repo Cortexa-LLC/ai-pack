@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cortexa-llc/ai-pack/pkg/gitignore"
+	gitignore "github.com/sabhiram/go-gitignore"
 )
 
 // Indexer scans source files and populates the knowledge graph
@@ -20,7 +20,7 @@ type Indexer struct {
 	store      *Store
 	projectID  string
 	root       string
-	ignorer    *gitignore.Ignorer
+	ignorer    *gitignore.GitIgnore
 }
 
 // IndexStats tracks indexing progress
@@ -40,10 +40,40 @@ type relationRecord struct {
 
 // NewIndexer creates a new indexer
 func NewIndexer(store *Store, projectID, root string) (*Indexer, error) {
-	// Load ignore patterns
-	ignorer, err := gitignore.NewIgnorer(root)
-	if err != nil {
-		return nil, fmt.Errorf("load ignore patterns: %w", err)
+	// Load ignore patterns from .gitignore and .claudeignore
+	var ignorer *gitignore.GitIgnore
+	gitignorePath := filepath.Join(root, ".gitignore")
+	claudeignorePath := filepath.Join(root, ".claudeignore")
+
+	// Try .gitignore first
+	if _, err := os.Stat(gitignorePath); err == nil {
+		ignorer, err = gitignore.CompileIgnoreFile(gitignorePath)
+		if err != nil {
+			return nil, fmt.Errorf("load .gitignore: %w", err)
+		}
+	}
+
+	// Merge with .claudeignore if it exists
+	if _, err := os.Stat(claudeignorePath); err == nil {
+		if ignorer != nil {
+			// Both files exist - merge them
+			combined, err := gitignore.CompileIgnoreFileAndLines(gitignorePath, readLinesFromFile(claudeignorePath)...)
+			if err != nil {
+				return nil, fmt.Errorf("load .claudeignore: %w", err)
+			}
+			ignorer = combined
+		} else {
+			// Only .claudeignore exists
+			ignorer, err = gitignore.CompileIgnoreFile(claudeignorePath)
+			if err != nil {
+				return nil, fmt.Errorf("load .claudeignore: %w", err)
+			}
+		}
+	}
+
+	// If no ignore files, create empty ignorer
+	if ignorer == nil {
+		ignorer = gitignore.CompileIgnoreLines()
 	}
 
 	return &Indexer{
@@ -54,9 +84,68 @@ func NewIndexer(store *Store, projectID, root string) (*Indexer, error) {
 	}, nil
 }
 
+// readLinesFromFile reads all lines from a file
+func readLinesFromFile(path string) []string {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return []string{}
+	}
+	lines := strings.Split(string(content), "\n")
+	// Filter out empty lines and comments
+	var result []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" && !strings.HasPrefix(line, "#") {
+			result = append(result, line)
+		}
+	}
+	return result
+}
+
+// clearProjectData removes all entities and relations for this project
+func (idx *Indexer) clearProjectData() error {
+	// Delete all relation types for this project
+	relationTypes := []string{
+		"CALLS", "IMPORTS", "FIXES", "SUPERSEDES", "CAUSED_BY",
+		"DEPENDS_ON", "IMPLEMENTS", "RELATES_TO", "TESTS", "DOCUMENTS",
+	}
+
+	for _, relType := range relationTypes {
+		query := fmt.Sprintf(`
+			MATCH (from:Entity {project_id: '%s'})-[r:%s]->(to:Entity {project_id: '%s'})
+			DELETE r
+		`, idx.projectID, relType, idx.projectID)
+
+		result, err := idx.store.Execute(query)
+		if err != nil {
+			return fmt.Errorf("delete %s relations: %w", relType, err)
+		}
+		result.Close()
+	}
+
+	// Then delete entities
+	query := fmt.Sprintf(`
+		MATCH (e:Entity {project_id: '%s'})
+		DELETE e
+	`, idx.projectID)
+
+	result, err := idx.store.Execute(query)
+	if err != nil {
+		return fmt.Errorf("delete entities: %w", err)
+	}
+	result.Close()
+
+	return nil
+}
+
 // Index scans the project and populates the knowledge graph
 func (idx *Indexer) Index() (*IndexStats, error) {
 	stats := &IndexStats{}
+
+	// Clear existing data for this project (rebuild from scratch)
+	if err := idx.clearProjectData(); err != nil {
+		return nil, fmt.Errorf("clear existing data: %w", err)
+	}
 
 	// Create temporary CSV files
 	entitiesPath := filepath.Join(os.TempDir(), fmt.Sprintf("kg-entities-%d.csv", time.Now().Unix()))
@@ -71,8 +160,11 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 	entityWriter := csv.NewWriter(entitiesFile)
 	defer entityWriter.Flush()
 
-	// Write CSV headers
+	// Write CSV headers (excluding embedding column)
 	entityWriter.Write([]string{"id", "name", "type", "project_id", "created_at", "updated_at"})
+
+	// Track seen entities to avoid duplicates
+	seenEntities := make(map[string]bool)
 
 	// Collect relations in memory (will batch insert via Cypher)
 	var relations []relationRecord
@@ -95,7 +187,7 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 		}
 
 		// Check if ignored
-		if idx.ignorer.Match(relPath) {
+		if idx.ignorer.MatchesPath(relPath) {
 			return nil
 		}
 
@@ -103,14 +195,14 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 		ext := strings.ToLower(filepath.Ext(path))
 		switch ext {
 		case ".go":
-			if err := idx.processGoFile(path, relPath, entityWriter, &relations, stats); err != nil {
+			if err := idx.processGoFile(path, relPath, entityWriter, seenEntities, &relations, stats); err != nil {
 				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
 				stats.Errors++
 			}
 			stats.FilesScanned++
 
 		case ".ts", ".tsx", ".js", ".jsx":
-			if err := idx.processJSFile(path, relPath, "", entityWriter, &relations, stats); err != nil {
+			if err := idx.processJSFile(path, relPath, "", entityWriter, seenEntities, &relations, stats); err != nil {
 				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
 				stats.Errors++
 			}
@@ -144,8 +236,18 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 	return stats, nil
 }
 
+// writeEntity writes an entity to CSV if not already seen
+func writeEntity(writer *csv.Writer, seen map[string]bool, id, name, typ, projectID, createdAt, updatedAt string) bool {
+	if seen[id] {
+		return false // Already seen
+	}
+	seen[id] = true // Mark as seen BEFORE writing
+	writer.Write([]string{id, name, typ, projectID, createdAt, updatedAt})
+	return true
+}
+
 // processGoFile extracts structural information from Go source files
-func (idx *Indexer) processGoFile(absPath, relPath string, entityWriter *csv.Writer, relations *[]relationRecord, stats *IndexStats) error {
+func (idx *Indexer) processGoFile(absPath, relPath string, entityWriter *csv.Writer, seenEntities map[string]bool, relations *[]relationRecord, stats *IndexStats) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	// Parse the Go file
@@ -157,14 +259,16 @@ func (idx *Indexer) processGoFile(absPath, relPath string, entityWriter *csv.Wri
 
 	// Create file entity
 	fileID := fmt.Sprintf("file:%s", relPath)
-	entityWriter.Write([]string{fileID, relPath, "file", idx.projectID, now, now})
-	stats.EntitiesCreated++
+	if writeEntity(entityWriter, seenEntities, fileID, relPath, "file", idx.projectID, now, now) {
+		stats.EntitiesCreated++
+	}
 
 	// Create package entity
 	pkgName := node.Name.Name
 	pkgID := fmt.Sprintf("package:%s", pkgName)
-	entityWriter.Write([]string{pkgID, pkgName, "package", idx.projectID, now, now})
-	stats.EntitiesCreated++
+	if writeEntity(entityWriter, seenEntities, pkgID, pkgName, "package", idx.projectID, now, now) {
+		stats.EntitiesCreated++
+	}
 
 	// File belongs to package
 	*relations = append(*relations, relationRecord{
@@ -180,8 +284,9 @@ func (idx *Indexer) processGoFile(absPath, relPath string, entityWriter *csv.Wri
 		importID := fmt.Sprintf("package:%s", importPath)
 
 		// Create import entity if not exists
-		entityWriter.Write([]string{importID, importPath, "package", idx.projectID, now, now})
-		stats.EntitiesCreated++
+		if writeEntity(entityWriter, seenEntities, importID, importPath, "package", idx.projectID, now, now) {
+			stats.EntitiesCreated++
+		}
 
 		// File imports package
 		*relations = append(*relations, relationRecord{
@@ -199,16 +304,18 @@ func (idx *Indexer) processGoFile(absPath, relPath string, entityWriter *csv.Wri
 			// Function declaration
 			if d.Name != nil && d.Name.IsExported() {
 				funcName := d.Name.Name
-				funcID := fmt.Sprintf("function:%s.%s", pkgName, funcName)
+				// Use file path in function ID to ensure uniqueness across files
+				funcID := fmt.Sprintf("function:%s:%s", relPath, funcName)
 
-				entityWriter.Write([]string{funcID, funcName, "function", idx.projectID, now, now})
-				stats.EntitiesCreated++
+				if writeEntity(entityWriter, seenEntities, funcID, funcName, "function", idx.projectID, now, now) {
+					stats.EntitiesCreated++
+				}
 
-				// Function defined in file
+				// File contains function
 				*relations = append(*relations, relationRecord{
-					FromID: funcID,
-					ToID:   fileID,
-					Type:   "DEFINED_IN",
+					FromID: fileID,
+					ToID:   funcID,
+					Type:   "CONTAINS",
 				})
 				stats.RelationsCreated++
 			}
@@ -222,14 +329,14 @@ func (idx *Indexer) processGoFile(absPath, relPath string, entityWriter *csv.Wri
 						typeName := s.Name.Name
 						typeID := fmt.Sprintf("type:%s.%s", pkgName, typeName)
 
-						entityWriter.Write([]string{typeID, typeName, "type", idx.projectID, now, now})
+						writeEntity(entityWriter, seenEntities, typeID, typeName, "type", idx.projectID, now, now)
 						stats.EntitiesCreated++
 
-						// Type defined in file
+						// File contains type
 						*relations = append(*relations, relationRecord{
-							FromID: typeID,
-							ToID:   fileID,
-							Type:   "DEFINED_IN",
+							FromID: fileID,
+							ToID:   typeID,
+							Type:   "CONTAINS",
 						})
 						stats.RelationsCreated++
 					}
@@ -242,7 +349,7 @@ func (idx *Indexer) processGoFile(absPath, relPath string, entityWriter *csv.Wri
 }
 
 // processJSFile extracts imports from TypeScript/JavaScript files using regex
-func (idx *Indexer) processJSFile(absPath, relPath, fileID string, entityWriter *csv.Writer, relations *[]relationRecord, stats *IndexStats) error {
+func (idx *Indexer) processJSFile(absPath, relPath, fileID string, entityWriter *csv.Writer, seenEntities map[string]bool, relations *[]relationRecord, stats *IndexStats) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	// Read file content
@@ -254,8 +361,9 @@ func (idx *Indexer) processJSFile(absPath, relPath, fileID string, entityWriter 
 	// Create file entity
 	if fileID == "" {
 		fileID = fmt.Sprintf("file:%s", relPath)
-		entityWriter.Write([]string{fileID, relPath, "file", idx.projectID, now, now})
-		stats.EntitiesCreated++
+		if writeEntity(entityWriter, seenEntities, fileID, relPath, "file", idx.projectID, now, now) {
+			stats.EntitiesCreated++
+		}
 	}
 
 	// Extract imports using regex
@@ -279,7 +387,7 @@ func (idx *Indexer) processJSFile(absPath, relPath, fileID string, entityWriter 
 
 		// Create module entity
 		importID := fmt.Sprintf("module:%s", importPath)
-		entityWriter.Write([]string{importID, importPath, "module", idx.projectID, now, now})
+		writeEntity(entityWriter, seenEntities, importID, importPath, "module", idx.projectID, now, now)
 		stats.EntitiesCreated++
 
 		*relations = append(*relations, relationRecord{
@@ -295,8 +403,9 @@ func (idx *Indexer) processJSFile(absPath, relPath, fileID string, entityWriter 
 
 // bulkLoadEntities loads entities from CSV file into Kuzu using COPY FROM
 func (idx *Indexer) bulkLoadEntities(entitiesPath string) error {
+	// Remove the embedding column from header since we'll only load the first 6 columns
 	query := fmt.Sprintf(`
-		COPY Entity FROM '%s' (HEADER=true)
+		COPY Entity(id, name, type, project_id, created_at, updated_at) FROM '%s' (HEADER=true)
 	`, entitiesPath)
 
 	result, err := idx.store.Execute(query)
