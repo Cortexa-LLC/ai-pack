@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -21,10 +22,40 @@ const (
 	errParseError       = "Parse error"
 	errInvalidRequest   = "Invalid request"
 	errMethodNotFound   = "Method not found"
+	errInvalidParams    = "Invalid params"
 )
 
 // A2A Protocol Handlers
 // Implements A2A protocol endpoints using JSON-RPC 2.0
+
+// decodeAndValidateJSONRPC is a helper that decodes a JSON-RPC request from the
+// given reader, validates it, and checks that the method matches one of the
+// provided allowed methods. On success it returns the decoded request and true.
+// On failure it writes the appropriate JSON-RPC error response and returns false.
+func (s *AgentServer) decodeAndValidateJSONRPC(w http.ResponseWriter, body io.Reader, allowedMethods ...string) (protocol.JSONRPCRequest, bool) {
+	var req protocol.JSONRPCRequest
+	if err := json.NewDecoder(body).Decode(&req); err != nil {
+		response := protocol.NewJSONRPCError(nil, protocol.ParseError, errParseError, err.Error())
+		s.sendJSONRPCResponse(w, response)
+		return req, false
+	}
+
+	if err := protocol.ValidateRequest(&req); err != nil {
+		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidRequest, errInvalidRequest, err.Error())
+		s.sendJSONRPCResponse(w, response)
+		return req, false
+	}
+
+	for _, m := range allowedMethods {
+		if req.Method == m {
+			return req, true
+		}
+	}
+
+	response := protocol.NewJSONRPCError(req.ID, protocol.MethodNotFound, errMethodNotFound, req.Method)
+	s.sendJSONRPCResponse(w, response)
+	return req, false
+}
 
 // handleAgentCard serves GET /.well-known/agent.json (A2A AgentCard).
 // This endpoint is publicly accessible (exempt from API key middleware).
@@ -69,22 +100,8 @@ func (s *AgentServer) handleDiscoveryGET(w http.ResponseWriter, r *http.Request)
 
 // handleDiscoveryRPC handles POST /a2a/discovery (JSON-RPC)
 func (s *AgentServer) handleDiscoveryRPC(w http.ResponseWriter, r *http.Request) {
-	var req protocol.JSONRPCRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response := protocol.NewJSONRPCError(nil, protocol.ParseError, errParseError, err.Error())
-		s.sendJSONRPCResponse(w, response)
-		return
-	}
-
-	if err := protocol.ValidateRequest(&req); err != nil {
-		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidRequest, errInvalidRequest, err.Error())
-		s.sendJSONRPCResponse(w, response)
-		return
-	}
-
-	if req.Method != "discovery" && req.Method != "a2a.discovery" {
-		response := protocol.NewJSONRPCError(req.ID, protocol.MethodNotFound, errMethodNotFound, req.Method)
-		s.sendJSONRPCResponse(w, response)
+	req, ok := s.decodeAndValidateJSONRPC(w, r.Body, constants.MethodDiscovery, constants.MethodA2ADiscovery)
+	if !ok {
 		return
 	}
 
@@ -100,29 +117,15 @@ func (s *AgentServer) handleA2AExecute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req protocol.JSONRPCRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response := protocol.NewJSONRPCError(nil, protocol.ParseError, "errParseError", err.Error())
-		s.sendJSONRPCResponse(w, response)
-		return
-	}
-
-	if err := protocol.ValidateRequest(&req); err != nil {
-		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidRequest, "errInvalidRequest", err.Error())
-		s.sendJSONRPCResponse(w, response)
-		return
-	}
-
-	if req.Method != constants.MethodExecute && req.Method != constants.MethodA2AExecute {
-		response := protocol.NewJSONRPCError(req.ID, protocol.MethodNotFound, "errMethodNotFound", req.Method)
-		s.sendJSONRPCResponse(w, response)
+	req, ok := s.decodeAndValidateJSONRPC(w, r.Body, constants.MethodExecute, constants.MethodA2AExecute)
+	if !ok {
 		return
 	}
 
 	// Parse execute task request
 	execReq, err := protocol.ParseExecuteTaskRequest(req.Params)
 	if err != nil {
-		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidParams, "Invalid params", err.Error())
+		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidParams, errInvalidParams, err.Error())
 		s.sendJSONRPCResponse(w, response)
 		return
 	}
@@ -130,13 +133,13 @@ func (s *AgentServer) handleA2AExecute(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	// Validate projectRoot: must be non-empty, absolute, and free of traversal sequences.
 	if execReq.ProjectRoot == "" {
-		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidParams, "Invalid params", "project_root is required")
+		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidParams, errInvalidParams, "project_root is required")
 		s.sendJSONRPCResponse(w, response)
 		return
 	}
 	cleanedRoot := filepath.Clean(execReq.ProjectRoot)
 	if !filepath.IsAbs(cleanedRoot) {
-		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidParams, "Invalid params", "project_root must be an absolute path")
+		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidParams, errInvalidParams, "project_root must be an absolute path")
 		s.sendJSONRPCResponse(w, response)
 		return
 	}
@@ -144,7 +147,7 @@ func (s *AgentServer) handleA2AExecute(w http.ResponseWriter, r *http.Request) {
 
 	// Validate role: must not contain path separators to prevent path traversal.
 	if strings.ContainsAny(execReq.Role, "/\\") {
-		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidParams, "Invalid params", "role must not contain path separators")
+		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidParams, errInvalidParams, "role must not contain path separators")
 		s.sendJSONRPCResponse(w, response)
 		return
 	}
@@ -184,33 +187,19 @@ func (s *AgentServer) handleA2AStatus(w http.ResponseWriter, r *http.Request) {
 
 	// POST /a2a/status - JSON-RPC format
 	if r.Method != http.MethodPost {
-		http.Error(w, "errMethodNotAllowed", http.StatusMethodNotAllowed)
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
-	var req protocol.JSONRPCRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response := protocol.NewJSONRPCError(nil, protocol.ParseError, "errParseError", err.Error())
-		s.sendJSONRPCResponse(w, response)
-		return
-	}
-
-	if err := protocol.ValidateRequest(&req); err != nil {
-		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidRequest, "errInvalidRequest", err.Error())
-		s.sendJSONRPCResponse(w, response)
-		return
-	}
-
-	if req.Method != "status" && req.Method != "a2a.status" {
-		response := protocol.NewJSONRPCError(req.ID, protocol.MethodNotFound, "errMethodNotFound", req.Method)
-		s.sendJSONRPCResponse(w, response)
+	req, ok := s.decodeAndValidateJSONRPC(w, r.Body, constants.MethodStatus, constants.MethodA2AStatus)
+	if !ok {
 		return
 	}
 
 	// Parse status request
 	statusReq, err := protocol.ParseTaskStatusRequest(req.Params)
 	if err != nil {
-		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidParams, "Invalid params", err.Error())
+		response := protocol.NewJSONRPCError(req.ID, protocol.InvalidParams, errInvalidParams, err.Error())
 		s.sendJSONRPCResponse(w, response)
 		return
 	}
