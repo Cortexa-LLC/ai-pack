@@ -4,7 +4,6 @@
 **Description:** Implementation specialist following TDD workflow
 **Tier:** medium
 **Class:** agentic
-**Model:** gemini-2.5-pro
 **Timeout:** 30min
 **MaxBudgetTokens:** 0
 **MaxTurns:** 750
