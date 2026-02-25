@@ -118,25 +118,25 @@ func (f *GeminiFactory) CreateStream(ctx context.Context, req StreamRequest) (St
 				}
 			}
 
-			// On the final chunk emit a completed message with usage metadata.
+			// Only emit message_stop on the final chunk — identified by a non-empty
+			// FinishReason. For Gemini 2.5 Pro (thinking model), UsageMetadata is
+			// present on intermediate chunks too; emitting message_stop on those
+			// would truncate the response before function calls arrive.
 			if resp.UsageMetadata != nil && len(resp.Candidates) > 0 {
 				cand := resp.Candidates[0]
-				stopReason := ""
 				if cand.FinishReason != "" {
-					stopReason = string(cand.FinishReason)
-				}
-
-				select {
-				case eventCh <- StreamEvent{
-					Type: "message_stop",
-					Message: &CompletedMessage{
-						StopReason:   stopReason,
-						InputTokens:  int(resp.UsageMetadata.PromptTokenCount),
-						OutputTokens: int(resp.UsageMetadata.CandidatesTokenCount),
-					},
-				}:
-				case <-ctx.Done():
-					return
+					select {
+					case eventCh <- StreamEvent{
+						Type: "message_stop",
+						Message: &CompletedMessage{
+							StopReason:   string(cand.FinishReason),
+							InputTokens:  int(resp.UsageMetadata.PromptTokenCount),
+							OutputTokens: int(resp.UsageMetadata.CandidatesTokenCount),
+						},
+					}:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
