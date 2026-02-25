@@ -338,6 +338,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			}
 			toolResults = append(toolResults, streaming.ToolResult{
 				ToolUseID: toolUse.ID,
+				ToolName:  toolUse.Name,
 				Content:   result,
 				IsError:   isError,
 			})

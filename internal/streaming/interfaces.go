@@ -105,6 +105,7 @@ type ToolUse struct {
 // ToolResult represents the result of executing a tool
 type ToolResult struct {
 	ToolUseID string
+	ToolName  string // function name; required for Gemini function responses
 	Content   string
 	IsError   bool
 }

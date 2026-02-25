@@ -236,9 +236,25 @@ func buildGeminiContents(messages []Message) ([]*genai.Content, error) {
 		switch msg.Role {
 		case "tool_result":
 			// Tool results come back as user-role function responses.
+			// Gemini requires the function NAME (not our internal ToolUseID) in the response.
+			// Our IDs are formatted as "gemini-fc-<name>-<idx>" — extract the name.
 			for _, tr := range msg.ToolResults {
+				fnName := tr.ToolName // prefer explicit name if available
+				if fnName == "" {
+					// Fall back to parsing "gemini-fc-<name>-<idx>" IDs
+					fnName = tr.ToolUseID
+					const prefix = "gemini-fc-"
+					if strings.HasPrefix(fnName, prefix) {
+						rest := fnName[len(prefix):]
+						// strip trailing "-<idx>"
+						if idx := strings.LastIndex(rest, "-"); idx >= 0 {
+							rest = rest[:idx]
+						}
+						fnName = rest
+					}
+				}
 				c := genai.NewContentFromFunctionResponse(
-					tr.ToolUseID,
+					fnName,
 					map[string]any{"output": tr.Content},
 					genai.RoleUser,
 				)
