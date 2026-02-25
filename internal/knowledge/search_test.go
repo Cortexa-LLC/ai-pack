@@ -1,6 +1,7 @@
 package knowledge
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -225,6 +226,87 @@ func TestVectorSearch(t *testing.T) {
 		_, err := store.VectorSearch(projectID, []float64{}, 10)
 		if err == nil {
 			t.Error("Expected error for empty embedding")
+		}
+	})
+
+	t.Run("returns ranked results for entities with embeddings", func(t *testing.T) {
+		pid := "vec-search-test"
+
+		// Create two entities
+		e1, err := store.CreateEntity("auth_service", "function", pid)
+		if err != nil {
+			t.Fatalf("CreateEntity failed: %v", err)
+		}
+		e2, err := store.CreateEntity("database_layer", "function", pid)
+		if err != nil {
+			t.Fatalf("CreateEntity failed: %v", err)
+		}
+
+		// Build 1536-dimensional test vectors.
+		// e1 embedding is collinear with query → similarity ≈ 1.0
+		// e2 embedding is orthogonal to query  → similarity = 0.0
+		const dim = 1536
+		e1Emb := make([]float32, dim) // all zeros → will set [0]=1
+		e1Emb[0] = 1
+		e2Emb := make([]float32, dim) // orthogonal: set [1]=1
+		e2Emb[1] = 1
+		query := make([]float64, dim)
+		query[0] = 1
+
+		if err := store.SetEmbedding(e1.ID, e1Emb); err != nil {
+			t.Fatalf("SetEmbedding failed: %v", err)
+		}
+		if err := store.SetEmbedding(e2.ID, e2Emb); err != nil {
+			t.Fatalf("SetEmbedding failed: %v", err)
+		}
+
+		results, err := store.VectorSearch(pid, query, 10)
+		if err != nil {
+			t.Fatalf("VectorSearch failed: %v", err)
+		}
+		if len(results) != 2 {
+			t.Fatalf("Expected 2 results, got %d", len(results))
+		}
+		// Top result should be e1 (similarity ≈ 1.0)
+		if results[0].Entity.ID != e1.ID {
+			t.Errorf("Expected top result to be e1 (%s), got %s", e1.ID, results[0].Entity.ID)
+		}
+		if results[0].Score < 0.99 {
+			t.Errorf("Expected top score ≈ 1.0, got %f", results[0].Score)
+		}
+		if results[0].MatchType != "vector" {
+			t.Errorf("Expected match_type 'vector', got %q", results[0].MatchType)
+		}
+		// Second result should be e2 (similarity = 0.0)
+		if results[1].Entity.ID != e2.ID {
+			t.Errorf("Expected second result to be e2 (%s), got %s", e2.ID, results[1].Entity.ID)
+		}
+	})
+
+	t.Run("respects limit", func(t *testing.T) {
+		pid := "vec-limit-test"
+		const dim = 1536
+
+		for i := 0; i < 5; i++ {
+			e, err := store.CreateEntity(fmt.Sprintf("entity_%d", i), "function", pid)
+			if err != nil {
+				t.Fatalf("CreateEntity failed: %v", err)
+			}
+			emb := make([]float32, dim)
+			emb[0] = float32(i) + 1
+			if err := store.SetEmbedding(e.ID, emb); err != nil {
+				t.Fatalf("SetEmbedding failed: %v", err)
+			}
+		}
+
+		query := make([]float64, dim)
+		query[0] = 1
+		results, err := store.VectorSearch(pid, query, 3)
+		if err != nil {
+			t.Fatalf("VectorSearch failed: %v", err)
+		}
+		if len(results) != 3 {
+			t.Errorf("Expected 3 results (limit), got %d", len(results))
 		}
 	})
 }

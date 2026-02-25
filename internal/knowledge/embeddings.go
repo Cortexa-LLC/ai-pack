@@ -3,6 +3,7 @@ package knowledge
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // BatchEmbed processes all un-embedded entities and observations in a project
@@ -13,26 +14,24 @@ func (s *Store) BatchEmbed(ctx context.Context, projectID string, embedder Embed
 		return fmt.Errorf("get un-embedded entities: %w", err)
 	}
 
-	if len(entities) == 0 {
-		return nil
-	}
+	if len(entities) > 0 {
+		// Prepare texts for batch embedding
+		texts := make([]string, len(entities))
+		for i, entity := range entities {
+			texts[i] = fmt.Sprintf("%s: %s", entity.Type, entity.Name)
+		}
 
-	// Prepare texts for batch embedding
-	texts := make([]string, len(entities))
-	for i, entity := range entities {
-		texts[i] = fmt.Sprintf("%s: %s", entity.Type, entity.Name)
-	}
+		// Generate embeddings
+		embeddings, err := embedder.Embed(ctx, texts)
+		if err != nil {
+			return fmt.Errorf("generate embeddings: %w", err)
+		}
 
-	// Generate embeddings
-	embeddings, err := embedder.Embed(ctx, texts)
-	if err != nil {
-		return fmt.Errorf("generate embeddings: %w", err)
-	}
-
-	// Store embeddings
-	for i, entity := range entities {
-		if err := s.SetEmbedding(entity.ID, embeddings[i]); err != nil {
-			return fmt.Errorf("set embedding for entity %s: %w", entity.ID, err)
+		// Store embeddings
+		for i, entity := range entities {
+			if err := s.SetEmbedding(entity.ID, embeddings[i]); err != nil {
+				return fmt.Errorf("set embedding for entity %s: %w", entity.ID, err)
+			}
 		}
 	}
 
@@ -70,11 +69,11 @@ func (s *Store) BatchEmbed(ctx context.Context, projectID string, embedder Embed
 
 // GetUnembeddedEntities returns all entities without embeddings
 func (s *Store) GetUnembeddedEntities(projectID string) ([]Entity, error) {
-	query := `
+	query := fmt.Sprintf(`
 		MATCH (e:Entity)
-		WHERE e.project_id = $project_id AND e.embedding IS NULL
+		WHERE e.project_id = '%s' AND e.embedding IS NULL
 		RETURN e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at
-	`
+	`, escapeCypher(projectID))
 
 	result, err := s.conn.Query(query)
 	if err != nil {
@@ -108,11 +107,11 @@ func (s *Store) GetUnembeddedEntities(projectID string) ([]Entity, error) {
 
 // GetUnembeddedObservations returns all observations without embeddings
 func (s *Store) GetUnembeddedObservations(projectID string) ([]Observation, error) {
-	query := `
+	query := fmt.Sprintf(`
 		MATCH (e:Entity)-[:HAS_OBSERVATION]->(o:Observation)
-		WHERE e.project_id = $project_id AND o.embedding IS NULL
+		WHERE e.project_id = '%s' AND o.embedding IS NULL
 		RETURN o.id, o.entity_id, o.content, o.created_at
-	`
+	`, escapeCypher(projectID))
 
 	result, err := s.conn.Query(query)
 	if err != nil {
@@ -144,11 +143,10 @@ func (s *Store) GetUnembeddedObservations(projectID string) ([]Observation, erro
 
 // SetEmbedding stores an embedding vector for an entity
 func (s *Store) SetEmbedding(entityID string, embedding []float32) error {
-	// Convert embedding to string representation for Kuzu
-	query := `
-		MATCH (e:Entity {id: $entity_id})
-		SET e.embedding = $embedding
-	`
+	query := fmt.Sprintf(`
+		MATCH (e:Entity {id: '%s'})
+		SET e.embedding = %s
+	`, escapeCypher(entityID), formatFloatArray(embedding))
 
 	result, err := s.conn.Query(query)
 	if err != nil {
@@ -161,10 +159,10 @@ func (s *Store) SetEmbedding(entityID string, embedding []float32) error {
 
 // SetObservationEmbedding stores an embedding vector for an observation
 func (s *Store) SetObservationEmbedding(observationID string, embedding []float32) error {
-	query := `
-		MATCH (o:Observation {id: $observation_id})
-		SET o.embedding = $embedding
-	`
+	query := fmt.Sprintf(`
+		MATCH (o:Observation {id: '%s'})
+		SET o.embedding = %s
+	`, escapeCypher(observationID), formatFloatArray(embedding))
 
 	result, err := s.conn.Query(query)
 	if err != nil {
@@ -175,5 +173,15 @@ func (s *Store) SetObservationEmbedding(observationID string, embedding []float3
 	return nil
 }
 
-// Deprecated duplicate. (Implementation now in embedder.go)
-// func NewEmbedderFromEnv() (Embedder, error) {}
+// formatFloatArray formats a []float32 as a Kuzu Cypher FLOAT array literal,
+// e.g. [0.1, 0.2, 0.3]
+func formatFloatArray(v []float32) string {
+	if len(v) == 0 {
+		return "[]"
+	}
+	parts := make([]string, len(v))
+	for i, f := range v {
+		parts[i] = fmt.Sprintf("%v", f)
+	}
+	return "[" + strings.Join(parts, ", ") + "]"
+}
