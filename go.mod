@@ -9,6 +9,7 @@ require (
 	github.com/kuzudb/go-kuzu v0.11.3
 	github.com/openai/openai-go v1.12.0
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
+	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	github.com/vektah/gqlparser/v2 v2.5.31
 	google.golang.org/genai v1.47.0
@@ -31,7 +32,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sosodev/duration v1.3.1 // indirect
-	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect

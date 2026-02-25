@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cortexa-llc/ai-pack/internal/constants"
+	"github.com/cortexa-llc/ai-pack/internal/knowledge"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/internal/protocol"
 	"github.com/cortexa-llc/ai-pack/internal/streaming"
@@ -499,7 +500,13 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskExecution, prompt, roleContext, workingDir string, logMsg func(string)) (string, error) {
 	s.sendStreamEvent(execution, "api_call_start", map[string]interface{}{})
 
-	result, err := s.executeAgenticLoop(ctx, execution.TaskID, execution.Role, prompt, s.buildSystemPromptForProject(roleContext, execution.ProjectRoot), workingDir, execution.ProjectRoot, execution.Config, logMsg)
+	// Pre-flight: inject knowledge-graph context into system prompt (best-effort, 2 s timeout).
+	systemPrompt := s.buildSystemPromptForProject(roleContext, execution.ProjectRoot)
+	if kgBlock := knowledge.PreflightContext(ctx, s.mcpManager, execution.Task, execution.ProjectRoot); kgBlock != "" {
+		systemPrompt = kgBlock + "\n---\n\n" + systemPrompt
+	}
+
+	result, err := s.executeAgenticLoop(ctx, execution.TaskID, execution.Role, prompt, systemPrompt, workingDir, execution.ProjectRoot, execution.Config, logMsg)
 	if err != nil {
 		// Check if error is due to cancellation or timeout.
 		// context.Canceled: User-initiated cancellation via CancelTask()
