@@ -303,6 +303,23 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 					// return an error so the task can be retried or escalated.
 					return "", fmt.Errorf("agent produced no tool calls on turn 1 (acknowledgement without work)")
 				}
+				// Detect narration: model describing what it plans to do instead of doing it.
+				// If detected, inject a nudge and continue rather than accepting as completion.
+				if totalToolCalls > 0 && isNarration(responseTextStr) {
+					preview := responseTextStr[:min(60, len(responseTextStr))]
+					logMsg(fmt.Sprintf("⚠️  Narration detected — nudging to use tools: %q", preview))
+					// Append the narration as an assistant turn, then a user nudge.
+					messages = append(messages, streaming.Message{
+						Role:    "assistant",
+						Content: responseTextStr,
+					})
+					messages = append(messages, streaming.Message{
+						Role:    "user",
+						Content: "Use a tool call to proceed. Do not describe what you plan to do — make the tool call directly.",
+					})
+					turn++
+					continue
+				}
 				logMsg(fmt.Sprintf("✅ Agent completed in %d turns", turn))
 				logMsg(fmt.Sprintf("   Total tokens: %d (in:%d out:%d)", totalInputTokens+totalOutputTokens, totalInputTokens, totalOutputTokens))
 				break

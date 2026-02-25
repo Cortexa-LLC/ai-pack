@@ -215,3 +215,27 @@ func (s *AgentServer) getAllTools() []streaming.Tool {
 
 	return toolList
 }
+
+// isNarration returns true if the text looks like the model is describing what
+// it plans to do next rather than signalling task completion. When detected,
+// the task runner injects a nudge and continues the loop.
+func isNarration(text string) bool {
+	lower := strings.ToLower(strings.TrimSpace(text))
+	narrationPrefixes := []string{
+		"i need to ", "i need to\n",
+		"i should ", "i should\n",
+		"i will ", "i will\n",
+		"i'll ",
+		"let me ",
+		"i'm going to ", "i am going to ",
+		"now i need", "next, i",
+		"to fix this", "to do this",
+		"i would need", "i want to",
+	}
+	for _, prefix := range narrationPrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return false
+}
