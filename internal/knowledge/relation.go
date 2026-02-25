@@ -78,7 +78,7 @@ func (s *Store) GetRelations(entityID, projectID string) ([]*Relation, error) {
 		if err != nil {
 			return nil, fmt.Errorf("get next: %w", err)
 		}
-		
+
 		row, err := tuple.GetAsSlice()
 		tuple.Close()
 		if err != nil {
@@ -151,7 +151,7 @@ func (s *Store) TraverseRelations(entityID, relType, projectID string) ([]*Entit
 		if err != nil {
 			return nil, fmt.Errorf("get next: %w", err)
 		}
-		
+
 		row, err := tuple.GetAsSlice()
 		tuple.Close()
 		if err != nil {

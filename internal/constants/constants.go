@@ -79,8 +79,8 @@ const (
 
 // HTTP and Content Types
 const (
-	ContentTypeJSON       = "application/json"
-	ContentTypeTextPlain  = "text/plain"
+	ContentTypeJSON        = "application/json"
+	ContentTypeTextPlain   = "text/plain"
 	ContentTypeEventStream = "text/event-stream"
 )
 
@@ -102,14 +102,14 @@ const (
 
 // Message Event Types (Streaming)
 const (
-	MessageEventStart     = "message_start"
-	MessageEventDelta     = "message_delta"
-	MessageEventStop      = "message_stop"
-	ContentBlockStart     = "content_block_start"
-	ContentBlockDelta     = "content_block_delta"
-	ContentBlockStop      = "content_block_stop"
-	MessageDeltaUsage     = "message_delta"
-	EventTypePing         = "ping"
+	MessageEventStart = "message_start"
+	MessageEventDelta = "message_delta"
+	MessageEventStop  = "message_stop"
+	ContentBlockStart = "content_block_start"
+	ContentBlockDelta = "content_block_delta"
+	ContentBlockStop  = "content_block_stop"
+	MessageDeltaUsage = "message_delta"
+	EventTypePing     = "ping"
 )
 
 // A2A Protocol Methods

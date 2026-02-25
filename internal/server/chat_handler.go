@@ -70,7 +70,7 @@ func (s *AgentServer) continueWithToolResults(
 
 	// Create new request with tool results
 	continuationReq := streaming.StreamRequest{
-		Messages:     append(previousReq.Messages,
+		Messages: append(previousReq.Messages,
 			streaming.Message{Role: "assistant", Content: previousMessage.Content},
 			streaming.Message{Role: "user", Content: toolResultsText}),
 		SystemPrompt: previousReq.SystemPrompt,
@@ -125,23 +125,23 @@ func (s *AgentServer) continueWithToolResults(
 
 // ChatRequest represents an incoming chat message
 type ChatRequest struct {
-	Message           string          `json:"message"`
-	Messages          []ChatMessage   `json:"messages,omitempty"` // Full conversation history
-	Role              string          `json:"role,omitempty"`     // Agent role (orchestrator, engineer, etc.)
-	Mode              string          `json:"mode,omitempty"`     // "chat" or "agent"
-	ProjectRoot       string          `json:"project_root,omitempty"` // Working directory for agent mode
-	UseProjectContext bool            `json:"use_project_context,omitempty"` // Whether to load project context files
+	Message           string        `json:"message"`
+	Messages          []ChatMessage `json:"messages,omitempty"`            // Full conversation history
+	Role              string        `json:"role,omitempty"`                // Agent role (orchestrator, engineer, etc.)
+	Mode              string        `json:"mode,omitempty"`                // "chat" or "agent"
+	ProjectRoot       string        `json:"project_root,omitempty"`        // Working directory for agent mode
+	UseProjectContext bool          `json:"use_project_context,omitempty"` // Whether to load project context files
 }
 
 // ChatMessage represents a message in the conversation
 type ChatMessage struct {
-	Role    string `json:"role"`    // "user" or "assistant"
+	Role    string `json:"role"` // "user" or "assistant"
 	Content string `json:"content"`
 }
 
 // ChatResponse represents the response from a chat request
 type ChatResponse struct {
-	Status        string `json:"status"` // "streaming", "complete", "agent_spawned"
+	Status        string `json:"status"`            // "streaming", "complete", "agent_spawned"
 	TaskID        string `json:"task_id,omitempty"` // For agent mode
 	Text          string `json:"text,omitempty"`
 	ContextLoaded string `json:"context_loaded,omitempty"` // Name of context file loaded (e.g., "CLAUDE.md")
@@ -298,13 +298,13 @@ func (s *AgentServer) handleAgentMode(w http.ResponseWriter, r *http.Request, re
 	}
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":       "agent_spawned",
-		"task_id":      response.TaskID,
+		"status":        "agent_spawned",
+		"task_id":       response.TaskID,
 		"beads_task_id": beadsTaskID,
-		"project_root": projectRoot,
-		"project_name": projectName,
-		"role":         role,
-		"message":      fmt.Sprintf("Agent task spawned with ID: %s (Beads task: %s)", response.TaskID, beadsTaskID),
+		"project_root":  projectRoot,
+		"project_name":  projectName,
+		"role":          role,
+		"message":       fmt.Sprintf("Agent task spawned with ID: %s (Beads task: %s)", response.TaskID, beadsTaskID),
 	})
 }
 

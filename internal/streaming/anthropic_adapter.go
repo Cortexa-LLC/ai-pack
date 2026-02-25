@@ -25,13 +25,13 @@ type pendingToolUse struct {
 // AnthropicStreamAdapter adapts Anthropic SDK streaming to our StreamProvider interface.
 // It uses typed SDK calls instead of reflection or JSON round-trips to dispatch events.
 type AnthropicStreamAdapter struct {
-	stream          *ssestream.Stream[anthropic.MessageStreamEventUnion]
-	current         StreamEvent
-	message         *CompletedMessage
-	err             error
-	done            bool
-	model           string
-	provider        string
+	stream           *ssestream.Stream[anthropic.MessageStreamEventUnion]
+	current          StreamEvent
+	message          *CompletedMessage
+	err              error
+	done             bool
+	model            string
+	provider         string
 	pendingToolCalls map[int]*pendingToolUse
 }
 

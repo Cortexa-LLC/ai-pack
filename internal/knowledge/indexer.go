@@ -17,18 +17,18 @@ import (
 
 // Indexer scans source files and populates the knowledge graph
 type Indexer struct {
-	store      *Store
-	projectID  string
-	root       string
-	ignorer    *gitignore.GitIgnore
+	store     *Store
+	projectID string
+	root      string
+	ignorer   *gitignore.GitIgnore
 }
 
 // IndexStats tracks indexing progress
 type IndexStats struct {
-	FilesScanned      int
-	EntitiesCreated   int
-	RelationsCreated  int
-	Errors            int
+	FilesScanned     int
+	EntitiesCreated  int
+	RelationsCreated int
+	Errors           int
 }
 
 // relationRecord holds relation data before batch insert

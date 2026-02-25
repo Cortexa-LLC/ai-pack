@@ -44,9 +44,9 @@ type JSONRPCRequest struct {
 
 // JSONRPCResponse represents a JSON-RPC 2.0 response
 type JSONRPCResponse struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      interface{} `json:"id,omitempty"`
-	Result  interface{} `json:"result,omitempty"`
+	JSONRPC string        `json:"jsonrpc"`
+	ID      interface{}   `json:"id,omitempty"`
+	Result  interface{}   `json:"result,omitempty"`
 	Error   *JSONRPCError `json:"error,omitempty"`
 }
 
@@ -125,7 +125,7 @@ type ListToolsResult struct {
 
 // CallToolParams request
 type CallToolParams struct {
-	Name      string                 `json:"name"`
+	Name string `json:"name"`
 	// Arguments must NOT use omitempty: Go omits empty maps, causing the MCP
 	// server to receive no "arguments" field and fail with "received undefined".
 	Arguments map[string]interface{} `json:"arguments"`

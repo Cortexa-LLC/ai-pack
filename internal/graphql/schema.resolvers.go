@@ -94,7 +94,7 @@ func (r *queryResolver) Health(ctx context.Context) (*HealthStatus, error) {
 			GraphQL:           true,
 			Rest:              true,
 			A2aProtocol:       true,
-			SseStreaming:       true,
+			SseStreaming:      true,
 			Monitoring:        true,
 			ParallelExecution: true,
 		},

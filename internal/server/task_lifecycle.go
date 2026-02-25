@@ -383,7 +383,6 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	}
 }
 
-
 func (s *AgentServer) CancelTask(taskID string) error {
 	s.mu.Lock()
 	execution, exists := s.activeTasks[taskID]
@@ -532,4 +531,3 @@ func (s *AgentServer) closeStream(execution *TaskExecution) {
 		close(execution.streamChan)
 	}
 }
-

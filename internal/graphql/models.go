@@ -18,10 +18,10 @@ type APICalls struct {
 
 // Performance represents system performance metrics
 type Performance struct {
-	CPUUsage       float64                      `json:"cpuUsage"`
-	Uptime         string                       `json:"uptime"`
-	TaskTokenUsage []monitoring.TaskTokenUsage  `json:"taskTokenUsage"`
-	RecentTurns    []monitoring.TurnTokenData   `json:"recentTurns"`
+	CPUUsage       float64                     `json:"cpuUsage"`
+	Uptime         string                      `json:"uptime"`
+	TaskTokenUsage []monitoring.TaskTokenUsage `json:"taskTokenUsage"`
+	RecentTurns    []monitoring.TurnTokenData  `json:"recentTurns"`
 }
 
 // Metrics represents aggregated system metrics
@@ -30,15 +30,15 @@ type Metrics struct {
 	TasksCompleted       int               `json:"tasksCompleted"`
 	TasksFailed          int               `json:"tasksFailed"`
 	TasksActive          int               `json:"tasksActive"`
-	TasksInProgress      int               `json:"tasksInProgress"`      // alias for TasksActive
+	TasksInProgress      int               `json:"tasksInProgress"` // alias for TasksActive
 	AverageDurationMs    float64           `json:"averageDurationMs"`
-	AvgDurationMs        float64           `json:"avgDurationMs"`         // flat alias
+	AvgDurationMs        float64           `json:"avgDurationMs"` // flat alias
 	AverageTokensPerTask int               `json:"averageTokensPerTask"`
-	TotalInputTokens     int               `json:"totalInputTokens"`      // flat field
-	TotalOutputTokens    int               `json:"totalOutputTokens"`     // flat field
-	APICallsTotal        int               `json:"apiCallsTotal"`         // flat field
-	APICallsSuccess      int               `json:"apiCallsSuccess"`       // flat field
-	APICallsFailed       int               `json:"apiCallsFailed"`        // flat field
+	TotalInputTokens     int               `json:"totalInputTokens"`  // flat field
+	TotalOutputTokens    int               `json:"totalOutputTokens"` // flat field
+	APICallsTotal        int               `json:"apiCallsTotal"`     // flat field
+	APICallsSuccess      int               `json:"apiCallsSuccess"`   // flat field
+	APICallsFailed       int               `json:"apiCallsFailed"`    // flat field
 	TokenUsage           *TokenUsage       `json:"tokenUsage"`
 	APICalls             *APICalls         `json:"apiCalls"`
 	Performance          *Performance      `json:"performance"`
@@ -61,10 +61,10 @@ type TurnData struct {
 
 // TurnMetrics represents per-turn token statistics
 type TurnMetrics struct {
-	TotalTurns      int        `json:"totalTurns"`
-	AvgInputPerTurn int        `json:"avgInputPerTurn"`
+	TotalTurns       int        `json:"totalTurns"`
+	AvgInputPerTurn  int        `json:"avgInputPerTurn"`
 	AvgOutputPerTurn int        `json:"avgOutputPerTurn"`
-	RecentTurns     []TurnData `json:"recentTurns"`
+	RecentTurns      []TurnData `json:"recentTurns"`
 }
 
 // SessionData represents token usage for a single session/task
@@ -144,7 +144,7 @@ type HealthFeatures struct {
 	GraphQL           bool `json:"graphql"`
 	Rest              bool `json:"rest"`
 	A2aProtocol       bool `json:"a2aProtocol"`
-	SseStreaming       bool `json:"sseStreaming"`
+	SseStreaming      bool `json:"sseStreaming"`
 	Monitoring        bool `json:"monitoring"`
 	ParallelExecution bool `json:"parallelExecution"`
 }

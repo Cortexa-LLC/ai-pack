@@ -195,10 +195,10 @@ func (s *AgentServer) executeSpawnAgent(input map[string]interface{}) (string, e
 	}
 
 	result := map[string]interface{}{
-		"success":   true,
-		"task_id":   response.TaskID,
-		"status":    response.Status,
-		"message":   fmt.Sprintf("Agent %s spawned for task %s", role, taskID),
+		"success":    true,
+		"task_id":    response.TaskID,
+		"status":     response.Status,
+		"message":    fmt.Sprintf("Agent %s spawned for task %s", role, taskID),
 		"stream_url": fmt.Sprintf("/stream/%s", response.TaskID),
 	}
 

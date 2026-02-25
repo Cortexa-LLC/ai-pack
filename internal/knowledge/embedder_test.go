@@ -12,10 +12,10 @@ import (
 
 func TestNewEmbedder(t *testing.T) {
 	tests := []struct {
-		name    string
-		apiKey  string
-		model   string
-		wantErr bool
+		name      string
+		apiKey    string
+		model     string
+		wantErr   bool
 		wantModel string
 	}{
 		{
@@ -40,10 +40,10 @@ func TestNewEmbedder(t *testing.T) {
 			wantModel: "text-embedding-3-small",
 		},
 		{
-			name:      "OpenAI missing API key",
-			apiKey:    "",
-			model:     "text-embedding-3-small",
-			wantErr:   true,
+			name:    "OpenAI missing API key",
+			apiKey:  "",
+			model:   "text-embedding-3-small",
+			wantErr: true,
 		},
 		{
 			name:      "Ollama with model name",

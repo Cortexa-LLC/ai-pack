@@ -357,32 +357,32 @@ func (m *Metrics) GetSnapshot() MetricsSnapshot {
 
 // MetricsSnapshot is a point-in-time snapshot of metrics
 type MetricsSnapshot struct {
-	TasksSpawned         int64             `json:"tasks_spawned"`
-	TasksCompleted       int64             `json:"tasks_completed"`
-	TasksFailed          int64             `json:"tasks_failed"`
-	TasksInProgress      int64             `json:"tasks_in_progress"`
-	TotalDurationMs      int64             `json:"total_duration_ms"`
-	AvgDurationMs        int64             `json:"avg_duration_ms"`
-	APICallsTotal        int64             `json:"api_calls_total"`
-	APICallsSuccess      int64             `json:"api_calls_success"`
-	APICallsFailed       int64             `json:"api_calls_failed"`
-	HTTPRequestsTotal    int64             `json:"http_requests_total"`
-	HTTPErrors           int64             `json:"http_errors"`
-	StreamsOpened        int64             `json:"streams_opened"`
-	StreamsClosed        int64             `json:"streams_closed"`
-	StreamsActive        int64             `json:"streams_active"`
-	RateLimitViolations  int64             `json:"rate_limit_violations"`
-	TotalInputTokens     int64             `json:"total_input_tokens"`
-	TotalOutputTokens    int64             `json:"total_output_tokens"`
-	TaskTokenUsage       []TaskTokenUsage  `json:"task_token_usage,omitempty"`
-	TotalTurns           int64             `json:"total_turns"`
-	AvgInputPerTurn      int64             `json:"avg_input_per_turn"`
-	AvgOutputPerTurn     int64             `json:"avg_output_per_turn"`
-	AverageTokensPerTask int64             `json:"average_tokens_per_task"`
-	ProviderBreakdown    []*ProviderUsage  `json:"provider_breakdown,omitempty"`
-	Uptime               time.Duration     `json:"uptime"`
-	TurnTokenData        []TurnTokenData   `json:"turn_token_data,omitempty"`
-	Timestamp            time.Time         `json:"timestamp"`
+	TasksSpawned         int64            `json:"tasks_spawned"`
+	TasksCompleted       int64            `json:"tasks_completed"`
+	TasksFailed          int64            `json:"tasks_failed"`
+	TasksInProgress      int64            `json:"tasks_in_progress"`
+	TotalDurationMs      int64            `json:"total_duration_ms"`
+	AvgDurationMs        int64            `json:"avg_duration_ms"`
+	APICallsTotal        int64            `json:"api_calls_total"`
+	APICallsSuccess      int64            `json:"api_calls_success"`
+	APICallsFailed       int64            `json:"api_calls_failed"`
+	HTTPRequestsTotal    int64            `json:"http_requests_total"`
+	HTTPErrors           int64            `json:"http_errors"`
+	StreamsOpened        int64            `json:"streams_opened"`
+	StreamsClosed        int64            `json:"streams_closed"`
+	StreamsActive        int64            `json:"streams_active"`
+	RateLimitViolations  int64            `json:"rate_limit_violations"`
+	TotalInputTokens     int64            `json:"total_input_tokens"`
+	TotalOutputTokens    int64            `json:"total_output_tokens"`
+	TaskTokenUsage       []TaskTokenUsage `json:"task_token_usage,omitempty"`
+	TotalTurns           int64            `json:"total_turns"`
+	AvgInputPerTurn      int64            `json:"avg_input_per_turn"`
+	AvgOutputPerTurn     int64            `json:"avg_output_per_turn"`
+	AverageTokensPerTask int64            `json:"average_tokens_per_task"`
+	ProviderBreakdown    []*ProviderUsage `json:"provider_breakdown,omitempty"`
+	Uptime               time.Duration    `json:"uptime"`
+	TurnTokenData        []TurnTokenData  `json:"turn_token_data,omitempty"`
+	Timestamp            time.Time        `json:"timestamp"`
 }
 
 // SuccessRate returns the task success rate as a percentage

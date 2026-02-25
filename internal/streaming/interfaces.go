@@ -16,11 +16,11 @@ const (
 
 // StreamEvent represents a single event in the stream
 type StreamEvent struct {
-	Type     string
-	Delta    *DeltaContent
-	ToolUse  *ToolUse
-	Message  *CompletedMessage
-	Error    error
+	Type    string
+	Delta   *DeltaContent
+	ToolUse *ToolUse
+	Message *CompletedMessage
+	Error   error
 }
 
 // DeltaContent represents incremental content

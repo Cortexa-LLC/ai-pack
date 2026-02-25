@@ -21,6 +21,7 @@ var (
 	Commit    = "unknown"
 	BuildTime = "unknown"
 )
+
 const ServerURL = "http://localhost:8080"
 const descOutputAsJSON = "Output as JSON"
 const sseDataPrefix = "data: "

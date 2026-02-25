@@ -278,9 +278,9 @@ func TestConfidenceScore(t *testing.T) {
 
 	// Test confidence progression
 	tests := []struct {
-		attempts         int
-		expectedMinConf  float64
-		expectedMaxConf  float64
+		attempts        int
+		expectedMinConf float64
+		expectedMaxConf float64
 	}{
 		{1, 0.0, 0.1},
 		{5, 0.2, 0.3},

@@ -35,17 +35,17 @@ type ComplexityGateConfig struct {
 
 // Config holds all server configuration
 type Config struct {
-	Server          ServerConfig           `json:"server"`
-	API             APIConfig              `json:"api"`
-	Agent           AgentConfig            `json:"agent"`
-	Logging         LoggingConfig          `json:"logging"`
-	Metrics         MetricsConfig          `json:"metrics"`
-	TaskCleanup     TaskCleanupConfig      `json:"task_cleanup"`
-	ProviderCosts   ProviderCostsConfig    `json:"provider_costs"`
-	GradingCriteria GradingCriteriaConfig  `json:"grading_criteria"`
-	MCP             MCPConfig              `json:"mcp"`
-	ComplexityGate  ComplexityGateConfig   `json:"complexity_gate"`
-	Projects        map[string]string      `json:"projects,omitempty"` // map[projectPath]lastAccessed
+	Server          ServerConfig          `json:"server"`
+	API             APIConfig             `json:"api"`
+	Agent           AgentConfig           `json:"agent"`
+	Logging         LoggingConfig         `json:"logging"`
+	Metrics         MetricsConfig         `json:"metrics"`
+	TaskCleanup     TaskCleanupConfig     `json:"task_cleanup"`
+	ProviderCosts   ProviderCostsConfig   `json:"provider_costs"`
+	GradingCriteria GradingCriteriaConfig `json:"grading_criteria"`
+	MCP             MCPConfig             `json:"mcp"`
+	ComplexityGate  ComplexityGateConfig  `json:"complexity_gate"`
+	Projects        map[string]string     `json:"projects,omitempty"` // map[projectPath]lastAccessed
 }
 
 // ServerConfig holds server-specific settings
@@ -90,7 +90,7 @@ type MetricsConfig struct {
 
 // TaskCleanupConfig holds task cleanup/archival settings
 type TaskCleanupConfig struct {
-	Enabled         bool `json:"enabled"`           // Enable automatic cleanup on startup
+	Enabled          bool `json:"enabled"`            // Enable automatic cleanup on startup
 	ArchiveAfterDays int  `json:"archive_after_days"` // Archive tasks older than N days
 }
 
@@ -125,8 +125,8 @@ type GradeThreshold struct {
 
 // MCPConfig holds MCP server configuration
 type MCPConfig struct {
-	Enabled       bool                       `json:"enabled"`         // Enable MCP integration
-	Servers       map[string]MCPServerConfig `json:"servers"`         // Server configurations (can override user/project configs)
+	Enabled        bool                       `json:"enabled"`         // Enable MCP integration
+	Servers        map[string]MCPServerConfig `json:"servers"`         // Server configurations (can override user/project configs)
 	EnabledServers []string                   `json:"enabled_servers"` // List of enabled server names (filters available servers)
 }
 
@@ -179,9 +179,9 @@ func DefaultConfig() *Config {
 			GradeD: GradeThreshold{MinSuccessRate: 0.60, MaxRetryRate: 0.30},
 		},
 		MCP: MCPConfig{
-			Enabled:        false,                          // Disabled by default
+			Enabled:        false,                            // Disabled by default
 			Servers:        make(map[string]MCPServerConfig), // Empty by default
-			EnabledServers: []string{},                      // Empty means all available servers enabled
+			EnabledServers: []string{},                       // Empty means all available servers enabled
 		},
 		ComplexityGate: ComplexityGateConfig{
 			Enabled:           true,
@@ -326,12 +326,12 @@ func applyEnvOverrides(cfg *Config) {
 //
 // Resolution order:
 //  1. AGENT_DATA_DIR environment variable — set this for service installs:
-//       Linux/macOS service:  AGENT_DATA_DIR=/var/lib/ai-pack
-//       Windows service:      AGENT_DATA_DIR=C:\ProgramData\ai-pack
+//     Linux/macOS service:  AGENT_DATA_DIR=/var/lib/ai-pack
+//     Windows service:      AGENT_DATA_DIR=C:\ProgramData\ai-pack
 //  2. Platform default (user-mode dev / interactive runs):
-//       Windows:  %APPDATA%\ai-pack\   (e.g. C:\Users\name\AppData\Roaming\ai-pack)
-//       macOS:    ~/.claude/            (aligns with Claude Code's own data dir)
-//       Linux:    ~/.claude/            (aligns with Claude Code's own data dir)
+//     Windows:  %APPDATA%\ai-pack\   (e.g. C:\Users\name\AppData\Roaming\ai-pack)
+//     macOS:    ~/.claude/            (aligns with Claude Code's own data dir)
+//     Linux:    ~/.claude/            (aligns with Claude Code's own data dir)
 //
 // The path is always absolute and independent of the process working directory,
 // so /usr/local/bin/agent-server and ./bin/agent-server store data identically.

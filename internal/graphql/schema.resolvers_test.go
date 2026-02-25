@@ -48,10 +48,10 @@ func (m *MockServerInterface) GetAllTasks() map[string]*TaskInfo {
 	return m.tasks
 }
 
-func (m *MockServerInterface) CancelTask(taskID string) error   { return nil }
-func (m *MockServerInterface) CloseTask(taskID string) error    { return nil }
-func (m *MockServerInterface) DeleteTask(taskID string) error   { return nil }
-func (m *MockServerInterface) GetMetrics() *MetricsInfo         { return m.metrics }
+func (m *MockServerInterface) CancelTask(taskID string) error { return nil }
+func (m *MockServerInterface) CloseTask(taskID string) error  { return nil }
+func (m *MockServerInterface) DeleteTask(taskID string) error { return nil }
+func (m *MockServerInterface) GetMetrics() *MetricsInfo       { return m.metrics }
 func (m *MockServerInterface) GetProjectCostsData() ([]map[string]interface{}, error) {
 	return nil, nil
 }
@@ -188,17 +188,17 @@ func TestMetricsQuery(t *testing.T) {
 	mockServer := &MockServerInterface{
 		tasks: make(map[string]*TaskInfo),
 		metrics: &MetricsInfo{
-			TasksSpawned:    10,
-			TasksCompleted:  8,
-			TasksFailed:     2,
-			TasksActive:     3,
+			TasksSpawned:      10,
+			TasksCompleted:    8,
+			TasksFailed:       2,
+			TasksActive:       3,
 			AverageDurationMs: 1500.0,
-			TotalTokens:     10000,
-			InputTokens:     6000,
-			OutputTokens:    4000,
-			APICalls:        50,
-			APISuccess:      48,
-			APIFailed:       2,
+			TotalTokens:       10000,
+			InputTokens:       6000,
+			OutputTokens:      4000,
+			APICalls:          50,
+			APISuccess:        48,
+			APIFailed:         2,
 		},
 	}
 	monitoring.InitMetrics()
@@ -229,11 +229,11 @@ func TestPerformanceQuery(t *testing.T) {
 		metrics: &MetricsInfo{},
 	}
 	monitoring.InitMetrics()
-	
+
 	// Add some test data to the monitor
 	monitoring.GlobalMetrics.RecordTokenUsage("task-1", 1000, 500, 3)
 	monitoring.GlobalMetrics.RecordTurnTokens("task-1", 1, 300, 150, 500)
-	
+
 	resolver := NewResolver(mockServer, monitoring.GlobalMetrics)
 	ctx := context.Background()
 
@@ -252,14 +252,14 @@ func TestConvertTaskInfoToGraphQL(t *testing.T) {
 	now := time.Now().Format(time.RFC3339)
 	errorMsg := "Test error"
 	taskInfo := &TaskInfo{
-		TaskID:      "task-1",
-		Role:        "engineer",
-		Task:        "Test task",
-		Status:      "completed",
-		Progress:    1.0,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		Error:       &errorMsg,
+		TaskID:    "task-1",
+		Role:      "engineer",
+		Task:      "Test task",
+		Status:    "completed",
+		Progress:  1.0,
+		CreatedAt: now,
+		UpdatedAt: now,
+		Error:     &errorMsg,
 		Metadata: map[string]string{
 			"project_root": "/test/path",
 		},

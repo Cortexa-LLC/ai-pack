@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
-	openai "github.com/openai/openai-go"
-	"github.com/openai/openai-go/shared"
 	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"github.com/cortexa-llc/ai-pack/internal/streaming"
+	openai "github.com/openai/openai-go"
+	"github.com/openai/openai-go/shared"
 )
 
 type LLMMessage struct {
@@ -29,12 +29,12 @@ type LLMToolCall struct {
 }
 
 type LLMStream struct {
-	TextChan    chan string
-	ErrorChan   chan error
-	DoneChan    chan struct{}
-	InputTokens int
+	TextChan     chan string
+	ErrorChan    chan error
+	DoneChan     chan struct{}
+	InputTokens  int
 	OutputTokens int
-	ToolCalls   []LLMToolCall
+	ToolCalls    []LLMToolCall
 }
 
 // LLMProvider is the interface implemented by all LLM providers
@@ -52,15 +52,15 @@ type LLMProvider interface {
 // Keeping minimal for now to unblock build
 
 type AnthropicProvider struct {
-	client *anthropic.Client
-	model  string
+	client    *anthropic.Client
+	model     string
 	maxTokens int
 }
 
 func NewAnthropicProvider(client *anthropic.Client, model string, maxTokens int) *AnthropicProvider {
 	return &AnthropicProvider{
-		client: client,
-		model: model,
+		client:    client,
+		model:     model,
 		maxTokens: maxTokens,
 	}
 }

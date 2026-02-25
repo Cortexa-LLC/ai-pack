@@ -30,8 +30,8 @@ func (s *Store) CreateObservation(entityID, content, projectID string) (*Observa
 			content: '%s',
 			created_at: timestamp('%s')
 		})
-	`, obs.ID, escapeCypher(entityID), escapeCypher(content), 
-	   obs.CreatedAt.Format(time.RFC3339))
+	`, obs.ID, escapeCypher(entityID), escapeCypher(content),
+		obs.CreatedAt.Format(time.RFC3339))
 
 	result, err := s.conn.Query(query)
 	if err != nil {
@@ -81,7 +81,7 @@ func (s *Store) GetObservations(entityID, projectID string) ([]*Observation, err
 		if err != nil {
 			return nil, fmt.Errorf("get next: %w", err)
 		}
-		
+
 		row, err := tuple.GetAsSlice()
 		tuple.Close()
 		if err != nil {

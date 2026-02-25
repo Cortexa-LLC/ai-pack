@@ -20,6 +20,9 @@ func main() {
 	command := os.Args[1]
 
 	switch command {
+	case "server":
+		handleServer(os.Args[2:])
+		return
 	case "index":
 		handleIndex(os.Args[2:])
 	case "stats":
@@ -182,7 +185,7 @@ func handleStats(args []string) {
 
 	fmt.Println("📊 Knowledge Graph Statistics")
 	fmt.Println("=" + strings.Repeat("=", 50))
-	
+
 	// Count entities by type
 	fmt.Println("\n🗂️  Entities by Type:")
 	result, err := store.Execute("MATCH (e:Entity) RETURN e.type, count(e) ORDER BY count(e) DESC")
@@ -190,21 +193,21 @@ func handleStats(args []string) {
 		fmt.Printf("❌ Query failed: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	totalEntities := 0
 	for result.HasNext() {
 		result.Next()
 		totalEntities++
 	}
 	fmt.Printf("   Total entity types: %d\n", totalEntities)
-	
+
 	// Count total entities
 	result, err = store.Execute("MATCH (e:Entity) RETURN count(e)")
 	if err == nil && result.HasNext() {
 		result.Next()
 		fmt.Printf("   Total entities: (see query output)\n")
 	}
-	
+
 	// Count relations by type
 	fmt.Println("\n🔗 Relations by Type:")
 	result, err = store.Execute("MATCH ()-[r]->() RETURN type(r), count(r) ORDER BY count(r) DESC")
@@ -218,14 +221,14 @@ func handleStats(args []string) {
 		}
 		fmt.Printf("   Total relation types: %d\n", totalRelTypes)
 	}
-	
+
 	// Count total relations
 	result, err = store.Execute("MATCH ()-[r]->() RETURN count(r)")
 	if err == nil && result.HasNext() {
 		result.Next()
 		fmt.Printf("   Total relations: (see query output)\n")
 	}
-	
+
 	fmt.Println("\n" + strings.Repeat("=", 50))
 	fmt.Println("✅ Use 'kg query' for detailed queries")
 }
