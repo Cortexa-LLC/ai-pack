@@ -293,44 +293,54 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			}
 		}
 
-		// If no tool uses and we have text, the agent is signalling completion.
-		// Require at least one prior tool call so a model that simply acknowledges
-		// the task on turn 1 (without doing any work) is not accepted as done.
+		// If no tool uses: text-only response. Reject turn-1 acknowledgements; nudge all others.
+		// Completion is ONLY signalled by calling TaskComplete — never by text alone.
 		if len(toolUses) == 0 {
 			if hasText {
 				if turn == 1 && totalToolCalls == 0 {
-					// Model acknowledged but did nothing — treat as a missed start,
-					// return an error so the task can be retried or escalated.
 					return "", fmt.Errorf("agent produced no tool calls on turn 1 (acknowledgement without work)")
 				}
-				// Detect narration: model describing what it plans to do instead of doing it.
-				// If detected, inject a nudge and continue rather than accepting as completion.
-				if totalToolCalls > 0 && isNarration(responseTextStr) {
-					preview := responseTextStr[:min(60, len(responseTextStr))]
-					logMsg(fmt.Sprintf("⚠️  Narration detected — nudging to use tools: %q", preview))
-					// Append the narration as an assistant turn, then a user nudge.
-					messages = append(messages, streaming.Message{
-						Role:    "assistant",
-						Content: responseTextStr,
-					})
-					messages = append(messages, streaming.Message{
-						Role:    "user",
-						Content: "Use a tool call to proceed. Do not describe what you plan to do — make the tool call directly.",
-					})
-					turn++
-					continue
-				}
-				logMsg(fmt.Sprintf("✅ Agent completed in %d turns", turn))
-				logMsg(fmt.Sprintf("   Total tokens: %d (in:%d out:%d)", totalInputTokens+totalOutputTokens, totalInputTokens, totalOutputTokens))
-				break
+				// Unconditional nudge: text-only responses are never accepted as completion.
+				preview := responseTextStr[:min(60, len(responseTextStr))]
+				logMsg(fmt.Sprintf("⚠️  Text-only response — nudging to call TaskComplete: %q", preview))
+				messages = append(messages, streaming.Message{
+					Role:    "assistant",
+					Content: responseTextStr,
+				})
+				messages = append(messages, streaming.Message{
+					Role:    "user",
+					Content: "If your work is fully complete, call the TaskComplete tool with a summary. If you have more work to do, make a tool call to continue.",
+				})
+				turn++
+				continue
 			}
 			return "", fmt.Errorf("no output from agent on turn %d", turn)
 		}
 
-		// Execute tools and accumulate results
+		// Execute tools and accumulate results.
+		// TaskComplete is intercepted here — other tools run normally first,
+		// then if TaskComplete was called the loop exits with the summary.
 		totalToolCalls += len(toolUses)
 		var toolResults []streaming.ToolResult
+		var completionSummary string
 		for _, toolUse := range toolUses {
+			if strings.EqualFold(toolUse.Name, "TaskComplete") {
+				// Capture summary; add synthetic result; do NOT dispatch to executeTool.
+				summary, _ := toolUse.Input["summary"].(string)
+				if summary == "" {
+					summary = "(no summary provided)"
+				}
+				completionSummary = summary
+				logMsg(fmt.Sprintf("      🏁 TaskComplete: %s", summary[:min(80, len(summary))]))
+				toolResults = append(toolResults, streaming.ToolResult{
+					ToolUseID: toolUse.ID,
+					ToolName:  toolUse.Name,
+					Content:   "Task marked complete.",
+					IsError:   false,
+				})
+				continue
+			}
+
 			// Execute tool (native or MCP)
 			result, err := s.executeTool(ctx, toolUse.Name, toolUse.Input, workingDir)
 			isError := err != nil
@@ -359,6 +369,16 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 				Content:   result,
 				IsError:   isError,
 			})
+		}
+
+		// If TaskComplete was called this turn, exit cleanly.
+		if completionSummary != "" {
+			logMsg(fmt.Sprintf("✅ Agent called TaskComplete in %d turns", turn))
+			logMsg(fmt.Sprintf("   Total tokens: %d (in:%d out:%d)", totalInputTokens+totalOutputTokens, totalInputTokens, totalOutputTokens))
+			if hasText && responseTextStr != "" {
+				return responseTextStr + "\n\n" + completionSummary, nil
+			}
+			return completionSummary, nil
 		}
 
 		// Track whether every tool call this turn returned an error

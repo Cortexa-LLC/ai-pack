@@ -128,3 +128,15 @@ When you finish (or can't continue), produce a clear summary:
 - What the next agent or human needs to do
 
 Do not end with "I need more information" and stop. Make your best determination with what you have and flag the uncertainty explicitly.
+
+
+---
+
+## Task Completion
+
+When your work is fully complete, you MUST call the `TaskComplete` tool with a concise summary
+of what was accomplished (files changed, decisions made, caveats).
+
+Text-only responses are never accepted as completion — the task runner will nudge you to
+either continue with a tool call or call `TaskComplete`. Do not call it prematurely: only
+call it when all work described in the task contract is done and verified.

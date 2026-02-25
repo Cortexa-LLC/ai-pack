@@ -49,6 +49,10 @@ func toolParamPreview(toolName string, input map[string]interface{}) string {
 		if pat, ok := input["pattern"].(string); ok {
 			return truncate(pat)
 		}
+	case "taskcomplete":
+		if s, ok := input["summary"].(string); ok {
+			return truncate(s)
+		}
 	}
 	return ""
 }
@@ -216,42 +220,3 @@ func (s *AgentServer) getAllTools() []streaming.Tool {
 	return toolList
 }
 
-// isNarration returns true if the text looks like the model is describing what
-// it plans to do next rather than signalling task completion. When detected,
-// the task runner injects a nudge and continues the loop.
-func isNarration(text string) bool {
-	lower := strings.ToLower(strings.TrimSpace(text))
-	narrationPrefixes := []string{
-		// Future-tense planning
-		"i need to ", "i need to\n",
-		"i should ", "i should\n",
-		"i will ", "i will\n",
-		"i'll ",
-		"let me ",
-		"i'm going to ", "i am going to ",
-		"now i need", "next, i",
-		"to fix this", "to do this",
-		"i would need", "i want to",
-		// Past-tense incomplete summaries (read/analyzed but didn't act)
-		"i've analyzed", "i have analyzed",
-		"i've read", "i have read",
-		"i've reviewed", "i have reviewed",
-		"i've looked", "i have looked",
-		"i've examined", "i have examined",
-		"i can see ", "i can now ",
-		"i've identified", "i have identified",
-		"based on my analysis",
-		"after reviewing", "after reading",
-	}
-	for _, prefix := range narrationPrefixes {
-		if strings.HasPrefix(lower, prefix) {
-			return true
-		}
-	}
-	// Also treat suspiciously short responses as narration when prior tool calls exist.
-	// A genuine completion message is unlikely to be < 40 chars.
-	if len(strings.TrimSpace(text)) < 40 {
-		return true
-	}
-	return false
-}
