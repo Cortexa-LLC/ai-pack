@@ -19,17 +19,17 @@ const (
 	maxOutputTokens16k = 16384
 
 	// Model prefix constants used for routing and capability detection.
-	modelPrefixGPT    = "gpt-"
-	modelPrefixGPT4o  = "gpt-4o"
-	modelPrefixGPT5   = "gpt-5"
-	modelPrefixO1     = "o1"
-	modelPrefixO3     = "o3"
-	modelPrefixO4     = "o4"
-	modelPrefixCode   = "code-"
+	modelPrefixGPT     = "gpt-"
+	modelPrefixGPT4o   = "gpt-4o"
+	modelPrefixGPT5    = "gpt-5"
+	modelPrefixO1      = "o1"
+	modelPrefixO3      = "o3"
+	modelPrefixO4      = "o4"
+	modelPrefixCode    = "code-"
 	modelPrefixDavinci = "davinci"
 
 	// modelGPT41Mini is a full model ID (not a prefix) with a known token cap.
-	modelGPT41Mini    = "gpt-4.1-mini"
+	modelGPT41Mini = "gpt-4.1-mini"
 
 	// Legacy codex identifiers.
 	modelPrefixDavinciCodex = "davinci-codex"

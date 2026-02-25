@@ -6,9 +6,9 @@ import (
 	"sort"
 	"time"
 
+	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/internal/protocol"
-	"github.com/cortexa-llc/ai-pack/internal/constants"
 )
 
 // Public API methods for the server

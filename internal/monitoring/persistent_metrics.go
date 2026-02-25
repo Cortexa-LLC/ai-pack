@@ -11,20 +11,20 @@ import (
 
 // DailyUsage tracks token usage for a single day
 type DailyUsage struct {
-	Date             string                  `json:"date"` // YYYY-MM-DD
-	TotalInputTokens int64                   `json:"total_input_tokens"`
-	TotalOutputTokens int64                  `json:"total_output_tokens"`
+	Date              string                         `json:"date"` // YYYY-MM-DD
+	TotalInputTokens  int64                          `json:"total_input_tokens"`
+	TotalOutputTokens int64                          `json:"total_output_tokens"`
 	ProviderBreakdown map[string]*ProviderDailyUsage `json:"provider_breakdown"`
-	LastUpdated      time.Time               `json:"last_updated"`
+	LastUpdated       time.Time                      `json:"last_updated"`
 }
 
 // ProviderDailyUsage tracks daily usage per provider/model
 type ProviderDailyUsage struct {
-	Provider     string `json:"provider"`
-	Model        string `json:"model"`
-	Calls        int64  `json:"calls"`
-	InputTokens  int64  `json:"input_tokens"`
-	OutputTokens int64  `json:"output_tokens"`
+	Provider     string  `json:"provider"`
+	Model        string  `json:"model"`
+	Calls        int64   `json:"calls"`
+	InputTokens  int64   `json:"input_tokens"`
+	OutputTokens int64   `json:"output_tokens"`
 	Cost         float64 `json:"cost"` // Calculated cost in USD
 }
 

@@ -177,4 +177,3 @@ func (s *Store) SetObservationEmbedding(observationID string, embedding []float3
 
 // Deprecated duplicate. (Implementation now in embedder.go)
 // func NewEmbedderFromEnv() (Embedder, error) {}
-

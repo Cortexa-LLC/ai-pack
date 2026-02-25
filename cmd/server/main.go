@@ -504,31 +504,31 @@ func main() {
 
 	// Setup routes with logging middleware
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /.well-known/agent.json", s.HandleAgentCard) // A2A AgentCard (public)
-	mux.HandleFunc("/health", handleHealth)                          // Health check
-	mux.HandleFunc("/metrics", handleMetrics(s))                     // Metrics endpoint
-	mux.HandleFunc("/metrics/daily", handleDailyMetrics(s))          // Daily usage
-	mux.HandleFunc("/metrics/daily/last30", handleLast30DaysMetrics(s)) // Last 30 days
-	mux.HandleFunc("/metrics/daily/range", handleDateRangeMetrics(s))   // Date range
-	mux.HandleFunc("/a2a/discovery", s.HandleA2ADiscovery) // A2A discovery
-	mux.HandleFunc("/a2a/execute", s.HandleA2AExecute)     // A2A execute
-	mux.HandleFunc("/a2a/status/", s.HandleA2AStatus)      // A2A status (trailing slash for subpaths)
-	mux.HandleFunc("/a2a/status", s.HandleA2AStatus)       // A2A status (POST JSON-RPC)
-	mux.HandleFunc("/a2a/tasks", s.HandleTasksList)        // List all tasks (machine-wide)
-	mux.HandleFunc("/a2a/tasks/", s.HandleTaskLogs)        // Task-specific logs (trailing slash for subpaths)
-	mux.HandleFunc("/a2a/cancel/", s.HandleCancelTask)     // Cancel a running task
-	mux.HandleFunc("/a2a/retry/", s.HandleRetryTask)       // Retry a failed task
-	mux.HandleFunc("/a2a/resume/", s.HandleResumeTask)     // Resume a paused task
-	mux.HandleFunc("/a2a/start/", s.HandleStartTask)       // Start an agent for a task
-	mux.HandleFunc("/stream/", s.HandleStream)             // SSE streaming (tasks)
-	mux.HandleFunc("/logs/stream", s.HandleLogsStream)     // SSE streaming (logs)
-	mux.HandleFunc("/logs/recent", s.HandleLogsRecent)     // Recent logs (JSON)
-	mux.HandleFunc("/api/chat", s.HandleChat)              // Chat with Claude (SSE streaming)
-	mux.HandleFunc("/api/chat/options", s.HandleChatOptions) // CORS preflight
-	mux.HandleFunc("/api/orchestrator/stream", s.HandleOrchestratorSSE) // Orchestrator updates (SSE)
+	mux.HandleFunc("GET /.well-known/agent.json", s.HandleAgentCard)     // A2A AgentCard (public)
+	mux.HandleFunc("/health", handleHealth)                              // Health check
+	mux.HandleFunc("/metrics", handleMetrics(s))                         // Metrics endpoint
+	mux.HandleFunc("/metrics/daily", handleDailyMetrics(s))              // Daily usage
+	mux.HandleFunc("/metrics/daily/last30", handleLast30DaysMetrics(s))  // Last 30 days
+	mux.HandleFunc("/metrics/daily/range", handleDateRangeMetrics(s))    // Date range
+	mux.HandleFunc("/a2a/discovery", s.HandleA2ADiscovery)               // A2A discovery
+	mux.HandleFunc("/a2a/execute", s.HandleA2AExecute)                   // A2A execute
+	mux.HandleFunc("/a2a/status/", s.HandleA2AStatus)                    // A2A status (trailing slash for subpaths)
+	mux.HandleFunc("/a2a/status", s.HandleA2AStatus)                     // A2A status (POST JSON-RPC)
+	mux.HandleFunc("/a2a/tasks", s.HandleTasksList)                      // List all tasks (machine-wide)
+	mux.HandleFunc("/a2a/tasks/", s.HandleTaskLogs)                      // Task-specific logs (trailing slash for subpaths)
+	mux.HandleFunc("/a2a/cancel/", s.HandleCancelTask)                   // Cancel a running task
+	mux.HandleFunc("/a2a/retry/", s.HandleRetryTask)                     // Retry a failed task
+	mux.HandleFunc("/a2a/resume/", s.HandleResumeTask)                   // Resume a paused task
+	mux.HandleFunc("/a2a/start/", s.HandleStartTask)                     // Start an agent for a task
+	mux.HandleFunc("/stream/", s.HandleStream)                           // SSE streaming (tasks)
+	mux.HandleFunc("/logs/stream", s.HandleLogsStream)                   // SSE streaming (logs)
+	mux.HandleFunc("/logs/recent", s.HandleLogsRecent)                   // Recent logs (JSON)
+	mux.HandleFunc("/api/chat", s.HandleChat)                            // Chat with Claude (SSE streaming)
+	mux.HandleFunc("/api/chat/options", s.HandleChatOptions)             // CORS preflight
+	mux.HandleFunc("/api/orchestrator/stream", s.HandleOrchestratorSSE)  // Orchestrator updates (SSE)
 	mux.HandleFunc("/api/browse-directories", s.HandleBrowseDirectories) // Directory autocomplete
-	mux.HandleFunc("/api/search", s.HandleSearch)          // Codebase search
-	mux.HandleFunc("/api/search/options", s.HandleSearchOptions) // CORS preflight
+	mux.HandleFunc("/api/search", s.HandleSearch)                        // Codebase search
+	mux.HandleFunc("/api/search/options", s.HandleSearchOptions)         // CORS preflight
 
 	// Setup GraphQL endpoints
 	s.SetupGraphQLHandlers(mux)

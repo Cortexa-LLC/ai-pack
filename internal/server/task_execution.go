@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-
 	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/internal/protocol"
@@ -488,7 +487,6 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	s.saveAndCompleteTask(ctx, execution, result, startTime, logMsg)
 }
 
-
 func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskExecution, prompt, roleContext, workingDir string, logMsg func(string)) (string, error) {
 	s.sendStreamEvent(execution, "api_call_start", map[string]interface{}{})
 
@@ -529,7 +527,6 @@ func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskE
 
 	return result, nil
 }
-
 
 func (s *AgentServer) resumeFromCheckpoint(taskID, projectRoot string, cp *AgentCheckpoint, newBudget int64) {
 	// Load config for the role (picks up any role-file changes since the pause)

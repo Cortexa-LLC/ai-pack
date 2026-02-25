@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-
 	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/internal/protocol"
@@ -231,7 +230,7 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 
 			// If Beads shows closed/completed but execution shows blocked/failed, reconcile
 			if (beadsStatus == constants.StatusClosed || beadsStatus == constants.StatusCompleted) &&
-			   (status == "blocked" || status == "failed") {
+				(status == "blocked" || status == "failed") {
 				monitoring.Logger.Info("reconciling_stale_execution_metadata",
 					"task_id", beadsTaskID,
 					"old_status", status,
@@ -351,7 +350,6 @@ Execute the task according to your role definition.`,
 	return prompt
 }
 
-
 func (s *AgentServer) buildSystemPrompt(roleContext string) string {
 	return s.buildSystemPromptForProject(roleContext, "")
 }
@@ -363,7 +361,6 @@ func (s *AgentServer) buildSystemPromptForProject(roleContext string, projectRoo
 	}
 	return policy + "\n\n---\n\n" + roleContext
 }
-
 
 func (s *AgentServer) setupExecutionLogger(execution *TaskExecution) func(string) {
 	logPath := filepath.Join(execution.ProjectRoot, constants.BeadsDir, "tasks", execution.TaskID, "execution.log")
@@ -538,4 +535,3 @@ func (s *AgentServer) updateTaskMetadata(projectRoot, taskID, model, provider st
 
 	return nil
 }
-

@@ -4,12 +4,12 @@ import "time"
 
 // Entity represents a knowledge graph node (function, file, bug, etc.)
 type Entity struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Type        string    `json:"type"` // "function", "file", "bug", etc.
-	ProjectID   string    `json:"project_id"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Type         string    `json:"type"` // "function", "file", "bug", etc.
+	ProjectID    string    `json:"project_id"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 	Observations []string  `json:"observations,omitempty"`
 }
 
@@ -17,7 +17,7 @@ type Entity struct {
 type Relation struct {
 	FromID   string `json:"from_id"`
 	ToID     string `json:"to_id"`
-	Type     string `json:"type"` // "CALLS", "IMPORTS", "FIXES", etc.
+	Type     string `json:"type"`               // "CALLS", "IMPORTS", "FIXES", etc.
 	Metadata string `json:"metadata,omitempty"` // Optional JSON
 }
 

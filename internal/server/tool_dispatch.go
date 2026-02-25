@@ -215,4 +215,3 @@ func (s *AgentServer) getAllTools() []streaming.Tool {
 
 	return toolList
 }
-

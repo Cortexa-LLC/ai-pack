@@ -9,14 +9,14 @@ import (
 
 // Test constants
 const (
-	testTaskID        = "task-123"
-	testA2AExecute    = "a2a.execute"
-	testJSONRPCVer    = "2.0"
+	testTaskID     = "task-123"
+	testA2AExecute = "a2a.execute"
+	testJSONRPCVer = "2.0"
 
 	// Error message templates
-	errExpectedTaskID    = "Expected task_id 'task-123', got '%s'"
-	errExpectedNoError   = "Expected no error, got: %v"
-	errExpectedJSONRPC   = "Expected jsonrpc '2.0', got '%s'"
+	errExpectedTaskID  = "Expected task_id 'task-123', got '%s'"
+	errExpectedNoError = "Expected no error, got: %v"
+	errExpectedJSONRPC = "Expected jsonrpc '2.0', got '%s'"
 )
 
 // JSON-RPC Tests

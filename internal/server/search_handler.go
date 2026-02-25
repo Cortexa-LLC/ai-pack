@@ -20,10 +20,10 @@ type SearchRequest struct {
 
 // SearchResult represents a single search result
 type SearchResult struct {
-	File    string `json:"file"`     // Relative file path
-	Line    int    `json:"line"`     // Line number
-	Content string `json:"content"`  // Line content
-	Match   string `json:"match"`    // Matched text
+	File    string `json:"file"`    // Relative file path
+	Line    int    `json:"line"`    // Line number
+	Content string `json:"content"` // Line content
+	Match   string `json:"match"`   // Matched text
 }
 
 // SearchResponse represents the search response

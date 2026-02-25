@@ -11,16 +11,16 @@ import (
 
 // ExecutionEvent represents a single agent lifecycle event
 type ExecutionEvent struct {
-	EventType   string                 `json:"event_type"`   // "spawned", "started", "progress", "completed", "failed", "cancelled"
-	TaskID      string                 `json:"task_id"`
-	Role        string                 `json:"role"`
-	Task        string                 `json:"task"`
-	Timestamp   time.Time              `json:"timestamp"`
-	Status      string                 `json:"status,omitempty"`      // "queued", "in_progress", "completed", "failed", "cancelled"
-	Error       string                 `json:"error,omitempty"`
-	DurationMs  int64                  `json:"duration_ms,omitempty"` // For completed/failed events
-	Result      string                 `json:"result,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	EventType  string                 `json:"event_type"` // "spawned", "started", "progress", "completed", "failed", "cancelled"
+	TaskID     string                 `json:"task_id"`
+	Role       string                 `json:"role"`
+	Task       string                 `json:"task"`
+	Timestamp  time.Time              `json:"timestamp"`
+	Status     string                 `json:"status,omitempty"` // "queued", "in_progress", "completed", "failed", "cancelled"
+	Error      string                 `json:"error,omitempty"`
+	DurationMs int64                  `json:"duration_ms,omitempty"` // For completed/failed events
+	Result     string                 `json:"result,omitempty"`
+	Metadata   map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // ExecutionLog manages the persistent agent execution log

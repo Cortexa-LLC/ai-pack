@@ -27,9 +27,9 @@ func (s *Store) CreateEntity(name, entityType, projectID string) (*Entity, error
 			created_at: timestamp('%s'),
 			updated_at: timestamp('%s')
 		})
-	`, entity.ID, escapeCypher(name), escapeCypher(entityType), 
-	   escapeCypher(projectID), entity.CreatedAt.Format(time.RFC3339), 
-	   entity.UpdatedAt.Format(time.RFC3339))
+	`, entity.ID, escapeCypher(name), escapeCypher(entityType),
+		escapeCypher(projectID), entity.CreatedAt.Format(time.RFC3339),
+		entity.UpdatedAt.Format(time.RFC3339))
 
 	result, err := s.conn.Query(query)
 	if err != nil {
@@ -116,7 +116,7 @@ func (s *Store) ListEntities(projectID, entityType string) ([]*Entity, error) {
 		if err != nil {
 			return nil, fmt.Errorf("get next: %w", err)
 		}
-		
+
 		row, err := tuple.GetAsSlice()
 		tuple.Close()
 		if err != nil {

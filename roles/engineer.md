@@ -6,7 +6,7 @@
 **Class:** agentic
 **Timeout:** 30min
 **MaxBudgetTokens:** 0
-**MaxTurns:** 600
+**MaxTurns:** 750
 **MaxContext:** 32000
 **Tools:** read, write, edit, bash, grep, glob
 **Gates:** tdd-enforcement, code-quality-review

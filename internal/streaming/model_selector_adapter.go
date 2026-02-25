@@ -83,11 +83,11 @@ func (s *SimpleModelSelector) SelectModel(role string, requestedModel string, _ 
 
 // PerformanceGradeModelSelector adapts monitoring.ModelSelector to streaming.ModelSelector interface
 type PerformanceGradeModelSelector struct {
-	gradeSelector    *monitoring.ModelSelector
-	projectID        string
-	defaultModel     string
-	openaiAvailable  bool
-	geminiAvailable  bool
+	gradeSelector   *monitoring.ModelSelector
+	projectID       string
+	defaultModel    string
+	openaiAvailable bool
+	geminiAvailable bool
 }
 
 // NewPerformanceGradeModelSelector creates a selector that uses performance grades

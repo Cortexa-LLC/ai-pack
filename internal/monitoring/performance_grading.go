@@ -40,13 +40,13 @@ type PerformanceGrade struct {
 	Retries       int `json:"retries"`
 
 	// Quality indicators
-	TotalTokensUsed       int64   `json:"total_tokens_used"`       // Sum of all tokens
-	TotalExecutionTimeMs  float64 `json:"total_execution_time_ms"` // Sum of all execution times (ms)
-	AverageTokens         int     `json:"average_tokens"`          // Calculated
-	AverageExecutionTime  float64 `json:"average_execution_time"`  // Calculated in seconds
-	ErrorRate             float64 `json:"error_rate"`              // Failures / TotalAttempts
-	RetryRate             float64 `json:"retry_rate"`              // Retries / TotalAttempts
-	SuccessRate           float64 `json:"success_rate"`            // Successes / TotalAttempts
+	TotalTokensUsed      int64   `json:"total_tokens_used"`       // Sum of all tokens
+	TotalExecutionTimeMs float64 `json:"total_execution_time_ms"` // Sum of all execution times (ms)
+	AverageTokens        int     `json:"average_tokens"`          // Calculated
+	AverageExecutionTime float64 `json:"average_execution_time"`  // Calculated in seconds
+	ErrorRate            float64 `json:"error_rate"`              // Failures / TotalAttempts
+	RetryRate            float64 `json:"retry_rate"`              // Retries / TotalAttempts
+	SuccessRate          float64 `json:"success_rate"`            // Successes / TotalAttempts
 
 	// Escalation tracking
 	EscalationCount int `json:"escalation_count"` // Times we had to escalate
@@ -62,7 +62,7 @@ type PerformanceGrade struct {
 
 	// Metadata
 	LastTaskID string `json:"last_task_id,omitempty"` // For debugging
-	Source     string `json:"source,omitempty"`        // GradeSourceBenchmark or GradeSourceProduction
+	Source     string `json:"source,omitempty"`       // GradeSourceBenchmark or GradeSourceProduction
 }
 
 // PerformanceGradeManager manages performance grades with persistent storage
@@ -447,12 +447,12 @@ func sanitizeFilename(s string) string {
 
 // GetGradeSummary returns a summary of all grades for reporting
 type GradeSummary struct {
-	TotalGrades       int                       `json:"total_grades"`
-	GradeDistribution map[string]int            `json:"grade_distribution"` // A: 10, B: 5, etc.
-	ByRole            map[string]RoleSummary    `json:"by_role"`
-	ByModel           map[string]ModelSummary   `json:"by_model"`
-	TopPerformers     []PerformanceGrade        `json:"top_performers"`     // Best grades
-	NeedsImprovement  []PerformanceGrade        `json:"needs_improvement"`  // Worst grades
+	TotalGrades       int                     `json:"total_grades"`
+	GradeDistribution map[string]int          `json:"grade_distribution"` // A: 10, B: 5, etc.
+	ByRole            map[string]RoleSummary  `json:"by_role"`
+	ByModel           map[string]ModelSummary `json:"by_model"`
+	TopPerformers     []PerformanceGrade      `json:"top_performers"`    // Best grades
+	NeedsImprovement  []PerformanceGrade      `json:"needs_improvement"` // Worst grades
 }
 
 type RoleSummary struct {

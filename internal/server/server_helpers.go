@@ -501,11 +501,9 @@ func (s *AgentServer) loadRoleContext(roleFile string, projectRoot string) (stri
 	return string(data), nil
 }
 
-
 func (s *AgentServer) findMostRecentExecutionFolderInRoot(beadsTaskID string) string {
 	return s.findMostRecentExecutionInProject(s.rootDir, beadsTaskID)
 }
-
 
 func extractContractSections(content string) string {
 	// Sections we want to include
@@ -570,7 +568,6 @@ func extractContractSections(content string) string {
 	return strings.TrimSpace(strings.Join(result, "\n"))
 }
 
-
 func (s *AgentServer) loadSharedPolicy(projectRoot string) string {
 	if projectRoot == "" {
 		projectRoot = s.rootDir
@@ -589,7 +586,6 @@ func (s *AgentServer) loadSharedPolicy(projectRoot string) string {
 	return ""
 }
 
-
 func resolveConfigPath() string {
 	// Check for explicit config path from environment
 	if envPath := os.Getenv("AGENT_SERVER_CONFIG"); envPath != "" {
@@ -603,7 +599,6 @@ func resolveConfigPath() string {
 
 	return ""
 }
-
 
 // GetModelForRole returns the model to use for a given role
 // Loads the agent config and returns the model field, or default if not specified

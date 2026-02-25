@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/cortexa-llc/ai-pack/internal/beads"
-	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/internal/constants"
+	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 )
 
 // HandleLogsStream streams logs via SSE

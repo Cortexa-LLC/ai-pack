@@ -47,4 +47,3 @@ func NewEmbedderFromEnv() (Embedder, error) {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	return NewEmbedder(apiKey, model)
 }
-

@@ -24,7 +24,7 @@ func TestParseRoleTimeout(t *testing.T) {
 		// Edge cases
 		{"", defaultRoleTimeout},
 		{"garbage", defaultRoleTimeout},
-		{"0m", defaultRoleTimeout},  // zero duration falls back
+		{"0m", defaultRoleTimeout},    // zero duration falls back
 		{"-5min", defaultRoleTimeout}, // negative duration falls back
 	}
 

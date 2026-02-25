@@ -10,13 +10,13 @@ import (
 // manager, so tests are deterministic.
 func newTestAnalyzer() *monitoring.ComplexityRiskAnalyzer {
 	return monitoring.NewComplexityRiskAnalyzer(
-		true,  // enabled
-		0.50,  // warnThreshold
-		0.75,  // criticalThreshold
-		0.30,  // scope
-		0.25,  // multiStep
-		0.25,  // uncertainty
-		0.20,  // structural
+		true, // enabled
+		0.50, // warnThreshold
+		0.75, // criticalThreshold
+		0.30, // scope
+		0.25, // multiStep
+		0.25, // uncertainty
+		0.20, // structural
 		map[string]float64{
 			"engineer":     1.0,
 			"orchestrator": 0.8,

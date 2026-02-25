@@ -19,12 +19,12 @@ import (
 
 	"github.com/cortexa-llc/ai-pack/internal/claude"
 	"github.com/cortexa-llc/ai-pack/internal/config"
-	"github.com/cortexa-llc/ai-pack/internal/streaming"
+	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"github.com/cortexa-llc/ai-pack/internal/execution_log"
 	"github.com/cortexa-llc/ai-pack/internal/mcp"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/internal/protocol"
-	"github.com/cortexa-llc/ai-pack/internal/constants"
+	"github.com/cortexa-llc/ai-pack/internal/streaming"
 	openai "github.com/openai/openai-go"
 )
 
@@ -75,39 +75,38 @@ const defaultRoleTimeout = 10 * time.Minute
 // mapping the common long-form suffixes "min" → "m" and "sec" → "s". If parsing
 // still fails, defaultRoleTimeout is returned.
 
-
 type AgentServer struct {
-	rootDir              string
-	anthropicKey         string
-	client               anthropic.Client // SDK v1.19+ returns Client by value, store value to match
-	beadsClient          *beads.Client
-	claudeSettings       *claude.Settings // Claude Code settings (deny patterns, etc.)
-	executionLog         *execution_log.ExecutionLog // Persistent agent execution log
-	maxConcurrent        int              // Maximum concurrent agents (configurable)
-	maxTokens            int              // Maximum tokens per API call
-	model            string           // Default Anthropic model to use
-	maxInactiveTurns int              // Stop agent after N turns without progress
-	config           *config.Config   // Server configuration
+	rootDir          string
+	anthropicKey     string
+	client           anthropic.Client // SDK v1.19+ returns Client by value, store value to match
+	beadsClient      *beads.Client
+	claudeSettings   *claude.Settings            // Claude Code settings (deny patterns, etc.)
+	executionLog     *execution_log.ExecutionLog // Persistent agent execution log
+	maxConcurrent    int                         // Maximum concurrent agents (configurable)
+	maxTokens        int                         // Maximum tokens per API call
+	model            string                      // Default Anthropic model to use
+	maxInactiveTurns int                         // Stop agent after N turns without progress
+	config           *config.Config              // Server configuration
 
 	// Multi-provider LLM support
-	openaiKey        string
-	geminiKey        string
-	openaiClient     openai.Client
-	anthropicProvider  *AnthropicProvider
-	openaiProvider     *OpenAIProvider
-	modelSelector     *ModelSelector
-	streamingService  *streaming.Service // Clean streaming abstraction
-	projectMetrics   map[string]*monitoring.PersistentMetrics // Per-project persistent metrics
-	providerCosts    map[string][2]float64 // Provider cost configuration
-	mcpManager       *mcp.Manager          // MCP server manager
-	complexityRiskAnalyzer *monitoring.ComplexityRiskAnalyzer // v2 structural risk scorer
+	openaiKey              string
+	geminiKey              string
+	openaiClient           openai.Client
+	anthropicProvider      *AnthropicProvider
+	openaiProvider         *OpenAIProvider
+	modelSelector          *ModelSelector
+	streamingService       *streaming.Service                       // Clean streaming abstraction
+	projectMetrics         map[string]*monitoring.PersistentMetrics // Per-project persistent metrics
+	providerCosts          map[string][2]float64                    // Provider cost configuration
+	mcpManager             *mcp.Manager                             // MCP server manager
+	complexityRiskAnalyzer *monitoring.ComplexityRiskAnalyzer       // v2 structural risk scorer
 
 	// Concurrent execution tracking
 	mu           sync.RWMutex
 	activeTasks  map[string]*TaskExecution
 	taskQueue    chan *TaskExecution
-	workerPool   chan struct{}          // Semaphore for max concurrent agents
-	projectRoots map[string]time.Time   // Registry of known project roots with last access time
+	workerPool   chan struct{}        // Semaphore for max concurrent agents
+	projectRoots map[string]time.Time // Registry of known project roots with last access time
 }
 
 type TaskExecution struct {
@@ -133,27 +132,27 @@ type TaskExecution struct {
 }
 
 type AgentConfig struct {
-	Name            string
-	Description     string
-	Tier            string
-	Class           string // Model class filter: "agentic", "completion", "reasoning" (empty = no filter)
-	Model           string // LLM model to use (e.g., "gpt-4o-mini", "claude-sonnet-3-5-20241022")
-	Context         struct {
+	Name        string
+	Description string
+	Tier        string
+	Class       string // Model class filter: "agentic", "completion", "reasoning" (empty = no filter)
+	Model       string // LLM model to use (e.g., "gpt-4o-mini", "claude-sonnet-3-5-20241022")
+	Context     struct {
 		RoleFile               string
-		RoleContent            string   // Loaded from .md file content
+		RoleContent            string // Loaded from .md file content
 		Gates                  []string
 		AdditionalInstructions string
 	}
-	Delegation      struct {
+	Delegation struct {
 		Mode            string
 		Timeout         string
 		MaxContext      int
 		MaxBudgetTokens int // 0 = unlimited
 		MaxTurns        int // 0 = unlimited
 	}
-	Tools           []string
-	SuccessCriteria []string
-	Metadata        map[string]interface{}
+	Tools            []string
+	SuccessCriteria  []string
+	Metadata         map[string]interface{}
 	ExtendedThinking bool
 	ChatTools        bool // If true, inject chat-mode tools (spawn_agent, query_tasks, etc.)
 }
@@ -212,12 +211,12 @@ func (s *AgentServer) GetProjectCostsData() ([]map[string]interface{}, error) {
 		for _, usage := range dailyUsage.ProviderBreakdown {
 			totalCost += usage.Cost
 			providers = append(providers, map[string]interface{}{
-				"provider":      usage.Provider,
-				"model":         usage.Model,
-				"calls":         usage.Calls,
-				"inputTokens":   usage.InputTokens,
-				"outputTokens":  usage.OutputTokens,
-				"cost":          usage.Cost,
+				"provider":     usage.Provider,
+				"model":        usage.Model,
+				"calls":        usage.Calls,
+				"inputTokens":  usage.InputTokens,
+				"outputTokens": usage.OutputTokens,
+				"cost":         usage.Cost,
 			})
 		}
 
@@ -518,7 +517,6 @@ func (s *AgentServer) worker() {
 	}
 }
 
-
 func (s *AgentServer) loadProjectRoots() error {
 	if s.config.Projects == nil {
 		s.config.Projects = make(map[string]string)
@@ -562,7 +560,6 @@ func (s *AgentServer) saveProjectRoots() error {
 	return config.SaveConfig(s.config, configPath)
 }
 
-
 func (s *AgentServer) cleanupInactiveProjects() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -587,7 +584,6 @@ func (s *AgentServer) cleanupInactiveProjects() {
 		}()
 	}
 }
-
 
 func (s *AgentServer) handleOrphanedTasks() {
 	// Wait a bit for server to fully initialize
@@ -735,7 +731,6 @@ func (s *AgentServer) handleOrphanedTasks() {
 	}
 }
 
-
 func (s *AgentServer) archiveOldTasks() {
 	if !s.config.TaskCleanup.Enabled {
 		return
@@ -870,7 +865,6 @@ func (s *AgentServer) archiveTask(projectRoot string, task *beads.Task) error {
 	return nil
 }
 
-
 func (s *AgentServer) GetActiveTaskCount() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -892,7 +886,6 @@ func (s *AgentServer) GetActiveTaskIDs() []map[string]string {
 	}
 	return tasks
 }
-
 
 func (s *AgentServer) Shutdown(ctx context.Context) error {
 	monitoring.Logger.Info("shutdown_initiated")
@@ -928,4 +921,3 @@ func (s *AgentServer) Shutdown(ctx context.Context) error {
 	monitoring.Logger.Info("shutdown_complete", "active_tasks", 0)
 	return nil
 }
-

@@ -597,12 +597,12 @@ func determineExecutionStatus(projectRoot, beadsTaskID string) string {
 		logContent := string(logData)
 		// Look for failure markers
 		if strings.Contains(logContent, "❌ Task failed") ||
-		   strings.Contains(logContent, "Agentic loop failed") {
+			strings.Contains(logContent, "Agentic loop failed") {
 			return "failed"
 		}
 		// Look for success markers
 		if strings.Contains(logContent, "✅ Task completed successfully") ||
-		   strings.Contains(logContent, "Task completed successfully") {
+			strings.Contains(logContent, "Task completed successfully") {
 			return "completed"
 		}
 

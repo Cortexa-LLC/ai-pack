@@ -9,29 +9,29 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/internal/constants"
+	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 )
 
 // OrchestratorSession manages a persistent orchestrator chat session
 type OrchestratorSession struct {
-	id              string
-	sessionID       string
-	projectRoot     string
-	monitoring      bool
-	lastTaskCheck   time.Time
-	lastActivity    time.Time
-	knownTasks      map[string]string // task_id -> status
-	updateChan      chan OrchestratorUpdate
-	stopChan        chan bool
-	mu              sync.RWMutex
-	server          *AgentServer
+	id            string
+	sessionID     string
+	projectRoot   string
+	monitoring    bool
+	lastTaskCheck time.Time
+	lastActivity  time.Time
+	knownTasks    map[string]string // task_id -> status
+	updateChan    chan OrchestratorUpdate
+	stopChan      chan bool
+	mu            sync.RWMutex
+	server        *AgentServer
 }
 
 // OrchestratorUpdate represents a proactive update from the orchestrator
 type OrchestratorUpdate struct {
-	Type      string                 `json:"type"`      // "task_complete", "task_blocked", "agent_spawned", "status"
-	Message   string                 `json:"message"`   // Human-readable message
+	Type      string                 `json:"type"`    // "task_complete", "task_blocked", "agent_spawned", "status"
+	Message   string                 `json:"message"` // Human-readable message
 	TaskID    string                 `json:"task_id,omitempty"`
 	Status    string                 `json:"status,omitempty"`
 	Metadata  map[string]interface{} `json:"metadata,omitempty"`
