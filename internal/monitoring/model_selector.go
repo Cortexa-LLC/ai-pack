@@ -401,8 +401,15 @@ func (ms *ModelSelector) getBestAvailableModelFromTier(tier ModelTier, role, pro
 		}
 	}
 
-	// No confirmed passing model yet — return cheapest available so we start
-	// gathering real performance data on the most cost-effective option.
+	// No confirmed passing model — return cheapest that isn't actively failing (D/F).
+	for _, m := range available {
+		grade := ms.gradeManager.GetGrade(m.ID, role, projectID)
+		if grade != nil && grade.ConfidenceScore > 0.1 && (grade.Grade == "D" || grade.Grade == "F") {
+			continue // skip known bad models
+		}
+		return m
+	}
+	// All models have failing grades — pick cheapest as last resort.
 	return available[0]
 }
 
