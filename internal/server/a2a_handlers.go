@@ -471,8 +471,8 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 			case "in_progress":
 				status = "in_progress"
 			case "closed", "done":
-				// For closed tasks, check execution log to determine if completed or failed
-				status = determineExecutionStatus(projectRoot, beadsTask.ID)
+				// A task closed in Beads is always completed, regardless of execution outcome
+				status = constants.StatusCompleted
 			case "open":
 				status = "queued"
 			}

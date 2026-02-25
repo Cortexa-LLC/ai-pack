@@ -359,7 +359,17 @@ func (a *GraphQLAdapter) GetTaskStatus(taskID string) (*graphql.TaskInfo, error)
 	a.server.mu.RUnlock()
 
 	if exists {
-		return convertToTaskInfo(execution), nil
+		taskInfo := convertToTaskInfo(execution)
+		// Override status based on Beads status: a task closed in Beads is always
+		// "completed" regardless of the internal execution outcome.
+		if beadsTaskID, ok := execution.metadata["beads_task_id"]; ok && beadsTaskID != "" {
+			if beadsTask, err := a.server.beadsClient.GetTask(beadsTaskID); err == nil {
+				if beadsTask.Status == constants.StatusClosed || beadsTask.Status == constants.StatusDone {
+					taskInfo.Status = constants.StatusCompleted
+				}
+			}
+		}
+		return taskInfo, nil
 	}
 
 	// Try loading from disk
@@ -535,8 +545,8 @@ func convertBeadsTaskToTaskInfo(beadsTask beads.Task, projectRoot string) *graph
 	case "in_progress":
 		status = "in_progress"
 	case "closed", "done":
-		// For closed tasks, check execution log to determine if completed or failed
-		status = determineExecutionStatus(projectRoot, beadsTask.ID)
+		// A task closed in Beads is always completed, regardless of execution outcome
+		status = constants.StatusCompleted
 	case "open":
 		status = "open" // Keep as "open" to distinguish from queued agents
 	}
@@ -566,51 +576,6 @@ func convertBeadsTaskToTaskInfo(beadsTask beads.Task, projectRoot string) *graph
 	}
 
 	return taskInfo
-}
-
-// determineExecutionStatus checks execution log to determine if task completed or failed
-func determineExecutionStatus(projectRoot, beadsTaskID string) string {
-	// Find the execution log for this beads task
-	tasksDir := filepath.Join(projectRoot, constants.BeadsDir, "tasks")
-	entries, err := os.ReadDir(tasksDir)
-	if err != nil {
-		return "completed" // Default to completed if we can't read
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		// Check if directory name matches the beads task ID
-		if entry.Name() != beadsTaskID {
-			continue
-		}
-
-		// Found the execution - check the log
-		logPath := filepath.Join(tasksDir, entry.Name(), "execution.log")
-		logData, err := os.ReadFile(logPath)
-		if err != nil {
-			return "completed" // Default if can't read log
-		}
-
-		logContent := string(logData)
-		// Look for failure markers
-		if strings.Contains(logContent, "❌ Task failed") ||
-			strings.Contains(logContent, "Agentic loop failed") {
-			return "failed"
-		}
-		// Look for success markers
-		if strings.Contains(logContent, "✅ Task completed successfully") ||
-			strings.Contains(logContent, "Task completed successfully") {
-			return "completed"
-		}
-
-		// If closed but no clear marker, default to completed
-		return "completed"
-	}
-
-	return "completed" // Default if no execution found
 }
 
 // CloseTask marks a task as closed so it won't appear in the GUI
