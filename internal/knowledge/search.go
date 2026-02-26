@@ -53,7 +53,7 @@ func (s *Store) KeywordSearch(projectID, query string, limit int) ([]*SearchResu
 		LIMIT %d
 	`, projectID, normalizedQuery, limit)
 
-	result, err := s.conn.Query(cypherQuery)
+	result, err := s.query(cypherQuery)
 	if err != nil {
 		return nil, fmt.Errorf("execute keyword search: %w", err)
 	}
@@ -118,7 +118,7 @@ func (s *Store) GetTopObservations(entityID, projectID string, limit int) ([]*Ob
 		LIMIT %d
 	`, entityID, limit)
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return nil, fmt.Errorf("query observations: %w", err)
 	}

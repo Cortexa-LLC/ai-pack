@@ -6,7 +6,15 @@ import (
 	"strings"
 )
 
-// BatchEmbed processes all un-embedded entities and observations in a project
+// BatchEmbed processes all un-embedded entities and observations in a project.
+//
+// HNSW cache invalidation: the in-memory HNSW vector index is keyed on entity
+// embeddings only (see buildIndex). After updating entity embeddings we call
+// s.hnswIdx.invalidate(projectID) exactly once so the next VectorSearch
+// rebuilds the index with the new vectors.
+//
+// Observation embeddings do not affect the entity-based HNSW index, so no
+// invalidation is needed when only observation embeddings are updated.
 func (s *Store) BatchEmbed(ctx context.Context, projectID string, embedder Embedder) error {
 	// Get un-embedded entities
 	entities, err := s.GetUnembeddedEntities(projectID)
@@ -27,12 +35,17 @@ func (s *Store) BatchEmbed(ctx context.Context, projectID string, embedder Embed
 			return fmt.Errorf("generate embeddings: %w", err)
 		}
 
-		// Store embeddings
+		// Store embeddings directly without per-call HNSW invalidation.
+		// We will do a single invalidation after the entire batch is written.
 		for i, entity := range entities {
-			if err := s.SetEmbedding(entity.ID, embeddings[i]); err != nil {
+			if err := s.setEmbeddingNoInvalidate(entity.ID, embeddings[i]); err != nil {
 				return fmt.Errorf("set embedding for entity %s: %w", entity.ID, err)
 			}
 		}
+
+		// Invalidate once after all entity embeddings are persisted so the next
+		// VectorSearch call rebuilds the HNSW index with the full updated set.
+		s.hnswIdx.invalidate(projectID)
 	}
 
 	// Get un-embedded observations
@@ -57,7 +70,9 @@ func (s *Store) BatchEmbed(ctx context.Context, projectID string, embedder Embed
 		return fmt.Errorf("generate observation embeddings: %w", err)
 	}
 
-	// Store observation embeddings
+	// Store observation embeddings.
+	// Observations are not part of the HNSW entity index, so no cache
+	// invalidation is needed here.
 	for i, obs := range observations {
 		if err := s.SetObservationEmbedding(obs.ID, obsEmbeddings[i]); err != nil {
 			return fmt.Errorf("set embedding for observation %s: %w", obs.ID, err)
@@ -75,7 +90,7 @@ func (s *Store) GetUnembeddedEntities(projectID string) ([]Entity, error) {
 		RETURN e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at
 	`, escapeCypher(projectID))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return nil, fmt.Errorf("query un-embedded entities: %w", err)
 	}
@@ -113,7 +128,7 @@ func (s *Store) GetUnembeddedObservations(projectID string) ([]Observation, erro
 		RETURN o.id, o.entity_id, o.content, o.created_at
 	`, escapeCypher(projectID))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return nil, fmt.Errorf("query un-embedded observations: %w", err)
 	}
@@ -145,27 +160,38 @@ func (s *Store) GetUnembeddedObservations(projectID string) ([]Observation, erro
 // in-memory HNSW index for the entity's project so that the next VectorSearch
 // call rebuilds the index with the new vector.
 func (s *Store) SetEmbedding(entityID string, embedding []float32) error {
+	if err := s.setEmbeddingNoInvalidate(entityID, embedding); err != nil {
+		return err
+	}
+
 	// Look up the project_id so we can invalidate the correct HNSW index.
 	projectID, err := s.entityProjectID(entityID)
 	if err != nil {
 		return fmt.Errorf("set embedding (lookup project): %w", err)
 	}
 
+	// Invalidate the HNSW index so the next VectorSearch rebuilds it.
+	if projectID != "" {
+		s.hnswIdx.invalidate(projectID)
+	}
+
+	return nil
+}
+
+// setEmbeddingNoInvalidate persists an embedding vector for an entity without
+// touching the HNSW cache. BatchEmbed uses this so it can issue a single
+// invalidation after the full batch is written rather than one per entity.
+func (s *Store) setEmbeddingNoInvalidate(entityID string, embedding []float32) error {
 	query := fmt.Sprintf(`
 		MATCH (e:Entity {id: '%s'})
 		SET e.embedding = %s
 	`, escapeCypher(entityID), formatFloatArray(embedding))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return fmt.Errorf("set embedding: %w", err)
 	}
 	defer result.Close()
-
-	// Invalidate the HNSW index so the next VectorSearch rebuilds it.
-	if projectID != "" {
-		s.hnswIdx.invalidate(projectID)
-	}
 
 	return nil
 }
@@ -177,7 +203,7 @@ func (s *Store) entityProjectID(entityID string) (string, error) {
 		RETURN e.project_id
 	`, escapeCypher(entityID))
 
-	result, err := s.conn.Query(q)
+	result, err := s.query(q)
 	if err != nil {
 		return "", fmt.Errorf("query entity project_id: %w", err)
 	}
@@ -203,14 +229,16 @@ func (s *Store) entityProjectID(entityID string) (string, error) {
 	return "", nil
 }
 
-// SetObservationEmbedding stores an embedding vector for an observation
+// SetObservationEmbedding stores an embedding vector for an observation.
+// Observations are not indexed in the HNSW entity graph, so this function does
+// not invalidate the vector index cache.
 func (s *Store) SetObservationEmbedding(observationID string, embedding []float32) error {
 	query := fmt.Sprintf(`
 		MATCH (o:Observation {id: '%s'})
 		SET o.embedding = %s
 	`, escapeCypher(observationID), formatFloatArray(embedding))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return fmt.Errorf("set observation embedding: %w", err)
 	}
