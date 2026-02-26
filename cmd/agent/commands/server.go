@@ -264,5 +264,3 @@ func runVersion() {
 func getVersion() string {
 	return "1.0.0"
 }
-
-
