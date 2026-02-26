@@ -12,7 +12,7 @@ var searchCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := args[0]
-		store, err := knowledge.OpenStore("./data/kg.kuzu")
+		store, err := knowledge.OpenStore(".ai/knowledge.db")
 		if err != nil {
 			return fmt.Errorf("open store: %w", err)
 		}

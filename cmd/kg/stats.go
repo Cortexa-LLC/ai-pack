@@ -10,7 +10,7 @@ var statsCmd = &cobra.Command{
 	Use:   "stats",
 	Short: "Show entity, relation, and observation statistics",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := knowledge.OpenStore("./data/kg.kuzu")
+		store, err := knowledge.OpenStore(".ai/knowledge.db")
 		if err != nil {
 			return err
 		}

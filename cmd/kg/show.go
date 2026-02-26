@@ -11,7 +11,7 @@ var showCmd = &cobra.Command{
 	Short: "Show entity with details (relations, observations)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := knowledge.OpenStore("./data/kg.kuzu")
+		store, err := knowledge.OpenStore(".ai/knowledge.db")
 		if err != nil {
 			return err
 		}

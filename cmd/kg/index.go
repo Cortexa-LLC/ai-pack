@@ -18,7 +18,7 @@ var indexCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		store, err := knowledge.OpenStore("./data/kg.kuzu")
+		store, err := knowledge.OpenStore(".ai/knowledge.db")
 		if err != nil {
 			return fmt.Errorf("open Kuzu store: %w", err)
 		}
