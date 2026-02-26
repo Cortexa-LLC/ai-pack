@@ -2,6 +2,7 @@ package knowledge
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,7 +32,7 @@ func (s *Store) CreateEntity(name, entityType, projectID string) (*Entity, error
 		escapeCypher(projectID), entity.CreatedAt.Format(time.RFC3339),
 		entity.UpdatedAt.Format(time.RFC3339))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return nil, fmt.Errorf("create entity: %w", err)
 	}
@@ -48,7 +49,7 @@ func (s *Store) GetEntity(id, projectID string) (*Entity, error) {
 		RETURN e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at
 	`, escapeCypher(id), escapeCypher(projectID))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return nil, fmt.Errorf("query entity: %w", err)
 	}
@@ -104,7 +105,7 @@ func (s *Store) ListEntities(projectID, entityType string) ([]*Entity, error) {
 		`, escapeCypher(projectID), escapeCypher(entityType))
 	}
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return nil, fmt.Errorf("query entities: %w", err)
 	}
@@ -157,7 +158,7 @@ func (s *Store) DeleteEntity(id, projectID string) error {
 		DETACH DELETE e
 	`, escapeCypher(id), escapeCypher(projectID))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return fmt.Errorf("delete entity: %w", err)
 	}
@@ -166,16 +167,13 @@ func (s *Store) DeleteEntity(id, projectID string) error {
 	return nil
 }
 
-// escapeCypher escapes single quotes in strings for Cypher queries
+// escapeCypher escapes strings for safe interpolation into Cypher queries.
+// It first escapes backslashes, then single quotes, preventing backslash-injection
+// attacks where a crafted input like foo\' could re-enable quote injection.
 func escapeCypher(s string) string {
-	// Simple escape for single quotes - in production, use parameterized queries
-	result := ""
-	for _, ch := range s {
-		if ch == '\'' {
-			result += "\\'"
-		} else {
-			result += string(ch)
-		}
-	}
-	return result
+	// Must escape backslashes BEFORE single quotes; otherwise a trailing
+	// backslash in the input would escape the quote we add next.
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `'`, `\'`)
+	return s
 }
