@@ -87,9 +87,9 @@ func (s *Store) GetObservations(entityID, projectID string) ([]*Observation, err
 		}
 
 		obs := &Observation{
-			ID:       row[0].(string),
-			EntityID: row[1].(string),
-			Content:  row[2].(string),
+			ID:       stringOrEmpty(row[0]),
+			EntityID: stringOrEmpty(row[1]),
+			Content:  stringOrEmpty(row[2]),
 		}
 
 		if ts, ok := row[3].(int64); ok {

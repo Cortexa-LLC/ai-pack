@@ -28,7 +28,7 @@ func (s *Store) CreateRelation(fromID, toID, relType, projectID string) error {
 		CREATE (from)-[:%s]->(to)
 	`, escapeCypher(fromID), escapeCypher(toID), relType)
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return fmt.Errorf("create relation: %w", err)
 	}
@@ -51,7 +51,7 @@ func (s *Store) GetRelations(entityID, projectID string) ([]*Relation, error) {
 		RETURN from.id, to.id, label(r)
 	`, escapeCypher(entityID), escapeCypher(projectID))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return nil, fmt.Errorf("query relations: %w", err)
 	}
@@ -71,9 +71,9 @@ func (s *Store) GetRelations(entityID, projectID string) ([]*Relation, error) {
 		}
 
 		relation := &Relation{
-			FromID: row[0].(string),
-			ToID:   row[1].(string),
-			Type:   row[2].(string),
+			FromID: stringOrEmpty(row[0]),
+			ToID:   stringOrEmpty(row[1]),
+			Type:   stringOrEmpty(row[2]),
 		}
 
 		relations = append(relations, relation)
@@ -105,7 +105,7 @@ func (s *Store) DeleteRelation(fromID, toID, relType, projectID string) error {
 		DELETE r
 	`, relType, escapeCypher(fromID), escapeCypher(toID), escapeCypher(projectID))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return fmt.Errorf("delete relation: %w", err)
 	}
@@ -132,7 +132,7 @@ func (s *Store) TraverseRelations(entityID, relType, projectID string) ([]*Entit
 		RETURN to.id, to.name, to.type, to.project_id, to.created_at, to.updated_at
 	`, relType, escapeCypher(entityID), escapeCypher(projectID))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return nil, fmt.Errorf("traverse relations: %w", err)
 	}
@@ -152,10 +152,10 @@ func (s *Store) TraverseRelations(entityID, relType, projectID string) ([]*Entit
 		}
 
 		entity := &Entity{
-			ID:        row[0].(string),
-			Name:      row[1].(string),
-			Type:      row[2].(string),
-			ProjectID: row[3].(string),
+			ID:        stringOrEmpty(row[0]),
+			Name:      stringOrEmpty(row[1]),
+			Type:      stringOrEmpty(row[2]),
+			ProjectID: stringOrEmpty(row[3]),
 		}
 
 		if ts, ok := row[4].(int64); ok {

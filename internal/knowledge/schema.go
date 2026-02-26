@@ -74,7 +74,7 @@ func (s *Store) initSchema() error {
 	}
 
 	for _, stmt := range staticStatements {
-		result, err := s.conn.Query(stmt)
+		result, err := s.query(stmt)
 		if err != nil {
 			return fmt.Errorf("execute schema statement: %w", err)
 		}
@@ -90,8 +90,9 @@ func (s *Store) initSchema() error {
 }
 
 // migrateEmbeddings adds embedding columns to existing tables if they don't
-// exist yet. Errors are intentionally ignored: Kuzu returns an error when the
-// column already exists, which is the normal case on subsequent Opens.
+// exist yet. Only "already has property" errors are suppressed (Kuzu's signal
+// that the column was created on a previous Open); all other errors are
+// returned so genuine failures are not silently swallowed.
 func (s *Store) migrateEmbeddings() error {
 	migrations := []string{
 		`ALTER TABLE Entity ADD embedding FLOAT[1536]`,
@@ -99,10 +100,14 @@ func (s *Store) migrateEmbeddings() error {
 	}
 
 	for _, stmt := range migrations {
-		result, err := s.conn.Query(stmt)
+		result, err := s.query(stmt)
 		if err != nil {
-			// Column already exists – this is expected on all but the first open.
-			continue
+			// Kuzu returns "already has property <name>" when the column already exists,
+			// which is the normal case on all but the very first Open.
+			if strings.Contains(err.Error(), "already has property") {
+				continue
+			}
+			return fmt.Errorf("migration %q: %w", stmt, err)
 		}
 		result.Close()
 	}

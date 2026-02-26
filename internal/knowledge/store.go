@@ -64,17 +64,12 @@ func (s *Store) Close() error {
 	return nil
 }
 
-// query runs a raw Cypher statement and returns the result.
-// It is the internal counterpart of the public Execute method.
+// query runs a raw Cypher statement and returns the Kuzu result handle.
+// It is the single low-level execution path for all internal callers.
 func (s *Store) query(stmt string) (*kuzu.QueryResult, error) {
 	result, err := s.conn.Query(stmt)
 	if err != nil {
 		return nil, fmt.Errorf("execute query: %w", err)
 	}
 	return result, nil
-}
-
-// Execute runs a raw Cypher query and returns the result
-func (s *Store) Execute(query string) (*kuzu.QueryResult, error) {
-	return s.query(query)
 }

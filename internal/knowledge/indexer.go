@@ -116,7 +116,7 @@ func (idx *Indexer) clearProjectData() error {
 			DELETE r
 		`, idx.projectID, relType, idx.projectID)
 
-		result, err := idx.store.Execute(query)
+		result, err := idx.store.query(query)
 		if err != nil {
 			return fmt.Errorf("delete %s relations: %w", relType, err)
 		}
@@ -129,7 +129,7 @@ func (idx *Indexer) clearProjectData() error {
 		DELETE e
 	`, idx.projectID)
 
-	result, err := idx.store.Execute(query)
+	result, err := idx.store.query(query)
 	if err != nil {
 		return fmt.Errorf("delete entities: %w", err)
 	}
@@ -408,7 +408,7 @@ func (idx *Indexer) bulkLoadEntities(entitiesPath string) error {
 		COPY Entity(id, name, type, project_id, created_at, updated_at) FROM '%s' (HEADER=true)
 	`, entitiesPath)
 
-	result, err := idx.store.Execute(query)
+	result, err := idx.store.query(query)
 	if err != nil {
 		return fmt.Errorf("load entities: %w", err)
 	}

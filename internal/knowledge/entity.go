@@ -31,7 +31,7 @@ func (s *Store) CreateEntity(name, entityType, projectID string) (*Entity, error
 		escapeCypher(projectID), entity.CreatedAt.Format(time.RFC3339),
 		entity.UpdatedAt.Format(time.RFC3339))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return nil, fmt.Errorf("create entity: %w", err)
 	}
@@ -48,7 +48,7 @@ func (s *Store) GetEntity(id, projectID string) (*Entity, error) {
 		RETURN e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at
 	`, escapeCypher(id), escapeCypher(projectID))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return nil, fmt.Errorf("query entity: %w", err)
 	}
@@ -70,10 +70,10 @@ func (s *Store) GetEntity(id, projectID string) (*Entity, error) {
 	}
 
 	entity := &Entity{
-		ID:        row[0].(string),
-		Name:      row[1].(string),
-		Type:      row[2].(string),
-		ProjectID: row[3].(string),
+		ID:        stringOrEmpty(row[0]),
+		Name:      stringOrEmpty(row[1]),
+		Type:      stringOrEmpty(row[2]),
+		ProjectID: stringOrEmpty(row[3]),
 	}
 
 	// Parse timestamps (Kuzu returns timestamps as int64 microseconds)
@@ -104,7 +104,7 @@ func (s *Store) ListEntities(projectID, entityType string) ([]*Entity, error) {
 		`, escapeCypher(projectID), escapeCypher(entityType))
 	}
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return nil, fmt.Errorf("query entities: %w", err)
 	}
@@ -124,10 +124,10 @@ func (s *Store) ListEntities(projectID, entityType string) ([]*Entity, error) {
 		}
 
 		entity := &Entity{
-			ID:        row[0].(string),
-			Name:      row[1].(string),
-			Type:      row[2].(string),
-			ProjectID: row[3].(string),
+			ID:        stringOrEmpty(row[0]),
+			Name:      stringOrEmpty(row[1]),
+			Type:      stringOrEmpty(row[2]),
+			ProjectID: stringOrEmpty(row[3]),
 		}
 
 		if ts, ok := row[4].(int64); ok {
@@ -157,7 +157,7 @@ func (s *Store) DeleteEntity(id, projectID string) error {
 		DETACH DELETE e
 	`, escapeCypher(id), escapeCypher(projectID))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return fmt.Errorf("delete entity: %w", err)
 	}
