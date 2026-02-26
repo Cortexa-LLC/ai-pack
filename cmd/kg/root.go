@@ -18,7 +18,6 @@ func init() {
 	rootCmd.AddCommand(searchCmd)
 	rootCmd.AddCommand(showCmd)
 	rootCmd.AddCommand(linkCmd)
-	rootCmd.AddCommand(queryCmd)
 	rootCmd.AddCommand(indexCmd)
 rootCmd.AddCommand(serverCmd)
 rootCmd.AddCommand(exportCmd)
