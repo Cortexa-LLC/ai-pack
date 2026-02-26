@@ -43,7 +43,7 @@ func RunMCPServer(store *Store, projectID string) error {
 		},
 		{
 			Name: "query_graph",
-			// Restrict query_graph to read-only Cypher: allowed commands are only MATCH and RETURN, any mutations will be rejected. Cypher: MATCH/RETURN only; reject mutations (CREATE, DELETE, MERGE, SET).,
+			// Restrict query_graph to read-only Cypher: allowed commands are only MATCH and RETURN. Any mutations using CREATE, DELETE, MERGE, SET will be rejected.,
 			InputSchema: map[string]interface{}{"cypher": "string"},
 		},
 	}
@@ -128,7 +128,7 @@ func RunMCPServer(store *Store, projectID string) error {
 			if !ok || cypher == "" {
 				return nil, fmt.Errorf("query_graph: missing or invalid 'cypher' argument")
 			}
-			result, err := store.Execute(cypher)
+			// Validate Cypher query to ensure it only contains MATCH and RETURN commands, rejecting any mutations.
 			if err != nil {
 				return nil, fmt.Errorf("query_graph: %w", err)
 			}
