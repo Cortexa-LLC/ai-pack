@@ -10,6 +10,7 @@ const (
 	StatusCompleted  = "completed"
 	StatusFailed     = "failed"
 	StatusPaused     = "paused"
+	StatusCancelled  = "cancelled"
 	StatusOpen       = "open"
 	StatusClosed     = "closed"
 	StatusDone       = "done"

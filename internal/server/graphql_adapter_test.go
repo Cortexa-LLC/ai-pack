@@ -1,12 +1,30 @@
 package server
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/cortexa-llc/ai-pack/internal/beads"
 	"github.com/cortexa-llc/ai-pack/internal/config"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 )
+
+// mockBeadsTaskGetter is a test double for beadsTaskGetter.
+type mockBeadsTaskGetter struct {
+	tasks  map[string]*beads.Task
+	errors map[string]error
+}
+
+func (m *mockBeadsTaskGetter) GetTask(taskID string) (*beads.Task, error) {
+	if err, ok := m.errors[taskID]; ok {
+		return nil, err
+	}
+	if t, ok := m.tasks[taskID]; ok {
+		return t, nil
+	}
+	return nil, fmt.Errorf("task %q not found in mock", taskID)
+}
 
 // TestGetMetrics verifies the GraphQL adapter returns correct metrics
 func TestGetMetrics(t *testing.T) {
@@ -142,5 +160,60 @@ func TestGetActiveTasksWithTask(t *testing.T) {
 
 	if task.Status != "in_progress" {
 		t.Errorf("Expected Status 'in_progress', got %s", task.Status)
+	}
+}
+
+// TestGetAllTasks_CancelledBeadsTaskShowsCancelled verifies that a task which is
+// still in activeTasks with Status "in_progress" is correctly reported as
+// "cancelled" when the corresponding Beads task has status "open" (the state
+// Beads puts a task into after cancellation in some workflows).
+func TestGetAllTasks_CancelledBeadsTaskShowsCancelled(t *testing.T) {
+	monitoring.InitMetrics()
+
+	cfg := &config.Config{
+		API: config.APIConfig{
+			MaxTokens:      4096,
+			AnthropicModel: "claude-3-5-sonnet-20241022",
+		},
+	}
+
+	server, err := NewAgentServer("/tmp", 1, 4096, "claude-3-5-sonnet-20241022", cfg)
+	if err != nil {
+		t.Fatalf("Failed to create server: %v", err)
+	}
+
+	beadsID := "ai-pack-test-cancelled"
+
+	// Execution is still in activeTasks with a stale in_progress status.
+	execution := &TaskExecution{
+		TaskID:    "task-cancelled-test",
+		Role:      "engineer",
+		Task:      "some cancelled task",
+		Status:    "in_progress",
+		StartTime: time.Now(),
+		metadata:  map[string]string{"beads_task_id": beadsID},
+	}
+
+	server.mu.Lock()
+	server.activeTasks["task-cancelled-test"] = execution
+	server.mu.Unlock()
+
+	adapter := NewGraphQLAdapter(server)
+	// Override beadsClient with a mock that returns "open" (post-cancel state).
+	adapter.taskGetter = &mockBeadsTaskGetter{
+		tasks: map[string]*beads.Task{
+			beadsID: {ID: beadsID, Status: "open"},
+		},
+	}
+
+	tasks := adapter.GetAllTasks()
+
+	got, ok := tasks["task-cancelled-test"]
+	if !ok {
+		t.Fatal("Expected task-cancelled-test in GetAllTasks result, but it was missing")
+	}
+
+	if got.Status != "cancelled" {
+		t.Errorf("Expected status 'cancelled', got %q — cancelled tasks must not show as in_progress in GUI", got.Status)
 	}
 }

@@ -16,15 +16,22 @@ import (
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 )
 
+// beadsTaskGetter is a narrow interface used by applyBeadsStatusOverride so that
+// tests can supply a fake without spawning a real `bd` process.
+type beadsTaskGetter interface {
+	GetTask(taskID string) (*beads.Task, error)
+}
+
 // GraphQLAdapter adapts AgentServer to implement graphql.ServerInterface
 // This allows GraphQL resolvers to access server functionality without circular dependencies
 type GraphQLAdapter struct {
-	server *AgentServer
+	server     *AgentServer
+	taskGetter beadsTaskGetter // defaults to server.beadsClient; overridable in tests
 }
 
 // NewGraphQLAdapter creates a new GraphQL adapter for the agent server
 func NewGraphQLAdapter(server *AgentServer) *GraphQLAdapter {
-	return &GraphQLAdapter{server: server}
+	return &GraphQLAdapter{server: server, taskGetter: server.beadsClient}
 }
 
 // GetActiveTasks returns all currently active tasks
@@ -71,7 +78,9 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 	// First, get all active tasks from memory
 	a.server.mu.RLock()
 	for id, execution := range a.server.activeTasks {
-		tasks[id] = convertToTaskInfo(execution)
+		info := convertToTaskInfo(execution)
+		a.applyBeadsStatusOverride(info, execution)
+		tasks[id] = info
 	}
 	a.server.mu.RUnlock()
 
@@ -351,6 +360,34 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 	return taskInfo, nil
 }
 
+// applyBeadsStatusOverride updates taskInfo.Status based on the live Beads task status.
+// This is the source of truth for tasks that have been closed, cancelled, or completed.
+//
+// Mapping:
+//   - Beads "closed" / "done"               → constants.StatusCompleted
+//   - Beads "open" with stale in-progress   → constants.StatusCancelled
+//     (task was reset to open after cancel)
+//   - anything else                         → leave taskInfo.Status unchanged
+func (a *GraphQLAdapter) applyBeadsStatusOverride(taskInfo *graphql.TaskInfo, execution *TaskExecution) {
+	beadsTaskID, ok := execution.metadata["beads_task_id"]
+	if !ok || beadsTaskID == "" {
+		return
+	}
+	beadsTask, err := a.taskGetter.GetTask(beadsTaskID)
+	if err != nil {
+		return
+	}
+	switch beadsTask.Status {
+	case constants.StatusClosed, constants.StatusDone:
+		taskInfo.Status = constants.StatusCompleted
+	case "open":
+		// Task was reset to open (e.g. after cancel) — show as cancelled
+		if taskInfo.Status == "in_progress" || taskInfo.Status == constants.StatusCancelled {
+			taskInfo.Status = constants.StatusCancelled
+		}
+	}
+}
+
 // GetTaskStatus returns status for a specific task
 func (a *GraphQLAdapter) GetTaskStatus(taskID string) (*graphql.TaskInfo, error) {
 	a.server.mu.RLock()
@@ -359,15 +396,7 @@ func (a *GraphQLAdapter) GetTaskStatus(taskID string) (*graphql.TaskInfo, error)
 
 	if exists {
 		taskInfo := convertToTaskInfo(execution)
-		// Override status based on Beads status: a task closed in Beads is always
-		// "completed" regardless of the internal execution outcome.
-		if beadsTaskID, ok := execution.metadata["beads_task_id"]; ok && beadsTaskID != "" {
-			if beadsTask, err := a.server.beadsClient.GetTask(beadsTaskID); err == nil {
-				if beadsTask.Status == constants.StatusClosed || beadsTask.Status == constants.StatusDone {
-					taskInfo.Status = constants.StatusCompleted
-				}
-			}
-		}
+		a.applyBeadsStatusOverride(taskInfo, execution)
 		return taskInfo, nil
 	}
 
