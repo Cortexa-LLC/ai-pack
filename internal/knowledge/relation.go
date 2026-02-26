@@ -18,23 +18,8 @@ func (s *Store) CreateRelation(fromID, toID, relType, projectID string) error {
 		return fmt.Errorf("target entity: %w", err)
 	}
 
-	// Validate relation type
-	validTypes := map[string]bool{
-		"CALLS":      true,
-		"IMPORTS":    true,
-		"CONTAINS":   true,
-		"FIXES":      true,
-		"SUPERSEDES": true,
-		"CAUSED_BY":  true,
-		"DEPENDS_ON": true,
-		"IMPLEMENTS": true,
-		"RELATES_TO": true,
-		"TESTS":      true,
-		"DOCUMENTS":  true,
-	}
-
-	if !validTypes[relType] {
-		return fmt.Errorf("invalid relation type: %s", relType)
+	if err := validateRelType(relType); err != nil {
+		return err
 	}
 
 	query := fmt.Sprintf(`
@@ -99,6 +84,10 @@ func (s *Store) GetRelations(entityID, projectID string) ([]*Relation, error) {
 
 // DeleteRelation removes a specific relation between two entities
 func (s *Store) DeleteRelation(fromID, toID, relType, projectID string) error {
+	if err := validateRelType(relType); err != nil {
+		return err
+	}
+
 	// Verify both entities exist and belong to this project
 	_, err := s.GetEntity(fromID, projectID)
 	if err != nil {
@@ -127,6 +116,10 @@ func (s *Store) DeleteRelation(fromID, toID, relType, projectID string) error {
 
 // TraverseRelations follows a relation type from an entity and returns connected entities
 func (s *Store) TraverseRelations(entityID, relType, projectID string) ([]*Entity, error) {
+	if err := validateRelType(relType); err != nil {
+		return nil, err
+	}
+
 	// Verify source entity exists and belongs to this project
 	_, err := s.GetEntity(entityID, projectID)
 	if err != nil {

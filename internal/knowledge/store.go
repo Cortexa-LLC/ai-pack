@@ -64,85 +64,17 @@ func (s *Store) Close() error {
 	return nil
 }
 
-// initSchema creates node and relationship tables if they don't exist
-func (s *Store) initSchema() error {
-	schema := []string{
-		// Entity node table
-		`CREATE NODE TABLE IF NOT EXISTS Entity(
-			id STRING PRIMARY KEY,
-			name STRING,
-			type STRING,
-			project_id STRING,
-			created_at TIMESTAMP,
-			updated_at TIMESTAMP,
-			embedding FLOAT[1536]
-		)`,
-
-		// Observation node table
-		`CREATE NODE TABLE IF NOT EXISTS Observation(
-			id STRING PRIMARY KEY,
-			entity_id STRING,
-			content STRING,
-			created_at TIMESTAMP,
-			embedding FLOAT[1536]
-		)`,
-
-		// Relationship tables
-		`CREATE REL TABLE IF NOT EXISTS CALLS(FROM Entity TO Entity)`,
-		`CREATE REL TABLE IF NOT EXISTS IMPORTS(FROM Entity TO Entity)`,
-		`CREATE REL TABLE IF NOT EXISTS CONTAINS(FROM Entity TO Entity)`,
-		`CREATE REL TABLE IF NOT EXISTS FIXES(FROM Entity TO Entity)`,
-		`CREATE REL TABLE IF NOT EXISTS SUPERSEDES(FROM Entity TO Entity)`,
-		`CREATE REL TABLE IF NOT EXISTS CAUSED_BY(FROM Entity TO Entity)`,
-		`CREATE REL TABLE IF NOT EXISTS DEPENDS_ON(FROM Entity TO Entity)`,
-		`CREATE REL TABLE IF NOT EXISTS IMPLEMENTS(FROM Entity TO Entity)`,
-		`CREATE REL TABLE IF NOT EXISTS RELATES_TO(FROM Entity TO Entity)`,
-		`CREATE REL TABLE IF NOT EXISTS TESTS(FROM Entity TO Entity)`,
-		`CREATE REL TABLE IF NOT EXISTS DOCUMENTS(FROM Entity TO Entity)`,
-		`CREATE REL TABLE IF NOT EXISTS HAS_OBSERVATION(FROM Entity TO Observation)`,
-	}
-
-	for _, stmt := range schema {
-		result, err := s.conn.Query(stmt)
-		if err != nil {
-			return fmt.Errorf("execute schema statement: %w", err)
-		}
-		result.Close()
-	}
-
-	// Migrate existing tables to add embedding column if missing
-	if err := s.migrateEmbeddings(); err != nil {
-		return fmt.Errorf("migrate embeddings: %w", err)
-	}
-
-	return nil
-}
-
-// migrateEmbeddings adds embedding columns to existing tables if they don't exist
-func (s *Store) migrateEmbeddings() error {
-	migrations := []string{
-		`ALTER TABLE Entity ADD embedding FLOAT[1536]`,
-		`ALTER TABLE Observation ADD embedding FLOAT[1536]`,
-	}
-
-	for _, stmt := range migrations {
-		result, err := s.conn.Query(stmt)
-		if err != nil {
-			// Ignore errors if column already exists
-			// Kuzu will return an error if we try to add a column that exists
-			continue
-		}
-		result.Close()
-	}
-
-	return nil
-}
-
-// Execute runs a raw Cypher query and returns the result
-func (s *Store) Execute(query string) (*kuzu.QueryResult, error) {
-	result, err := s.conn.Query(query)
+// query runs a raw Cypher statement and returns the result.
+// It is the internal counterpart of the public Execute method.
+func (s *Store) query(stmt string) (*kuzu.QueryResult, error) {
+	result, err := s.conn.Query(stmt)
 	if err != nil {
 		return nil, fmt.Errorf("execute query: %w", err)
 	}
 	return result, nil
+}
+
+// Execute runs a raw Cypher query and returns the result
+func (s *Store) Execute(query string) (*kuzu.QueryResult, error) {
+	return s.query(query)
 }
