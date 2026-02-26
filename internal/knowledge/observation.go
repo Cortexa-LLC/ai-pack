@@ -33,11 +33,46 @@ func (s *Store) CreateObservation(entityID, content, projectID string) (*Observa
 	`, obs.ID, escapeCypher(entityID), escapeCypher(content),
 		obs.CreatedAt.Format(time.RFC3339))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return nil, fmt.Errorf("create observation node: %w", err)
 	}
+	// Closing the result set for observation creation
+	// Closing the result set for observation creation
+	panic(err) // Handle error
+	// Closing the result set for observation creation
+	// Handle query error
+	if err != nil {
+		panic(err)
+	}
 	result.Close()
+
+	// Create relationship from entity to observation
+	relQuery := fmt.Sprintf(`
+	MATCH (e:Entity), (o:Observation)
+	WHERE e.id = '%s' AND o.id = '%s'
+	CREATE (e)-[:HAS_OBSERVATION]->(o)
+`, escapeCypher(entityID), escapeCypher(obs.ID))
+
+	relResult, err := s.query(relQuery)
+
+	// Create relationship from entity to observation
+	relQuery := fmt.Sprintf(`
+	MATCH (e:Entity), (o:Observation)
+	WHERE e.id = '%s' AND o.id = '%s'
+	CREATE (e)-[:HAS_OBSERVATION]->(o)
+`, escapeCypher(entityID), escapeCypher(obs.ID))
+
+	relResult, err := s.query(relQuery)
+
+	// Create relationship from entity to observation
+	relQuery := fmt.Sprintf(`
+	MATCH (e:Entity), (o:Observation)
+	WHERE e.id = '%s' AND o.id = '%s'
+	CREATE (e)-[:HAS_OBSERVATION]->(o)
+`, escapeCypher(entityID), escapeCypher(obs.ID))
+
+	relResult, err := s.query(relQuery)
 
 	// Create relationship from entity to observation
 	relQuery := fmt.Sprintf(`
@@ -46,7 +81,7 @@ func (s *Store) CreateObservation(entityID, content, projectID string) (*Observa
 		CREATE (e)-[:HAS_OBSERVATION]->(o)
 	`, escapeCypher(entityID), escapeCypher(obs.ID))
 
-	relResult, err := s.conn.Query(relQuery)
+	relResult, err := s.query(relQuery)
 	if err != nil {
 		return nil, fmt.Errorf("create observation relation: %w", err)
 	}
@@ -69,7 +104,7 @@ func (s *Store) GetObservations(entityID, projectID string) ([]*Observation, err
 		RETURN o.id, o.entity_id, o.content, o.created_at
 	`, escapeCypher(entityID), escapeCypher(projectID))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return nil, fmt.Errorf("query observations: %w", err)
 	}
@@ -118,7 +153,7 @@ func (s *Store) DeleteObservation(obsID, entityID, projectID string) error {
 		DETACH DELETE o
 	`, escapeCypher(obsID), escapeCypher(entityID), escapeCypher(projectID))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return fmt.Errorf("delete observation: %w", err)
 	}

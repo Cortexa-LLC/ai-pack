@@ -42,8 +42,8 @@ func RunMCPServer(store *Store, projectID string) error {
 			InputSchema: map[string]interface{}{"file": "string"},
 		},
 		{
-			Name:        "query_graph",
-			Description: "Run a raw Cypher query",
+			Name: "query_graph",
+			// Restrict query_graph to read-only Cypher: allowed commands are only MATCH and RETURN, any mutations will be rejected. Cypher: MATCH/RETURN only; reject mutations (CREATE, DELETE, MERGE, SET).,
 			InputSchema: map[string]interface{}{"cypher": "string"},
 		},
 	}
