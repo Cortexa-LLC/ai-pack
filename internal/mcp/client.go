@@ -169,6 +169,21 @@ func (c *Client) CallTool(ctx context.Context, name string, arguments map[string
 	return &result, nil
 }
 
+// CallToolInto executes a tool and unmarshals the raw result into dest.
+// Use this when the server returns a struct that is not wrapped in CallToolResult.
+func (c *Client) CallToolInto(ctx context.Context, name string, arguments map[string]interface{}, dest interface{}) error {
+	if !c.initialized {
+		return fmt.Errorf("client not initialized")
+	}
+
+	params := CallToolParams{
+		Name:      name,
+		Arguments: arguments,
+	}
+
+	return c.call(ctx, "tools/call", params, dest)
+}
+
 // GetTools returns the list of available tools
 func (c *Client) GetTools() []Tool {
 	return c.tools

@@ -13,6 +13,7 @@ import (
 	"github.com/cortexa-llc/ai-pack/internal/beads"
 
 	"github.com/cortexa-llc/ai-pack/internal/constants"
+	"github.com/cortexa-llc/ai-pack/internal/kgclient"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/internal/protocol"
 )
@@ -117,6 +118,19 @@ func (s *AgentServer) updateTaskStatus(taskID, projectRoot, status, errorMsg str
 func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskExecution, result string, startTime time.Time, logMsg func(string)) {
 	// Save results
 	s.saveTaskResults(execution, result, logMsg)
+
+	// Persist task outcome to the knowledge graph (best-effort, non-blocking).
+	// A snapshot of the variables is taken so the goroutine doesn't race on
+	// fields that may be mutated after saveAndCompleteTask returns.
+	go kgclient.WriteBack(
+		context.Background(),
+		s.mcpManager,
+		execution.ProjectRoot,
+		execution.Role,
+		execution.Task,
+		result,
+		startTime,
+	)
 
 	// Detect if the agent stopped due to blockers (missing task packets, etc.)
 	// Check for common blocker patterns in the result text
