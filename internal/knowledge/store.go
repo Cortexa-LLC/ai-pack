@@ -4,12 +4,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	kuzu "github.com/kuzudb/go-kuzu"
 )
 
-// Store manages the Kuzu knowledge graph database
+// Store manages the Kuzu knowledge graph database.
+//
+// KuzuDB's Go binding does not document thread-safety guarantees for a single
+// connection (see: https://github.com/kuzudb/go-kuzu). A sync.Mutex is therefore
+// used to serialise all conn.Query calls, making Store safe for concurrent use.
 type Store struct {
+	mu      sync.Mutex // guards conn; acquired for every conn.Query call
 	db      *kuzu.Database
 	conn    *kuzu.Connection
 	path    string
@@ -64,6 +70,14 @@ func (s *Store) Close() error {
 	return nil
 }
 
+// query executes a Cypher statement under the Store mutex, ensuring that only
+// one goroutine accesses conn at a time.
+func (s *Store) query(cypher string) (*kuzu.QueryResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.conn.Query(cypher)
+}
+
 // initSchema creates node and relationship tables if they don't exist
 func (s *Store) initSchema() error {
 	schema := []string{
@@ -103,7 +117,7 @@ func (s *Store) initSchema() error {
 	}
 
 	for _, stmt := range schema {
-		result, err := s.conn.Query(stmt)
+		result, err := s.query(stmt)
 		if err != nil {
 			return fmt.Errorf("execute schema statement: %w", err)
 		}
@@ -126,7 +140,7 @@ func (s *Store) migrateEmbeddings() error {
 	}
 
 	for _, stmt := range migrations {
-		result, err := s.conn.Query(stmt)
+		result, err := s.query(stmt)
 		if err != nil {
 			// Ignore errors if column already exists
 			// Kuzu will return an error if we try to add a column that exists
@@ -138,9 +152,10 @@ func (s *Store) migrateEmbeddings() error {
 	return nil
 }
 
-// Execute runs a raw Cypher query and returns the result
+// Execute runs a raw Cypher query and returns the result.
+// It is safe to call Execute concurrently.
 func (s *Store) Execute(query string) (*kuzu.QueryResult, error) {
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return nil, fmt.Errorf("execute query: %w", err)
 	}
