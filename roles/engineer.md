@@ -2,6 +2,7 @@
 
 **Agent:** engineer
 **Description:** Implementation specialist following TDD workflow
+**Model:** claude-sonnet-4-6
 **Tier:** medium
 **Class:** agentic
 **Timeout:** 30min
