@@ -1,4 +1,26 @@
-package knowledge
+// This package handles embedding functionality for the knowledge base system.
+package embedder
+
+import (
+	"github.com/cortexa-llc/ai-pack/internal/knowledge"
+)
+
+// Embedding related functionality here...
+
+import (
+	"errors"
+)
+
+import (
+	"errors"
+)
+
+import (
+	"github.com/cortexa-llc/ai-pack/internal/knowledge"
+
+	"errors"
+)
+
 
 import (
 	"context"
