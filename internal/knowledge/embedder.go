@@ -18,32 +18,35 @@ type Embedder interface {
 	Model() string
 }
 
-// NewEmbedder creates an embedder based on the model name
+// NewEmbedder creates an embedder based on the model name.
 // Supports:
 //   - OpenAI models: "text-embedding-3-small", "text-embedding-3-large", "openai:model-name"
 //   - Ollama models: "ollama:nomic-embed-text", "nomic-embed-text", etc.
-func NewEmbedder(apiKey, model string) (Embedder, error) {
+//
+// Pass dims=0 to use each embedder's built-in default for the chosen model.
+func NewEmbedder(apiKey, model string, dims int) (Embedder, error) {
 	if model == "" {
 		model = "text-embedding-3-small"
 	}
 	if strings.HasPrefix(model, "openai:") {
 		modelName := strings.TrimPrefix(model, "openai:")
-		return NewOpenAIEmbedder(apiKey, modelName)
+		return NewOpenAIEmbedder(apiKey, modelName, dims)
 	}
 	if strings.HasPrefix(model, "ollama:") {
 		modelName := strings.TrimPrefix(model, "ollama:")
-		return NewOllamaEmbedder(modelName), nil
+		return NewOllamaEmbedder(modelName, dims), nil
 	}
 	if strings.HasPrefix(model, "text-embedding-") {
-		return NewOpenAIEmbedder(apiKey, model)
+		return NewOpenAIEmbedder(apiKey, model, dims)
 	}
-	return NewOllamaEmbedder(model), nil
+	return NewOllamaEmbedder(model, dims), nil
 }
 
-// NewEmbedderFromEnv creates an embedder using environment variables
-// Reads KNOWLEDGE_EMBED_MODEL (defaults to text-embedding-3-small) and OPENAI_API_KEY
+// NewEmbedderFromEnv creates an embedder using environment variables.
+// Reads KNOWLEDGE_EMBED_MODEL (defaults to text-embedding-3-small), OPENAI_API_KEY,
+// and KNOWLEDGE_EMBED_DIMS (defaults to 0, i.e. model default).
 func NewEmbedderFromEnv() (Embedder, error) {
 	model := os.Getenv("KNOWLEDGE_EMBED_MODEL")
 	apiKey := os.Getenv("OPENAI_API_KEY")
-	return NewEmbedder(apiKey, model)
+	return NewEmbedder(apiKey, model, 0)
 }
