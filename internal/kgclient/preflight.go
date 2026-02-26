@@ -18,8 +18,7 @@ func PreflightContext(ctx context.Context, mcpManager *mcp.Manager, taskDescript
 	callCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	params := map[string]interface{}{
-		"task_description": taskDescription,
-		"project_id":       projectID,
+		"task": taskDescription,
 	}
 	result, err := mcpManager.CallTool(callCtx, "get_preflight_context", params)
 	if err != nil {
