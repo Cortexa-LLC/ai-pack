@@ -5,6 +5,32 @@ import (
 	"time"
 )
 
+// validRelTypes is the set of allowed relation type labels.
+// relType is interpolated directly into Cypher as a label name (e.g. [r:CALLS]),
+// which cannot be parameterised, so we guard it with an allowlist.
+var validRelTypes = map[string]bool{
+	"CALLS":      true,
+	"IMPORTS":    true,
+	"CONTAINS":   true,
+	"FIXES":      true,
+	"SUPERSEDES": true,
+	"CAUSED_BY":  true,
+	"DEPENDS_ON": true,
+	"IMPLEMENTS": true,
+	"RELATES_TO": true,
+	"TESTS":      true,
+	"DOCUMENTS":  true,
+}
+
+// validateRelType returns an error when relType is not in the allowlist,
+// preventing Cypher-label-injection in DeleteRelation and TraverseRelations.
+func validateRelType(relType string) error {
+	if !validRelTypes[relType] {
+		return fmt.Errorf("invalid relation type: %s", relType)
+	}
+	return nil
+}
+
 // CreateRelation creates a directed relationship between two entities
 func (s *Store) CreateRelation(fromID, toID, relType, projectID string) error {
 	// Verify both entities exist and belong to this project
@@ -18,23 +44,8 @@ func (s *Store) CreateRelation(fromID, toID, relType, projectID string) error {
 		return fmt.Errorf("target entity: %w", err)
 	}
 
-	// Validate relation type
-	validTypes := map[string]bool{
-		"CALLS":      true,
-		"IMPORTS":    true,
-		"CONTAINS":   true,
-		"FIXES":      true,
-		"SUPERSEDES": true,
-		"CAUSED_BY":  true,
-		"DEPENDS_ON": true,
-		"IMPLEMENTS": true,
-		"RELATES_TO": true,
-		"TESTS":      true,
-		"DOCUMENTS":  true,
-	}
-
-	if !validTypes[relType] {
-		return fmt.Errorf("invalid relation type: %s", relType)
+	if err := validateRelType(relType); err != nil {
+		return err
 	}
 
 	query := fmt.Sprintf(`
@@ -43,7 +54,7 @@ func (s *Store) CreateRelation(fromID, toID, relType, projectID string) error {
 		CREATE (from)-[:%s]->(to)
 	`, escapeCypher(fromID), escapeCypher(toID), relType)
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return fmt.Errorf("create relation: %w", err)
 	}
@@ -66,7 +77,7 @@ func (s *Store) GetRelations(entityID, projectID string) ([]*Relation, error) {
 		RETURN from.id, to.id, label(r)
 	`, escapeCypher(entityID), escapeCypher(projectID))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return nil, fmt.Errorf("query relations: %w", err)
 	}
@@ -110,13 +121,18 @@ func (s *Store) DeleteRelation(fromID, toID, relType, projectID string) error {
 		return fmt.Errorf("target entity: %w", err)
 	}
 
+	// relType is interpolated as a Cypher label; guard with allowlist
+	if err := validateRelType(relType); err != nil {
+		return err
+	}
+
 	query := fmt.Sprintf(`
 		MATCH (from:Entity)-[r:%s]->(to:Entity)
 		WHERE from.id = '%s' AND to.id = '%s' AND from.project_id = '%s'
 		DELETE r
 	`, relType, escapeCypher(fromID), escapeCypher(toID), escapeCypher(projectID))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return fmt.Errorf("delete relation: %w", err)
 	}
@@ -133,13 +149,18 @@ func (s *Store) TraverseRelations(entityID, relType, projectID string) ([]*Entit
 		return nil, err
 	}
 
+	// relType is interpolated as a Cypher label; guard with allowlist
+	if err := validateRelType(relType); err != nil {
+		return nil, err
+	}
+
 	query := fmt.Sprintf(`
 		MATCH (from:Entity)-[:%s]->(to:Entity)
 		WHERE from.id = '%s' AND from.project_id = '%s'
 		RETURN to.id, to.name, to.type, to.project_id, to.created_at, to.updated_at
 	`, relType, escapeCypher(entityID), escapeCypher(projectID))
 
-	result, err := s.conn.Query(query)
+	result, err := s.query(query)
 	if err != nil {
 		return nil, fmt.Errorf("traverse relations: %w", err)
 	}
