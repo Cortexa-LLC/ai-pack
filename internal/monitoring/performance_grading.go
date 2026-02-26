@@ -27,6 +27,20 @@ const (
 	minSamplesForRuntimeGrade = 5
 )
 
+// FailureSeverity classifies how severe a task failure is.
+type FailureSeverity int
+
+const (
+	// FailureSeverityRoutine is a normal task failure (wrong output, timeout, etc.).
+	// The 5-run anchor and grade-seeding logic apply as usual.
+	FailureSeverityRoutine FailureSeverity = iota
+
+	// FailureSeverityCatastrophic is a destructive failure that must immediately
+	// downgrade the model to Grade F regardless of the 5-run anchor. Examples:
+	// file corruption, truncation of existing files, out-of-scope writes.
+	FailureSeverityCatastrophic FailureSeverity = iota
+)
+
 // PerformanceGrade tracks model performance per role and project
 type PerformanceGrade struct {
 	ModelID   string `json:"model_id"`   // e.g., "gpt-4o-mini"
@@ -34,11 +48,11 @@ type PerformanceGrade struct {
 	ProjectID string `json:"project_id"` // Project path hash or identifier
 
 	// Success metrics
-	TotalAttempts int `json:"total_attempts"`
-	Successes     int `json:"successes"`
-	Failures      int `json:"failures"`
-	Retries       int `json:"retries"`
-
+	TotalAttempts       int `json:"total_attempts"`
+	Successes           int `json:"successes"`
+	Failures            int `json:"failures"`
+	Retries             int `json:"retries"`
+	CatastrophicFailures int `json:"catastrophic_failures"` // Count of catastrophic failures (file corruption, out-of-scope writes)
 	// Quality indicators
 	TotalTokensUsed      int64   `json:"total_tokens_used"`       // Sum of all tokens
 	TotalExecutionTimeMs float64 `json:"total_execution_time_ms"` // Sum of all execution times (ms)
@@ -170,9 +184,95 @@ func (m *PerformanceGradeManager) RecordTaskCompletion(
 	return nil
 }
 
-// recalculateGrade updates all calculated fields
+// RecordCatastrophicFailure records a severe failure that must immediately downgrade
+// the model to Grade F, bypassing the 5-run LiveBench anchor.
+//
+// Use this instead of RecordTaskCompletion(success=false) when the agent has
+// performed a destructive action such as:
+//   - Corrupting or truncating existing files
+//   - Overwriting source files with stubs
+//   - Writing to files outside the declared working-directory scope
+//
+// Once a catastrophic failure is recorded, all subsequent calls to
+// recalculateGrade will keep the grade locked at F regardless of future
+// successes. This is intentional: a model that has proven it can cause data
+// loss must be excluded from further use until a human re-reviews it.
+func (m *PerformanceGradeManager) RecordCatastrophicFailure(
+	taskID string,
+	modelID string,
+	roleID string,
+	projectID string,
+	reason string,
+) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	key := gradeKey(modelID, roleID, projectID)
+	grade, exists := m.grades[key]
+
+	if !exists {
+		grade = &PerformanceGrade{
+			ModelID:   modelID,
+			RoleID:    roleID,
+			ProjectID: projectID,
+			FirstUsed: time.Now(),
+			Source:    GradeSourceProduction,
+		}
+		m.grades[key] = grade
+	}
+
+	// Record as a failure
+	grade.TotalAttempts++
+	grade.Failures++
+	grade.CatastrophicFailures++
+	grade.LastUsed = time.Now()
+	grade.LastTaskID = taskID
+
+	// Immediately force Grade F, bypassing recalculateGrade's normal logic.
+	// We still call recalculateGrade to keep rates/averages consistent, but
+	// because CatastrophicFailures > 0 it will return "F" unconditionally.
+	m.recalculateGrade(grade)
+
+	// Persist to disk
+	if err := m.saveGrade(grade); err != nil {
+		return fmt.Errorf("failed to save grade after catastrophic failure: %w", err)
+	}
+
+	if Logger != nil {
+		Logger.Warn("catastrophic_failure_recorded",
+			"model", modelID,
+			"role", roleID,
+			"project", projectID,
+			"task_id", taskID,
+			"reason", reason,
+			"catastrophic_failures", grade.CatastrophicFailures,
+		)
+	}
+
+	return nil
+}
+
+
 func (m *PerformanceGradeManager) recalculateGrade(grade *PerformanceGrade) {
 	if grade.TotalAttempts == 0 {
+		return
+	}
+
+	// Catastrophic failures lock the grade to F permanently, regardless of any anchor
+	// or subsequent successes. This prevents a seeded Grade C from shielding a model
+	// that has already demonstrated destructive behaviour (e.g. file corruption).
+	if grade.CatastrophicFailures > 0 {
+		grade.Grade = "F"
+
+		// Still update rates/averages for visibility.
+		grade.SuccessRate = float64(grade.Successes) / float64(grade.TotalAttempts)
+		grade.ErrorRate = float64(grade.Failures) / float64(grade.TotalAttempts)
+		grade.RetryRate = float64(grade.Retries) / float64(grade.TotalAttempts)
+		if grade.TotalAttempts > 0 {
+			grade.AverageTokens = int(grade.TotalTokensUsed / int64(grade.TotalAttempts))
+			grade.AverageExecutionTime = grade.TotalExecutionTimeMs / float64(grade.TotalAttempts) / 1000.0
+		}
+		grade.ConfidenceScore = math.Min(1.0, float64(grade.TotalAttempts)/20.0)
 		return
 	}
 

@@ -354,3 +354,162 @@ func TestModelClassFallbackWhenNoMatch(t *testing.T) {
 		t.Error("Expected a model even when class filter has no matches in tier")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Catastrophic failure tests
+// ---------------------------------------------------------------------------
+
+// TestCatastrophicFailureImmediate verifies that RecordCatastrophicFailure
+// forces Grade F on the very first call, bypassing the 5-run anchor.
+func TestCatastrophicFailureImmediate(t *testing.T) {
+	tmpDir := t.TempDir()
+	mgr, err := NewPerformanceGradeManager(tmpDir, nil)
+	if err != nil {
+		t.Fatalf("Failed to create grade manager: %v", err)
+	}
+
+	// A single catastrophic failure must immediately produce Grade F.
+	err = mgr.RecordCatastrophicFailure(
+		"task-cat-1",
+		"gpt-4o-mini",
+		"engineer",
+		"/test/project",
+		"agent corrupted entity.go (179 lines → 52-line stub)",
+	)
+	if err != nil {
+		t.Fatalf("RecordCatastrophicFailure returned error: %v", err)
+	}
+
+	grade := mgr.GetGrade("gpt-4o-mini", "engineer", "/test/project")
+	if grade == nil {
+		t.Fatal("Expected grade to exist after catastrophic failure")
+	}
+
+	if grade.Grade != "F" {
+		t.Errorf("Expected Grade F after catastrophic failure, got %q", grade.Grade)
+	}
+	if grade.CatastrophicFailures != 1 {
+		t.Errorf("Expected CatastrophicFailures=1, got %d", grade.CatastrophicFailures)
+	}
+	if grade.Failures != 1 {
+		t.Errorf("Expected Failures=1, got %d", grade.Failures)
+	}
+}
+
+// TestCatastrophicFailureBypassesAnchor verifies that a seeded Grade C model
+// is immediately downgraded to F on a catastrophic failure, even though it has
+// fewer than minSamplesForRuntimeGrade (5) real-task executions.
+func TestCatastrophicFailureBypassesAnchor(t *testing.T) {
+	tmpDir := t.TempDir()
+	mgr, err := NewPerformanceGradeManager(tmpDir, nil)
+	if err != nil {
+		t.Fatalf("Failed to create grade manager: %v", err)
+	}
+
+	// Simulate 2 successful runs (well below the 5-run anchor).
+	for i := 0; i < 2; i++ {
+		if err := mgr.RecordTaskCompletion(
+			"task-ok-"+string(rune('0'+i)),
+			"gpt-4o-mini", "engineer", "/test/project",
+			true, 0, 10000, 3000, false, false,
+		); err != nil {
+			t.Fatalf("RecordTaskCompletion error: %v", err)
+		}
+	}
+
+	grade := mgr.GetGrade("gpt-4o-mini", "engineer", "/test/project")
+	if grade == nil {
+		t.Fatal("Expected grade to exist after 2 successes")
+	}
+	// With only 2 runs, the anchor should still be holding a non-F grade.
+	if grade.Grade == "F" {
+		t.Fatal("Grade is already F before the catastrophic failure – test setup is wrong")
+	}
+
+	// Now record the catastrophic failure.
+	if err := mgr.RecordCatastrophicFailure(
+		"task-cat-1",
+		"gpt-4o-mini", "engineer", "/test/project",
+		"out-of-scope file write detected",
+	); err != nil {
+		t.Fatalf("RecordCatastrophicFailure error: %v", err)
+	}
+
+	grade = mgr.GetGrade("gpt-4o-mini", "engineer", "/test/project")
+	if grade.Grade != "F" {
+		t.Errorf("Expected Grade F after catastrophic failure, got %q", grade.Grade)
+	}
+}
+
+// TestCatastrophicFailureLocksGrade verifies that once Grade F is set by a
+// catastrophic failure, subsequent successful runs cannot raise the grade.
+func TestCatastrophicFailureLocksGrade(t *testing.T) {
+	tmpDir := t.TempDir()
+	mgr, err := NewPerformanceGradeManager(tmpDir, nil)
+	if err != nil {
+		t.Fatalf("Failed to create grade manager: %v", err)
+	}
+
+	// First: a catastrophic failure.
+	if err := mgr.RecordCatastrophicFailure(
+		"task-cat-1",
+		"gpt-4o-mini", "engineer", "/test/project",
+		"file corruption",
+	); err != nil {
+		t.Fatalf("RecordCatastrophicFailure error: %v", err)
+	}
+
+	// Then: many successful runs.
+	for i := 0; i < 20; i++ {
+		if err := mgr.RecordTaskCompletion(
+			"task-ok-"+string(rune('0'+i%10)),
+			"gpt-4o-mini", "engineer", "/test/project",
+			true, 0, 10000, 3000, false, false,
+		); err != nil {
+			t.Fatalf("RecordTaskCompletion error: %v", err)
+		}
+	}
+
+	grade := mgr.GetGrade("gpt-4o-mini", "engineer", "/test/project")
+	if grade.Grade != "F" {
+		t.Errorf("Expected Grade F to remain locked even after 20 successes, got %q", grade.Grade)
+	}
+	if grade.CatastrophicFailures != 1 {
+		t.Errorf("Expected CatastrophicFailures still 1, got %d", grade.CatastrophicFailures)
+	}
+}
+
+// TestCatastrophicFailurePersisted verifies that a catastrophic failure's
+// Grade F survives a reload of the grade manager from disk.
+func TestCatastrophicFailurePersisted(t *testing.T) {
+	tmpDir := t.TempDir()
+	mgr, err := NewPerformanceGradeManager(tmpDir, nil)
+	if err != nil {
+		t.Fatalf("Failed to create grade manager: %v", err)
+	}
+
+	if err := mgr.RecordCatastrophicFailure(
+		"task-cat-1",
+		"gpt-4o-mini", "engineer", "/test/project",
+		"file corruption",
+	); err != nil {
+		t.Fatalf("RecordCatastrophicFailure error: %v", err)
+	}
+
+	// Reload from the same directory.
+	mgr2, err := NewPerformanceGradeManager(tmpDir, nil)
+	if err != nil {
+		t.Fatalf("Failed to reload grade manager: %v", err)
+	}
+
+	grade := mgr2.GetGrade("gpt-4o-mini", "engineer", "/test/project")
+	if grade == nil {
+		t.Fatal("Expected grade to be reloaded from disk")
+	}
+	if grade.Grade != "F" {
+		t.Errorf("Expected persisted Grade F, got %q", grade.Grade)
+	}
+	if grade.CatastrophicFailures != 1 {
+		t.Errorf("Expected persisted CatastrophicFailures=1, got %d", grade.CatastrophicFailures)
+	}
+}

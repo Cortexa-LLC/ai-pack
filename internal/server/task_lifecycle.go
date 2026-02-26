@@ -211,22 +211,51 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 				fmt.Sscanf(tokensStr, "%d", &tokensUsed)
 			}
 
-			// Record successful completion
-			if err := monitoring.GlobalGradeManager.RecordTaskCompletion(
-				execution.TaskID,
-				modelID,
-				execution.Role,
-				projectRoot,
-				true, // success
-				0,    // retries (we don't track this yet)
-				tokensUsed,
-				durationMs,
-				false, // wasEscalated (not tracked yet)
-				false, // wasDowngraded (not tracked yet)
-			); err != nil {
-				monitoring.Logger.Warn("failed_to_record_performance_grade", "error", err.Error())
+			// Opt-in out-of-scope file detection via git diff.
+			// workingDir narrows the expected write scope; any git-tracked
+			// changes outside that directory are considered catastrophic
+			// (e.g. the model overwrote entity.go while working in /tmp/task/).
+			workingDir := ""
+			if execution.metadata != nil {
+				workingDir = execution.metadata["working_directory"]
+			}
+			outOfScope, _ := detectOutOfScopeChanges(projectRoot, workingDir)
+			if len(outOfScope) > 0 {
+				reason := fmt.Sprintf("agent modified %d file(s) outside working directory: %s",
+					len(outOfScope), strings.Join(outOfScope, ", "))
+				logMsg(fmt.Sprintf("🚨 CATASTROPHIC: %s", reason))
+				monitoring.Logger.Error("catastrophic_out_of_scope_writes",
+					"task_id", execution.TaskID,
+					"model", modelID,
+					"files", outOfScope,
+				)
+				if err := monitoring.GlobalGradeManager.RecordCatastrophicFailure(
+					execution.TaskID,
+					modelID,
+					execution.Role,
+					projectRoot,
+					reason,
+				); err != nil {
+					monitoring.Logger.Warn("failed_to_record_catastrophic_failure", "error", err.Error())
+				}
 			} else {
-				monitoring.Logger.Debug("performance_grade_recorded", "task_id", execution.TaskID, "model", modelID, "role", execution.Role)
+				// Record successful completion
+				if err := monitoring.GlobalGradeManager.RecordTaskCompletion(
+					execution.TaskID,
+					modelID,
+					execution.Role,
+					projectRoot,
+					true, // success
+					0,    // retries (we don't track this yet)
+					tokensUsed,
+					durationMs,
+					false, // wasEscalated (not tracked yet)
+					false, // wasDowngraded (not tracked yet)
+				); err != nil {
+					monitoring.Logger.Warn("failed_to_record_performance_grade", "error", err.Error())
+				} else {
+					monitoring.Logger.Debug("performance_grade_recorded", "task_id", execution.TaskID, "model", modelID, "role", execution.Role)
+				}
 			}
 		}
 	}
@@ -544,4 +573,61 @@ func (s *AgentServer) closeStream(execution *TaskExecution) {
 		execution.streamOpen = false
 		close(execution.streamChan)
 	}
+}
+
+// detectOutOfScopeChanges runs "git diff --name-only HEAD" in projectRoot and
+// returns paths of files that were modified outside workingDir.
+//
+// Both projectRoot and workingDir must be non-empty and workingDir must be an
+// ancestor-or-equal directory of files we care about.  The function is a
+// best-effort check: if git is unavailable or the directory is not a git
+// repository it returns nil, nil so callers can treat it as "no violations".
+func detectOutOfScopeChanges(projectRoot, workingDir string) ([]string, error) {
+	if projectRoot == "" || workingDir == "" {
+		return nil, nil
+	}
+
+	// Normalise to absolute paths before comparison.
+	absProject, err := filepath.Abs(projectRoot)
+	if err != nil {
+		return nil, nil
+	}
+	absWorking, err := filepath.Abs(workingDir)
+	if err != nil {
+		return nil, nil
+	}
+
+	// If workingDir IS the project root, every file is in-scope.
+	if absProject == absWorking {
+		return nil, nil
+	}
+
+	// Ensure workingDir is actually inside projectRoot (guard against bad config).
+	rel, err := filepath.Rel(absProject, absWorking)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return nil, nil
+	}
+
+	cmd := exec.Command("git", "-C", absProject, "diff", "--name-only", "HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		// Not a git repo, git not installed, or no commits yet – silently skip.
+		return nil, nil
+	}
+
+	var outOfScope []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line == "" {
+			continue
+		}
+		// git diff --name-only returns paths relative to the repo root.
+		absFile := filepath.Join(absProject, line)
+		// A file is "in scope" if it lives inside workingDir.
+		fileRel, err := filepath.Rel(absWorking, absFile)
+		if err != nil || strings.HasPrefix(fileRel, "..") {
+			outOfScope = append(outOfScope, line)
+		}
+	}
+
+	return outOfScope, nil
 }
