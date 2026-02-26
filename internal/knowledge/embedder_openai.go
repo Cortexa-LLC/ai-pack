@@ -15,8 +15,10 @@ type OpenAIEmbedder struct {
 	dims   int
 }
 
-// NewOpenAIEmbedder creates an OpenAI embedder
-func NewOpenAIEmbedder(apiKey, model string) (*OpenAIEmbedder, error) {
+// NewOpenAIEmbedder creates an OpenAI embedder.
+// dims controls embedding vector size; pass 0 to use the model default
+// (1536 for text-embedding-3-small, 3072 for text-embedding-3-large).
+func NewOpenAIEmbedder(apiKey, model string, dims int) (*OpenAIEmbedder, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("OpenAI API key required (set OPENAI_API_KEY)")
 	}
@@ -25,9 +27,14 @@ func NewOpenAIEmbedder(apiKey, model string) (*OpenAIEmbedder, error) {
 		model = "text-embedding-3-small"
 	}
 
-	dims := 1536 // default dims
-	if model == "text-embedding-3-large" {
-		dims = 3072
+	if dims <= 0 {
+		// Default dimensions for common models
+		switch model {
+		case "text-embedding-3-large":
+			dims = 3072
+		default:
+			dims = 1536 // text-embedding-3-small default
+		}
 	}
 
 	return &OpenAIEmbedder{
