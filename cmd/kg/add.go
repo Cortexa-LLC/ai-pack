@@ -1,9 +1,9 @@
-package kg
+package main
 
 import (
 	"fmt"
-	"github.com/cortexa-llc/ai-pack/internal/knowledge"
 	"github.com/spf13/cobra"
+	"github.com/cortexa-llc/ai-pack/internal/knowledge"
 )
 
 var addEntityType string
@@ -67,21 +67,4 @@ func init() {
 	addCmd.AddCommand(addEntityCmd)
 	addCmd.AddCommand(addObservationCmd)
 	rootCmd.AddCommand(addCmd)
-}// AddObservation atomically adds a new observation to an entity
-func AddObservation(db *neo4j.Session, entityID string, content string) error {
-    // Begin transaction
-    tx, err := db.BeginTransaction()
-    if err != nil {
-        return err
-    }
-    
-    // Execute a single query to create the observation and link it to the entity
-    query := "MATCH (e:Entity) WHERE e.id = $entityId CREATE (o:Observation {content: $content}) CREATE (e)-[:HAS_OBSERVATION]->(o)"
-    _, err = tx.Run(query, map[string]interface{}{ "entityId": entityID, "content": content })
-    if err != nil {
-        tx.Rollback()
-        return err
-    }
-    
-    return tx.Commit()
 }
