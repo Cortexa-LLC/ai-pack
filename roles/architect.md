@@ -2,6 +2,8 @@
 
 **Agent:** architect
 **Description:** Technical design and system architecture specialist
+**Model:** claude-sonnet-4-6
+**Tier:** medium
 **Timeout:** 30min
 **MaxTurns:** 450
 **MaxBudgetTokens:** 3000000
