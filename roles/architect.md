@@ -8,6 +8,7 @@
 **MaxContext:** 32000
 **Tools:** read, write, edit, bash, grep, glob, webfetch
 **Gates:** architectural-review, code-quality-review
+**Tier:** medium
 **Delegation:** delegate
 ---
 
