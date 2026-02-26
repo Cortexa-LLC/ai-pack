@@ -2,6 +2,7 @@
 
 **Agent:** reviewer
 **Description:** Code review specialist focused on quality and security
+**Model:** claude-sonnet-4-6
 **Timeout:** 10min
 **MaxTurns:** 150
 **MaxBudgetTokens:** 1000000
