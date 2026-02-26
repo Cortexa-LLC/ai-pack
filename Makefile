@@ -1,5 +1,5 @@
-.PHONY: test test-short test-coverage build build-gui build-kg codegen-gui clean clean-all sonarqube help
-.PHONY: install install-agent uninstall uninstall-agent
+.PHONY: test test-short test-coverage build build-gui build-kg build-kg-if-ready codegen-gui clean clean-all sonarqube help
+.PHONY: install install-agent install-kg uninstall uninstall-agent uninstall-kg
 .PHONY: start-server start-gui start-all stop-all
 .PHONY: setup-launchd uninstall-launchd status-launchd setup-kuzu
 
@@ -17,6 +17,7 @@ GOOS   := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
 PLATFORM := $(GOOS)-$(GOARCH)
 KUZU_DIR := lib/kuzu/$(PLATFORM)
+KUZU_LIB_PATH := $(KUZU_DIR)/libkuzu.a
 
 ifeq ($(GOOS),darwin)
   CXX_LIBS := -lc++
@@ -42,8 +43,15 @@ help: ## Show this help message
 # BUILD TARGETS
 # ============================================================================
 
-build: build-agent build-server ## Build agent and agent-server binaries
+build: build-agent build-server build-kg-if-ready ## Build agent, agent-server, and kg (if setup-kuzu has been run)
 	@echo "✅ Binaries built in bin/"
+
+build-kg-if-ready: ## Build kg if setup-kuzu has been run (silently skips if not)
+	@if [ -f "$(KUZU_LIB_PATH)" ]; then \
+		$(MAKE) build-kg; \
+	else \
+		echo "⚠️  Skipping kg build (run 'make setup-kuzu' first)"; \
+	fi
 
 build-agent: ## Build the agent binary
 	@mkdir -p bin
@@ -87,7 +95,7 @@ build-all: build build-gui ## Build everything (agent + GUI)
 # INSTALL TARGETS
 # ============================================================================
 
-install: install-agent ## Install binaries to /usr/local/bin (run with: sudo make install)
+install: install-agent install-kg ## Install all binaries to /usr/local/bin (run with: sudo make install)
 
 install-agent: build ## Install agent binaries to /usr/local/bin
 	@echo "Installing agent binaries..."
@@ -95,12 +103,21 @@ install-agent: build ## Install agent binaries to /usr/local/bin
 	@install -m 755 bin/agent-server /usr/local/bin/agent-server
 	@echo "✅ Agent binaries installed to /usr/local/bin"
 
-uninstall: uninstall-agent ## Uninstall binaries from /usr/local/bin (run with: sudo make uninstall)
+install-kg: build-kg ## Install kg binary to /usr/local/bin (requires: make setup-kuzu first)
+	@echo "Installing kg binary..."
+	@install -m 755 bin/kg /usr/local/bin/kg
+	@echo "✅ kg installed to /usr/local/bin"
+
+uninstall: uninstall-agent uninstall-kg ## Uninstall all binaries from /usr/local/bin (run with: sudo make uninstall)
 
 uninstall-agent: ## Uninstall agent binaries from /usr/local/bin
 	@echo "Uninstalling agent binaries..."
-	@rm -f /usr/local/bin/agent /usr/local/bin/agent-server /usr/local/bin/kg
+	@rm -f /usr/local/bin/agent /usr/local/bin/agent-server
 	@echo "✅ Agent binaries uninstalled"
+
+uninstall-kg: ## Uninstall kg binary from /usr/local/bin
+	@rm -f /usr/local/bin/kg
+	@echo "✅ kg uninstalled"
 
 # ============================================================================
 # START/STOP TARGETS
