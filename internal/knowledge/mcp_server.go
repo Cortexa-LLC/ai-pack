@@ -50,60 +50,113 @@ func RunMCPServer(store *Store, projectID string) error {
 
 	handlers := map[string]mcp.ToolHandler{
 		"search_knowledge": func(req *mcp.ToolCallRequest) (any, error) {
-			q, _ := req.Arguments["query"].(string)
+			q, ok := req.Arguments["query"].(string)
+			if !ok || q == "" {
+				return nil, fmt.Errorf("search_knowledge: missing or invalid 'query' argument")
+			}
 			lim, _ := req.Arguments["limit"].(float64)
 			if lim == 0 {
 				lim = 12
 			}
-			return store.KeywordSearch(projectID, q, int(lim))
+			results, err := store.KeywordSearch(projectID, q, int(lim))
+			if err != nil {
+				return nil, fmt.Errorf("search_knowledge: %w", err)
+			}
+			return results, nil
 		},
 		"add_entity": func(req *mcp.ToolCallRequest) (any, error) {
-			name, _ := req.Arguments["name"].(string)
-			typeStr, _ := req.Arguments["type"].(string)
-			return store.CreateEntity(name, typeStr, projectID)
+			name, ok := req.Arguments["name"].(string)
+			if !ok || name == "" {
+				return nil, fmt.Errorf("add_entity: missing or invalid 'name' argument")
+			}
+			typeStr, ok := req.Arguments["type"].(string)
+			if !ok || typeStr == "" {
+				return nil, fmt.Errorf("add_entity: missing or invalid 'type' argument")
+			}
+			entity, err := store.CreateEntity(name, typeStr, projectID)
+			if err != nil {
+				return nil, fmt.Errorf("add_entity: %w", err)
+			}
+			return entity, nil
 		},
 		"add_observation": func(req *mcp.ToolCallRequest) (any, error) {
-			entityID, _ := req.Arguments["entity_id"].(string)
-			content, _ := req.Arguments["content"].(string)
-			return store.CreateObservation(entityID, content, projectID)
+			entityID, ok := req.Arguments["entity_id"].(string)
+			if !ok || entityID == "" {
+				return nil, fmt.Errorf("add_observation: missing or invalid 'entity_id' argument")
+			}
+			content, ok := req.Arguments["content"].(string)
+			if !ok || content == "" {
+				return nil, fmt.Errorf("add_observation: missing or invalid 'content' argument")
+			}
+			obs, err := store.CreateObservation(entityID, content, projectID)
+			if err != nil {
+				return nil, fmt.Errorf("add_observation: %w", err)
+			}
+			return obs, nil
 		},
 		"link_entities": func(req *mcp.ToolCallRequest) (any, error) {
-			from, _ := req.Arguments["from_id"].(string)
-			rel, _ := req.Arguments["relation"].(string)
-			to, _ := req.Arguments["to_id"].(string)
-			return nil, store.CreateRelation(from, to, rel, projectID)
+			from, ok := req.Arguments["from_id"].(string)
+			if !ok || from == "" {
+				return nil, fmt.Errorf("link_entities: missing or invalid 'from_id' argument")
+			}
+			rel, ok := req.Arguments["relation"].(string)
+			if !ok || rel == "" {
+				return nil, fmt.Errorf("link_entities: missing or invalid 'relation' argument")
+			}
+			to, ok := req.Arguments["to_id"].(string)
+			if !ok || to == "" {
+				return nil, fmt.Errorf("link_entities: missing or invalid 'to_id' argument")
+			}
+			if err := store.CreateRelation(from, to, rel, projectID); err != nil {
+				return nil, fmt.Errorf("link_entities: %w", err)
+			}
+			return nil, nil
 		},
 		"get_file_context": func(req *mcp.ToolCallRequest) (any, error) {
-			file, _ := req.Arguments["file"].(string)
-			return store.ListEntities(projectID, file)
+			file, ok := req.Arguments["file"].(string)
+			if !ok || file == "" {
+				return nil, fmt.Errorf("get_file_context: missing or invalid 'file' argument")
+			}
+			entities, err := store.ListEntities(projectID, file)
+			if err != nil {
+				return nil, fmt.Errorf("get_file_context: %w", err)
+			}
+			return entities, nil
 		},
 		"query_graph": func(req *mcp.ToolCallRequest) (any, error) {
-			cypher, _ := req.Arguments["cypher"].(string)
+			cypher, ok := req.Arguments["cypher"].(string)
+			if !ok || cypher == "" {
+				return nil, fmt.Errorf("query_graph: missing or invalid 'cypher' argument")
+			}
 			result, err := store.Execute(cypher)
 			if err != nil {
-				return nil, fmt.Errorf("query: %w", err)
+				return nil, fmt.Errorf("query_graph: %w", err)
 			}
 			defer result.Close()
 			var rows [][]any
 			for result.HasNext() {
 				tuple, err := result.Next()
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("query_graph: %w", err)
 				}
 				cols, err := tuple.GetAsSlice()
 				tuple.Close()
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("query_graph: %w", err)
 				}
 				rows = append(rows, cols)
 			}
 			return rows, nil
-		},		"get_preflight_context": func(req *mcp.ToolCallRequest) (any, error) {
-			task, _ := req.Arguments["task"].(string)
+		},
+		"get_preflight_context": func(req *mcp.ToolCallRequest) (any, error) {
+			task, ok := req.Arguments["task"].(string)
+			if !ok || task == "" {
+				return nil, fmt.Errorf("get_preflight_context: missing or invalid 'task' argument")
+			}
 			// Naive: Just return entities matching the task string as context block
 			entities, err := store.KeywordSearch(projectID, task, 16)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("get_preflight_context: %w", err)
 			}
 			// Format as a context block
 			res := "---\nRelevant Knowledge Entities for Task\n---\n"
