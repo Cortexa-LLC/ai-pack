@@ -30,6 +30,63 @@ func parseRoleTimeout(s string) time.Duration {
 	return defaultRoleTimeout
 }
 
+// applyTaskContractOverrides reads 00-contract.md from the task packet directory
+// and applies any MaxBudgetTokens or MaxTurns overrides found there, allowing
+// individual tasks to raise (or remove) limits set by the role file without
+// permanently modifying the role.
+//
+// Override fields use the same **Key:** value header format as role files.
+// Missing fields leave the role value unchanged.
+// taskPacketPath is relative to projectRoot (e.g. ".ai/tasks/foo/").
+func applyTaskContractOverrides(config *AgentConfig, taskPacketPath, projectRoot string) {
+	if taskPacketPath == "" || projectRoot == "" {
+		return
+	}
+	contractPath := filepath.Join(projectRoot, taskPacketPath, "00-contract.md")
+	data, err := os.ReadFile(contractPath)
+	if err != nil {
+		return // contract absent or unreadable — not an error
+	}
+
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, markdownFieldStart) || !strings.Contains(line, markdownFieldEnd) {
+			continue
+		}
+		parts := strings.SplitN(line, markdownFieldEnd, 2)
+		if len(parts) != 2 {
+			continue
+		}
+		field := strings.TrimPrefix(parts[0], markdownFieldStart)
+		value := strings.TrimSpace(parts[1])
+
+		switch field {
+		case configFieldMaxBudgetTokens:
+			var v int
+			if n, _ := fmt.Sscanf(value, "%d", &v); n == 1 {
+				monitoring.Logger.Info("task_contract_override",
+					"field", "MaxBudgetTokens",
+					"role_value", config.Delegation.MaxBudgetTokens,
+					"contract_value", v,
+					"contract", contractPath,
+				)
+				config.Delegation.MaxBudgetTokens = v
+			}
+		case configFieldMaxTurns:
+			var v int
+			if n, _ := fmt.Sscanf(value, "%d", &v); n == 1 {
+				monitoring.Logger.Info("task_contract_override",
+					"field", "MaxTurns",
+					"role_value", config.Delegation.MaxTurns,
+					"contract_value", v,
+					"contract", contractPath,
+				)
+				config.Delegation.MaxTurns = v
+			}
+		}
+	}
+}
+
 func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string) (*protocol.ExecuteTaskResponse, error) {
 	// Validate Beads is installed
 	if !beads.IsInstalled() {
@@ -113,6 +170,11 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load agent config: %w", err)
 	}
+
+	// Apply task-level overrides from the contract file (MaxBudgetTokens, MaxTurns).
+	// These take precedence over role defaults, allowing per-task budget tuning
+	// without changing the role file.
+	applyTaskContractOverrides(config, taskPacketPath, projectRoot)
 
 	// Create task packet in project's .beads/tasks/ directory
 	if err := s.createTaskPacketInProject(taskID, role, taskDescription, config, projectRoot); err != nil {
