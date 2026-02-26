@@ -4,62 +4,31 @@ import (
 	"errors"
 )
 
-// AllowedRelTypes defines the valid relation types for the knowledge graph.
-var AllowedRelTypes = map[string]struct{}{
-	"friend": {},
-	"colleague": {},
-	"family": {},
-	// Add other relation types
+// AllowedRelTypes is the centralized whitelist for relation types.
+var AllowedRelTypes = []string{
+	"parent",
+	"child",
+	"sibling",
+	"friend",
+	"colleague",
 }
 
-// initSchema initializes the knowledge graph schema.
-func initSchema(conn *kuzu.Connection) error {
-	// Implementation here
-	return nil
+// initSchema initializes the schema with allowed relation types and other setups.
+func initSchema() {
+	// Schema initialization logic...
 }
 
-// migrateEmbeddings handles the migration of embeddings.
-func migrateEmbeddings(conn *kuzu.Connection) error {
-	// Implementation here
-	return nil
-}
-
-// validateRelType checks if the given relation type is valid.
+// validateRelType checks if a relation type is allowed.
 func validateRelType(relType string) error {
-	if _, ok := AllowedRelTypes[relType]; !ok {
-		return errors.New("invalid relation type")
+	for _, allowed := range AllowedRelTypes {
+		if relType == allowed {
+			return nil
+		}
 	}
-	return nil
-}package knowledge
-
-import (
-	"errors"
-)
-
-// AllowedRelTypes defines the valid relation types for the knowledge graph.
-var AllowedRelTypes = map[string]struct{}{
-	"friend": {},
-	"colleague": {},
-	"family": {},
-	// Add other relation types
+	return errors.New("invalid relType: " + relType)
 }
 
-// initSchema initializes the knowledge graph schema.
-func initSchema(conn *kuzu.Connection) error {
-	// Implementation here
-	return nil
-}
-
-// migrateEmbeddings handles the migration of embeddings.
-func migrateEmbeddings(conn *kuzu.Connection) error {
-	// Implementation here
-	return nil
-}
-
-// validateRelType checks if the given relation type is valid.
-func validateRelType(relType string) error {
-	if _, ok := AllowedRelTypes[relType]; !ok {
-		return errors.New("invalid relation type")
-	}
-	return nil
+// migrateEmbeddings migrates embeddings associated with the knowledge graph schema.
+func migrateEmbeddings() {
+	// Migration logic...
 }
