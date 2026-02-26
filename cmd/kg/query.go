@@ -13,7 +13,7 @@ var queryCmd = &cobra.Command{
 	Short: "Run a raw Cypher query in the Kuzu graph store",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := knowledge.OpenStore("./data/kg.kuzu")
+		store, err := knowledge.OpenStore(".ai/knowledge.db")
 		if err != nil {
 			return err
 		}

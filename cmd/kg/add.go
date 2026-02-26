@@ -14,7 +14,7 @@ var addEntityCmd = &cobra.Command{
 	Use:   "entity",
 	Short: "Add a new entity",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := knowledge.OpenStore("./data/kg.kuzu")
+		store, err := knowledge.OpenStore(".ai/knowledge.db")
 		if err != nil {
 			return err
 		}
@@ -40,7 +40,7 @@ var addObservationCmd = &cobra.Command{
 	Short: "Add an observation to an entity",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := knowledge.OpenStore("./data/kg.kuzu")
+		store, err := knowledge.OpenStore(".ai/knowledge.db")
 		if err != nil {
 			return err
 		}
