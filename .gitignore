@@ -97,3 +97,11 @@ a2a-agent/metrics/
 # Knowledge graph CLI binary and database
 /kg
 /.kuzu/
+
+# Build artifacts accidentally committed
+/server
+/coverage.out
+/data/
+/bin/agent
+/bin/agent-server
+/bin/kg
