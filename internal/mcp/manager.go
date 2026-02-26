@@ -95,6 +95,36 @@ func (m *Manager) CallTool(ctx context.Context, toolName string, arguments map[s
 	return targetClient.CallTool(ctx, actualToolName, arguments)
 }
 
+// CallToolInto finds the server hosting toolName and executes the tool,
+// unmarshalling the raw JSON-RPC result into dest. Use this when the server
+// returns a plain struct (not wrapped in CallToolResult).
+func (m *Manager) CallToolInto(ctx context.Context, toolName string, arguments map[string]interface{}, dest interface{}) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var targetClient *Client
+	var actualToolName string
+
+	for _, client := range m.clients {
+		for _, tool := range client.GetTools() {
+			if tool.Name == toolName {
+				targetClient = client
+				actualToolName = tool.Name
+				break
+			}
+		}
+		if targetClient != nil {
+			break
+		}
+	}
+
+	if targetClient == nil {
+		return fmt.Errorf("no MCP server found with tool: %s", toolName)
+	}
+
+	return targetClient.CallToolInto(ctx, actualToolName, arguments, dest)
+}
+
 // Close shuts down all MCP server connections
 func (m *Manager) Close() error {
 	m.mu.Lock()
