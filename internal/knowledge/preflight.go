@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/cortexa-llc/ai-pack/internal/mcp"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
+	"github.com/cortexa-llc/ai-pack/internal/mcp"
 )
 
 // PreflightContext calls the knowledge MCP server's get_preflight_context tool.
@@ -19,7 +19,7 @@ func PreflightContext(ctx context.Context, mcpManager *mcp.Manager, taskDescript
 	defer cancel()
 	params := map[string]interface{}{
 		"task_description": taskDescription,
-		"project_id":       projectID,
+		"project_id": projectID,
 	}
 	result, err := mcpManager.CallTool(callCtx, "get_preflight_context", params)
 	if err != nil {

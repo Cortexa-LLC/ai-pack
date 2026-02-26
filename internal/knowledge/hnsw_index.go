@@ -71,7 +71,7 @@ func (s *Store) buildIndex(projectID string) (*projectIndex, error) {
 		RETURN e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at, e.embedding
 	`, escapeCypher(projectID))
 
-	result, err := s.query(cypherQuery)
+	result, err := s.conn.Query(cypherQuery)
 	if err != nil {
 		return nil, fmt.Errorf("query entities for index build: %w", err)
 	}

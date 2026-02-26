@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/spf13/cobra"
 	"os"
+	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
@@ -20,11 +20,11 @@ func init() {
 	rootCmd.AddCommand(linkCmd)
 	rootCmd.AddCommand(queryCmd)
 	rootCmd.AddCommand(indexCmd)
-	rootCmd.AddCommand(serverCmd)
-	rootCmd.AddCommand(exportCmd)
-	rootCmd.AddCommand(gcCmd)
-	rootCmd.AddCommand(embedCmd)
-	rootCmd.AddCommand(graphCmd)
+rootCmd.AddCommand(serverCmd)
+rootCmd.AddCommand(exportCmd)
+rootCmd.AddCommand(gcCmd)
+rootCmd.AddCommand(embedCmd)
+rootCmd.AddCommand(graphCmd)
 	rootCmd.AddCommand(statsCmd)
 }
 

@@ -16,24 +16,16 @@ type OllamaEmbedder struct {
 	dims    int
 }
 
-// NewOllamaEmbedder creates an Ollama embedder.
-// dims controls embedding vector size; pass 0 to use the model default (768 for
-// nomic-embed-text, 1024 for mxbai-embed-large, 384 for all-minilm).
-func NewOllamaEmbedder(model string, dims int) *OllamaEmbedder {
+// NewOllamaEmbedder creates an Ollama embedder
+func NewOllamaEmbedder(model string) *OllamaEmbedder {
 	if model == "" {
 		model = "nomic-embed-text"
 	}
 
-	if dims <= 0 {
-		// Default dimensions for common models
-		switch model {
-		case "mxbai-embed-large":
-			dims = 1024
-		case "all-minilm":
-			dims = 384
-		default:
-			dims = 768 // nomic-embed-text default
-		}
+	// Default dimensions for common models
+	dims := 768 // nomic-embed-text default
+	if model == "nomic-embed-text" {
+		dims = 768
 	}
 
 	return &OllamaEmbedder{
@@ -44,6 +36,70 @@ func NewOllamaEmbedder(model string, dims int) *OllamaEmbedder {
 	}
 }
 
+// Embed generates embeddings using Ollama's API
+func (e *OllamaEmbedder) Embed(ctx context.Context, texts []string) ([][]float32, error) {
+	if len(texts) == 0 {
+		return [][]float32{}, nil
+	}
+
+	result := make([][]float32, len(texts))
+
+	for i, text := range texts {
+		embedding, err := e.embedSingle(ctx, text)
+		if err != nil {
+			return nil, fmt.Errorf("embed text %d: %w", i, err)
+		}
+		result[i] = embedding
+	}
+
+	return result, nil
+}
+
+// embedSingle embeds a single text
+func (e *OllamaEmbedder) embedSingle(ctx context.Context, text string) ([]float32, error) {
+	reqBody := map[string]interface{}{
+		"model":  e.model,
+		"prompt": text,
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", e.baseURL+"/api/embeddings", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := e.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("http request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ollama API returned status %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Embedding []float64 `json:"embedding"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	// Convert float64 to float32
+	embedding := make([]float32, len(result.Embedding))
+	for i, val := range result.Embedding {
+		embedding[i] = float32(val)
+	}
+
+	return embedding, nil
+}
+
 // Dimensions returns the embedding vector size
 func (e *OllamaEmbedder) Dimensions() int {
 	return e.dims
@@ -52,52 +108,4 @@ func (e *OllamaEmbedder) Dimensions() int {
 // Model returns the model name
 func (e *OllamaEmbedder) Model() string {
 	return e.model
-}
-
-// Embed generates embeddings for a batch of texts using Ollama's /api/embed endpoint.
-// All texts are sent in a single HTTP request.
-func (e *OllamaEmbedder) Embed(ctx context.Context, texts []string) ([][]float32, error) {
-	if len(texts) == 0 {
-		return [][]float32{}, nil
-	}
-
-	// Use /api/embed which supports batch input via the "input" field
-	reqBody := map[string]interface{}{
-		"model": e.model,
-		"input": texts,
-	}
-
-	body, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("marshal request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.baseURL+"/api/embed", bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := e.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("ollama embed request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("ollama embed returned status %d", resp.StatusCode)
-	}
-
-	var result struct {
-		Embeddings [][]float32 `json:"embeddings"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-
-	if len(result.Embeddings) != len(texts) {
-		return nil, fmt.Errorf("expected %d embeddings, got %d", len(texts), len(result.Embeddings))
-	}
-
-	return result.Embeddings, nil
 }

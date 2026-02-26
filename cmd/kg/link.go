@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/cortexa-llc/ai-pack/internal/knowledge"
 	"github.com/spf13/cobra"
+	"github.com/cortexa-llc/ai-pack/internal/knowledge"
 )
 
 var fromID string
