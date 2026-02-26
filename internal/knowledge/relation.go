@@ -1,8 +1,10 @@
-package knowledge
+import (
+	"github.com/cortexa-llc/ai-pack/internal/knowledge"
+)
 
 
 import (
-	"internal/knowledge"
+	"github.com/cortexa-llc/ai-pack/internal/knowledge"
 )
     err := knowledge.validateRelType(relType)
 
