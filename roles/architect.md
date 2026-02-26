@@ -2,9 +2,9 @@
 
 **Agent:** architect
 **Description:** Technical design and system architecture specialist
-**Timeout:** 15min
-**MaxTurns:** 150
-**MaxBudgetTokens:** 750000
+**Timeout:** 30min
+**MaxTurns:** 450
+**MaxBudgetTokens:** 3000000
 **MaxContext:** 32000
 **Tools:** read, write, edit, bash, grep, glob, webfetch
 **Gates:** architectural-review, code-quality-review
