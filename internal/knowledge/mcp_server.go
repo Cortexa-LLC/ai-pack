@@ -79,6 +79,9 @@ func RunMCPServer(store *Store, projectID string) error {
 		},
 		"query_graph": func(req *mcp.ToolCallRequest) (any, error) {
 			cypher, _ := req.Arguments["cypher"].(string)
+			if err := isReadOnlyCypher(cypher); err != nil {
+				return nil, err
+			}
 			result, err := store.query(cypher)
 			if err != nil {
 				return nil, fmt.Errorf("query: %w", err)
