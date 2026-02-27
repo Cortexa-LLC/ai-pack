@@ -15,8 +15,6 @@ import (
 	agentclient "github.com/cortexa-llc/ai-pack/cmd/agent/client"
 )
 
-const sseDataPrefix = "data: "
-
 func runSpawn(role, taskInput string, wait, stream bool, inactiveTimeout time.Duration) error {
 	// Validate Beads task
 	validateBeadsTaskOrExit(taskInput, role)
@@ -230,8 +228,7 @@ func streamTaskProgressWithInactivity(internalTaskID string, inactiveTimeout tim
 				dataBuffer = dataBuffer[lineEnd+1:]
 				line = strings.TrimRight(line, "\r")
 
-				if strings.HasPrefix(line, sseDataPrefix) {
-					data := line[len(sseDataPrefix):]
+				if data, ok := agentclient.ParseSSELine(line); ok {
 					if data == "[DONE]" {
 						fmt.Println("\n✅ Stream complete")
 						return

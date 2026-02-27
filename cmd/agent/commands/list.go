@@ -3,9 +3,6 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
 	"time"
 
 	agentclient "github.com/cortexa-llc/ai-pack/cmd/agent/client"
@@ -42,15 +39,16 @@ func newListCmd() *cobra.Command {
 func runList(running, completed, failed, all, jsonOutput, verbose bool) error {
 	showOnlyActive := !running && !completed && !failed && !all
 
-	resp, err := http.Get(fmt.Sprintf("%s/a2a/tasks", agentclient.ServerURL))
+	c := agentclient.Default()
+	resp, err := c.Get("/a2a/tasks")
 	if err != nil {
-		fmt.Printf("❌ Failed to query server: %v\n", err)
-		fmt.Printf("   Is the agent server running? (agent-server --server)\n")
-		os.Exit(1)
+		return fmt.Errorf("failed to query server: %w\nIs the agent server running? (agent-server --server)", err)
 	}
-	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := agentclient.ReadBody(resp)
+	if err != nil {
+		return fmt.Errorf("failed to read response: %w", err)
+	}
 
 	var response struct {
 		Tasks []struct {
@@ -73,8 +71,7 @@ func runList(running, completed, failed, all, jsonOutput, verbose bool) error {
 			fmt.Println(string(body))
 			return nil
 		}
-		fmt.Printf("❌ Failed to parse response: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	// Filter tasks

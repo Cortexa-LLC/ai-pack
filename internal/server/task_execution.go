@@ -370,8 +370,10 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	// parseRoleTimeout converts human-friendly values like "10min" or "1h" to a
 	// time.Duration; it falls back to defaultRoleTimeout when the value is missing
 	// or unparseable.
+	// s.ctx is the server-level context cancelled by Shutdown(), so task
+	// cancellation propagates automatically on server shutdown.
 	roleTimeout := parseRoleTimeout(execution.Config.Delegation.Timeout)
-	ctx, cancel := context.WithTimeout(context.Background(), roleTimeout)
+	ctx, cancel := context.WithTimeout(s.ctx, roleTimeout)
 
 	// Store cancel function so task can be cancelled later
 	s.mu.Lock()
@@ -495,7 +497,9 @@ func (s *AgentServer) resumeFromCheckpoint(taskID, projectRoot string, cp *Agent
 	}
 
 	roleTimeout := parseRoleTimeout(config.Delegation.Timeout)
-	ctx, cancel := context.WithTimeout(context.Background(), roleTimeout)
+	// Derive the task context from the server context so that Shutdown()
+	// pre-empts in-flight delegated tasks.
+	ctx, cancel := context.WithTimeout(s.ctx, roleTimeout)
 	execution.cancel = cancel
 	defer cancel()
 

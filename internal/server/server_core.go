@@ -107,6 +107,10 @@ type AgentServer struct {
 	taskQueue    chan *TaskExecution
 	workerPool   chan struct{}        // Semaphore for max concurrent agents
 	projectRoots map[string]time.Time // Registry of known project roots with last access time
+
+	// Server-level context — cancelled by Shutdown() to pre-empt in-flight tasks.
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 type TaskExecution struct {
@@ -287,6 +291,8 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 
 	anthropicClient := anthropic.NewClient(anthropicOpts...)
 
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+
 	server := &AgentServer{
 		rootDir:        rootDir,
 		maxConcurrent:  maxConcurrent,
@@ -301,6 +307,8 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		taskQueue:      make(chan *TaskExecution, maxConcurrent),
 		workerPool:     make(chan struct{}, maxConcurrent),
 		projectRoots:   make(map[string]time.Time),
+		ctx:            serverCtx,
+		cancel:         serverCancel,
 	}
 
 	// Load Claude Code settings (global + project-specific)
@@ -889,6 +897,9 @@ func (s *AgentServer) GetActiveTaskIDs() []map[string]string {
 
 func (s *AgentServer) Shutdown(ctx context.Context) error {
 	monitoring.Logger.Info("shutdown_initiated")
+
+	// Cancel the server context to pre-empt any in-flight tasks.
+	s.cancel()
 
 	// Check for active tasks
 	activeCount := s.GetActiveTaskCount()
