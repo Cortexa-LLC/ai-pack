@@ -18,20 +18,23 @@ func (s *Store) CreateEntity(name, entityType, projectID string) (*Entity, error
 		UpdatedAt: time.Now().UTC(),
 	}
 
-	query := fmt.Sprintf(`
+	result, err := s.queryParams(`
 		CREATE (e:Entity {
-			id: '%s',
-			name: '%s',
-			type: '%s',
-			project_id: '%s',
-			created_at: timestamp('%s'),
-			updated_at: timestamp('%s')
+			id: $id,
+			name: $name,
+			type: $type,
+			project_id: $project_id,
+			created_at: $created_at,
+			updated_at: $updated_at
 		})
-	`, entity.ID, escapeCypher(name), escapeCypher(entityType),
-		escapeCypher(projectID), entity.CreatedAt.Format(time.RFC3339),
-		entity.UpdatedAt.Format(time.RFC3339))
-
-	result, err := s.query(query)
+	`, map[string]any{
+		"id":         entity.ID,
+		"name":       name,
+		"type":       entityType,
+		"project_id": projectID,
+		"created_at": entity.CreatedAt,
+		"updated_at": entity.UpdatedAt,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("create entity: %w", err)
 	}
@@ -42,13 +45,11 @@ func (s *Store) CreateEntity(name, entityType, projectID string) (*Entity, error
 
 // GetEntity retrieves an entity by ID for a specific project
 func (s *Store) GetEntity(id, projectID string) (*Entity, error) {
-	query := fmt.Sprintf(`
+	result, err := s.queryParams(`
 		MATCH (e:Entity)
-		WHERE e.id = '%s' AND e.project_id = '%s'
+		WHERE e.id = $id AND e.project_id = $project_id
 		RETURN e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at
-	`, escapeCypher(id), escapeCypher(projectID))
-
-	result, err := s.query(query)
+	`, map[string]any{"id": id, "project_id": projectID})
 	if err != nil {
 		return nil, fmt.Errorf("query entity: %w", err)
 	}
@@ -89,22 +90,22 @@ func (s *Store) GetEntity(id, projectID string) (*Entity, error) {
 
 // ListEntities retrieves all entities for a project, optionally filtered by type
 func (s *Store) ListEntities(projectID, entityType string) ([]*Entity, error) {
-	var query string
-	if entityType == "" {
-		query = fmt.Sprintf(`
+	stmt := `
+		MATCH (e:Entity)
+		WHERE e.project_id = $project_id
+		RETURN e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at
+	`
+	params := map[string]any{"project_id": projectID}
+	if entityType != "" {
+		stmt = `
 			MATCH (e:Entity)
-			WHERE e.project_id = '%s'
+			WHERE e.project_id = $project_id AND e.type = $type
 			RETURN e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at
-		`, escapeCypher(projectID))
-	} else {
-		query = fmt.Sprintf(`
-			MATCH (e:Entity)
-			WHERE e.project_id = '%s' AND e.type = '%s'
-			RETURN e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at
-		`, escapeCypher(projectID), escapeCypher(entityType))
+		`
+		params["type"] = entityType
 	}
 
-	result, err := s.query(query)
+	result, err := s.queryParams(stmt, params)
 	if err != nil {
 		return nil, fmt.Errorf("query entities: %w", err)
 	}
@@ -151,31 +152,15 @@ func (s *Store) DeleteEntity(id, projectID string) error {
 		return err
 	}
 
-	query := fmt.Sprintf(`
+	result, err := s.queryParams(`
 		MATCH (e:Entity)
-		WHERE e.id = '%s' AND e.project_id = '%s'
+		WHERE e.id = $id AND e.project_id = $project_id
 		DETACH DELETE e
-	`, escapeCypher(id), escapeCypher(projectID))
-
-	result, err := s.query(query)
+	`, map[string]any{"id": id, "project_id": projectID})
 	if err != nil {
 		return fmt.Errorf("delete entity: %w", err)
 	}
 	defer result.Close()
 
 	return nil
-}
-
-// escapeCypher escapes single quotes in strings for Cypher queries
-func escapeCypher(s string) string {
-	// Simple escape for single quotes - in production, use parameterized queries
-	result := ""
-	for _, ch := range s {
-		if ch == '\'' {
-			result += "\\'"
-		} else {
-			result += string(ch)
-		}
-	}
-	return result
 }
