@@ -65,9 +65,26 @@ func (s *Store) Close() error {
 }
 
 // query runs a raw Cypher statement and returns the Kuzu result handle.
-// It is the single low-level execution path for all internal callers.
+// Use only for schema DDL and other statements that contain no user-supplied values.
+// For queries containing user input, use queryParams instead.
 func (s *Store) query(stmt string) (*kuzu.QueryResult, error) {
 	result, err := s.conn.Query(stmt)
+	if err != nil {
+		return nil, fmt.Errorf("execute query: %w", err)
+	}
+	return result, nil
+}
+
+// queryParams prepares a Cypher statement and executes it with bound parameters,
+// preventing Cypher injection from user-supplied string values.
+// Use $paramName placeholders in stmt and provide matching keys in params.
+func (s *Store) queryParams(stmt string, params map[string]any) (*kuzu.QueryResult, error) {
+	prepared, err := s.conn.Prepare(stmt)
+	if err != nil {
+		return nil, fmt.Errorf("prepare query: %w", err)
+	}
+	defer prepared.Close()
+	result, err := s.conn.Execute(prepared, params)
 	if err != nil {
 		return nil, fmt.Errorf("execute query: %w", err)
 	}

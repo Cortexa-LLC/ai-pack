@@ -29,22 +29,22 @@ func (s *Store) CreateObservation(entityID, content, projectID string) (*Observa
 	// node, and link them in one go.  Because everything happens in one Cypher
 	// statement there is no risk of an orphaned Observation node if the edge
 	// creation were to fail.
-	query := fmt.Sprintf(`
-		MATCH (e:Entity {id: '%s', project_id: '%s'})
+	result, err := s.queryParams(`
+		MATCH (e:Entity {id: $entity_id, project_id: $project_id})
 		CREATE (o:Observation {
-			id: '%s',
-			entity_id: '%s',
-			content: '%s',
-			created_at: timestamp('%s')
+			id: $id,
+			entity_id: $entity_id,
+			content: $content,
+			created_at: $created_at
 		})
 		CREATE (e)-[:HAS_OBSERVATION]->(o)
-	`,
-		escapeCypher(entityID), escapeCypher(projectID),
-		obs.ID, escapeCypher(entityID), escapeCypher(content),
-		obs.CreatedAt.Format(time.RFC3339),
-	)
-
-	result, err := s.query(query)
+	`, map[string]any{
+		"entity_id":  entityID,
+		"project_id": projectID,
+		"id":         obs.ID,
+		"content":    content,
+		"created_at": obs.CreatedAt,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("create observation: %w", err)
 	}
@@ -61,13 +61,11 @@ func (s *Store) GetObservations(entityID, projectID string) ([]*Observation, err
 		return nil, err
 	}
 
-	query := fmt.Sprintf(`
+	result, err := s.queryParams(`
 		MATCH (e:Entity)-[:HAS_OBSERVATION]->(o:Observation)
-		WHERE e.id = '%s' AND e.project_id = '%s'
+		WHERE e.id = $entity_id AND e.project_id = $project_id
 		RETURN o.id, o.entity_id, o.content, o.created_at
-	`, escapeCypher(entityID), escapeCypher(projectID))
-
-	result, err := s.query(query)
+	`, map[string]any{"entity_id": entityID, "project_id": projectID})
 	if err != nil {
 		return nil, fmt.Errorf("query observations: %w", err)
 	}
@@ -110,13 +108,11 @@ func (s *Store) DeleteObservation(obsID, entityID, projectID string) error {
 		return err
 	}
 
-	query := fmt.Sprintf(`
+	result, err := s.queryParams(`
 		MATCH (e:Entity)-[:HAS_OBSERVATION]->(o:Observation)
-		WHERE o.id = '%s' AND e.id = '%s' AND e.project_id = '%s'
+		WHERE o.id = $obs_id AND e.id = $entity_id AND e.project_id = $project_id
 		DETACH DELETE o
-	`, escapeCypher(obsID), escapeCypher(entityID), escapeCypher(projectID))
-
-	result, err := s.query(query)
+	`, map[string]any{"obs_id": obsID, "entity_id": entityID, "project_id": projectID})
 	if err != nil {
 		return fmt.Errorf("delete observation: %w", err)
 	}

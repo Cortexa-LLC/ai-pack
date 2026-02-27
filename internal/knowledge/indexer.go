@@ -111,12 +111,13 @@ func (idx *Indexer) clearProjectData() error {
 	}
 
 	for _, relType := range relationTypes {
+		// relType is from a hardcoded list above, not user input.
 		query := fmt.Sprintf(`
-			MATCH (from:Entity {project_id: '%s'})-[r:%s]->(to:Entity {project_id: '%s'})
+			MATCH (from:Entity {project_id: $project_id})-[r:%s]->(to:Entity {project_id: $project_id})
 			DELETE r
-		`, idx.projectID, relType, idx.projectID)
+		`, relType)
 
-		result, err := idx.store.query(query)
+		result, err := idx.store.queryParams(query, map[string]any{"project_id": idx.projectID})
 		if err != nil {
 			return fmt.Errorf("delete %s relations: %w", relType, err)
 		}
@@ -124,12 +125,10 @@ func (idx *Indexer) clearProjectData() error {
 	}
 
 	// Then delete entities
-	query := fmt.Sprintf(`
-		MATCH (e:Entity {project_id: '%s'})
+	result, err := idx.store.queryParams(`
+		MATCH (e:Entity {project_id: $project_id})
 		DELETE e
-	`, idx.projectID)
-
-	result, err := idx.store.query(query)
+	`, map[string]any{"project_id": idx.projectID})
 	if err != nil {
 		return fmt.Errorf("delete entities: %w", err)
 	}

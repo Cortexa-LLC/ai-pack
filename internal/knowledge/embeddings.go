@@ -3,7 +3,6 @@ package knowledge
 import (
 	"context"
 	"fmt"
-	"strings"
 )
 
 // BatchEmbed processes all un-embedded entities and observations in a project
@@ -69,13 +68,11 @@ func (s *Store) BatchEmbed(ctx context.Context, projectID string, embedder Embed
 
 // GetUnembeddedEntities returns all entities without embeddings
 func (s *Store) GetUnembeddedEntities(projectID string) ([]Entity, error) {
-	query := fmt.Sprintf(`
+	result, err := s.queryParams(`
 		MATCH (e:Entity)
-		WHERE e.project_id = '%s' AND e.embedding IS NULL
+		WHERE e.project_id = $project_id AND e.embedding IS NULL
 		RETURN e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at
-	`, escapeCypher(projectID))
-
-	result, err := s.conn.Query(query)
+	`, map[string]any{"project_id": projectID})
 	if err != nil {
 		return nil, fmt.Errorf("query un-embedded entities: %w", err)
 	}
@@ -107,13 +104,11 @@ func (s *Store) GetUnembeddedEntities(projectID string) ([]Entity, error) {
 
 // GetUnembeddedObservations returns all observations without embeddings
 func (s *Store) GetUnembeddedObservations(projectID string) ([]Observation, error) {
-	query := fmt.Sprintf(`
+	result, err := s.queryParams(`
 		MATCH (e:Entity)-[:HAS_OBSERVATION]->(o:Observation)
-		WHERE e.project_id = '%s' AND o.embedding IS NULL
+		WHERE e.project_id = $project_id AND o.embedding IS NULL
 		RETURN o.id, o.entity_id, o.content, o.created_at
-	`, escapeCypher(projectID))
-
-	result, err := s.conn.Query(query)
+	`, map[string]any{"project_id": projectID})
 	if err != nil {
 		return nil, fmt.Errorf("query un-embedded observations: %w", err)
 	}
@@ -151,12 +146,10 @@ func (s *Store) SetEmbedding(entityID string, embedding []float32) error {
 		return fmt.Errorf("set embedding (lookup project): %w", err)
 	}
 
-	query := fmt.Sprintf(`
-		MATCH (e:Entity {id: '%s'})
-		SET e.embedding = %s
-	`, escapeCypher(entityID), formatFloatArray(embedding))
-
-	result, err := s.conn.Query(query)
+	result, err := s.queryParams(`
+		MATCH (e:Entity {id: $id})
+		SET e.embedding = $embedding
+	`, map[string]any{"id": entityID, "embedding": embedding})
 	if err != nil {
 		return fmt.Errorf("set embedding: %w", err)
 	}
@@ -172,12 +165,10 @@ func (s *Store) SetEmbedding(entityID string, embedding []float32) error {
 
 // entityProjectID returns the project_id for entityID, or "" if not found.
 func (s *Store) entityProjectID(entityID string) (string, error) {
-	q := fmt.Sprintf(`
-		MATCH (e:Entity {id: '%s'})
+	result, err := s.queryParams(`
+		MATCH (e:Entity {id: $id})
 		RETURN e.project_id
-	`, escapeCypher(entityID))
-
-	result, err := s.conn.Query(q)
+	`, map[string]any{"id": entityID})
 	if err != nil {
 		return "", fmt.Errorf("query entity project_id: %w", err)
 	}
@@ -205,29 +196,14 @@ func (s *Store) entityProjectID(entityID string) (string, error) {
 
 // SetObservationEmbedding stores an embedding vector for an observation
 func (s *Store) SetObservationEmbedding(observationID string, embedding []float32) error {
-	query := fmt.Sprintf(`
-		MATCH (o:Observation {id: '%s'})
-		SET o.embedding = %s
-	`, escapeCypher(observationID), formatFloatArray(embedding))
-
-	result, err := s.conn.Query(query)
+	result, err := s.queryParams(`
+		MATCH (o:Observation {id: $id})
+		SET o.embedding = $embedding
+	`, map[string]any{"id": observationID, "embedding": embedding})
 	if err != nil {
 		return fmt.Errorf("set observation embedding: %w", err)
 	}
 	defer result.Close()
 
 	return nil
-}
-
-// formatFloatArray formats a []float32 as a Kuzu Cypher FLOAT array literal,
-// e.g. [0.1, 0.2, 0.3]
-func formatFloatArray(v []float32) string {
-	if len(v) == 0 {
-		return "[]"
-	}
-	parts := make([]string, len(v))
-	for i, f := range v {
-		parts[i] = fmt.Sprintf("%v", f)
-	}
-	return "[" + strings.Join(parts, ", ") + "]"
 }

@@ -45,15 +45,19 @@ func (s *Store) KeywordSearch(projectID, query string, limit int) ([]*SearchResu
 	// Normalize query for case-insensitive matching
 	normalizedQuery := strings.ToLower(query)
 
-	// Cypher query to find entities where name contains the search term
+	// Cypher query to find entities where name contains the search term.
+	// LIMIT takes an integer expression; using %d (not user input) is safe here.
 	cypherQuery := fmt.Sprintf(`
 		MATCH (e:Entity)
-		WHERE e.project_id = '%s' AND lower(e.name) CONTAINS '%s'
+		WHERE e.project_id = $project_id AND lower(e.name) CONTAINS $query
 		RETURN e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at
 		LIMIT %d
-	`, projectID, normalizedQuery, limit)
+	`, limit)
 
-	result, err := s.conn.Query(cypherQuery)
+	result, err := s.queryParams(cypherQuery, map[string]any{
+		"project_id": projectID,
+		"query":      normalizedQuery,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("execute keyword search: %w", err)
 	}
@@ -110,15 +114,16 @@ func (s *Store) KeywordSearch(projectID, query string, limit int) ([]*SearchResu
 
 // GetTopObservations retrieves the most recent observations for an entity
 func (s *Store) GetTopObservations(entityID, projectID string, limit int) ([]*Observation, error) {
+	// LIMIT takes an integer expression; using %d (not user input) is safe here.
 	query := fmt.Sprintf(`
 		MATCH (o:Observation)
-		WHERE o.entity_id = '%s'
+		WHERE o.entity_id = $entity_id
 		RETURN o.id, o.entity_id, o.content, o.created_at
 		ORDER BY o.created_at DESC
 		LIMIT %d
-	`, entityID, limit)
+	`, limit)
 
-	result, err := s.conn.Query(query)
+	result, err := s.queryParams(query, map[string]any{"entity_id": entityID})
 	if err != nil {
 		return nil, fmt.Errorf("query observations: %w", err)
 	}

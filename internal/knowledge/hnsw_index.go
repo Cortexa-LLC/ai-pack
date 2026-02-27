@@ -65,13 +65,11 @@ func (c *vectorIndexCache) get(projectID string, build func() (*projectIndex, er
 // constructs an HNSW graph.  It is called lazily on the first VectorSearch
 // after a cache miss or invalidation.
 func (s *Store) buildIndex(projectID string) (*projectIndex, error) {
-	cypherQuery := fmt.Sprintf(`
+	result, err := s.queryParams(`
 		MATCH (e:Entity)
-		WHERE e.project_id = '%s' AND e.embedding IS NOT NULL
+		WHERE e.project_id = $project_id AND e.embedding IS NOT NULL
 		RETURN e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at, e.embedding
-	`, escapeCypher(projectID))
-
-	result, err := s.conn.Query(cypherQuery)
+	`, map[string]any{"project_id": projectID})
 	if err != nil {
 		return nil, fmt.Errorf("query entities for index build: %w", err)
 	}

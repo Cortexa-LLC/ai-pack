@@ -22,13 +22,18 @@ func (s *Store) CreateRelation(fromID, toID, relType, projectID string) error {
 		return err
 	}
 
+	// relType is a relationship label (not a value) and cannot be parameterised
+	// in Cypher. It is validated against AllowedRelTypes above before use.
 	query := fmt.Sprintf(`
 		MATCH (from:Entity), (to:Entity)
-		WHERE from.id = '%s' AND to.id = '%s'
+		WHERE from.id = $from_id AND to.id = $to_id
 		CREATE (from)-[:%s]->(to)
-	`, escapeCypher(fromID), escapeCypher(toID), relType)
+	`, relType)
 
-	result, err := s.query(query)
+	result, err := s.queryParams(query, map[string]any{
+		"from_id": fromID,
+		"to_id":   toID,
+	})
 	if err != nil {
 		return fmt.Errorf("create relation: %w", err)
 	}
@@ -45,13 +50,11 @@ func (s *Store) GetRelations(entityID, projectID string) ([]*Relation, error) {
 		return nil, err
 	}
 
-	query := fmt.Sprintf(`
+	result, err := s.queryParams(`
 		MATCH (from:Entity)-[r]->(to:Entity)
-		WHERE from.id = '%s' AND from.project_id = '%s'
+		WHERE from.id = $entity_id AND from.project_id = $project_id
 		RETURN from.id, to.id, label(r)
-	`, escapeCypher(entityID), escapeCypher(projectID))
-
-	result, err := s.query(query)
+	`, map[string]any{"entity_id": entityID, "project_id": projectID})
 	if err != nil {
 		return nil, fmt.Errorf("query relations: %w", err)
 	}
@@ -99,13 +102,18 @@ func (s *Store) DeleteRelation(fromID, toID, relType, projectID string) error {
 		return fmt.Errorf("target entity: %w", err)
 	}
 
+	// relType is a relationship label validated against AllowedRelTypes above.
 	query := fmt.Sprintf(`
 		MATCH (from:Entity)-[r:%s]->(to:Entity)
-		WHERE from.id = '%s' AND to.id = '%s' AND from.project_id = '%s'
+		WHERE from.id = $from_id AND to.id = $to_id AND from.project_id = $project_id
 		DELETE r
-	`, relType, escapeCypher(fromID), escapeCypher(toID), escapeCypher(projectID))
+	`, relType)
 
-	result, err := s.query(query)
+	result, err := s.queryParams(query, map[string]any{
+		"from_id":    fromID,
+		"to_id":      toID,
+		"project_id": projectID,
+	})
 	if err != nil {
 		return fmt.Errorf("delete relation: %w", err)
 	}
@@ -126,13 +134,17 @@ func (s *Store) TraverseRelations(entityID, relType, projectID string) ([]*Entit
 		return nil, err
 	}
 
+	// relType is a relationship label validated against AllowedRelTypes above.
 	query := fmt.Sprintf(`
 		MATCH (from:Entity)-[:%s]->(to:Entity)
-		WHERE from.id = '%s' AND from.project_id = '%s'
+		WHERE from.id = $entity_id AND from.project_id = $project_id
 		RETURN to.id, to.name, to.type, to.project_id, to.created_at, to.updated_at
-	`, relType, escapeCypher(entityID), escapeCypher(projectID))
+	`, relType)
 
-	result, err := s.query(query)
+	result, err := s.queryParams(query, map[string]any{
+		"entity_id":  entityID,
+		"project_id": projectID,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("traverse relations: %w", err)
 	}
