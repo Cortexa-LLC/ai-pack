@@ -199,36 +199,35 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 		monitoring.LogTaskCompleted(ctx, execution.TaskID, execution.Role, durationMs)
 		monitoring.GlobalMetrics.IncrementTasksCompleted(durationMs)
 
-		// Record performance grade for adaptive model selection
-		if monitoring.GlobalGradeManager != nil && execution.metadata != nil {
-			modelID := s.model // Default model
+		// Resolve model and working directory (used for both scope-check and grade recording).
+		modelID := s.model // Default model
+		if execution.metadata != nil {
 			if executionModel, ok := execution.metadata["model"]; ok {
 				modelID = executionModel
 			}
+		}
 
-			tokensUsed := int64(0)
-			if tokensStr, ok := execution.metadata["total_tokens"]; ok {
-				fmt.Sscanf(tokensStr, "%d", &tokensUsed)
-			}
+		workingDir := ""
+		if execution.metadata != nil {
+			workingDir = execution.metadata["working_directory"]
+		}
 
-			// Opt-in out-of-scope file detection via git diff.
-			// workingDir narrows the expected write scope; any git-tracked
-			// changes outside that directory are considered catastrophic
-			// (e.g. the model overwrote entity.go while working in /tmp/task/).
-			workingDir := ""
-			if execution.metadata != nil {
-				workingDir = execution.metadata["working_directory"]
-			}
-			outOfScope, _ := detectOutOfScopeChanges(projectRoot, workingDir)
-			if len(outOfScope) > 0 {
-				reason := fmt.Sprintf("agent modified %d file(s) outside working directory: %s",
-					len(outOfScope), strings.Join(outOfScope, ", "))
-				logMsg(fmt.Sprintf("🚨 CATASTROPHIC: %s", reason))
-				monitoring.Logger.Error("catastrophic_out_of_scope_writes",
-					"task_id", execution.TaskID,
-					"model", modelID,
-					"files", outOfScope,
-				)
+		// Always run out-of-scope file detection on the success path so that
+		// catastrophic writes are surfaced and logged even when no grade manager
+		// is configured.
+		outOfScope, _ := detectOutOfScopeChanges(projectRoot, workingDir)
+		isOutOfScope := len(outOfScope) > 0
+
+		if isOutOfScope {
+			reason := fmt.Sprintf("agent modified %d file(s) outside working directory: %s",
+				len(outOfScope), strings.Join(outOfScope, ", "))
+			logMsg(fmt.Sprintf("🚨 CATASTROPHIC: %s", reason))
+			monitoring.Logger.Error("catastrophic_out_of_scope_writes",
+				"task_id", execution.TaskID,
+				"model", modelID,
+				"files", outOfScope,
+			)
+			if monitoring.GlobalGradeManager != nil {
 				if err := monitoring.GlobalGradeManager.RecordCatastrophicFailure(
 					execution.TaskID,
 					modelID,
@@ -238,24 +237,32 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 				); err != nil {
 					monitoring.Logger.Warn("failed_to_record_catastrophic_failure", "error", err.Error())
 				}
+			}
+		}
+
+		// Record performance grade for adaptive model selection
+		if !isOutOfScope && monitoring.GlobalGradeManager != nil && execution.metadata != nil {
+			tokensUsed := int64(0)
+			if tokensStr, ok := execution.metadata["total_tokens"]; ok {
+				fmt.Sscanf(tokensStr, "%d", &tokensUsed)
+			}
+
+			// Record successful completion
+			if err := monitoring.GlobalGradeManager.RecordTaskCompletion(
+				execution.TaskID,
+				modelID,
+				execution.Role,
+				monitoring.ProjectIDFromPath(projectRoot),
+				true, // success
+				execution.RetryCount,
+				tokensUsed,
+				durationMs,
+				execution.WasEscalated,
+				execution.WasDowngraded,
+			); err != nil {
+				monitoring.Logger.Warn("failed_to_record_performance_grade", "error", err.Error())
 			} else {
-				// Record successful completion
-				if err := monitoring.GlobalGradeManager.RecordTaskCompletion(
-					execution.TaskID,
-					modelID,
-					execution.Role,
-					monitoring.ProjectIDFromPath(projectRoot),
-					true, // success
-					execution.RetryCount,
-					tokensUsed,
-					durationMs,
-					execution.WasEscalated,
-					execution.WasDowngraded,
-				); err != nil {
-					monitoring.Logger.Warn("failed_to_record_performance_grade", "error", err.Error())
-				} else {
-					monitoring.Logger.Debug("performance_grade_recorded", "task_id", execution.TaskID, "model", modelID, "role", execution.Role)
-				}
+				monitoring.Logger.Debug("performance_grade_recorded", "task_id", execution.TaskID, "model", modelID, "role", execution.Role)
 			}
 		}
 	}

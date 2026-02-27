@@ -115,7 +115,7 @@ type processOneTurnResult struct {
 // It:
 //   - intercepts TaskComplete and captures its summary,
 //   - dispatches every other tool to s.executeTool,
-//   - caps individual tool results at maxToolResultChars,
+//   - caps individual tool results at constants.MaxToolResultChars,
 //   - logs progress via logMsg.
 //
 // Returns a processOneTurnResult. If CompletionSummary != "" the loop must exit.
@@ -125,8 +125,6 @@ func (s *AgentServer) processOneTurn(
 	workingDir string,
 	logMsg func(string),
 ) processOneTurnResult {
-	const maxToolResultChars = 8000
-
 	var toolResults []streaming.ToolResult
 	var completionSummary string
 
@@ -165,10 +163,10 @@ func (s *AgentServer) processOneTurn(
 		}
 
 		// Cap tool result size.
-		if len(result) > maxToolResultChars {
-			result = result[:maxToolResultChars] + fmt.Sprintf(
+		if len(result) > constants.MaxToolResultChars {
+			result = result[:constants.MaxToolResultChars] + fmt.Sprintf(
 				"\n\n[Output truncated: %d chars total, showing first %d]",
-				len(result), maxToolResultChars)
+				len(result), constants.MaxToolResultChars)
 		}
 		toolResults = append(toolResults, streaming.ToolResult{
 			ToolUseID: toolUse.ID,
@@ -215,6 +213,7 @@ func checkStallConditions(
 	inactiveTurns int,
 	consecutiveErrorTurns int,
 	maxInactiveTurns int,
+	maxConsecutiveErrorTurns int,
 	logMsg func(string),
 ) (newInactiveTurns int, newConsecutiveErrorTurns int, newLastTextLength int, newLastToolSignature string, sr stallResult) {
 	// ── consecutive-error tracking ──────────────────────────────────────────
@@ -229,8 +228,8 @@ func checkStallConditions(
 	if allToolsErrored {
 		consecutiveErrorTurns++
 		logMsg(fmt.Sprintf("      ⚠️  All tools errored this turn (%d consecutive error turns)", consecutiveErrorTurns))
-		if consecutiveErrorTurns >= maxInactiveTurns {
-			logMsg(fmt.Sprintf("❌ Agent stuck: %d consecutive turns with all tools failing", maxInactiveTurns))
+		if consecutiveErrorTurns >= maxConsecutiveErrorTurns {
+			logMsg(fmt.Sprintf("❌ Agent stuck: %d consecutive turns with all tools failing", maxConsecutiveErrorTurns))
 			return inactiveTurns, consecutiveErrorTurns, currentTextLength, lastToolSignature, stallAbort
 		}
 	} else {

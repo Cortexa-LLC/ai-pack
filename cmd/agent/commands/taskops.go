@@ -3,7 +3,6 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -69,7 +68,10 @@ func runCancel(taskID string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := agentclient.ReadBody(resp)
+		if err != nil {
+			return fmt.Errorf("failed to cancel task (and read response): %w", err)
+		}
 		return fmt.Errorf("failed to cancel task: %s", string(body))
 	}
 
@@ -97,7 +99,10 @@ func runRetry(taskID string) error {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := agentclient.ReadBody(resp)
+	if err != nil {
+		return fmt.Errorf("failed to retry task (and read response): %w", err)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to retry task: %s", string(body))
 	}

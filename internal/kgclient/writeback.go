@@ -65,7 +65,7 @@ func WriteBack(
 	startTime time.Time,
 ) {
 	if mcpManager == nil {
-		monitoring.Logger.Debug("kg_writeback_skip", "reason", "no_mcp_manager")
+		monitoring.Logger.Debug("kg_writeback_skip", "reason", "no_mcp_manager", "project", projectRoot)
 		return
 	}
 

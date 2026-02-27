@@ -20,8 +20,10 @@ For storage and build-tooling rationale see `docs/adr/003-knowledge-graph.md`.
 6. [HNSW Index](#hnsw-index)
 7. [Structural Indexer](#structural-indexer)
 8. [MCP Interface](#mcp-interface)
-9. [Cross-Platform Builds](#cross-platform-builds)
-10. [Implementation History](#implementation-history)
+9. [Cold Start / Empty Graph](#cold-start--empty-graph)
+10. [Write Durability](#write-durability)
+11. [Cross-Platform Builds](#cross-platform-builds)
+12. [Implementation History](#implementation-history)
 
 ---
 
@@ -378,6 +380,66 @@ Scanning 1000+ files takes seconds with bulk load vs. thousands of individual in
 
 The MCP server is started by `cmd/kg mcp` and discovered by the agent via its
 `.ai/mcp-servers.json` entry.
+
+---
+
+## Cold Start / Empty Graph
+
+When a new project is initialized (or the Kuzu database file is absent), the knowledge
+graph is **empty** — no entities, no vectors, no HNSW index.
+
+### What happens on first access
+
+| Operation | Empty-graph behaviour |
+|-----------|----------------------|
+| `HybridSearch` / `KeywordSearch` | Returns 0 results; no error |
+| `VectorSearch` | Returns 0 results; HNSW build is skipped when entity count is 0 |
+| `get_preflight_context` (MCP) | Returns an empty context block (empty string); the agent-server still proceeds and injects no prior knowledge |
+| `BatchEmbed` | No-ops immediately (0 unembedded entities found) |
+
+### Agent expectations
+
+Agents MUST treat an empty or near-empty context as a valid state, not an error.  The
+first few tasks on a new project are a "cold start" — the graph will be populated
+incrementally as agents write findings back via the MCP write tools
+(`create_entities`, `add_observations`, `create_relations`).
+
+Quality improves as coverage builds.  Preflight context typically becomes useful after
+2–5 tasks have written observations to the graph.
+
+### Seeding (optional)
+
+A project may be pre-seeded by running the structural indexer (`kg index`), which
+scans Go source files and bulk-loads file and import relationships.  This gives agents
+immediate structural context even before any task runs.
+
+---
+
+## Write Durability
+
+Kuzu writes issued through the MCP tools are **synchronous within the tool call** —
+the Kuzu transaction is committed before the tool response is returned to the agent.
+However, the agent-server dispatches write tool calls in a **fire-and-forget** fashion:
+if the agent process is killed, the connection drops, or the MCP server crashes
+between tool calls, in-flight writes may be lost.
+
+**Practical implications:**
+
+- Do **not** rely on an observation being visible to the *same* agent in the same
+  session immediately after writing — reads issued before the round-trip completes may
+  return stale data.
+- Across sessions, knowledge written in session N is generally visible in session N+1
+  because Kuzu flushes to disk before the tool response returns.  The risk window is
+  limited to crashes during the write transaction itself.
+- Embeddings are written separately by `BatchEmbed`, which runs after the entity write.
+  An entity written but not yet embedded will appear in keyword search but not in
+  vector/hybrid search until `BatchEmbed` is called.
+- There is no write-ahead log or replication.  The Kuzu on-disk file is the single
+  source of truth; database corruption from an OS crash is possible (though unlikely
+  with default OS write-back caching).
+
+**In summary:** writes are *best-effort durable*, not *guaranteed durable*.  Treat the
+knowledge graph as a high-value cache, not as the system of record for agent outputs.
 
 ---
 

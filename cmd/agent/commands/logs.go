@@ -257,7 +257,12 @@ func fetchRecentServerLogs(tailLines int, jsonOutput bool) {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := agentclient.ReadBody(resp)
+	if err != nil {
+		fmt.Printf("❌ Failed to read server logs: %v\n", err)
+		os.Exit(1)
+		return
+	}
 
 	if jsonOutput {
 		fmt.Println(string(body))
