@@ -225,6 +225,81 @@ func TestGetTopObservations(t *testing.T) {
 	})
 }
 
+func TestBatchGetObservations(t *testing.T) {
+	store := setupTestStore(t)
+	defer store.Close()
+
+	projectID := "test-project"
+
+	// Create two entities, each with multiple observations.
+	entity1, err := store.CreateEntity("batch_entity_1.go", "file", projectID)
+	if err != nil {
+		t.Fatalf("CreateEntity failed: %v", err)
+	}
+	entity2, err := store.CreateEntity("batch_entity_2.go", "file", projectID)
+	if err != nil {
+		t.Fatalf("CreateEntity failed: %v", err)
+	}
+
+	for i := 1; i <= 5; i++ {
+		_, err := store.CreateObservation(entity1.ID, fmt.Sprintf("entity1 obs %d", i), projectID)
+		if err != nil {
+			t.Fatalf("CreateObservation failed: %v", err)
+		}
+	}
+	for i := 1; i <= 2; i++ {
+		_, err := store.CreateObservation(entity2.ID, fmt.Sprintf("entity2 obs %d", i), projectID)
+		if err != nil {
+			t.Fatalf("CreateObservation failed: %v", err)
+		}
+	}
+
+	t.Run("returns observations for multiple entities in one call", func(t *testing.T) {
+		obsMap, err := store.batchGetObservations([]string{entity1.ID, entity2.ID}, 3)
+		if err != nil {
+			t.Fatalf("batchGetObservations failed: %v", err)
+		}
+
+		if len(obsMap[entity1.ID]) != 3 {
+			t.Errorf("expected 3 observations for entity1, got %d", len(obsMap[entity1.ID]))
+		}
+		if len(obsMap[entity2.ID]) != 2 {
+			t.Errorf("expected 2 observations for entity2, got %d", len(obsMap[entity2.ID]))
+		}
+
+		// Each observation must belong to the correct entity.
+		for _, obs := range obsMap[entity1.ID] {
+			if obs.EntityID != entity1.ID {
+				t.Errorf("observation entity_id mismatch: want %s, got %s", entity1.ID, obs.EntityID)
+			}
+		}
+	})
+
+	t.Run("empty entity list returns empty map", func(t *testing.T) {
+		obsMap, err := store.batchGetObservations([]string{}, 3)
+		if err != nil {
+			t.Fatalf("batchGetObservations with empty IDs failed: %v", err)
+		}
+		if len(obsMap) != 0 {
+			t.Errorf("expected empty map, got %d entries", len(obsMap))
+		}
+	})
+
+	t.Run("entity with no observations is absent from map", func(t *testing.T) {
+		entityEmpty, err := store.CreateEntity("no_obs_entity.go", "file", projectID)
+		if err != nil {
+			t.Fatalf("CreateEntity failed: %v", err)
+		}
+		obsMap, err := store.batchGetObservations([]string{entityEmpty.ID}, 3)
+		if err != nil {
+			t.Fatalf("batchGetObservations failed: %v", err)
+		}
+		if _, ok := obsMap[entityEmpty.ID]; ok {
+			t.Errorf("expected entity with no observations to be absent from map")
+		}
+	})
+}
+
 func TestVectorSearch(t *testing.T) {
 	store := setupTestStore(t)
 	defer store.Close()

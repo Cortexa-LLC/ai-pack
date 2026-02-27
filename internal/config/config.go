@@ -68,8 +68,8 @@ type APIConfig struct {
 
 // AgentConfig holds agent behavior settings
 type AgentConfig struct {
-	MaxInactiveTurns        int `json:"max_inactive_turns"`          // Stop agent after N turns without progress
-	MaxConsecutiveErrorTurns int `json:"max_consecutive_error_turns"` // Stop agent after N consecutive all-error turns (0 = use MaxInactiveTurns)
+	MaxInactiveTurns         int `json:"max_inactive_turns"`           // Stop agent after N turns without progress
+	MaxConsecutiveErrorTurns int `json:"max_consecutive_error_turns"`  // Stop agent after N turns where every tool call returned an error (0 = use MaxInactiveTurns)
 }
 
 // ProxyConfig holds proxy-specific settings

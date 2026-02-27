@@ -333,13 +333,20 @@ func flushCheckpoint(
 
 // ─── Token-budget message truncation ─────────────────────────────────────────
 
-// charsPerToken is a conservative approximation: 4 characters ≈ 1 token.
-// This avoids the need for a tokeniser and errs on the side of keeping fewer
-// messages, which prevents context-window overflows.
+// charsPerToken is a conservative character-to-token ratio used to estimate
+// message sizes without a real tokeniser. English prose averages ~4 chars/token;
+// code and JSON average ~3–3.5 chars/token. Using 4 intentionally under-estimates
+// token counts by 10–30% for code-heavy content, leaving extra headroom in the
+// truncation budget and avoiding accidental context-window overrun.
+//
+// If this heuristic becomes a bottleneck (e.g. excessive truncation for prose),
+// replace with a real tokeniser such as tiktoken.
 const charsPerToken = 4
 
-// estimateMessageTokens returns a rough token count for a single message by
-// summing the character lengths of every text field and dividing by charsPerToken.
+// estimateMessageTokens returns a conservative (under-)estimate of the token count
+// for a single message by summing the character lengths of every text field and
+// dividing by charsPerToken. The estimate may be 10–30% below the true count for
+// code-heavy content; this bias is intentional — see charsPerToken.
 func estimateMessageTokens(m streaming.Message) int {
 	chars := len(m.Content)
 	for _, tu := range m.ToolUses {

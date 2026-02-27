@@ -58,6 +58,9 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 
 		// Resolve the model override once per turn so the truncation budget can
 		// use the same value that will be passed to the stream request.
+		// requestModel == "" signals the provider layer to use the grade-selected
+		// model (selectedModel above). A non-empty override bypasses grade-based
+		// selection entirely and pins the request to the specified model.
 		requestModel := ""
 		if config.Model != "" {
 			requestModel = config.Model
@@ -66,6 +69,10 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		// Token-budget-based truncation: keep messages[0] (initial prompt) and
 		// fill backwards from the most-recent turn until the estimated token budget
 		// is exhausted.  This replaces the old hard-coded 50-message limit.
+		// This truncation runs on every turn, including the first turn after a
+		// checkpoint restore — the checkpointed history may be arbitrarily long,
+		// so we must re-validate it against the current context window before
+		// sending it to the model.
 		budget := contextWindowTokens(requestModel)
 		truncatedMessages := truncateMessagesByTokenBudget(messages, budget, logMsg)
 

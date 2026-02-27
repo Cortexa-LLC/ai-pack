@@ -70,7 +70,8 @@ func (s *Store) KeywordSearch(projectID, query string, limit int) ([]*SearchResu
 	}
 	defer result.Close()
 
-	var results []*SearchResult
+	// First pass: collect all matching entities.
+	var entities []*Entity
 	for result.HasNext() {
 		tuple, err := result.Next()
 		if err != nil {
@@ -98,20 +99,30 @@ func (s *Store) KeywordSearch(projectID, query string, limit int) ([]*SearchResu
 			entity.UpdatedAt = time.UnixMicro(ts).UTC()
 		}
 
-		// Fetch top 3 observations for this entity
-		obs, err := s.GetTopObservations(entity.ID, projectID, 3)
-		if err != nil {
-			// Don't fail the entire search if observations fail
+		entities = append(entities, entity)
+	}
+
+	// Second pass: fetch observations for all entities in a single query.
+	entityIDs := make([]string, len(entities))
+	for i, e := range entities {
+		entityIDs[i] = e.ID
+	}
+	obsMap, err := s.batchGetObservations(entityIDs, 3)
+	if err != nil {
+		// Degrade gracefully — empty observations rather than failing the search.
+		obsMap = map[string][]*Observation{}
+	}
+
+	results := make([]*SearchResult, 0, len(entities))
+	for _, entity := range entities {
+		obs := obsMap[entity.ID]
+		if obs == nil {
 			obs = []*Observation{}
 		}
-
-		// Calculate keyword match score (simple: 1.0 for match)
-		score := 1.0
-
 		results = append(results, &SearchResult{
 			Entity:       entity,
 			Observations: obs,
-			Score:        score,
+			Score:        1.0,
 			MatchType:    "keyword",
 		})
 	}
@@ -166,6 +177,74 @@ func (s *Store) GetTopObservations(entityID, projectID string, limit int) ([]*Ob
 	return observations, nil
 }
 
+// batchGetObservations fetches the top-N most recent observations for each entity
+// in entityIDs using a single Cypher query, eliminating N+1 round-trips.
+// It returns a map keyed by entity ID; entities with no observations are absent.
+// limit is applied per entity: only the newest `limit` rows are kept.
+func (s *Store) batchGetObservations(entityIDs []string, limit int) (map[string][]*Observation, error) {
+	if len(entityIDs) == 0 {
+		return map[string][]*Observation{}, nil
+	}
+
+	// Build a []any slice because KuzuDB's prepared-statement executor requires
+	// []any (not []string) to construct a Cypher LIST value.
+	ids := make([]any, len(entityIDs))
+	for i, id := range entityIDs {
+		ids[i] = id
+	}
+
+	// ROW_NUMBER() is not available in KuzuDB Cypher; use ORDER BY + a per-entity
+	// counter instead.  We fetch all rows ordered by (entity_id, created_at DESC)
+	// and apply the per-entity limit in Go — this is still a single round-trip.
+	query := `
+		MATCH (o:Observation)
+		WHERE o.entity_id IN $entity_ids
+		RETURN o.id, o.entity_id, o.content, o.created_at
+		ORDER BY o.entity_id, o.created_at DESC
+	`
+
+	result, err := s.queryParams(query, map[string]any{"entity_ids": ids})
+	if err != nil {
+		return nil, fmt.Errorf("batch query observations: %w", err)
+	}
+	defer result.Close()
+
+	obsMap := make(map[string][]*Observation, len(entityIDs))
+	counts := make(map[string]int, len(entityIDs))
+
+	for result.HasNext() {
+		tuple, err := result.Next()
+		if err != nil {
+			return nil, fmt.Errorf("get next: %w", err)
+		}
+
+		row, err := tuple.GetAsSlice()
+		if err != nil {
+			return nil, fmt.Errorf("get row as slice: %w", err)
+		}
+		tuple.Close()
+
+		entityID := row[1].(string)
+		if counts[entityID] >= limit {
+			continue
+		}
+		counts[entityID]++
+
+		obs := &Observation{
+			ID:       row[0].(string),
+			EntityID: entityID,
+			Content:  row[2].(string),
+		}
+		if ts, ok := row[3].(int64); ok {
+			obs.CreatedAt = time.UnixMicro(ts).UTC()
+		}
+
+		obsMap[entityID] = append(obsMap[entityID], obs)
+	}
+
+	return obsMap, nil
+}
+
 // VectorSearch performs semantic search using an in-memory HNSW index.
 // The index is lazily built on the first call per project and invalidated
 // whenever SetEmbedding writes a new embedding, so results are always fresh.
@@ -195,23 +274,41 @@ func (s *Store) VectorSearch(projectID string, queryEmbedding []float32, limit i
 	// Node.Value is the stored vector; we compute cosine similarity ourselves.
 	neighbours := idx.graph.Search(queryEmbedding, limit)
 
-	results := make([]*SearchResult, 0, len(neighbours))
+	// Collect entity IDs and similarities from HNSW neighbours.
+	type candidate struct {
+		entity     *Entity
+		similarity float64
+	}
+	candidates := make([]candidate, 0, len(neighbours))
 	for _, node := range neighbours {
 		entity, ok := idx.entities[node.Key]
 		if !ok {
 			continue
 		}
-		// Compute cosine similarity between the query and the stored vector.
 		similarity := cosineSimilarity32(queryEmbedding, node.Value)
+		candidates = append(candidates, candidate{entity, similarity})
+	}
 
-		obs, err := s.GetTopObservations(entity.ID, projectID, 3)
-		if err != nil {
+	// Batch-fetch observations for all candidate entities in a single query.
+	entityIDs := make([]string, len(candidates))
+	for i, c := range candidates {
+		entityIDs[i] = c.entity.ID
+	}
+	obsMap, err := s.batchGetObservations(entityIDs, 3)
+	if err != nil {
+		obsMap = map[string][]*Observation{}
+	}
+
+	results := make([]*SearchResult, 0, len(candidates))
+	for _, c := range candidates {
+		obs := obsMap[c.entity.ID]
+		if obs == nil {
 			obs = []*Observation{}
 		}
 		results = append(results, &SearchResult{
-			Entity:       entity,
+			Entity:       c.entity,
 			Observations: obs,
-			Score:        similarity,
+			Score:        c.similarity,
 			MatchType:    "vector",
 		})
 	}
