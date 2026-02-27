@@ -3,6 +3,7 @@ package knowledge
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -65,6 +66,46 @@ func TestStoreClose(t *testing.T) {
 	if err != nil {
 		t.Errorf("Close failed: %v", err)
 	}
+}
+
+// TestStoreConcurrentAccess verifies that concurrent goroutines can call Store
+// methods simultaneously without data races or panics.  Run with -race to
+// exercise the mutex path.
+func TestStoreConcurrentAccess(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := OpenStore(filepath.Join(tmpDir, "concurrent.db"))
+	if err != nil {
+		t.Fatalf("OpenStore: %v", err)
+	}
+	defer store.Close()
+
+	const goroutines = 10
+	const opsEach = 5
+
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < opsEach; j++ {
+				e, err := store.CreateEntity("concurrent-entity", "test", "proj-concurrent")
+				if err != nil {
+					t.Errorf("CreateEntity: %v", err)
+					return
+				}
+				_, err = store.GetEntity(e.ID, "proj-concurrent")
+				if err != nil {
+					t.Errorf("GetEntity: %v", err)
+					return
+				}
+				_, err = store.ListEntities("proj-concurrent", "")
+				if err != nil {
+					t.Errorf("ListEntities: %v", err)
+				}
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 func TestStoreCreateDirectory(t *testing.T) {
