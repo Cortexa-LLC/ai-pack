@@ -85,7 +85,8 @@ type AgentServer struct {
 	maxConcurrent    int                         // Maximum concurrent agents (configurable)
 	maxTokens        int                         // Maximum tokens per API call
 	model            string                      // Default Anthropic model to use
-	maxInactiveTurns int                         // Stop agent after N turns without progress
+	maxInactiveTurns         int // Stop agent after N turns without progress
+	maxConsecutiveErrorTurns int // Stop agent after N consecutive all-error turns
 	config           *config.Config              // Server configuration
 
 	// Multi-provider LLM support
@@ -309,7 +310,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		projectMetrics: make(map[string]*monitoring.PersistentMetrics),
 		providerCosts:  make(map[string][2]float64),
 		activeTasks:    make(map[string]*TaskExecution),
-		taskQueue:      make(chan *TaskExecution, maxConcurrent),
+		taskQueue:      make(chan *TaskExecution, maxConcurrent*4),
 		workerPool:     make(chan struct{}, maxConcurrent),
 		projectRoots:   make(map[string]time.Time),
 		ctx:            serverCtx,
@@ -334,6 +335,15 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	}
 	if maxInactiveTurns == 0 {
 		maxInactiveTurns = 10 // Default fallback
+	}
+
+	// Get max consecutive error turns from config; fall back to maxInactiveTurns.
+	maxConsecutiveErrorTurns := 0
+	if cfg != nil {
+		maxConsecutiveErrorTurns = cfg.Agent.MaxConsecutiveErrorTurns
+	}
+	if maxConsecutiveErrorTurns == 0 {
+		maxConsecutiveErrorTurns = maxInactiveTurns
 	}
 
 	// Initialize execution log
@@ -407,6 +417,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	server.claudeSettings = claudeSettings
 	server.executionLog = execLog
 	server.maxInactiveTurns = maxInactiveTurns
+	server.maxConsecutiveErrorTurns = maxConsecutiveErrorTurns
 	server.providerCosts = costs
 
 	// Initialize LLM providers
@@ -649,6 +660,20 @@ func (s *AgentServer) handleOrphanedTasks() {
 								"task_id", beadsTask.ID,
 								"new_status", "open")
 						}
+					}
+
+					// Delete any checkpoint so the task restarts from scratch instead of
+					// resuming stale state from the previous (aborted) run.
+					cpPath := checkpointPath(projectRoot, beadsTask.ID)
+					if removeErr := os.Remove(cpPath); removeErr == nil {
+						monitoring.Logger.Info("orphaned_task_checkpoint_deleted",
+							"task_id", beadsTask.ID,
+							"checkpoint", cpPath)
+					} else if !os.IsNotExist(removeErr) {
+						monitoring.Logger.Warn("failed_to_delete_orphaned_checkpoint",
+							"task_id", beadsTask.ID,
+							"checkpoint", cpPath,
+							"error", removeErr.Error())
 					}
 
 					orphanedCount++

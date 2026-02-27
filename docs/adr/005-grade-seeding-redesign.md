@@ -40,12 +40,15 @@ combinations where no runtime data exists. The specific grade ladder is:
 | D     | No          | Emerges from runtime failures (success_rate < threshold) |
 | F     | No          | Emerges from runtime failures (lowest threshold) |
 
-`scripts/seed-grades.py` writes Grade C JSON files for all known models.
-`GradeSourceLiveBench` (constant in `performance_grading.go`) marks these seeded files.
+`scripts/seed-grades.py` writes Grade C JSON files for all known models with
+`source: "cold_start"` (not `"livebench"` — see Implementation Notes for details).
 
-Until a model accumulates `minSamplesForRuntimeGrade = 5` real task runs, the letter
-grade is *anchored* to the seeded value — runtime rates are updated for visibility but
-the grade does not change. After 5 runs the runtime-calculated grade takes over.
+The `recalculateGrade()` anchor (see Implementation Notes) applies only to grade files
+whose `source` starts with `"livebench"` — a backward-compatibility guard for an older
+seeding approach. Cold-start grades (`source: "cold_start"`) are **not anchored**;
+`recalculateGrade()` recalculates the letter grade from the first real task run
+onwards. In practice the grade stays at C while the model has no successes, then moves
+to B or A as real-task outcomes accumulate.
 
 ---
 
@@ -142,12 +145,19 @@ behaviour and makes tests reproducible.
 
 ## Implementation Notes
 
-- **`scripts/seed-grades.py`**: Writes `grade: "C"`, `source: "livebench-seed"` JSON
+- **`scripts/seed-grades.py`**: Writes `grade: "C"`, `source: "cold_start"` JSON
   files for every model in the known-models list. Re-run after adding models.
+  > **Note:** The source field is `"cold_start"`, **not** `"livebench"` or
+  > `"livebench-seed"`. The `GradeSourceLiveBench = "livebench"` constant in
+  > `performance_grading.go` exists solely for backward compatibility with grade
+  > files seeded by an older script that used LiveBench scores; it does **not**
+  > apply to cold-start seeds written by the current script.
 - **`internal/monitoring/performance_grading.go`**:
   - `minSamplesForRuntimeGrade = 5` — anchor threshold.
-  - `recalculateGrade()` — skips letter-grade recalc while `source` is livebench-
-    prefixed and `TotalAttempts < 5`.
+  - `recalculateGrade()` — skips letter-grade recalc while `source` starts with
+    `"livebench"` **and** `TotalAttempts < 5`. Because cold-start seeds use
+    `source: "cold_start"`, this anchor does **not** apply to them; cold-start
+    grades are immediately recalculated from runtime data on the first task run.
   - `calculateLetterGrade()` — the A/B/C/D/F ladder driven by `GradingCriteriaConfig`.
 - **`internal/monitoring/model_selector.go`**:
   - `ReloadGrades()` is called on every `SelectModel()` invocation, enabling live

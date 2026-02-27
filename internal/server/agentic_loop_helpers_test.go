@@ -259,7 +259,7 @@ func TestCheckStallConditions_ProgressByText(t *testing.T) {
 		100, // currentTextLength (grew)
 		50,  // lastTextLength
 		"",  // lastToolSignature (same tool signature)
-		2, 0, 5, nopLog,
+		2, 0, 5, 5, nopLog,
 	)
 
 	if sr != stallNone {
@@ -285,7 +285,7 @@ func TestCheckStallConditions_ProgressByDifferentTool(t *testing.T) {
 		toolResults, toolUses,
 		50, 50, // text did NOT grow
 		"Read:{\"cmd\":\"file.go\"}", // different from Write
-		0, 0, 5, nopLog,
+		0, 0, 5, 5, nopLog,
 	)
 
 	if sr != stallNone {
@@ -302,7 +302,7 @@ func TestCheckStallConditions_NoProgress_BelowThreshold(t *testing.T) {
 		toolResults, toolUses,
 		50, 50, // no text growth
 		sig,    // same signature
-		1, 0, 5, nopLog,
+		1, 0, 5, 5, nopLog,
 	)
 
 	if sr != stallNone {
@@ -322,7 +322,7 @@ func TestCheckStallConditions_NoProgress_AtThreshold(t *testing.T) {
 		toolResults, toolUses,
 		50, 50, sig,
 		4, // inactiveTurns — next increment brings it to 5 == maxInactiveTurns
-		0, 5, nopLog,
+		0, 5, 5, nopLog,
 	)
 
 	if sr != stallAbort {
@@ -340,7 +340,7 @@ func TestCheckStallConditions_AllToolsError_BelowThreshold(t *testing.T) {
 	newInactive, newConsecErr, _, _, sr := checkStallConditions(
 		toolResults, toolUses,
 		50, 50, "Read:{\"cmd\":\"x\"}",
-		0, 0, 5, nopLog,
+		0, 0, 5, 5, nopLog,
 	)
 
 	if sr != stallNone {
@@ -362,7 +362,7 @@ func TestCheckStallConditions_AllToolsError_AtThreshold(t *testing.T) {
 		toolResults, toolUses,
 		50, 50, "Read:{\"cmd\":\"x\"}",
 		0, 4, // consecutiveErrorTurns = 4; next increment brings to 5 == max
-		5, nopLog,
+		5, 5, nopLog,
 	)
 
 	if sr != stallAbort {
@@ -378,7 +378,7 @@ func TestCheckStallConditions_MixedErrors_ResetsCounter(t *testing.T) {
 	_, newConsecErr, _, _, _ := checkStallConditions(
 		toolResults, toolUses,
 		100, 50, "", // text grew => progress
-		0, 3, 5, nopLog,
+		0, 3, 5, 5, nopLog,
 	)
 
 	if newConsecErr != 0 {

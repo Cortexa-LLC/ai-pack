@@ -42,7 +42,10 @@ func runResume(taskID string, newBudget int64) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, err := agentclient.ReadBody(resp)
+		if err != nil {
+			return fmt.Errorf("failed to resume task (and read response): %w", err)
+		}
 		return fmt.Errorf("failed to resume task: %s", string(respBody))
 	}
 
@@ -70,7 +73,11 @@ func showMetrics() {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := agentclient.ReadBody(resp)
+	if err != nil {
+		fmt.Printf("⚠️  Could not read metrics: %v\n", err)
+		return
+	}
 	var metrics map[string]interface{}
 	json.Unmarshal(body, &metrics) //nolint:errcheck
 
@@ -114,7 +121,10 @@ func runPerformance(jsonOutput bool) error {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := agentclient.ReadBody(resp)
+	if err != nil {
+		return fmt.Errorf("failed to read metrics: %w", err)
+	}
 
 	if jsonOutput {
 		fmt.Println(string(body))
@@ -185,7 +195,10 @@ func runDiscovery(jsonOutput, verbose bool) error {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := agentclient.ReadBody(resp)
+	if err != nil {
+		return fmt.Errorf("failed to read discovery response: %w", err)
+	}
 
 	if jsonOutput {
 		fmt.Println(string(body))
@@ -248,7 +261,11 @@ func runVersion() {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := agentclient.ReadBody(resp)
+	if err != nil {
+		fmt.Printf("⚠️  Could not read version response: %v\n", err)
+		return
+	}
 	var health map[string]interface{}
 	json.Unmarshal(body, &health) //nolint:errcheck
 

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 )
 
 // ServerURL is the default agent server base URL.
@@ -36,11 +37,14 @@ type Client struct {
 	HTTPClient *http.Client
 }
 
+// DefaultTimeout is the default HTTP client timeout for non-streaming requests.
+const DefaultTimeout = 30 * time.Second
+
 // New creates a Client using the given base URL.
 func New(baseURL string) *Client {
 	return &Client{
 		BaseURL:    baseURL,
-		HTTPClient: &http.Client{},
+		HTTPClient: &http.Client{Timeout: DefaultTimeout},
 	}
 }
 

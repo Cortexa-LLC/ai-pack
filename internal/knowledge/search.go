@@ -45,12 +45,19 @@ func (s *Store) KeywordSearch(projectID, query string, limit int) ([]*SearchResu
 	// Normalize query for case-insensitive matching
 	normalizedQuery := strings.ToLower(query)
 
-	// Cypher query to find entities where name contains the search term.
-	// LIMIT takes an integer expression; using %d (not user input) is safe here.
+	// Cypher query to find entities where the name or any linked observation
+	// content contains the search term.  LIMIT takes an integer expression;
+	// using %d (not user input) is safe here.
 	cypherQuery := fmt.Sprintf(`
 		MATCH (e:Entity)
-		WHERE e.project_id = $project_id AND lower(e.name) CONTAINS $query
-		RETURN e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at
+		WHERE e.project_id = $project_id
+		  AND (lower(e.name) CONTAINS $query
+		       OR EXISTS {
+		         MATCH (e)-[:HAS_OBSERVATION]->(o:Observation)
+		         WHERE lower(o.content) CONTAINS $query
+		       })
+		RETURN DISTINCT e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at
+		ORDER BY e.updated_at DESC
 		LIMIT %d
 	`, limit)
 
@@ -164,7 +171,7 @@ func (s *Store) GetTopObservations(entityID, projectID string, limit int) ([]*Ob
 // whenever SetEmbedding writes a new embedding, so results are always fresh.
 // Entities must have been previously embedded via SetEmbedding / BatchEmbed.
 // Results are sorted by descending cosine similarity and capped at limit.
-func (s *Store) VectorSearch(projectID string, queryEmbedding []float64, limit int) ([]*SearchResult, error) {
+func (s *Store) VectorSearch(projectID string, queryEmbedding []float32, limit int) ([]*SearchResult, error) {
 	if len(queryEmbedding) == 0 {
 		return nil, fmt.Errorf("query embedding cannot be empty")
 	}
@@ -184,15 +191,9 @@ func (s *Store) VectorSearch(projectID string, queryEmbedding []float64, limit i
 		return []*SearchResult{}, nil
 	}
 
-	// Convert query from float64 to float32 for the HNSW library.
-	qVec := make([]float32, len(queryEmbedding))
-	for i, v := range queryEmbedding {
-		qVec[i] = float32(v)
-	}
-
 	// Search returns the k nearest neighbours sorted by ascending distance.
 	// Node.Value is the stored vector; we compute cosine similarity ourselves.
-	neighbours := idx.graph.Search(qVec, limit)
+	neighbours := idx.graph.Search(queryEmbedding, limit)
 
 	results := make([]*SearchResult, 0, len(neighbours))
 	for _, node := range neighbours {
@@ -201,7 +202,7 @@ func (s *Store) VectorSearch(projectID string, queryEmbedding []float64, limit i
 			continue
 		}
 		// Compute cosine similarity between the query and the stored vector.
-		similarity := cosineSimilarity(queryEmbedding, node.Value)
+		similarity := cosineSimilarity32(queryEmbedding, node.Value)
 
 		obs, err := s.GetTopObservations(entity.ID, projectID, 3)
 		if err != nil {
@@ -224,34 +225,34 @@ func (s *Store) VectorSearch(projectID string, queryEmbedding []float64, limit i
 	return results, nil
 }
 
-// cosineSimilarity computes the cosine similarity between a float64 query
-// vector and a float32 stored vector.  Returns 0 if either vector is zero.
-func cosineSimilarity(query []float64, stored []float32) float64 {
+// cosineSimilarity32 computes the cosine similarity between two float32 vectors.
+// Returns 0 if either vector is zero-length or a zero vector.
+func cosineSimilarity32(a, b []float32) float64 {
 	// Use the shorter length to avoid index out-of-range if dimensions differ.
-	n := len(query)
-	if len(stored) < n {
-		n = len(stored)
+	n := len(a)
+	if len(b) < n {
+		n = len(b)
 	}
 	if n == 0 {
 		return 0
 	}
 
-	var dot, normQ, normS float64
+	var dot, normA, normB float64
 	for i := 0; i < n; i++ {
-		q := query[i]
-		s := float64(stored[i])
-		dot += q * s
-		normQ += q * q
-		normS += s * s
+		ai := float64(a[i])
+		bi := float64(b[i])
+		dot += ai * bi
+		normA += ai * ai
+		normB += bi * bi
 	}
-	if normQ == 0 || normS == 0 {
+	if normA == 0 || normB == 0 {
 		return 0
 	}
-	return dot / (math.Sqrt(normQ) * math.Sqrt(normS))
+	return dot / (math.Sqrt(normA) * math.Sqrt(normB))
 }
 
 // HybridSearch combines keyword and vector search with configurable weights
-func (s *Store) HybridSearch(projectID, query string, queryEmbedding []float64, config SearchConfig) ([]*SearchResult, error) {
+func (s *Store) HybridSearch(projectID, query string, queryEmbedding []float32, config SearchConfig) ([]*SearchResult, error) {
 	if query == "" && len(queryEmbedding) == 0 {
 		return nil, fmt.Errorf("either query or embedding must be provided")
 	}

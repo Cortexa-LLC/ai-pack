@@ -170,6 +170,14 @@ const (
 	MaxContextTokens = 200000 // Claude API limit
 )
 
+// Tool Result Limits
+const (
+	// MaxToolResultChars is the maximum number of characters kept from a single
+	// tool result before it is truncated. Keeping results bounded prevents
+	// runaway context growth when tools emit large outputs.
+	MaxToolResultChars = 8000
+)
+
 // Project Settings
 const (
 	// Project cleanup threshold (days)

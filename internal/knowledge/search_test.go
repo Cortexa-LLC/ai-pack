@@ -128,6 +128,27 @@ func TestKeywordSearch(t *testing.T) {
 			t.Error("Expected observations to be included in result")
 		}
 	})
+
+	t.Run("search matches observation content even when name does not match", func(t *testing.T) {
+		// entity3 is named "database_connection.go" but has no observations yet.
+		// Add an observation with a unique term to verify content-based matching.
+		_, err := store.CreateObservation(entity3.ID, "Uses xyzzy_unique_term for pooling", projectID)
+		if err != nil {
+			t.Fatalf("CreateObservation failed: %v", err)
+		}
+
+		results, err := store.KeywordSearch(projectID, "xyzzy_unique_term", 10)
+		if err != nil {
+			t.Fatalf("KeywordSearch failed: %v", err)
+		}
+
+		if len(results) != 1 {
+			t.Fatalf("Expected 1 result from observation content match, got %d", len(results))
+		}
+		if results[0].Entity.Name != "database_connection.go" {
+			t.Errorf("Expected database_connection.go, got %s", results[0].Entity.Name)
+		}
+	})
 }
 
 func TestGetTopObservations(t *testing.T) {
@@ -211,7 +232,7 @@ func TestVectorSearch(t *testing.T) {
 	projectID := "test-project"
 
 	t.Run("returns empty results (placeholder implementation)", func(t *testing.T) {
-		embedding := []float64{0.1, 0.2, 0.3, 0.4}
+		embedding := []float32{0.1, 0.2, 0.3, 0.4}
 		results, err := store.VectorSearch(projectID, embedding, 10)
 		if err != nil {
 			t.Fatalf("VectorSearch failed: %v", err)
@@ -224,7 +245,7 @@ func TestVectorSearch(t *testing.T) {
 	})
 
 	t.Run("empty embedding returns error", func(t *testing.T) {
-		_, err := store.VectorSearch(projectID, []float64{}, 10)
+		_, err := store.VectorSearch(projectID, []float32{}, 10)
 		if err == nil {
 			t.Error("Expected error for empty embedding")
 		}
@@ -251,7 +272,7 @@ func TestVectorSearch(t *testing.T) {
 		e1Emb[0] = 1
 		e2Emb := make([]float32, dim) // orthogonal: set [1]=1
 		e2Emb[1] = 1
-		query := make([]float64, dim)
+		query := make([]float32, dim)
 		query[0] = 1
 
 		if err := store.SetEmbedding(e1.ID, e1Emb); err != nil {
@@ -300,7 +321,7 @@ func TestVectorSearch(t *testing.T) {
 			}
 		}
 
-		query := make([]float64, dim)
+		query := make([]float32, dim)
 		query[0] = 1
 		results, err := store.VectorSearch(pid, query, 3)
 		if err != nil {
@@ -337,7 +358,7 @@ func TestHybridSearch(t *testing.T) {
 
 	t.Run("combines keyword and vector results", func(t *testing.T) {
 		config := DefaultSearchConfig()
-		embedding := []float64{0.1, 0.2, 0.3}
+		embedding := []float32{0.1, 0.2, 0.3}
 
 		results, err := store.HybridSearch(projectID, "auth", embedding, config)
 		if err != nil {
@@ -514,7 +535,7 @@ func TestSearchSuccessCriteria(t *testing.T) {
 	})
 
 	t.Run("✓ Vector search returns entities ranked by cosine similarity", func(t *testing.T) {
-		embedding := []float64{0.1, 0.2, 0.3}
+		embedding := []float32{0.1, 0.2, 0.3}
 		results, err := store.VectorSearch(projectID, embedding, 10)
 		if err != nil {
 			t.Fatalf("VectorSearch failed: %v", err)
@@ -645,26 +666,6 @@ func TestHNSWScalability(t *testing.T) {
 		return out
 	}
 
-	// normF64 returns a unit-length copy of v (float64 version for VectorSearch query).
-	normF64 := func(v []float64) []float64 {
-		var sum float64
-		for _, x := range v {
-			sum += x * x
-		}
-		if sum == 0 {
-			return v
-		}
-		x := sum
-		for i := 0; i < 50; i++ {
-			x = (x + sum/x) / 2
-		}
-		out := make([]float64, len(v))
-		for i, c := range v {
-			out[i] = c / x
-		}
-		return out
-	}
-
 	t.Logf("Inserting %d entities with %d-dim embeddings …", numEnt, dim)
 
 	for i := 0; i < numEnt; i++ {
@@ -683,12 +684,12 @@ func TestHNSWScalability(t *testing.T) {
 		}
 	}
 
-	// Build a random query vector.
-	rawQ := make([]float64, dim)
+	// Build a random query vector (float32 to match VectorSearch signature).
+	rawQ := make([]float32, dim)
 	for j := range rawQ {
-		rawQ[j] = rng.Float64()*2 - 1
+		rawQ[j] = float32(rng.Float64()*2 - 1)
 	}
-	query := normF64(rawQ)
+	query := normF32(rawQ)
 
 	// ── Cold query (builds the HNSW index) ───────────────────────────────────
 	t0 := time.Now()

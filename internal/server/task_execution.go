@@ -28,8 +28,8 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		{Role: "user", Content: initialPrompt},
 	}
 
-	logMsg(fmt.Sprintf("🔄 Starting agentic loop (max_inactive: %d, caching: enabled, extended_thinking: %v)",
-		s.maxInactiveTurns, config.ExtendedThinking))
+	logMsg(fmt.Sprintf("🔄 Starting agentic loop (max_inactive: %d, max_consec_errors: %d, caching: enabled, extended_thinking: %v)",
+		s.maxInactiveTurns, s.maxConsecutiveErrorTurns, config.ExtendedThinking))
 
 	var finalResult strings.Builder
 	totalInputTokens := int64(0)
@@ -338,6 +338,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 				toolResults, toolUses,
 				currentTextLength, lastTextLength, lastToolSignature,
 				inactiveTurns, consecutiveErrorTurns, s.maxInactiveTurns,
+				s.maxConsecutiveErrorTurns,
 				logMsg,
 			)
 			inactiveTurns = newInactive
