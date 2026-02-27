@@ -227,8 +227,7 @@ func streamServerLogs(jsonOutput bool) {
 			message := dataBuffer[:idx]
 			dataBuffer = dataBuffer[idx+2:]
 
-			if strings.HasPrefix(message, sseDataPrefix) {
-				jsonData := strings.TrimPrefix(message, sseDataPrefix)
+			if jsonData, ok := agentclient.ParseSSELine(message); ok {
 				if jsonOutput {
 					fmt.Println(jsonData)
 				} else {

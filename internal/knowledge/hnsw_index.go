@@ -20,7 +20,7 @@ type projectIndex struct {
 // vectorIndexCache manages per-project HNSW indices.
 // It is embedded in Store and is safe for concurrent use.
 type vectorIndexCache struct {
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	indices map[string]*projectIndex // project ID → index
 }
 
@@ -39,25 +39,29 @@ func (c *vectorIndexCache) invalidate(projectID string) {
 }
 
 // get returns the cached index for projectID, building it if necessary.
-// build is called without the lock held, so concurrent warm-up requests for
-// the same project may race — the last one to finish wins (idempotent).
+// It uses double-checked locking: a fast read-lock path for cache hits and a
+// write-lock path (with a second check) to ensure only one goroutine triggers
+// the expensive KuzuDB rebuild for any given project.
 func (c *vectorIndexCache) get(projectID string, build func() (*projectIndex, error)) (*projectIndex, error) {
-	c.mu.Lock()
+	// Fast path: allow concurrent reads.
+	c.mu.RLock()
 	idx, ok := c.indices[projectID]
-	c.mu.Unlock()
+	c.mu.RUnlock()
 	if ok {
 		return idx, nil
 	}
 
+	// Slow path: acquire write lock and double-check before building.
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if idx, ok = c.indices[projectID]; ok {
+		return idx, nil // another goroutine built it while we waited
+	}
 	idx, err := build()
 	if err != nil {
 		return nil, err
 	}
-
-	c.mu.Lock()
 	c.indices[projectID] = idx
-	c.mu.Unlock()
-
 	return idx, nil
 }
 

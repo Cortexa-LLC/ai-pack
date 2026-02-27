@@ -13,6 +13,23 @@ import (
 // ServerURL is the default agent server base URL.
 const ServerURL = "http://localhost:8080"
 
+// SSEDataPrefix is the standard Server-Sent Events data line prefix ("data: ").
+const SSEDataPrefix = "data: "
+
+// ParseSSELine checks whether line is an SSE data line. If so it returns the
+// payload (everything after the "data: " prefix) and true. Otherwise it returns
+// "", false. Trailing carriage-returns are stripped before the check.
+func ParseSSELine(line string) (data string, ok bool) {
+	// Normalise Windows-style line endings.
+	if len(line) > 0 && line[len(line)-1] == '\r' {
+		line = line[:len(line)-1]
+	}
+	if len(line) >= len(SSEDataPrefix) && line[:len(SSEDataPrefix)] == SSEDataPrefix {
+		return line[len(SSEDataPrefix):], true
+	}
+	return "", false
+}
+
 // Client wraps the HTTP connection to the agent server.
 type Client struct {
 	BaseURL    string
