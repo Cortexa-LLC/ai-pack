@@ -16,7 +16,9 @@ import (
 
 // ProjectIDFromPath converts a filesystem path to a stable 8-character hex ID.
 // Using a hash means grade files remain valid even when the project directory is
-// moved or renamed.
+// moved or renamed. The 4-byte (32-bit) truncation gives a collision probability
+// of ~0.01% at 1000 projects — acceptable for a local developer tool where
+// the ID is only used to shard grade files, not as a security identifier.
 func ProjectIDFromPath(root string) string {
 	h := sha256.Sum256([]byte(root))
 	return fmt.Sprintf("%x", h[:4]) // 4 bytes → 8 hex chars, collision-resistant enough
@@ -27,7 +29,10 @@ const (
 	GradeSourceBenchmark = "benchmark"
 	// GradeSourceProduction identifies grades recorded from live task executions.
 	GradeSourceProduction = "production"
-	// GradeSourceLiveBench is the prefix used by seed-grades.py for LiveBench-derived grades.
+	// GradeSourceLiveBench is the prefix used by seed-grades.py for grades derived
+	// from the LiveBench academic benchmark suite. These grades are seeded offline
+	// (not from live task executions) and are used to bootstrap model selection
+	// before sufficient production data has been collected.
 	GradeSourceLiveBench = "livebench"
 
 	// minSamplesForRuntimeGrade is the number of real task executions required before
@@ -85,7 +90,7 @@ type PerformanceGrade struct {
 
 	// Metadata
 	LastTaskID string `json:"last_task_id,omitempty"` // For debugging
-	Source     string `json:"source,omitempty"`       // GradeSourceBenchmark or GradeSourceProduction
+	Source     string `json:"source,omitempty"`       // GradeSourceBenchmark, GradeSourceProduction, or GradeSourceLiveBench
 }
 
 // PerformanceGradeManager manages performance grades with persistent storage

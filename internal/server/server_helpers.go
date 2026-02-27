@@ -253,7 +253,10 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		s.mu.Unlock()
 	}
 
-	// Queue for execution — non-blocking: return immediately if queue is full
+	// Queue for execution using a non-blocking send. If the buffered channel is
+	// full the task is rejected immediately and ErrTaskQueueFull is returned to
+	// the caller, which translates it into an HTTP 429 response. This avoids
+	// blocking the HTTP handler goroutine while the server is at capacity.
 	select {
 	case s.taskQueue <- execution:
 	default:

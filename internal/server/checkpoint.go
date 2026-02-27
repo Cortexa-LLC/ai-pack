@@ -23,7 +23,7 @@ type AgentCheckpoint struct {
 	TotalInputTokens      int64  `json:"total_input_tokens"`
 	TotalOutputTokens     int64  `json:"total_output_tokens"`
 	InactiveTurns         int    `json:"inactive_turns"`
-	ConsecutiveErrorTurns int    `json:"consecutive_error_turns"`
+	ConsecutiveErrorTurns int    `json:"consecutive_error_turns"` // number of turns where every tool call returned an error
 	LastTextLength        int    `json:"last_text_length"`
 	LastToolSignature     string `json:"last_tool_signature"`
 
@@ -42,7 +42,7 @@ type AgentCheckpoint struct {
 	// by the resume call's additionalBudget parameter.
 	Role        string `json:"role"`
 	ProjectRoot string `json:"project_root"`
-	Model       string `json:"model"` // from AgentConfig.Model at pause time
+	Model       string `json:"model"` // model name at pause time; may differ from current config if the model was changed between runs
 }
 
 const checkpointFileName = "checkpoint.json"
@@ -80,8 +80,10 @@ func loadCheckpoint(projectRoot, taskID string) (*AgentCheckpoint, error) {
 	return &cp, nil
 }
 
-// checkpointPath returns the canonical path for callers that only need
-// the path string (e.g. for the SSE event payload).
+// checkpointPath returns the canonical filesystem path to the checkpoint file
+// for the given task. Use this when only the path is needed (e.g. to include
+// in an SSE event payload or to delete the file); use loadCheckpoint when
+// the checkpoint data itself is required.
 func checkpointPath(projectRoot, taskID string) string {
 	return filepath.Join(projectRoot, ".beads", "tasks", taskID, checkpointFileName)
 }

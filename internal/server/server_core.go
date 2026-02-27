@@ -69,6 +69,13 @@ const (
 // or cannot be parsed.
 const defaultRoleTimeout = 10 * time.Minute
 
+// taskQueueMultiplier is the ratio of task-queue buffer depth to max concurrency.
+// A multiplier of 4 provides burst headroom: if all workers are busy, up to
+// 3×maxConcurrent additional submissions can queue without blocking the HTTP
+// handler goroutine. Increase if monitoring shows handler goroutines blocking
+// under sustained burst load.
+const taskQueueMultiplier = 4
+
 // parseRoleTimeout converts a human-friendly timeout string (e.g. "10min", "1h",
 // "30sec") to a time.Duration. It first attempts time.ParseDuration (which handles
 // standard Go suffixes such as "10m", "1h30m"). If that fails it retries after
@@ -310,7 +317,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		projectMetrics: make(map[string]*monitoring.PersistentMetrics),
 		providerCosts:  make(map[string][2]float64),
 		activeTasks:    make(map[string]*TaskExecution),
-		taskQueue:      make(chan *TaskExecution, maxConcurrent*4),
+		taskQueue:      make(chan *TaskExecution, maxConcurrent*taskQueueMultiplier),
 		workerPool:     make(chan struct{}, maxConcurrent),
 		projectRoots:   make(map[string]time.Time),
 		ctx:            serverCtx,
@@ -648,6 +655,9 @@ func (s *AgentServer) handleOrphanedTasks() {
 					)
 
 					// "bd update -s open" is the correct reset; "queued" is not a valid beads status.
+					// Reset Beads status first — if this fails, leave checkpoint intact so
+					// the task remains in a recoverable state (checkpoint present, status
+					// still in_progress → next sweep will retry).
 					if beads.IsInstalled() {
 						cmd := exec.Command("bd", "update", "-s", "open", beadsTask.ID)
 						cmd.Dir = projectRoot
@@ -655,15 +665,18 @@ func (s *AgentServer) handleOrphanedTasks() {
 							monitoring.Logger.Error("failed_to_reset_orphaned_task",
 								"task_id", beadsTask.ID,
 								"error", err.Error())
-						} else {
-							monitoring.Logger.Info("orphaned_task_reset",
-								"task_id", beadsTask.ID,
-								"new_status", "open")
+							continue // leave checkpoint intact; retry on next sweep
 						}
+						monitoring.Logger.Info("orphaned_task_reset",
+							"task_id", beadsTask.ID,
+							"new_status", "open")
 					}
 
-					// Delete any checkpoint so the task restarts from scratch instead of
-					// resuming stale state from the previous (aborted) run.
+					// Delete any checkpoint only after a successful Beads reset, so the
+					// task restarts from scratch instead of resuming stale state from the
+					// previous (aborted) run. If we left the checkpoint in place, the next
+					// resume would replay old messages into a freshly-opened task and
+					// produce incorrect behaviour.
 					cpPath := checkpointPath(projectRoot, beadsTask.ID)
 					if removeErr := os.Remove(cpPath); removeErr == nil {
 						monitoring.Logger.Info("orphaned_task_checkpoint_deleted",
