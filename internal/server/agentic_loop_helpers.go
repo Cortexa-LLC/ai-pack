@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cortexa-llc/ai-pack/internal/constants"
+	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/internal/streaming"
 )
 
@@ -328,4 +330,111 @@ func flushCheckpoint(
 		return err
 	}
 	return nil
+}
+
+// ─── Token-budget message truncation ─────────────────────────────────────────
+
+// charsPerToken is a conservative approximation: 4 characters ≈ 1 token.
+// This avoids the need for a tokeniser and errs on the side of keeping fewer
+// messages, which prevents context-window overflows.
+const charsPerToken = 4
+
+// estimateMessageTokens returns a rough token count for a single message by
+// summing the character lengths of every text field and dividing by charsPerToken.
+func estimateMessageTokens(m streaming.Message) int {
+	chars := len(m.Content)
+	for _, tu := range m.ToolUses {
+		chars += len(tu.Name)
+		if raw, err := json.Marshal(tu.Input); err == nil {
+			chars += len(raw)
+		}
+	}
+	for _, tr := range m.ToolResults {
+		chars += len(tr.Content)
+	}
+	tokens := chars / charsPerToken
+	if tokens == 0 {
+		tokens = 1 // every message costs at least 1 token
+	}
+	return tokens
+}
+
+// truncateMessagesByTokenBudget keeps messages[0] (the initial user prompt)
+// unconditionally and then fills in as many of the most-recent messages as fit
+// within the given token budget (expressed in tokens, not characters).
+//
+// If messages[0] alone already exceeds the budget the function still returns it
+// alone so the caller always has at least one message to send.
+//
+// Truncation is logged via logMsg when at least one message is dropped.
+func truncateMessagesByTokenBudget(
+	messages []streaming.Message,
+	budgetTokens int,
+	logMsg func(string),
+) []streaming.Message {
+	if len(messages) == 0 {
+		return messages
+	}
+
+	// Always preserve the first message (initial user prompt / task context).
+	firstMsg := messages[0]
+	firstTokens := estimateMessageTokens(firstMsg)
+	remaining := messages[1:]
+
+	if len(remaining) == 0 {
+		return messages
+	}
+
+	// Available budget for the history after reserving space for the first message.
+	available := budgetTokens - firstTokens
+	if available <= 0 {
+		// First message alone exceeds budget – return it anyway.
+		return []streaming.Message{firstMsg}
+	}
+
+	// Walk backwards through the remaining messages, accumulating until we run
+	// out of budget.
+	kept := 0
+	tokensUsed := 0
+	for i := len(remaining) - 1; i >= 0; i-- {
+		t := estimateMessageTokens(remaining[i])
+		if tokensUsed+t > available {
+			break
+		}
+		tokensUsed += t
+		kept++
+	}
+
+	dropped := len(remaining) - kept
+	if dropped == 0 {
+		return messages
+	}
+
+	logMsg(fmt.Sprintf(
+		"      📉 Context truncated: dropped %d older message(s) to stay within ~%d-token budget (kept first + %d recent, ~%d tokens used)",
+		dropped, budgetTokens, kept, firstTokens+tokensUsed,
+	))
+
+	result := make([]streaming.Message, 0, 1+kept)
+	result = append(result, firstMsg)
+	result = append(result, remaining[len(remaining)-kept:]...)
+	return result
+}
+
+// contextWindowTokens returns the effective token budget for message history.
+// It reads the model's known context window from ModelInfo when available, then
+// reserves a response buffer (constants.DefaultMaxTokens) to ensure the model
+// always has room to generate its reply.  When the model is unknown it falls
+// back to constants.MaxContextTokens.
+func contextWindowTokens(modelID string) int {
+	budget := constants.MaxContextTokens
+	if info, ok := monitoring.GetModelInfo(modelID); ok && info.ContextWindow > 0 {
+		budget = info.ContextWindow
+	}
+	// Reserve space for the model's own output so we don't leave it zero headroom.
+	budget -= constants.DefaultMaxTokens
+	if budget <= 0 {
+		budget = constants.MaxContextTokens
+	}
+	return budget
 }

@@ -233,7 +233,7 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 					execution.TaskID,
 					modelID,
 					execution.Role,
-					projectRoot,
+					monitoring.ProjectIDFromPath(projectRoot),
 					reason,
 				); err != nil {
 					monitoring.Logger.Warn("failed_to_record_catastrophic_failure", "error", err.Error())
@@ -244,13 +244,13 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 					execution.TaskID,
 					modelID,
 					execution.Role,
-					projectRoot,
+					monitoring.ProjectIDFromPath(projectRoot),
 					true, // success
-					0,    // retries (we don't track this yet)
+					execution.RetryCount,
 					tokensUsed,
 					durationMs,
-					false, // wasEscalated (not tracked yet)
-					false, // wasDowngraded (not tracked yet)
+					execution.WasEscalated,
+					execution.WasDowngraded,
 				); err != nil {
 					monitoring.Logger.Warn("failed_to_record_performance_grade", "error", err.Error())
 				} else {
@@ -413,13 +413,13 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 			execution.TaskID,
 			modelID,
 			execution.Role,
-			projectRoot,
+			monitoring.ProjectIDFromPath(projectRoot),
 			false, // success = false
-			0,     // retries (we don't track this yet)
+			execution.RetryCount,
 			tokensUsed,
 			durationMs,
-			false, // wasEscalated (not tracked yet)
-			false, // wasDowngraded (not tracked yet)
+			execution.WasEscalated,
+			execution.WasDowngraded,
 		); err != nil {
 			monitoring.Logger.Warn("failed_to_record_performance_grade", "error", err.Error())
 		}

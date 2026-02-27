@@ -90,11 +90,13 @@ type PerformanceGradeModelSelector struct {
 	geminiAvailable bool
 }
 
-// NewPerformanceGradeModelSelector creates a selector that uses performance grades
-func NewPerformanceGradeModelSelector(projectID string, defaultModel string, openaiAvailable bool, geminiAvailable bool) *PerformanceGradeModelSelector {
+// NewPerformanceGradeModelSelector creates a selector that uses performance grades.
+// projectRoot is the raw filesystem path to the project; it is hashed to a stable
+// ID so that moving the project directory does not orphan historical grade data.
+func NewPerformanceGradeModelSelector(projectRoot string, defaultModel string, openaiAvailable bool, geminiAvailable bool) *PerformanceGradeModelSelector {
 	return &PerformanceGradeModelSelector{
 		gradeSelector:   monitoring.GlobalModelSelector,
-		projectID:       projectID,
+		projectID:       monitoring.ProjectIDFromPath(projectRoot),
 		defaultModel:    defaultModel,
 		openaiAvailable: openaiAvailable,
 		geminiAvailable: geminiAvailable,

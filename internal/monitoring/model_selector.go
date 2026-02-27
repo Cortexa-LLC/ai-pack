@@ -12,10 +12,11 @@ import (
 type ModelTier int
 
 const (
-	TierMinimal ModelTier = 1 // gpt-4o-mini, gpt-4.1-nano, claude-haiku-4-5
-	TierLow     ModelTier = 2 // gpt-4.1-mini
-	TierMedium  ModelTier = 3 // gpt-4.1, gpt-5.1-codex-mini, claude-sonnet-4-6
-	TierHigh    ModelTier = 4 // gpt-5.1-codex, gpt-5.2-codex, claude-opus-4-6
+	TierMinimal  ModelTier = 1 // gpt-4o-mini, gpt-4.1-nano, claude-haiku-4-5
+	TierLow      ModelTier = 2 // gpt-4.1-mini
+	TierMedium   ModelTier = 3 // gpt-4.1, gpt-5.1-codex-mini, claude-sonnet-4-6
+	TierHigh     ModelTier = 4 // gpt-5.1-codex, gpt-5.2-codex, claude-opus-4-6
+	TierStandard             = TierMinimal // default/standard starting tier
 )
 
 // ModelClass describes what kind of work a model is suited for.
@@ -144,6 +145,18 @@ func (ms *ModelSelector) SetRoleDefaultTier(role string, tier ModelTier) {
 		ms.roleDefaultTiers = make(map[string]ModelTier)
 	}
 	ms.roleDefaultTiers[role] = tier
+}
+
+// GetRoleDefaultTier returns the per-role starting tier registered via SetRoleDefaultTier.
+// It returns TierStandard when no role-specific tier has been registered.
+func (ms *ModelSelector) GetRoleDefaultTier(role string) ModelTier {
+	if ms.roleDefaultTiers == nil {
+		return TierStandard
+	}
+	if tier, ok := ms.roleDefaultTiers[role]; ok {
+		return tier
+	}
+	return TierStandard
 }
 
 // SetRoleRequiredClass registers a class filter for a role from the **Class:** role config field.

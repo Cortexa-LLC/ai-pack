@@ -133,6 +133,11 @@ type TaskExecution struct {
 
 	// Cancellation
 	cancel context.CancelFunc
+
+	// Performance grading fields (populated during executeAgenticLoop)
+	RetryCount    int  // number of agentic-loop turns after the first
+	WasEscalated  bool // model tier was raised above the role default
+	WasDowngraded bool // model tier was lowered below the role default
 }
 
 type AgentConfig struct {
