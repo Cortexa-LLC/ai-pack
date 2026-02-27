@@ -3,8 +3,46 @@ package monitoring
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestProjectIDFromPath(t *testing.T) {
+	t.Run("same_path_same_id", func(t *testing.T) {
+		id1 := ProjectIDFromPath("/home/user/project")
+		id2 := ProjectIDFromPath("/home/user/project")
+		if id1 != id2 {
+			t.Errorf("expected stable ID: got %q then %q", id1, id2)
+		}
+	})
+
+	t.Run("different_paths_different_ids", func(t *testing.T) {
+		id1 := ProjectIDFromPath("/home/user/project-a")
+		id2 := ProjectIDFromPath("/home/user/project-b")
+		if id1 == id2 {
+			t.Errorf("expected distinct IDs for different paths, both got %q", id1)
+		}
+	})
+
+	t.Run("id_is_8_hex_chars", func(t *testing.T) {
+		id := ProjectIDFromPath("/some/path")
+		if len(id) != 8 {
+			t.Errorf("expected 8-char hex ID, got len %d: %q", len(id), id)
+		}
+		for _, ch := range id {
+			if !strings.ContainsRune("0123456789abcdef", ch) {
+				t.Errorf("expected hex char, got %q in ID %q", ch, id)
+			}
+		}
+	})
+
+	t.Run("empty_string_does_not_panic", func(t *testing.T) {
+		id := ProjectIDFromPath("")
+		if len(id) != 8 {
+			t.Errorf("expected 8-char hex ID for empty path, got %q", id)
+		}
+	})
+}
 
 func TestPerformanceGrading(t *testing.T) {
 	// Create temporary directory for test

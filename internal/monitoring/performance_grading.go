@@ -1,6 +1,7 @@
 package monitoring
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -12,6 +13,14 @@ import (
 
 	"github.com/cortexa-llc/ai-pack/internal/config"
 )
+
+// ProjectIDFromPath converts a filesystem path to a stable 8-character hex ID.
+// Using a hash means grade files remain valid even when the project directory is
+// moved or renamed.
+func ProjectIDFromPath(root string) string {
+	h := sha256.Sum256([]byte(root))
+	return fmt.Sprintf("%x", h[:4]) // 4 bytes → 8 hex chars, collision-resistant enough
+}
 
 const (
 	// GradeSourceBenchmark identifies grades produced by the benchmark script.
@@ -305,7 +314,17 @@ func (m *PerformanceGradeManager) recalculateGrade(grade *PerformanceGrade) {
 	grade.Grade = m.calculateLetterGrade(grade.SuccessRate, grade.RetryRate)
 }
 
-// calculateLetterGrade determines letter grade from metrics using configurable criteria
+// calculateLetterGrade determines letter grade from metrics using configurable criteria.
+//
+// Thresholds are set by m.criteria (GradingCriteriaConfig). When criteria is nil at
+// construction time, NewPerformanceGradeManager falls back to config.DefaultConfig(),
+// which defines the following defaults:
+//
+//	Grade A: successRate >= 0.90 AND retryRate < 0.05
+//	Grade B: successRate >= 0.80 AND retryRate < 0.10
+//	Grade C: successRate >= 0.70 AND retryRate < 0.20
+//	Grade D: successRate >= 0.60 AND retryRate < 0.30
+//	Grade F: everything below Grade D (successRate < 0.60 or retryRate >= 0.30)
 func (m *PerformanceGradeManager) calculateLetterGrade(successRate, retryRate float64) string {
 	// Grade A
 	if successRate >= m.criteria.GradeA.MinSuccessRate && retryRate < m.criteria.GradeA.MaxRetryRate {

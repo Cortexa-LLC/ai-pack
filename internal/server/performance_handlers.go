@@ -114,6 +114,9 @@ func (s *AgentServer) HandlePerformanceByProject(w http.ResponseWriter, r *http.
 		http.Error(w, "Missing project parameter", http.StatusBadRequest)
 		return
 	}
+	// The query parameter may be a raw filesystem path; hash it for consistency
+	// with the grade storage key which is always a ProjectIDFromPath hash.
+	projectID = monitoring.ProjectIDFromPath(projectID)
 
 	if monitoring.GlobalGradeManager == nil {
 		w.Header().Set("Content-Type", constants.ContentTypeJSON)

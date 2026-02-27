@@ -355,7 +355,7 @@ func (r *queryResolver) PerformanceByProject(ctx context.Context, project string
 		return []*PerformanceGrade{}, nil
 	}
 
-	monitoringGrades := monitoring.GlobalGradeManager.GetGradesByProject(project)
+	monitoringGrades := monitoring.GlobalGradeManager.GetGradesByProject(monitoring.ProjectIDFromPath(project))
 	grades := make([]*PerformanceGrade, 0, len(monitoringGrades))
 
 	for _, mg := range monitoringGrades {

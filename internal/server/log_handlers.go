@@ -596,3 +596,61 @@ func (s *AgentServer) findMostRecentExecutionFolder(projectRoot, beadsTaskID str
 
 	return mostRecentFolder
 }
+
+// TaskResultsResponse is the JSON shape returned by HandleTaskResults.
+type TaskResultsResponse struct {
+	TaskID string `json:"task_id"`
+	Result string `json:"result"`
+}
+
+// HandleTaskResults serves GET /a2a/tasks/{taskID}/results.
+// It locates the 30-results.md file for the requested task and returns its
+// contents as JSON. A 404 is returned when no results file is found.
+func (s *AgentServer) HandleTaskResults(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract task ID from path: /a2a/tasks/{taskID}/results
+	path := strings.TrimPrefix(r.URL.Path, "/a2a/tasks/")
+	path = strings.TrimSuffix(path, "/results")
+	taskID := path
+
+	if taskID == "" {
+		http.Error(w, "Task ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Determine projectRoot for the requested task (mirrors HandleTaskLogs).
+	projectRoot, _, err := s.findTaskProjectRoot(taskID)
+	if err != nil || projectRoot == "" {
+		projectRoot = s.findBeadsTaskProjectRoot(taskID)
+	}
+	if projectRoot == "" {
+		projectRoot = s.rootDir
+	}
+
+	// The execution folder name may be the task ID itself, or we may need
+	// to scan for the most-recent matching folder.
+	executionFolder := s.findMostRecentExecutionFolder(projectRoot, taskID)
+	if executionFolder == "" {
+		executionFolder = taskID
+	}
+
+	resultsPath := filepath.Join(projectRoot, constants.BeadsDir, "tasks", executionFolder, "30-results.md")
+	data, readErr := os.ReadFile(resultsPath)
+	if readErr != nil {
+		http.Error(w, "Results not found", http.StatusNotFound)
+		return
+	}
+
+	resp := TaskResultsResponse{
+		TaskID: taskID,
+		Result: string(data),
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}

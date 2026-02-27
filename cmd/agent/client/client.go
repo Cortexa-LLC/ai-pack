@@ -94,6 +94,30 @@ type TaskListResponse struct {
 	Tasks []TaskInfo `json:"tasks"`
 }
 
+// FetchTaskResults queries the server for a task's 30-results.md content.
+// It returns the result string and true when successful; empty string and false
+// when the server is unreachable, returns a non-200 status, or the task has no
+// results yet.
+func (c *Client) FetchTaskResults(internalTaskID string) (result string, ok bool) {
+	resp, err := c.Get("/a2a/tasks/" + internalTaskID + "/results")
+	if err != nil {
+		return "", false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", false
+	}
+	body, _ := io.ReadAll(resp.Body)
+	var r struct {
+		TaskID string `json:"task_id"`
+		Result string `json:"result"`
+	}
+	if err := json.Unmarshal(body, &r); err != nil {
+		return "", false
+	}
+	return r.Result, true
+}
+
 // FindTaskByBeadsID queries the server for a task matching beadsTaskID and returns
 // (internalTaskID, projectRoot). Both are empty strings when not found.
 func (c *Client) FindTaskByBeadsID(beadsTaskID string) (taskID, projectRoot string) {

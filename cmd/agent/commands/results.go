@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	agentclient "github.com/cortexa-llc/ai-pack/cmd/agent/client"
 	"github.com/spf13/cobra"
 )
 
@@ -21,25 +22,41 @@ func newResultsCmd() *cobra.Command {
 }
 
 func runResults(beadsTaskID string) error {
+	// Resolve the internal task ID (execution folder name) via the server or
+	// local .beads directory scan.
 	internalTaskID, projectRoot := findTaskIDAndProjectFromServer(beadsTaskID)
 	if internalTaskID == "" {
 		internalTaskID = findInternalTaskID(beadsTaskID)
-		projectRoot = "."
+		projectRoot = ""
 	}
 
 	if internalTaskID == "" {
-		fmt.Printf(errNoAgentForBeadsTask, beadsTaskID)
-		fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", beadsTaskID)
-		os.Exit(1)
+		return fmt.Errorf("no task found for beads ID %s – check 'agent list' or 'bd show %s'", beadsTaskID, beadsTaskID)
+	}
+
+	// 1. Try the server API – works whether or not the task files are present
+	//    on this machine.
+	c := agentclient.Default()
+	if result, ok := c.FetchTaskResults(internalTaskID); ok {
+		fmt.Print(result)
+		return nil
+	}
+
+	// 2. Disk fallback – for cases where the server is not running or the task
+	//    was created locally without a running server.
+	if projectRoot == "" {
+		projectRoot = detectProjectRoot()
+		if projectRoot == "" {
+			projectRoot, _ = os.Getwd()
+		}
 	}
 
 	resultsFile := filepath.Join(projectRoot, ".beads", "tasks", internalTaskID, "30-results.md")
 	data, err := os.ReadFile(resultsFile)
 	if err != nil {
-		fmt.Printf("❌ No results found: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("no results found for task %s: %w", beadsTaskID, err)
 	}
 
-	fmt.Println(string(data))
+	fmt.Print(string(data))
 	return nil
 }

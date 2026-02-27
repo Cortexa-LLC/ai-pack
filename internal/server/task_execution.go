@@ -47,20 +47,27 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 	for {
 		logMsg(fmt.Sprintf("   Turn %d (inactive: %d)...", turn, inactiveTurns))
 
-		// Simple message-count-based truncation to keep context manageable
-		// Keep first message (initial prompt) + last 50 messages
-		const maxHistoryMessages = 50
-		truncatedMessages := messages
-		if len(messages) > 1+maxHistoryMessages {
-			firstMsg := messages[0] // Keep initial prompt with task context
-			recentMsgs := messages[len(messages)-maxHistoryMessages:]
-			truncatedMessages = append([]streaming.Message{firstMsg}, recentMsgs...)
-
-			// Only log truncation occasionally to avoid spam
-			if len(messages)%10 == 0 {
-				logMsg(fmt.Sprintf("      📉 Truncated: %d → %d messages", len(messages), len(truncatedMessages)))
+		// Track retries: each turn after the first is a retry attempt.
+		if turn > 1 {
+			s.mu.Lock()
+			if exec, ok := s.activeTasks[taskID]; ok {
+				exec.RetryCount++
 			}
+			s.mu.Unlock()
 		}
+
+		// Resolve the model override once per turn so the truncation budget can
+		// use the same value that will be passed to the stream request.
+		requestModel := ""
+		if config.Model != "" {
+			requestModel = config.Model
+		}
+
+		// Token-budget-based truncation: keep messages[0] (initial prompt) and
+		// fill backwards from the most-recent turn until the estimated token budget
+		// is exhausted.  This replaces the old hard-coded 50-message limit.
+		budget := contextWindowTokens(requestModel)
+		truncatedMessages := truncateMessagesByTokenBudget(messages, budget, logMsg)
 
 		// Truncate tool result content in older messages to prevent context blowup.
 		// Full results are only needed for the most recent turns — older results
@@ -90,10 +97,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		// Pass the role-configured model as the explicit override only when it is set
 		// in the role config file. When no model is pinned, pass "" so the
 		// performance-grade model selector picks the most cost-effective option.
-		requestModel := ""
-		if config.Model != "" {
-			requestModel = config.Model
-		}
+		// (requestModel was already set above for the token-budget computation.)
 		streamReq := streaming.StreamRequest{
 			Messages:         truncatedMessages,
 			SystemPrompt:     systemPrompt,
@@ -124,6 +128,13 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 
 			logMsg(fmt.Sprintf("   📊 Model selected: %s (%s)", selectedModel, selectedProvider))
 
+			// Determine tier from model using the canonical registry.
+			// We need this for both metadata storage and escalation/downgrade detection.
+			selectedTier, found := monitoring.GetModelTier(selectedModel)
+			if !found {
+				selectedTier = monitoring.TierMedium // default when model not in registry
+			}
+
 			// Extract project root from working directory
 			projectRoot := workingDir
 			for projectRoot != "" && projectRoot != "/" {
@@ -134,30 +145,27 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			}
 
 			if projectRoot != "" && projectRoot != "/" {
-				// Determine tier from model
-				tier := 3 // Default to TierMedium (Sonnet)
-				if strings.Contains(strings.ToLower(selectedModel), "haiku") || strings.Contains(strings.ToLower(selectedModel), "mini") {
-					tier = 1 // TierMinimal
-				} else if strings.Contains(strings.ToLower(selectedModel), "gpt-4o") || strings.Contains(strings.ToLower(selectedModel), "gpt-5") {
-					tier = 2 // TierLow
-				} else if strings.Contains(strings.ToLower(selectedModel), "opus") {
-					tier = 4 // TierHigh
-				}
+				tier := int(selectedTier)
 
 				if err := s.updateTaskMetadata(projectRoot, taskID, selectedModel, selectedProvider, tier); err != nil {
 					monitoring.Logger.Warn("failed_to_update_task_metadata",
 						"task_id", taskID,
 						"error", err.Error())
 				}
-				// Sync selected model into in-memory metadata so grade recording
-				// in saveAndCompleteTask uses the actual model, not the server default.
-				s.mu.Lock()
-				if exec, ok := s.activeTasks[taskID]; ok {
-					exec.metadata["model"] = selectedModel
-					exec.metadata["provider"] = selectedProvider
-				}
-				s.mu.Unlock()
 			}
+
+			// Sync selected model into in-memory metadata and detect escalation/downgrade.
+			s.mu.Lock()
+			if exec, ok := s.activeTasks[taskID]; ok {
+				exec.metadata["model"] = selectedModel
+				exec.metadata["provider"] = selectedProvider
+
+				// Detect escalation / downgrade relative to the role's default tier.
+				defaultTier := monitoring.GlobalModelSelector.GetRoleDefaultTier(role)
+				exec.WasEscalated = selectedTier > defaultTier
+				exec.WasDowngraded = selectedTier < defaultTier
+			}
+			s.mu.Unlock()
 		}
 
 		// Accumulate response from streaming events
