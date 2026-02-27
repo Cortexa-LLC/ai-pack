@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -230,30 +229,14 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			totalInputTokens+totalOutputTokens))
 
 		// Enforce token budget if set in role config
-		if config.Delegation.MaxBudgetTokens > 0 {
-			used := totalInputTokens + totalOutputTokens
-			limit := int64(config.Delegation.MaxBudgetTokens)
-			if used >= limit {
-				logMsg(fmt.Sprintf("⏸️  Token budget exhausted: %d/%d tokens used — pausing", used, limit))
-				cp := &AgentCheckpoint{
-					TaskID: taskID, CreatedAt: time.Now(),
-					Turn: turn, TotalInputTokens: totalInputTokens, TotalOutputTokens: totalOutputTokens,
-					InactiveTurns: inactiveTurns, ConsecutiveErrorTurns: consecutiveErrorTurns,
-					LastTextLength: lastTextLength, LastToolSignature: lastToolSignature,
-					BudgetLimit: limit, BudgetUsed: used,
-					Messages: messages, PartialResult: finalResult.String(),
-					Role: role, ProjectRoot: projectRoot, Model: config.Model,
-				}
-				if err := writeCheckpoint(projectRoot, taskID, cp); err != nil {
-					logMsg(fmt.Sprintf("⚠️  Failed to write checkpoint: %v", err))
-					return finalResult.String(), fmt.Errorf("token budget exceeded and checkpoint failed: %w", err)
-				}
-				return finalResult.String(), ErrTaskPaused
-			}
-			// Warn at 80%
-			if used >= limit*8/10 {
-				logMsg(fmt.Sprintf("⚠️  Token budget warning: %d/%d tokens used (%.0f%%)", used, limit, float64(used)/float64(limit)*100))
-			}
+		if budgetResult, err := s.applyTokenBudgetCheck(
+			taskID, projectRoot, role, config,
+			turn, totalInputTokens, totalOutputTokens,
+			inactiveTurns, consecutiveErrorTurns,
+			lastTextLength, lastToolSignature,
+			messages, finalResult.String(), logMsg,
+		); budgetResult == tokenBudgetPaused {
+			return finalResult.String(), err
 		}
 
 		// Record per-turn token metrics and API call count
@@ -324,55 +307,9 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		// TaskComplete is intercepted here — other tools run normally first,
 		// then if TaskComplete was called the loop exits with the summary.
 		totalToolCalls += len(toolUses)
-		var toolResults []streaming.ToolResult
-		var completionSummary string
-		for _, toolUse := range toolUses {
-			if strings.EqualFold(toolUse.Name, "TaskComplete") {
-				// Capture summary; add synthetic result; do NOT dispatch to executeTool.
-				summary, _ := toolUse.Input["summary"].(string)
-				if summary == "" {
-					summary = "(no summary provided)"
-				}
-				completionSummary = summary
-				logMsg(fmt.Sprintf("      🏁 TaskComplete: %s", summary[:min(80, len(summary))]))
-				toolResults = append(toolResults, streaming.ToolResult{
-					ToolUseID: toolUse.ID,
-					ToolName:  toolUse.Name,
-					Content:   "Task marked complete.",
-					IsError:   false,
-				})
-				continue
-			}
-
-			// Execute tool (native or MCP)
-			result, err := s.executeTool(ctx, toolUse.Name, toolUse.Input, workingDir)
-			isError := err != nil
-			if err != nil {
-				logMsg(fmt.Sprintf("         ❌ Tool execution failed: %v", err))
-				result = fmt.Sprintf("Error: %v", err)
-			} else {
-				// Log a truncated preview of the tool result to keep execution logs manageable
-				preview := result
-				const maxLogPreview = 500
-				if len(preview) > maxLogPreview {
-					preview = preview[:maxLogPreview] + fmt.Sprintf("… (%d chars total)", len(result))
-				}
-				logMsg(fmt.Sprintf("         ✓ %s", preview))
-			}
-
-			// Cap tool result size. Large results are compacted in history on subsequent turns,
-			// but we still cap at initial storage to avoid a single result eating the context.
-			const maxToolResultChars = 8000
-			if len(result) > maxToolResultChars {
-				result = result[:maxToolResultChars] + fmt.Sprintf("\n\n[Output truncated: %d chars total, showing first %d]", len(result), maxToolResultChars)
-			}
-			toolResults = append(toolResults, streaming.ToolResult{
-				ToolUseID: toolUse.ID,
-				ToolName:  toolUse.Name,
-				Content:   result,
-				IsError:   isError,
-			})
-		}
+		turnResult := s.processOneTurn(ctx, toolUses, workingDir, logMsg)
+		toolResults := turnResult.ToolResults
+		completionSummary := turnResult.CompletionSummary
 
 		// If TaskComplete was called this turn, exit cleanly.
 		if completionSummary != "" {
@@ -386,69 +323,21 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			return completionSummary, nil
 		}
 
-		// Track whether every tool call this turn returned an error
-		allToolsErrored := len(toolResults) > 0
-		for _, tr := range toolResults {
-			if !tr.IsError {
-				allToolsErrored = false
-				break
-			}
-		}
-		if allToolsErrored {
-			consecutiveErrorTurns++
-			logMsg(fmt.Sprintf("      ⚠️  All tools errored this turn (%d consecutive error turns)", consecutiveErrorTurns))
-			maxConsecutiveErrors := s.maxInactiveTurns
-			if consecutiveErrorTurns >= maxConsecutiveErrors {
-				logMsg(fmt.Sprintf("❌ Agent stuck: %d consecutive turns with all tools failing", maxConsecutiveErrors))
-				return "", fmt.Errorf("agent stuck: %d consecutive turns where every tool call returned an error", maxConsecutiveErrors)
-			}
-		} else {
-			consecutiveErrorTurns = 0
-		}
-
 		// Progress detection: check if agent is making progress
 		currentTextLength := finalResult.Len()
-		textGrew := currentTextLength > lastTextLength
-
-		// Build tool pattern for this turn (just names for logging)
-		var toolNames []string
-		for _, toolUse := range toolUses {
-			toolNames = append(toolNames, toolUse.Name)
-		}
-		currentToolPattern := strings.Join(toolNames, ",")
-
-		// Build tool signature including input details for better progress detection.
-		// Use the full input JSON (no truncation) so that commands sharing a long common
-		// prefix (e.g. `go doc pkg.TypeA` vs `go doc pkg.TypeB`) are correctly treated
-		// as distinct tool calls.
-		var toolSignatures []string
-		for _, toolUse := range toolUses {
-			inputJSON, _ := json.Marshal(toolUse.Input)
-			toolSignatures = append(toolSignatures, fmt.Sprintf("%s:%s", toolUse.Name, string(inputJSON)))
-		}
-		currentToolSignature := strings.Join(toolSignatures, "|")
-
-		// Check if agent is making progress
-		// Progress = text grew OR different tools OR same tools with different inputs
-		madeProgress := textGrew || (currentToolSignature != lastToolSignature)
-
-		if madeProgress {
-			// Agent is making progress - reset inactive counter
-			if inactiveTurns > 0 {
-				logMsg(fmt.Sprintf("      ✓ Progress detected - resetting inactive counter (was %d)", inactiveTurns))
-			}
-			inactiveTurns = 0
-			lastTextLength = currentTextLength
-			lastToolSignature = currentToolSignature
-		} else {
-			// No progress - increment inactive counter
-			inactiveTurns++
-			logMsg(fmt.Sprintf("      ⚠️  No progress (%d/%d inactive turns)", inactiveTurns, s.maxInactiveTurns))
-
-			if inactiveTurns >= s.maxInactiveTurns {
-				logMsg(fmt.Sprintf("❌ Agent stuck after %d turns without progress", s.maxInactiveTurns))
-				logMsg(fmt.Sprintf("   Last tool pattern: %s", currentToolPattern))
-				return "", fmt.Errorf("agent stuck after %d turns without progress - repeating: %s", s.maxInactiveTurns, currentToolPattern)
+		{
+			newInactive, newConsecErr, newTextLen, newSig, sr := checkStallConditions(
+				toolResults, toolUses,
+				currentTextLength, lastTextLength, lastToolSignature,
+				inactiveTurns, consecutiveErrorTurns, s.maxInactiveTurns,
+				logMsg,
+			)
+			inactiveTurns = newInactive
+			consecutiveErrorTurns = newConsecErr
+			lastTextLength = newTextLen
+			lastToolSignature = newSig
+			if sr == stallAbort {
+				return "", fmt.Errorf("agent stuck after %d turns without progress", s.maxInactiveTurns)
 			}
 		}
 
