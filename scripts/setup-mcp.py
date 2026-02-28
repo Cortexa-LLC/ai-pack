@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
 """
-setup-mcp.py — Register AI-Pack MCP servers in Claude Code settings.
+setup-mcp.py — Register AI-Pack MCP servers in Claude Code and agent-server settings.
 
 Usage:
     python3 scripts/setup-mcp.py [--local] [--dry-run]
 
 Flags:
-    --local         Write to .claude/settings.local.json in the current project
-                    instead of the global ~/.claude/settings.json.
+    --local         Write Claude Code config to .claude/settings.local.json in
+                    the current project instead of the global ~/.claude/settings.json.
     --dry-run       Print what would be written without modifying any files.
 
 MCP servers registered:
     kg   kg server --stdio
-         Knowledge graph search/query. Project root and ID are auto-detected
-         from the working directory when the server starts (no --project flag
-         needed — handled by kg's built-in project root detection).
+         Knowledge graph search/query/write. Project root and ID are auto-detected
+         from the working directory when the server starts.
+
+Targets updated:
+    1. ~/.claude/settings.json (or .claude/settings.local.json with --local)
+       → mcpServers.kg  for interactive Claude Code sessions
+    2. ~/.claude/agent-server.json
+       → mcp.servers.kg + mcp.enabled_servers  for agent sessions
 """
 
 import argparse
@@ -64,6 +69,59 @@ def claude_settings_dir() -> Path:
     return Path.home() / ".claude"
 
 
+def configure_claude_settings(settings_path: Path, dry_run: bool) -> None:
+    """Update mcpServers in a Claude Code settings.json."""
+    settings = load_json(settings_path)
+    servers = settings.setdefault("mcpServers", {})
+    new_kg = build_kg_entry()
+
+    if "kg" not in servers:
+        servers["kg"] = new_kg
+        print(f"  Adding kg   → {settings_path}")
+        settings["mcpServers"] = servers
+        save_json(settings_path, settings, dry_run)
+    elif servers["kg"] != new_kg:
+        servers["kg"] = new_kg
+        print(f"  Updating kg → {settings_path}")
+        settings["mcpServers"] = servers
+        save_json(settings_path, settings, dry_run)
+    else:
+        print(f"  kg already configured in {settings_path} (no changes)")
+
+
+def configure_agent_server(dry_run: bool) -> None:
+    """Update mcp.servers and mcp.enabled_servers in ~/.claude/agent-server.json."""
+    agent_server_path = claude_settings_dir() / "agent-server.json"
+    config = load_json(agent_server_path)
+
+    if not config:
+        print(f"  ~/.claude/agent-server.json not found — skipping agent-server config")
+        print(f"  (Run the agent-server once to create it, then re-run this script)")
+        return
+
+    mcp_section = config.setdefault("mcp", {})
+    mcp_section["enabled"] = True
+
+    # Add kg to servers
+    servers = mcp_section.setdefault("servers", {})
+    new_kg = build_kg_entry()
+    server_changed = servers.get("kg") != new_kg
+    if server_changed:
+        servers["kg"] = new_kg
+
+    # Add kg to enabled_servers (preserve existing entries)
+    enabled = mcp_section.setdefault("enabled_servers", [])
+    enabled_changed = "kg" not in enabled
+    if enabled_changed:
+        enabled.append("kg")
+
+    if server_changed or enabled_changed:
+        print(f"  Adding kg   → {agent_server_path}")
+        save_json(agent_server_path, config, dry_run)
+    else:
+        print(f"  kg already configured in {agent_server_path} (no changes)")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--local", dest="write_local", action="store_true",
@@ -74,49 +132,23 @@ def main() -> None:
 
     cwd = Path(os.getcwd())
 
-    if args.write_local:
-        settings_path = cwd / ".claude" / "settings.local.json"
-        scope = "project-local"
-    else:
-        settings_path = claude_settings_dir() / "settings.json"
-        scope = "global"
-
-    print(f"AI-Pack MCP Setup")
-    print(f"  Settings file : {settings_path} ({scope})")
+    print("AI-Pack MCP Setup")
     print()
 
-    settings = load_json(settings_path)
-    servers = settings.setdefault("mcpServers", {})
-
-    added = []
-    updated = []
-
-    # kg MCP server
-    new_kg = build_kg_entry()
-    if "kg" not in servers:
-        servers["kg"] = new_kg
-        added.append("kg")
-    elif servers["kg"] != new_kg:
-        servers["kg"] = new_kg
-        updated.append("kg")
+    # 1. Claude Code settings (interactive sessions)
+    if args.write_local:
+        settings_path = cwd / ".claude" / "settings.local.json"
     else:
-        print("  kg  — already configured (no changes)")
+        settings_path = claude_settings_dir() / "settings.json"
+    configure_claude_settings(settings_path, args.dry_run)
 
-    if added:
-        print(f"  Adding   : {', '.join(added)}")
-    if updated:
-        print(f"  Updating : {', '.join(updated)}")
+    # 2. Agent-server config (agent sessions)
+    configure_agent_server(args.dry_run)
 
-    if added or updated:
-        settings["mcpServers"] = servers
-        save_json(settings_path, settings, args.dry_run)
-        print()
-        print("Next steps:")
-        print(f"  1. Run:  kg index                  (indexes this codebase)")
-        print(f"  2. Restart Claude Code to pick up the new MCP server")
-    else:
-        print()
-        print("Nothing to do — all MCP servers already configured.")
+    print()
+    print("Next steps:")
+    print("  1. Run:  kg index                  (indexes this codebase)")
+    print("  2. Restart Claude Code / agent-server to pick up the new MCP server")
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/cortexa-llc/ai-pack/internal/knowledge"
 )
@@ -21,14 +22,18 @@ func handleServer(args []string) {
 		os.Exit(1)
 	}
 
-	store, projectID, err := openStoreRO()
+	cwd, err := os.Getwd()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "kg server: %v\n", err)
+		fmt.Fprintf(os.Stderr, "kg server: get cwd: %v\n", err)
 		os.Exit(1)
 	}
-	defer store.Close()
+	projectRoot := findProjectRoot(cwd)
+	dbPath := filepath.Join(projectRoot, ".ai", "knowledge.db")
+	projectID := filepath.Base(projectRoot)
 
-	if err := knowledge.RunMCPServer(store, projectID); err != nil {
+	// Each MCP tool call opens the DB, operates, and closes it — no lock is
+	// held between calls, so `kg index` and other CLI commands can run freely.
+	if err := knowledge.RunMCPServer(dbPath, projectID, projectRoot); err != nil {
 		fmt.Fprintf(os.Stderr, "kg server: MCP server error: %v\n", err)
 		os.Exit(2)
 	}
