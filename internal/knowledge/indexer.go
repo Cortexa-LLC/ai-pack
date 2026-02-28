@@ -194,6 +194,12 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 				stats.Errors++
 			}
 			stats.FilesScanned++
+		} else if asmMatchesPath(path) {
+			if err := idx.processAsmFile(path, relPath, entityWriter, seenEntities, &relations, stats); err != nil {
+				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
+				stats.Errors++
+			}
+			stats.FilesScanned++
 		}
 
 		return nil
