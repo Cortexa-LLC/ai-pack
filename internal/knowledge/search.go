@@ -26,10 +26,10 @@ func DefaultSearchConfig() SearchConfig {
 
 // SearchResult represents a single search result with score and metadata
 type SearchResult struct {
-	Entity       *Entity
-	Observations []*Observation // top 3 observations
-	Score        float64
-	MatchType    string // "keyword" | "vector" | "hybrid"
+	Entity       *Entity        `json:"entity"`
+	Observations []*Observation `json:"observations,omitempty"`
+	Score        float64        `json:"score"`
+	MatchType    string         `json:"match_type"` // "keyword" | "vector" | "hybrid"
 }
 
 // KeywordSearch performs full-text search on entity names and observation content

@@ -357,6 +357,51 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 		taskInfo.Error = &status.Error
 	}
 
+	// Reconcile stale terminal statuses against live Beads task status.
+	// A task closed in Beads is always completed regardless of how the execution ended.
+	if taskInfo.Status == constants.StatusCancelled ||
+		taskInfo.Status == constants.StatusFailed ||
+		taskInfo.Status == "blocked" {
+		beadsTaskID := taskInfo.Metadata["beads_task_id"]
+		if beadsTaskID == "" {
+			// Infer from execution folder name: {beads-id}-YYYYMMDD-HHMMSS
+			parts := strings.Split(taskID, "-")
+			if len(parts) >= 3 {
+				lastPart := parts[len(parts)-1]
+				secondLastPart := parts[len(parts)-2]
+				if len(lastPart) == 6 && len(secondLastPart) == 8 {
+					beadsTaskID = strings.Join(parts[:len(parts)-2], "-")
+				}
+			}
+		}
+		if beadsTaskID != "" {
+			if beadsTask, err := a.server.beadsClient.GetTaskFromDir(beadsTaskID, projectRoot); err == nil {
+				beadsStatus := strings.ToLower(beadsTask.Status)
+				if beadsStatus == constants.StatusClosed || beadsStatus == constants.StatusDone {
+					monitoring.Logger.Info("reconciling_stale_execution_metadata",
+						"task_id", beadsTaskID,
+						"old_status", taskInfo.Status,
+						"beads_status", beadsStatus,
+						"execution_folder", taskID)
+					taskInfo.Status = constants.StatusCompleted
+					taskInfo.Error = nil
+					// Write back to disk to avoid repeating this lookup on every render
+					var rawMetadata map[string]interface{}
+					if json.Unmarshal(data, &rawMetadata) == nil {
+						rawMetadata["status"] = constants.StatusCompleted
+						rawMetadata["error"] = nil
+						rawMetadata["updated_at"] = time.Now().Format(time.RFC3339)
+						rawMetadata["reconciled"] = true
+						rawMetadata["reconciled_at"] = time.Now().Format(time.RFC3339)
+						if updatedData, merr := json.MarshalIndent(rawMetadata, "", "  "); merr == nil {
+							_ = os.WriteFile(metadataPath, updatedData, 0644)
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return taskInfo, nil
 }
 
