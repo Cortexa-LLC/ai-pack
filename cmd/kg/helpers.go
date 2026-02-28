@@ -68,19 +68,36 @@ func projectIDFromCwd(cwd string) string {
 	return filepath.Base(findProjectRoot(cwd))
 }
 
-// openStore locates the project root, opens the knowledge graph store at
-// <root>/.ai/knowledge.db, and returns the store and project ID.
+// openStore locates the project root, opens the knowledge graph store in
+// read-write mode at <root>/.ai/knowledge.db, and returns store+projectID.
+// Use this for commands that modify the graph (index, add, link).
 // Callers must defer store.Close().
 func openStore() (*knowledge.Store, string, error) {
+	return openStoreMode(false)
+}
+
+// openStoreRO opens the store in read-only mode, allowing concurrent access
+// alongside other readers. Use for search, stats, show, and the MCP server.
+// Callers must defer store.Close().
+func openStoreRO() (*knowledge.Store, string, error) {
+	return openStoreMode(true)
+}
+
+func openStoreMode(readOnly bool) (*knowledge.Store, string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, "", fmt.Errorf("get cwd: %w", err)
 	}
 	root := findProjectRoot(cwd)
 	dbPath := filepath.Join(root, ".ai", "knowledge.db")
-	store, err := knowledge.OpenStore(dbPath)
+	var store *knowledge.Store
+	if readOnly {
+		store, err = knowledge.OpenStoreReadOnly(dbPath)
+	} else {
+		store, err = knowledge.OpenStore(dbPath)
+	}
 	if err != nil {
-		return nil, "", fmt.Errorf("open store: %w", err)
+		return nil, "", err
 	}
 	return store, filepath.Base(root), nil
 }

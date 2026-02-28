@@ -25,16 +25,33 @@ type Store struct {
 	hnswIdx *vectorIndexCache // per-project lazy HNSW index
 }
 
-// OpenStore opens or creates a Kuzu database at the given path
+// OpenStore opens or creates a Kuzu database in read-write mode.
+// Use OpenStoreReadOnly for concurrent read access.
 func OpenStore(dbPath string) (*Store, error) {
-	// Ensure parent directory exists
-	dir := filepath.Dir(dbPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, fmt.Errorf("create db directory: %w", err)
+	return openStoreWithConfig(dbPath, false)
+}
+
+// OpenStoreReadOnly opens a Kuzu database in read-only mode.
+// Multiple processes can hold read-only opens simultaneously.
+// The database must already exist (read-only mode cannot create/migrate schema).
+func OpenStoreReadOnly(dbPath string) (*Store, error) {
+	return openStoreWithConfig(dbPath, true)
+}
+
+func openStoreWithConfig(dbPath string, readOnly bool) (*Store, error) {
+	// Ensure parent directory exists (only needed for write mode)
+	if !readOnly {
+		dir := filepath.Dir(dbPath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return nil, fmt.Errorf("create db directory: %w", err)
+		}
 	}
 
+	cfg := kuzu.DefaultSystemConfig()
+	cfg.ReadOnly = readOnly
+
 	// Open database
-	db, err := kuzu.OpenDatabase(dbPath, kuzu.DefaultSystemConfig())
+	db, err := kuzu.OpenDatabase(dbPath, cfg)
 	if err != nil {
 		// "status 1" is Kuzu's lock-acquisition failure — give a human-readable hint
 		if strings.Contains(err.Error(), "status 1") {
@@ -58,10 +75,13 @@ func OpenStore(dbPath string) (*Store, error) {
 		hnswIdx: newVectorIndexCache(),
 	}
 
-	// Initialize schema
-	if err := store.initSchema(); err != nil {
-		store.Close()
-		return nil, fmt.Errorf("initialize schema: %w", err)
+	// Initialize schema (DDL) only in read-write mode; read-only mode assumes
+	// the schema was already created by a prior write-mode open.
+	if !readOnly {
+		if err := store.initSchema(); err != nil {
+			store.Close()
+			return nil, fmt.Errorf("initialize schema: %w", err)
+		}
 	}
 
 	return store, nil
