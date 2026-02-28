@@ -1,7 +1,7 @@
-.PHONY: test test-short test-coverage build build-gui build-kg build-kg-if-ready codegen-gui clean clean-all sonarqube help
-.PHONY: install install-agent install-kg uninstall uninstall-agent uninstall-kg
+.PHONY: test test-short test-coverage build build-gui build-kg codegen-gui clean clean-all sonarqube help
+.PHONY: install install-agent install-kg uninstall uninstall-agent uninstall-kg setup-mcp
 .PHONY: start-server start-gui start-all stop-all
-.PHONY: setup-launchd uninstall-launchd status-launchd setup-kuzu
+.PHONY: setup-launchd uninstall-launchd status-launchd
 
 # Default target
 .DEFAULT_GOAL := help
@@ -11,22 +11,9 @@ PROJECT_ROOT := $(shell pwd)
 LAUNCHD_DIR := $(HOME)/Library/LaunchAgents
 GUI_DIR := gui
 
-# Kuzu configuration
-KUZU_VERSION := 0.11.3
-GOOS   := $(shell go env GOOS)
-GOARCH := $(shell go env GOARCH)
-PLATFORM := $(GOOS)-$(GOARCH)
-KUZU_DIR := lib/kuzu/$(PLATFORM)
-KUZU_LIB_PATH := $(KUZU_DIR)/libkuzu.a
-
-ifeq ($(GOOS),darwin)
-  CXX_LIBS := -lc++
-else
-  CXX_LIBS := -lstdc++
-endif
-
-CGO_CFLAGS_KG  := -I$(abspath $(KUZU_DIR)/include)
-CGO_LDFLAGS_KG := -L$(abspath $(KUZU_DIR)) -lkuzu $(CXX_LIBS) -lm -ldl -lpthread
+# CGO is required by go-kuzu (bundled dynamic lib) and go-tree-sitter.
+# No external kuzu download needed — go-kuzu v0.11.3+ bundles the library.
+CGO := CGO_ENABLED=1
 
 help: ## Show this help message
 	@echo "AI-Pack Build System"
@@ -36,6 +23,8 @@ help: ## Show this help message
 	@echo ""
 	@echo "Quick Start:"
 	@echo "  make build install        # Build and install everything"
+	@echo "  make setup-mcp            # Register MCP servers in Claude Code"
+	@echo "  kg index                  # Index codebase into knowledge graph"
 	@echo "  make start-all            # Start server and GUI"
 	@echo "  make setup-launchd        # Setup auto-start with launchd"
 
@@ -43,33 +32,21 @@ help: ## Show this help message
 # BUILD TARGETS
 # ============================================================================
 
-build: build-agent build-server build-kg-if-ready ## Build agent, agent-server, and kg (if setup-kuzu has been run)
+build: build-agent build-server build-kg ## Build all binaries
 	@echo "✅ Binaries built in bin/"
 
-build-kg-if-ready: ## Build kg if setup-kuzu has been run (silently skips if not)
-	@if [ -f "$(KUZU_LIB_PATH)" ]; then \
-		$(MAKE) build-kg; \
-	else \
-		echo "⚠️  Skipping kg build (run 'make setup-kuzu' first)"; \
-	fi
-
-build-agent: ## Build the agent binary
+build-agent: ## Build the agent CLI (no CGO)
 	@mkdir -p bin
 	CGO_ENABLED=0 go build -o bin/agent ./cmd/agent
 
-build-server: ## Build the agent-server binary
+build-server: ## Build the agent-server (CGO, go-kuzu bundled)
 	@mkdir -p bin
-	CGO_ENABLED=0 go build -o bin/agent-server ./cmd/server
+	$(CGO) go build -o bin/agent-server ./cmd/server
 
-build-kg: ## Build the kg binary (requires: make setup-kuzu first)
+build-kg: ## Build the kg knowledge-graph CLI (CGO, go-kuzu + tree-sitter bundled)
 	@mkdir -p bin
-	CGO_ENABLED=1 \
-	CGO_CFLAGS="$(CGO_CFLAGS_KG)" \
-	CGO_LDFLAGS="$(CGO_LDFLAGS_KG)" \
-	go build -o bin/kg ./cmd/kg
+	$(CGO) go build -o bin/kg ./cmd/kg
 
-setup-kuzu: ## Download Kuzu static library for current platform
-	@bash scripts/download-kuzu.sh $(KUZU_VERSION) $(PLATFORM)
 
 codegen-gui: ## Regenerate GraphQL TypeScript types from schema
 	@echo "Generating GraphQL types..."
@@ -95,18 +72,24 @@ build-all: build build-gui ## Build everything (agent + GUI)
 # INSTALL TARGETS
 # ============================================================================
 
-install: install-agent install-kg ## Install all binaries to /usr/local/bin (run with: sudo make install)
+install: install-agent install-kg ## Install all binaries to /usr/local/bin, then run: make setup-mcp
 
-install-agent: build ## Install agent binaries to /usr/local/bin
+install-agent: build-agent build-server ## Install agent binaries to /usr/local/bin
 	@echo "Installing agent binaries..."
 	@install -m 755 bin/agent /usr/local/bin/agent
 	@install -m 755 bin/agent-server /usr/local/bin/agent-server
 	@echo "✅ Agent binaries installed to /usr/local/bin"
 
-install-kg: build-kg ## Install kg binary to /usr/local/bin (requires: make setup-kuzu first)
+install-kg: build-kg ## Install kg binary to /usr/local/bin
 	@echo "Installing kg binary..."
 	@install -m 755 bin/kg /usr/local/bin/kg
 	@echo "✅ kg installed to /usr/local/bin"
+
+setup-mcp: ## Register AI-Pack MCP servers in Claude Code (.claude/settings.local.json)
+	@python3 scripts/setup-mcp.py
+
+setup-mcp-global: ## Register AI-Pack MCP servers globally (~/.claude/settings.json)
+	@python3 scripts/setup-mcp.py --global
 
 uninstall: uninstall-agent uninstall-kg ## Uninstall all binaries from /usr/local/bin (run with: sudo make uninstall)
 
