@@ -76,8 +76,6 @@ setup-*-env.sh
 start-*-server.sh
 .npmrc
 
-# A2A agent server binaries (built artifacts, not source)
-a2a-agent/bin/
 
 # Test artifacts and results with personal paths
 TEST-MONITORING.md
@@ -91,8 +89,6 @@ tests/workflow_test_workspace/
 # SonarQube local configuration and analysis artifacts
 .sonarqube-config
 .scannerwork/
-
-a2a-agent/metrics/
 
 # Knowledge graph CLI binary and database
 /kg
