@@ -244,6 +244,12 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 				stats.Errors++
 			}
 			stats.FilesScanned++
+		} else if graphqlMatchesPath(path) {
+			if err := idx.processGraphQLFile(path, relPath, &entities, seenEntities, &relations, stats); err != nil {
+				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
+				stats.Errors++
+			}
+			stats.FilesScanned++
 		} else if makefileMatchesPath(path) {
 			if err := idx.processMakefileFile(path, relPath, &entities, seenEntities, &relations, stats); err != nil {
 				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
