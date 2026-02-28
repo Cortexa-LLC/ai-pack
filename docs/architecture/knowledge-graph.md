@@ -1,6 +1,6 @@
 # Knowledge Graph Architecture
 
-**Last updated:** 2026-02-25
+**Last updated:** 2026-02-28
 
 Per-project knowledge graph that persists findings, code relationships, architectural
 decisions, and incident history across agent sessions. Agents read from it via MCP tools;
@@ -44,20 +44,28 @@ The `internal/knowledge/` package is split into distinct sub-concerns:
 
 ```
 internal/knowledge/
-├── store.go          — Kuzu DB wrapper (OpenStore, schema init)
-├── entity.go         — CRUD for Entity nodes
-├── observation.go    — CRUD for Observation nodes
-├── relation.go       — CRUD for Relation edges
-├── types.go          — Entity, Relation, Observation structs
-├── embedder.go       — Embedder interface
-├── embedder_openai.go — OpenAI text-embedding-3-small backend
-├── embedder_ollama.go — Ollama (local) backend
-├── embeddings.go     — BatchEmbed (bulk un-embedded entity processing)
-├── hnsw_index.go     — In-memory HNSW index (vectorIndexCache, buildIndex)
-├── search.go         — KeywordSearch, VectorSearch, HybridSearch
-├── indexer.go        — Structural source-file scanner
-├── preflight.go      — Pre-task context injection
-└── mcp_server.go     — MCP tool server over stdio
+├── store.go               — Kuzu DB wrapper (OpenStore, OpenStoreReadOnly, schema init)
+├── entity.go              — CRUD for Entity nodes
+├── observation.go         — CRUD for Observation nodes
+├── relation.go            — CRUD for Relation edges
+├── types.go               — Entity, Relation, Observation structs
+├── embedder.go            — Embedder interface
+├── embedder_openai.go     — OpenAI text-embedding-3-small backend
+├── embedder_ollama.go     — Ollama (local) backend
+├── embeddings.go          — BatchEmbed (bulk un-embedded entity processing)
+├── hnsw_index.go          — In-memory HNSW index (vectorIndexCache, buildIndex)
+├── search.go              — KeywordSearch, VectorSearch, HybridSearch
+├── indexer.go             — Structural source-file scanner (walk + NDJSON bulk-load)
+├── indexer_treesitter.go  — Tree-sitter multi-language extractor (14 languages)
+├── indexer_asm.go         — Assembly file extractor
+├── indexer_markdown.go    — Markdown heading/topic extractor
+├── indexer_yaml.go        — YAML key/value extractor (tree-sitter)
+├── indexer_html.go        — HTML heading/id extractor (tree-sitter)
+├── indexer_graphql.go     — GraphQL SDL extractor (all drafts + Federation v1/v2)
+├── indexer_jsonschema.go  — JSON Schema extractor ($defs, definitions)
+├── indexer_makefile.go    — Makefile/CMake target and variable extractor
+├── preflight.go           — Pre-task context injection
+└── mcp_server.go          — MCP tool server over stdio (open-use-close per call)
 ```
 
 ### Data flow
@@ -74,6 +82,7 @@ graph TD
     Embed["Embedder\n(OpenAI / Ollama)"]
 
     Agent -->|"MCP call"| MCP
+    MCP -->|"open RO/RW → close"| Kuzu
     MCP --> Hybrid
     Hybrid --> KW
     Hybrid --> VS
@@ -122,6 +131,9 @@ CREATE REL TABLE IF NOT EXISTS RELATES_TO      (FROM Entity TO Entity, type STRI
 CREATE REL TABLE IF NOT EXISTS CALLS           (FROM Entity TO Entity)
 CREATE REL TABLE IF NOT EXISTS IMPORTS         (FROM Entity TO Entity)
 CREATE REL TABLE IF NOT EXISTS CONTAINS        (FROM Entity TO Entity)
+CREATE REL TABLE IF NOT EXISTS IMPLEMENTS      (FROM Entity TO Entity)
+CREATE REL TABLE IF NOT EXISTS BELONGS_TO      (FROM Entity TO Entity)
+CREATE REL TABLE IF NOT EXISTS DEPENDS_ON      (FROM Entity TO Entity)
 ```
 
 ---
@@ -336,50 +348,99 @@ queried with `g.Search(queryVec, limit)` for approximate nearest neighbours.
 ## Structural Indexer
 
 The `Indexer` (`indexer.go`) scans source files and populates the graph with
-code-structure entities.
+code-structure entities.  `kg index` runs it from the CLI; agents can trigger it
+via the `index_project` MCP tool.
 
-### Go AST Scanner
+### Language Support
 
-Walks Go source with `go/parser` and `go/ast`:
-- Top-level `func` and `type` declarations → `Entity{type: "function" | "type"}`
-- Import paths → `IMPORTS` relations
+| Extractor | Languages / Files | Method |
+|-----------|-------------------|--------|
+| `indexer_treesitter.go` | Go, Python, Java, Kotlin, C, C++, Rust, Swift, Ruby, C#, JS, TS, TSX | Tree-sitter AST |
+| `indexer_yaml.go` | `.yaml`, `.yml` | Tree-sitter |
+| `indexer_html.go` | `.html`, `.htm` | Tree-sitter |
+| `indexer_markdown.go` | `.md` | Tree-sitter |
+| `indexer_graphql.go` | `.graphql`, `.graphqls`, `.gql` | Regex/line-scan |
+| `indexer_jsonschema.go` | `*.schema.json`, `schema.json`, `*.json` with `"$schema"` key | encoding/json |
+| `indexer_makefile.go` | `Makefile`, `*.mk`, `*.make`, `MAKE*.txt`, `CMakeLists.txt`, `*.cmake` | Regex/line-scan |
+| `indexer_asm.go` | `.s`, `.asm`, `.S` | Regex/line-scan |
 
-### File Graph Scanner
+### What gets indexed
 
-Language-agnostic for non-Go files:
-- TypeScript/JS: regex import extraction → `IMPORTS` relations
-- All files: directory hierarchy → `CONTAINS` relations
+| Entity type | Examples |
+|-------------|---------|
+| `function` | Go `func`, Python `def`, TS arrow function, Query/Mutation fields in GraphQL |
+| `type` | Go/Java/C# types, Python classes, GraphQL types, JSON Schema $defs |
+| `file` | Every scanned file |
+| `import` | Go import paths, Python imports, find_package() in CMake |
+| `package` | Go package declarations (BELONGS_TO relation) |
+| `topic` | Markdown headings |
 
-### Bulk Load
+### Bulk Load (NDJSON)
 
-Structural scan outputs CSVs, loaded via Kuzu's `COPY FROM`:
+Structural scan collects entities in memory, then bulk-loads via Kuzu's `COPY FROM`:
+
 ```cypher
-COPY Entity FROM 'entities.csv'
-COPY IMPORTS FROM 'imports.csv'
+COPY Entity(id, name, type, project_id, created_at, updated_at) FROM '/tmp/kg-entities-*.json'
+COPY CONTAINS FROM '/tmp/kg-rels-CONTAINS-*.json'
+COPY IMPORTS  FROM '/tmp/kg-rels-IMPORTS-*.json'
+-- … one COPY per relation type
 ```
-Scanning 1000+ files takes seconds with bulk load vs. thousands of individual inserts.
+
+NDJSON avoids all CSV quoting edge-cases (CSS selectors, commas in names, Unicode).
+Scanning ~550 files creates ~8K entities and ~18K relations in ~2.5 seconds.
 
 ---
 
 ## MCP Interface
 
-`mcp_server.go` exposes `Store` methods as MCP tools over stdio:
+`mcp_server.go` exposes the knowledge graph over the MCP stdio protocol.
+It is started as `kg server --stdio`.
 
-| Tool | Description |
-|------|-------------|
-| `get_preflight_context` | Returns formatted context block for a task description |
-| `search_knowledge` | `HybridSearch` — keyword + vector, returns top-N entities |
-| `create_entities` | Bulk-upsert entities |
-| `create_relations` | Bulk-upsert relations |
-| `add_observations` | Append observations to entities |
-| `delete_entities` | Remove entities and their relations |
-| `delete_observations` | Remove specific observations |
-| `delete_relations` | Remove specific relations |
-| `read_graph` | Return full project graph (entities + relations) |
-| `open_nodes` | Retrieve specific entities by name |
+### Open-use-close design
 
-The MCP server is started by `cmd/kg mcp` and discovered by the agent via its
-`.ai/mcp-servers.json` entry.
+Each tool call opens the Kuzu database, executes its operation, and closes the
+connection before returning.  No lock is held between calls.  This means:
+
+- `kg index` (CLI) can run at any time alongside a running `kg server`
+- Multiple agent sessions sharing the same project can each open read-only
+  connections concurrently
+- Write calls (add_entity, add_observation, link_entities, index_project) briefly
+  hold a write lock; concurrent write calls are serialized by Kuzu
+
+### Tools
+
+| Tool | DB mode | Description |
+|------|---------|-------------|
+| `get_preflight_context` | RO | Returns relevant entities for a task description; auto-called by agent-server before each task |
+| `search_knowledge` | RO | Keyword search over entity names and observations (top-N, default 12) |
+| `get_file_context` | RO | All entities defined in a specific file path |
+| `query_graph` | RO | Read-only Cypher query (MATCH/RETURN only) |
+| `add_entity` | RW | Create or upsert an entity (name + type); returns entity ID |
+| `add_observation` | RW | Attach a text note to an existing entity |
+| `link_entities` | RW | Create a directed relation between two entities |
+| `index_project` | RW | Full codebase re-index (equivalent to `kg index` CLI but runs in-process) |
+
+### Entity types for `add_entity`
+
+`function`, `type`, `file`, `module`, `topic`, `package`, `import`
+
+### Relations for `link_entities`
+
+`CONTAINS`, `IMPORTS`, `CALLS`, `IMPLEMENTS`, `BELONGS_TO`, `DEPENDS_ON`, `RELATES_TO`
+
+### Agent session configuration
+
+`kg` is registered in `~/.claude/agent-server.json` under `mcp.servers` and
+`mcp.enabled_servers`.  Re-run `python3 scripts/setup-mcp.py` to apply the
+configuration to both Claude Code (interactive) and agent sessions.
+
+```json
+"mcp": {
+  "enabled": true,
+  "servers": { "kg": {"command": "kg", "args": ["server", "--stdio"]} },
+  "enabled_servers": ["memory", "sequential-thinking", "kg"]
+}
+```
 
 ---
 
@@ -402,7 +463,7 @@ graph is **empty** — no entities, no vectors, no HNSW index.
 Agents MUST treat an empty or near-empty context as a valid state, not an error.  The
 first few tasks on a new project are a "cold start" — the graph will be populated
 incrementally as agents write findings back via the MCP write tools
-(`create_entities`, `add_observations`, `create_relations`).
+(`add_entity`, `add_observation`, `link_entities`).
 
 Quality improves as coverage builds.  Preflight context typically becomes useful after
 2–5 tasks have written observations to the graph.
@@ -410,8 +471,9 @@ Quality improves as coverage builds.  Preflight context typically becomes useful
 ### Seeding (optional)
 
 A project may be pre-seeded by running the structural indexer (`kg index`), which
-scans Go source files and bulk-loads file and import relationships.  This gives agents
-immediate structural context even before any task runs.
+scans source files across 14+ languages and bulk-loads entities and relations.
+This gives agents immediate structural context even before any task runs.
+Alternatively, agents can call `index_project` via MCP once the server is running.
 
 ---
 
@@ -460,14 +522,14 @@ statically on Linux CI.
 
 ## Implementation History
 
-| Phase | Task | Status | Description |
-|-------|------|--------|-------------|
-| 0 | ai-pack-asy | ✅ Complete | Module restructure — split `cmd/` and `internal/` |
-| 1 | ai-pack-8ze | ✅ Complete | Kuzu store + schema (Entity, Observation, Relation tables) |
-| 2 | ai-pack-gwe | ✅ Complete | Search layer — KeywordSearch + initial HybridSearch |
-| 3 | ai-pack-bjj | ✅ Complete | Embeddings — Embedder interface, OpenAI + Ollama backends |
-| 4 | ai-pack-21j | ✅ Complete | CLI (`kg index`, `kg embed`, `kg search`, `kg mcp`) |
-| 5 | ai-pack-kmp | ✅ Complete | MCP server (`mcp_server.go`) |
-| 6 | ai-pack-l7o | ✅ Complete | Real VectorSearch with cosine similarity |
-| 7 | ai-pack-g2e | ✅ Complete | Structural indexer (Go AST + file graph scanner) |
-| 8 | ai-pack-aru | ✅ Complete | In-memory HNSW index replacing linear cosine scan |
+- Kuzu store + schema (Entity, Observation, Relation tables)
+- Search layer — KeywordSearch, VectorSearch, HybridSearch
+- Embeddings — Embedder interface, OpenAI + Ollama backends
+- In-memory HNSW index for sub-linear approximate nearest-neighbour search
+- CLI: `kg index`, `kg embed`, `kg search`, `kg server`
+- MCP server over stdio (open-use-close per call)
+- Structural indexer: tree-sitter (14 languages), YAML, HTML, Markdown, GraphQL, JSON Schema, Makefile/CMake, Assembly
+- NDJSON bulk-load replacing CSV (2.4s for ~550 files / ~8K entities)
+- Read-only store mode for concurrent search alongside indexing
+- Project root auto-detection (`.ai/` walk → git → marker files)
+- `index_project` MCP tool; kg wired into agent sessions via `agent-server.json`
