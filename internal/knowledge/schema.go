@@ -15,6 +15,7 @@ var AllowedRelTypes = []string{
 	"CALLS",
 	"IMPORTS",
 	"CONTAINS",
+	"BELONGS_TO",
 	"FIXES",
 	"SUPERSEDES",
 	"CAUSED_BY",
