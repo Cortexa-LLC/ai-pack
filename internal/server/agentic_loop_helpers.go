@@ -123,6 +123,7 @@ func (s *AgentServer) processOneTurn(
 	ctx context.Context,
 	toolUses []streaming.ToolUse,
 	workingDir string,
+	projectRoot string,
 	logMsg func(string),
 ) processOneTurnResult {
 	var toolResults []streaming.ToolResult
@@ -147,7 +148,7 @@ func (s *AgentServer) processOneTurn(
 		}
 
 		// Execute tool (native or MCP)
-		result, err := s.executeTool(ctx, toolUse.Name, toolUse.Input, workingDir)
+		result, err := s.executeTool(ctx, toolUse.Name, toolUse.Input, workingDir, projectRoot)
 		isError := err != nil
 		if err != nil {
 			logMsg(fmt.Sprintf("         ❌ Tool execution failed: %v", err))
