@@ -11,10 +11,13 @@ import (
 	"unicode"
 
 	sitter "github.com/smacker/go-tree-sitter"
+	"github.com/smacker/go-tree-sitter/bash"
 	"github.com/smacker/go-tree-sitter/c"
 	"github.com/smacker/go-tree-sitter/cpp"
 	"github.com/smacker/go-tree-sitter/csharp"
+	"github.com/smacker/go-tree-sitter/css"
 	golang "github.com/smacker/go-tree-sitter/golang"
+	"github.com/smacker/go-tree-sitter/groovy"
 	"github.com/smacker/go-tree-sitter/java"
 	"github.com/smacker/go-tree-sitter/javascript"
 	"github.com/smacker/go-tree-sitter/kotlin"
@@ -321,7 +324,79 @@ func init() {
 			NameField:         "name",
 			extractImportPath: extractJSImports,
 		},
+
+		// Bash / Shell — index function definitions and source includes
+		".sh": {
+			Language:        bash.GetLanguage(),
+			FuncNodeTypes:   []string{"function_definition"},
+			TypeNodeTypes:   []string{},
+			ImportNodeTypes: []string{"command"},
+			NameField:       "name",
+			extractImportPath: func(node *sitter.Node, src []byte) []string {
+				// Only handle: source <path>  or  . <path>
+				cmdNameNode := node.ChildByFieldName("name")
+				if cmdNameNode == nil {
+					return nil
+				}
+				cmdName := cmdNameNode.Content(src)
+				if cmdName != "source" && cmdName != "." {
+					return nil
+				}
+				// First word child (not inside command_name) is the script path
+				for i := 0; i < int(node.NamedChildCount()); i++ {
+					child := node.NamedChild(i)
+					if child.Type() == "word" {
+						return []string{child.Content(src)}
+					}
+				}
+				return nil
+			},
+		},
+		".bash": {}, // populated below
+
+		// Groovy — Gradle build files, Jenkins pipelines
+		".groovy": {
+			Language:        groovy.GetLanguage(),
+			FuncNodeTypes:   []string{"function_definition"},
+			TypeNodeTypes:   []string{"class_definition"},
+			ImportNodeTypes: []string{"groovy_import"},
+			NameField:       "name",
+			// function_definition in Groovy has no "name" field; name is first identifier child
+			extractFuncName: extractFirstNamedChildOfType("identifier"),
+			extractImportPath: func(node *sitter.Node, src []byte) []string {
+				for i := 0; i < int(node.NamedChildCount()); i++ {
+					if node.NamedChild(i).Type() == "qualified_name" {
+						return []string{node.NamedChild(i).Content(src)}
+					}
+				}
+				// Fallback: strip "import " prefix
+				raw := strings.TrimSpace(node.Content(src))
+				raw = strings.TrimPrefix(raw, "import ")
+				return []string{strings.TrimSpace(raw)}
+			},
+		},
+
+		// CSS — index rule-set selectors as "type" entities
+		".css": {
+			Language:      css.GetLanguage(),
+			FuncNodeTypes: []string{},
+			TypeNodeTypes: []string{"rule_set"},
+			NameField:     "name",
+			// rule_set has no named fields; selector text is in the "selectors" named child
+			extractTypeName: func(node *sitter.Node, src []byte) string {
+				for i := 0; i < int(node.NamedChildCount()); i++ {
+					if node.NamedChild(i).Type() == "selectors" {
+						return strings.TrimSpace(node.NamedChild(i).Content(src))
+					}
+				}
+				return ""
+			},
+		},
 	}
+
+	// Share bash config for both extensions
+	bashCfg := langRegistry[".sh"]
+	langRegistry[".bash"] = bashCfg
 }
 
 // processWithTreeSitter parses the given file using tree-sitter and emits
@@ -355,7 +430,7 @@ func (idx *Indexer) processWithTreeSitter(
 
 	// Create file entity
 	fileID := fmt.Sprintf("file:%s", relPath)
-	if writeEntity(entityWriter, seenEntities, fileID, relPath, "file", idx.projectID, now, now) {
+	if writeEntity(entityWriter, seenEntities, fileID, relPath, EntityTypeFile, idx.projectID, now, now) {
 		stats.EntitiesCreated++
 	}
 
@@ -386,10 +461,10 @@ func (idx *Indexer) walkNode(
 			if child.Type() == "package_identifier" {
 				pkgName := child.Content(src)
 				pkgID := fmt.Sprintf("package:%s", pkgName)
-				if writeEntity(entityWriter, seenEntities, pkgID, pkgName, "package", idx.projectID, now, now) {
+				if writeEntity(entityWriter, seenEntities, pkgID, pkgName, EntityTypePackage, idx.projectID, now, now) {
 					stats.EntitiesCreated++
 				}
-				*relations = append(*relations, relationRecord{FromID: fileID, ToID: pkgID, Type: "BELONGS_TO"})
+				*relations = append(*relations, relationRecord{FromID: fileID, ToID: pkgID, Type: RelBelongsTo})
 				stats.RelationsCreated++
 				break
 			}
@@ -409,10 +484,10 @@ func (idx *Indexer) walkNode(
 			break
 		}
 		funcID := fmt.Sprintf("function:%s:%s", relPath, name)
-		if writeEntity(entityWriter, seenEntities, funcID, name, "function", idx.projectID, now, now) {
+		if writeEntity(entityWriter, seenEntities, funcID, name, EntityTypeFunction, idx.projectID, now, now) {
 			stats.EntitiesCreated++
 		}
-		*relations = append(*relations, relationRecord{FromID: fileID, ToID: funcID, Type: "CONTAINS"})
+		*relations = append(*relations, relationRecord{FromID: fileID, ToID: funcID, Type: RelContains})
 		stats.RelationsCreated++
 
 	case slices.Contains(cfg.TypeNodeTypes, nodeType):
@@ -429,10 +504,10 @@ func (idx *Indexer) walkNode(
 			break
 		}
 		typeID := fmt.Sprintf("type:%s:%s", relPath, name)
-		if writeEntity(entityWriter, seenEntities, typeID, name, "type", idx.projectID, now, now) {
+		if writeEntity(entityWriter, seenEntities, typeID, name, EntityTypeType, idx.projectID, now, now) {
 			stats.EntitiesCreated++
 		}
-		*relations = append(*relations, relationRecord{FromID: fileID, ToID: typeID, Type: "CONTAINS"})
+		*relations = append(*relations, relationRecord{FromID: fileID, ToID: typeID, Type: RelContains})
 		stats.RelationsCreated++
 
 	case slices.Contains(cfg.ImportNodeTypes, nodeType):
@@ -443,10 +518,10 @@ func (idx *Indexer) walkNode(
 					continue
 				}
 				importID := fmt.Sprintf("import:%s", importPath)
-				if writeEntity(entityWriter, seenEntities, importID, importPath, "import", idx.projectID, now, now) {
+				if writeEntity(entityWriter, seenEntities, importID, importPath, EntityTypeImport, idx.projectID, now, now) {
 					stats.EntitiesCreated++
 				}
-				*relations = append(*relations, relationRecord{FromID: fileID, ToID: importID, Type: "IMPORTS"})
+				*relations = append(*relations, relationRecord{FromID: fileID, ToID: importID, Type: RelImports})
 				stats.RelationsCreated++
 			}
 		}

@@ -11,6 +11,28 @@ import (
 	gitignore "github.com/sabhiram/go-gitignore"
 )
 
+// alwaysSkipDirs is the set of directory base-names that are never worth
+// indexing, regardless of what .gitignore says. Pruning these early avoids
+// walking into directories that can have thousands of files (node_modules) or
+// that contain binary/runtime data rather than source (.git, .claude).
+var alwaysSkipDirs = map[string]bool{
+	".git":         true,
+	"node_modules": true,
+	"vendor":       true,
+	".claude":      true,
+	".beads":       true,
+	"dist":         true,
+	"build":        true,
+	".build":       true,
+	"__pycache__":  true,
+	".mypy_cache":  true,
+	".pytest_cache": true,
+	".next":        true,
+	".nuxt":        true,
+	"target":       true, // Rust/Maven build output
+	"coverage":     true,
+}
+
 // Indexer scans source files and populates the knowledge graph
 type Indexer struct {
 	store     *Store
@@ -101,10 +123,7 @@ func readLinesFromFile(path string) []string {
 // clearProjectData removes all entities and relations for this project
 func (idx *Indexer) clearProjectData() error {
 	// Delete all relation types for this project
-	relationTypes := []string{
-		"CALLS", "IMPORTS", "CONTAINS", "BELONGS_TO", "FIXES", "SUPERSEDES", "CAUSED_BY",
-		"DEPENDS_ON", "IMPLEMENTS", "RELATES_TO", "TESTS", "DOCUMENTS",
-	}
+	relationTypes := AllowedRelTypes
 
 	for _, relType := range relationTypes {
 		// relType is from a hardcoded list above, not user input.
@@ -170,15 +189,28 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 			return err
 		}
 
-		// Skip directories
-		if info.IsDir() {
-			return nil
-		}
-
-		// Get relative path
+		// Get relative path (needed for both directory and file decisions)
 		relPath, err := filepath.Rel(idx.root, path)
 		if err != nil {
 			return err
+		}
+
+		if info.IsDir() {
+			// Skip the root itself
+			if relPath == "." {
+				return nil
+			}
+			// Always-skip directories that are never useful to index
+			base := info.Name()
+			if alwaysSkipDirs[base] {
+				return filepath.SkipDir
+			}
+			// Apply gitignore / claudeignore to directories so we prune entire subtrees
+			// (MatchesPath on a dir path skips the whole subtree via SkipDir)
+			if idx.ignorer.MatchesPath(relPath) {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 
 		// Check if ignored
@@ -196,6 +228,24 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 			stats.FilesScanned++
 		} else if asmMatchesPath(path) {
 			if err := idx.processAsmFile(path, relPath, entityWriter, seenEntities, &relations, stats); err != nil {
+				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
+				stats.Errors++
+			}
+			stats.FilesScanned++
+		} else if ext == ".md" {
+			if err := idx.processMarkdownFile(path, relPath, entityWriter, seenEntities, &relations, stats); err != nil {
+				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
+				stats.Errors++
+			}
+			stats.FilesScanned++
+		} else if ext == ".yaml" || ext == ".yml" {
+			if err := idx.processYAMLFile(path, relPath, entityWriter, seenEntities, &relations, stats); err != nil {
+				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
+				stats.Errors++
+			}
+			stats.FilesScanned++
+		} else if ext == ".html" || ext == ".htm" {
+			if err := idx.processHTMLFile(path, relPath, entityWriter, seenEntities, &relations, stats); err != nil {
 				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
 				stats.Errors++
 			}
