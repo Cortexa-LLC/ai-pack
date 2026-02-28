@@ -279,5 +279,8 @@ func runVersion() {
 }
 
 func getVersion() string {
-	return "1.0.0"
+	if Commit != "unknown" && len(Commit) >= 7 {
+		return fmt.Sprintf("%s (%s) built %s", Version, Commit[:7], BuildTime)
+	}
+	return Version
 }

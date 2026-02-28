@@ -15,6 +15,20 @@ GUI_DIR := gui
 # No external kuzu download needed — go-kuzu v0.11.3+ bundles the library.
 CGO := CGO_ENABLED=1
 
+# Version info injected at build time into all binaries via ldflags.
+VERSION   := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+COMMIT    := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+MODULE := github.com/cortexa-llc/ai-pack
+
+LDFLAGS_AGENT  := -ldflags "-X main.Version=$(VERSION) \
+                             -X main.Commit=$(COMMIT) \
+                             -X main.BuildTime=$(BUILD_TIME)"
+LDFLAGS_KG     := -ldflags "-X main.Version=$(VERSION) \
+                             -X main.Commit=$(COMMIT) \
+                             -X main.BuildTime=$(BUILD_TIME)"
+
 help: ## Show this help message
 	@echo "AI-Pack Build System"
 	@echo ""
@@ -37,7 +51,7 @@ build: build-agent build-server build-kg ## Build all binaries
 
 build-agent: ## Build the agent CLI (no CGO)
 	@mkdir -p bin
-	CGO_ENABLED=0 go build -o bin/agent ./cmd/agent
+	CGO_ENABLED=0 go build $(LDFLAGS_AGENT) -o bin/agent ./cmd/agent
 
 build-server: ## Build the agent-server (CGO, go-kuzu bundled)
 	@mkdir -p bin
@@ -45,7 +59,7 @@ build-server: ## Build the agent-server (CGO, go-kuzu bundled)
 
 build-kg: ## Build the kg knowledge-graph CLI (CGO, go-kuzu + tree-sitter bundled)
 	@mkdir -p bin
-	$(CGO) go build -o bin/kg ./cmd/kg
+	$(CGO) go build $(LDFLAGS_KG) -o bin/kg ./cmd/kg
 
 
 codegen-gui: ## Regenerate GraphQL TypeScript types from schema
