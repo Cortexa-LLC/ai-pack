@@ -113,7 +113,7 @@ func (idx *Indexer) processAsmFile(
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	fileID := fmt.Sprintf("file:%s", relPath)
-	if writeEntity(entityWriter, seenEntities, fileID, relPath, "file", idx.projectID, now, now) {
+	if writeEntity(entityWriter, seenEntities, fileID, relPath, EntityTypeFile, idx.projectID, now, now) {
 		stats.EntitiesCreated++
 	}
 
@@ -149,10 +149,10 @@ func (idx *Indexer) processAsmFile(
 			}
 			if mname != "" && asmIsSignificant(mname) {
 				eid := fmt.Sprintf("function:%s:%s", relPath, mname)
-				if writeEntity(entityWriter, seenEntities, eid, mname, "function", idx.projectID, now, now) {
+				if writeEntity(entityWriter, seenEntities, eid, mname, EntityTypeFunction, idx.projectID, now, now) {
 					stats.EntitiesCreated++
 				}
-				*relations = append(*relations, relationRecord{FromID: fileID, ToID: eid, Type: "CONTAINS"})
+				*relations = append(*relations, relationRecord{FromID: fileID, ToID: eid, Type: RelContains})
 				stats.RelationsCreated++
 			}
 			inMacro = true
@@ -161,10 +161,10 @@ func (idx *Indexer) processAsmFile(
 			// Constant definition: label is the symbol name
 			if label != "" && asmIsSignificant(label) {
 				eid := fmt.Sprintf("type:%s:%s", relPath, label)
-				if writeEntity(entityWriter, seenEntities, eid, label, "type", idx.projectID, now, now) {
+				if writeEntity(entityWriter, seenEntities, eid, label, EntityTypeType, idx.projectID, now, now) {
 					stats.EntitiesCreated++
 				}
-				*relations = append(*relations, relationRecord{FromID: fileID, ToID: eid, Type: "CONTAINS"})
+				*relations = append(*relations, relationRecord{FromID: fileID, ToID: eid, Type: RelContains})
 				stats.RelationsCreated++
 			}
 
@@ -177,10 +177,10 @@ func (idx *Indexer) processAsmFile(
 			path = strings.Trim(path, `"'<>`)
 			if path != "" {
 				importID := fmt.Sprintf("import:%s", path)
-				if writeEntity(entityWriter, seenEntities, importID, path, "import", idx.projectID, now, now) {
+				if writeEntity(entityWriter, seenEntities, importID, path, EntityTypeImport, idx.projectID, now, now) {
 					stats.EntitiesCreated++
 				}
-				*relations = append(*relations, relationRecord{FromID: fileID, ToID: importID, Type: "IMPORTS"})
+				*relations = append(*relations, relationRecord{FromID: fileID, ToID: importID, Type: RelImports})
 				stats.RelationsCreated++
 			}
 
@@ -188,10 +188,10 @@ func (idx *Indexer) processAsmFile(
 			// General label (entry point / subroutine / data symbol)
 			if label != "" && asmIsSignificant(label) {
 				eid := fmt.Sprintf("function:%s:%s", relPath, label)
-				if writeEntity(entityWriter, seenEntities, eid, label, "function", idx.projectID, now, now) {
+				if writeEntity(entityWriter, seenEntities, eid, label, EntityTypeFunction, idx.projectID, now, now) {
 					stats.EntitiesCreated++
 				}
-				*relations = append(*relations, relationRecord{FromID: fileID, ToID: eid, Type: "CONTAINS"})
+				*relations = append(*relations, relationRecord{FromID: fileID, ToID: eid, Type: RelContains})
 				stats.RelationsCreated++
 			}
 		}

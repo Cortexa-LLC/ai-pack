@@ -12,18 +12,18 @@ import (
 // This slice is the single source of truth – schema DDL in initSchema() and
 // the validation check in validateRelType() are both derived from it.
 var AllowedRelTypes = []string{
-	"CALLS",
-	"IMPORTS",
-	"CONTAINS",
-	"BELONGS_TO",
-	"FIXES",
-	"SUPERSEDES",
-	"CAUSED_BY",
-	"DEPENDS_ON",
-	"IMPLEMENTS",
-	"RELATES_TO",
-	"TESTS",
-	"DOCUMENTS",
+	RelCalls,
+	RelImports,
+	RelContains,
+	RelBelongsTo,
+	RelFixes,
+	RelSupersedes,
+	RelCausedBy,
+	RelDependsOn,
+	RelImplements,
+	RelRelatesTo,
+	RelTests,
+	RelDocuments,
 }
 
 // validateRelType returns nil if relType is in AllowedRelTypes, otherwise an
