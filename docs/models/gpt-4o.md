@@ -1,29 +1,17 @@
 # gpt-4o Performance Profile
 
-**Model ID:** `gpt-4o`  
-**Provider:** OpenAI  
-**Tier:** 2 (Low Cost)  
-**Cost:** ~$2.50 per 1M input tokens, ~$10.00 per 1M output tokens  
-**Context Window:** 128K tokens  
-**Last Updated:** 2026-02-19
+**Model ID:** `gpt-4o`
+**Provider:** OpenAI
+**Tier:** 2 (Low Cost)
+**Cost:** ~$2.50 per 1M input tokens, ~$10.00 per 1M output tokens
+**Context Window:** 128K tokens
+**Last Updated:** 2026-02-28
 
 ---
 
 ## Overview
 
-GPT-4o is the mid-tier OpenAI model used as the first escalation target from gpt-4o-mini. It offers significantly better reasoning and code understanding than gpt-4o-mini at a moderate cost increase. It sits between the cheap defaults and the premium Anthropic models in the escalation ladder.
-
----
-
-## Performance Grades by Role
-
-| Role | Grade | Success Rate | Attempts | Project | Last Tested | Notes |
-|------|-------|-------------|----------|---------|-------------|-------|
-| engineer | ? | No data | — | — | — | Second escalation target |
-| tester | ? | No data | — | — | — | Escalation target |
-| reviewer | ? | No data | — | — | — | Used in reviewer-codex variants |
-
-> **Note:** No benchmark grade files exist for gpt-4o yet. Benchmarks needed.
+GPT-4o is the mid-tier OpenAI model used as the first escalation target from gpt-4o-mini. It offers significantly better reasoning and code understanding at a moderate cost increase, sitting between cheap defaults and premium Anthropic models in the escalation ladder.
 
 ---
 
@@ -51,12 +39,4 @@ gpt-4o-mini → gpt-4o → claude-sonnet-4-5 → claude-opus-4-6
 
 ---
 
-## Notes for Future Benchmarks
-
-- [ ] Run benchmarks for engineer and tester roles
-- [ ] Measure improvement vs. gpt-4o-mini success rate
-- [ ] Compare cost-per-successful-task vs. claude-sonnet-4-5
-
----
-
-*Last updated: 2026-02-19 | Data source: Role configuration files (no grade files yet)*
+*Last updated: 2026-02-28*

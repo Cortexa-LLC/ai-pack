@@ -25,8 +25,6 @@ func ProjectIDFromPath(root string) string {
 }
 
 const (
-	// GradeSourceBenchmark identifies grades produced by the benchmark script.
-	GradeSourceBenchmark = "benchmark"
 	// GradeSourceProduction identifies grades recorded from live task executions.
 	GradeSourceProduction = "production"
 	// GradeSourceLiveBench is the prefix used by seed-grades.py for grades derived
@@ -90,7 +88,7 @@ type PerformanceGrade struct {
 
 	// Metadata
 	LastTaskID string `json:"last_task_id,omitempty"` // For debugging
-	Source     string `json:"source,omitempty"`       // GradeSourceBenchmark, GradeSourceProduction, or GradeSourceLiveBench
+	Source     string `json:"source,omitempty"`       // GradeSourceProduction or GradeSourceLiveBench
 }
 
 // PerformanceGradeManager manages performance grades with persistent storage
