@@ -3,12 +3,8 @@ package knowledge
 import (
 	"encoding/csv"
 	"fmt"
-	"go/ast"
-	"go/parser"
-	"go/token"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -106,7 +102,7 @@ func readLinesFromFile(path string) []string {
 func (idx *Indexer) clearProjectData() error {
 	// Delete all relation types for this project
 	relationTypes := []string{
-		"CALLS", "IMPORTS", "FIXES", "SUPERSEDES", "CAUSED_BY",
+		"CALLS", "IMPORTS", "CONTAINS", "BELONGS_TO", "FIXES", "SUPERSEDES", "CAUSED_BY",
 		"DEPENDS_ON", "IMPLEMENTS", "RELATES_TO", "TESTS", "DOCUMENTS",
 	}
 
@@ -192,16 +188,8 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 
 		// Process based on file type
 		ext := strings.ToLower(filepath.Ext(path))
-		switch ext {
-		case ".go":
-			if err := idx.processGoFile(path, relPath, entityWriter, seenEntities, &relations, stats); err != nil {
-				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
-				stats.Errors++
-			}
-			stats.FilesScanned++
-
-		case ".ts", ".tsx", ".js", ".jsx":
-			if err := idx.processJSFile(path, relPath, "", entityWriter, seenEntities, &relations, stats); err != nil {
+		if cfg, ok := langRegistry[ext]; ok {
+			if err := idx.processWithTreeSitter(path, relPath, cfg, entityWriter, seenEntities, &relations, stats); err != nil {
 				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
 				stats.Errors++
 			}
@@ -243,161 +231,6 @@ func writeEntity(writer *csv.Writer, seen map[string]bool, id, name, typ, projec
 	seen[id] = true // Mark as seen BEFORE writing
 	writer.Write([]string{id, name, typ, projectID, createdAt, updatedAt})
 	return true
-}
-
-// processGoFile extracts structural information from Go source files
-func (idx *Indexer) processGoFile(absPath, relPath string, entityWriter *csv.Writer, seenEntities map[string]bool, relations *[]relationRecord, stats *IndexStats) error {
-	now := time.Now().UTC().Format(time.RFC3339)
-
-	// Parse the Go file
-	fset := token.NewFileSet()
-	node, err := parser.ParseFile(fset, absPath, nil, parser.ParseComments)
-	if err != nil {
-		return fmt.Errorf("parse file: %w", err)
-	}
-
-	// Create file entity
-	fileID := fmt.Sprintf("file:%s", relPath)
-	if writeEntity(entityWriter, seenEntities, fileID, relPath, "file", idx.projectID, now, now) {
-		stats.EntitiesCreated++
-	}
-
-	// Create package entity
-	pkgName := node.Name.Name
-	pkgID := fmt.Sprintf("package:%s", pkgName)
-	if writeEntity(entityWriter, seenEntities, pkgID, pkgName, "package", idx.projectID, now, now) {
-		stats.EntitiesCreated++
-	}
-
-	// File belongs to package
-	*relations = append(*relations, relationRecord{
-		FromID: fileID,
-		ToID:   pkgID,
-		Type:   "BELONGS_TO",
-	})
-	stats.RelationsCreated++
-
-	// Extract imports
-	for _, imp := range node.Imports {
-		importPath := strings.Trim(imp.Path.Value, "\"")
-		importID := fmt.Sprintf("package:%s", importPath)
-
-		// Create import entity if not exists
-		if writeEntity(entityWriter, seenEntities, importID, importPath, "package", idx.projectID, now, now) {
-			stats.EntitiesCreated++
-		}
-
-		// File imports package
-		*relations = append(*relations, relationRecord{
-			FromID: fileID,
-			ToID:   importID,
-			Type:   "IMPORTS",
-		})
-		stats.RelationsCreated++
-	}
-
-	// Extract declarations
-	for _, decl := range node.Decls {
-		switch d := decl.(type) {
-		case *ast.FuncDecl:
-			// Function declaration
-			if d.Name != nil && d.Name.IsExported() {
-				funcName := d.Name.Name
-				// Use file path in function ID to ensure uniqueness across files
-				funcID := fmt.Sprintf("function:%s:%s", relPath, funcName)
-
-				if writeEntity(entityWriter, seenEntities, funcID, funcName, "function", idx.projectID, now, now) {
-					stats.EntitiesCreated++
-				}
-
-				// File contains function
-				*relations = append(*relations, relationRecord{
-					FromID: fileID,
-					ToID:   funcID,
-					Type:   "CONTAINS",
-				})
-				stats.RelationsCreated++
-			}
-
-		case *ast.GenDecl:
-			// Type or variable declaration
-			for _, spec := range d.Specs {
-				switch s := spec.(type) {
-				case *ast.TypeSpec:
-					if s.Name.IsExported() {
-						typeName := s.Name.Name
-						typeID := fmt.Sprintf("type:%s.%s", pkgName, typeName)
-
-						writeEntity(entityWriter, seenEntities, typeID, typeName, "type", idx.projectID, now, now)
-						stats.EntitiesCreated++
-
-						// File contains type
-						*relations = append(*relations, relationRecord{
-							FromID: fileID,
-							ToID:   typeID,
-							Type:   "CONTAINS",
-						})
-						stats.RelationsCreated++
-					}
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-// processJSFile extracts imports from TypeScript/JavaScript files using regex
-func (idx *Indexer) processJSFile(absPath, relPath, fileID string, entityWriter *csv.Writer, seenEntities map[string]bool, relations *[]relationRecord, stats *IndexStats) error {
-	now := time.Now().UTC().Format(time.RFC3339)
-
-	// Read file content
-	content, err := os.ReadFile(absPath)
-	if err != nil {
-		return fmt.Errorf("read file: %w", err)
-	}
-
-	// Create file entity
-	if fileID == "" {
-		fileID = fmt.Sprintf("file:%s", relPath)
-		if writeEntity(entityWriter, seenEntities, fileID, relPath, "file", idx.projectID, now, now) {
-			stats.EntitiesCreated++
-		}
-	}
-
-	// Extract imports using regex
-	// Matches: import ... from "path"  or  import("path")
-	importRegex := regexp.MustCompile(`import\s+(?:[\w\s{},*]*\s+from\s+)?["']([^"']+)["']|import\s*\(\s*["']([^"']+)["']\s*\)`)
-	matches := importRegex.FindAllSubmatch(content, -1)
-
-	seenImports := make(map[string]bool)
-	for _, match := range matches {
-		var importPath string
-		if len(match) > 1 && len(match[1]) > 0 {
-			importPath = string(match[1])
-		} else if len(match) > 2 && len(match[2]) > 0 {
-			importPath = string(match[2])
-		}
-
-		if importPath == "" || seenImports[importPath] {
-			continue
-		}
-		seenImports[importPath] = true
-
-		// Create module entity
-		importID := fmt.Sprintf("module:%s", importPath)
-		writeEntity(entityWriter, seenEntities, importID, importPath, "module", idx.projectID, now, now)
-		stats.EntitiesCreated++
-
-		*relations = append(*relations, relationRecord{
-			FromID: fileID,
-			ToID:   importID,
-			Type:   "IMPORTS",
-		})
-		stats.RelationsCreated++
-	}
-
-	return nil
 }
 
 // bulkLoadEntities loads entities from CSV file into Kuzu using COPY FROM

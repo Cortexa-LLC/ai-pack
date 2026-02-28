@@ -918,7 +918,8 @@ function App() {
                   )}
                   <button
                     onClick={() => {
-                      // Use browser back to maintain history
+                      setSelectedTask(null);
+                      setActiveTab('tasks');
                       window.history.back();
                     }}
                     className="text-gray-400 hover:text-white text-sm px-2"
