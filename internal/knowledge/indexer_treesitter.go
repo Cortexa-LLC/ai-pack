@@ -425,11 +425,11 @@ func (idx *Indexer) processWithTreeSitter(
 	}
 	defer tree.Close()
 
-	now := time.Now().UTC().Format(time.RFC3339)
+	now := time.Now().UTC()
 
 	// Create file entity
 	fileID := fmt.Sprintf("file:%s", relPath)
-	if writeEntity(entities, seenEntities, fileID, relPath, EntityTypeFile, idx.projectID, now, now) {
+	if writeEntity(entities, seenEntities, fileID, relPath, EntityTypeFile, idx.projectID, now) {
 		stats.EntitiesCreated++
 	}
 
@@ -448,7 +448,7 @@ func (idx *Indexer) walkNode(
 	seenEntities map[string]bool,
 	relations *[]relationRecord,
 	stats *IndexStats,
-	now string,
+	now time.Time,
 ) {
 	nodeType := node.Type()
 
@@ -460,7 +460,7 @@ func (idx *Indexer) walkNode(
 			if child.Type() == "package_identifier" {
 				pkgName := child.Content(src)
 				pkgID := fmt.Sprintf("package:%s", pkgName)
-				if writeEntity(entities, seenEntities, pkgID, pkgName, EntityTypePackage, idx.projectID, now, now) {
+				if writeEntity(entities, seenEntities, pkgID, pkgName, EntityTypePackage, idx.projectID, now) {
 					stats.EntitiesCreated++
 				}
 				*relations = append(*relations, relationRecord{FromID: fileID, ToID: pkgID, Type: RelBelongsTo})
@@ -483,7 +483,7 @@ func (idx *Indexer) walkNode(
 			break
 		}
 		funcID := fmt.Sprintf("function:%s:%s", relPath, name)
-		if writeEntity(entities, seenEntities, funcID, name, EntityTypeFunction, idx.projectID, now, now) {
+		if writeEntity(entities, seenEntities, funcID, name, EntityTypeFunction, idx.projectID, now) {
 			stats.EntitiesCreated++
 		}
 		*relations = append(*relations, relationRecord{FromID: fileID, ToID: funcID, Type: RelContains})
@@ -503,7 +503,7 @@ func (idx *Indexer) walkNode(
 			break
 		}
 		typeID := fmt.Sprintf("type:%s:%s", relPath, name)
-		if writeEntity(entities, seenEntities, typeID, name, EntityTypeType, idx.projectID, now, now) {
+		if writeEntity(entities, seenEntities, typeID, name, EntityTypeType, idx.projectID, now) {
 			stats.EntitiesCreated++
 		}
 		*relations = append(*relations, relationRecord{FromID: fileID, ToID: typeID, Type: RelContains})
@@ -517,7 +517,7 @@ func (idx *Indexer) walkNode(
 					continue
 				}
 				importID := fmt.Sprintf("import:%s", importPath)
-				if writeEntity(entities, seenEntities, importID, importPath, EntityTypeImport, idx.projectID, now, now) {
+				if writeEntity(entities, seenEntities, importID, importPath, EntityTypeImport, idx.projectID, now) {
 					stats.EntitiesCreated++
 				}
 				*relations = append(*relations, relationRecord{FromID: fileID, ToID: importID, Type: RelImports})

@@ -109,10 +109,10 @@ func (idx *Indexer) processAsmFile(
 	}
 	defer f.Close()
 
-	now := time.Now().UTC().Format(time.RFC3339)
+	now := time.Now().UTC()
 
 	fileID := fmt.Sprintf("file:%s", relPath)
-	if writeEntity(entities, seenEntities, fileID, relPath, EntityTypeFile, idx.projectID, now, now) {
+	if writeEntity(entities, seenEntities, fileID, relPath, EntityTypeFile, idx.projectID, now) {
 		stats.EntitiesCreated++
 	}
 
@@ -148,7 +148,7 @@ func (idx *Indexer) processAsmFile(
 			}
 			if mname != "" && asmIsSignificant(mname) {
 				eid := fmt.Sprintf("function:%s:%s", relPath, mname)
-				if writeEntity(entities, seenEntities, eid, mname, EntityTypeFunction, idx.projectID, now, now) {
+				if writeEntity(entities, seenEntities, eid, mname, EntityTypeFunction, idx.projectID, now) {
 					stats.EntitiesCreated++
 				}
 				*relations = append(*relations, relationRecord{FromID: fileID, ToID: eid, Type: RelContains})
@@ -160,7 +160,7 @@ func (idx *Indexer) processAsmFile(
 			// Constant definition: label is the symbol name
 			if label != "" && asmIsSignificant(label) {
 				eid := fmt.Sprintf("type:%s:%s", relPath, label)
-				if writeEntity(entities, seenEntities, eid, label, EntityTypeType, idx.projectID, now, now) {
+				if writeEntity(entities, seenEntities, eid, label, EntityTypeType, idx.projectID, now) {
 					stats.EntitiesCreated++
 				}
 				*relations = append(*relations, relationRecord{FromID: fileID, ToID: eid, Type: RelContains})
@@ -176,7 +176,7 @@ func (idx *Indexer) processAsmFile(
 			path = strings.Trim(path, `"'<>`)
 			if path != "" {
 				importID := fmt.Sprintf("import:%s", path)
-				if writeEntity(entities, seenEntities, importID, path, EntityTypeImport, idx.projectID, now, now) {
+				if writeEntity(entities, seenEntities, importID, path, EntityTypeImport, idx.projectID, now) {
 					stats.EntitiesCreated++
 				}
 				*relations = append(*relations, relationRecord{FromID: fileID, ToID: importID, Type: RelImports})
@@ -187,7 +187,7 @@ func (idx *Indexer) processAsmFile(
 			// General label (entry point / subroutine / data symbol)
 			if label != "" && asmIsSignificant(label) {
 				eid := fmt.Sprintf("function:%s:%s", relPath, label)
-				if writeEntity(entities, seenEntities, eid, label, EntityTypeFunction, idx.projectID, now, now) {
+				if writeEntity(entities, seenEntities, eid, label, EntityTypeFunction, idx.projectID, now) {
 					stats.EntitiesCreated++
 				}
 				*relations = append(*relations, relationRecord{FromID: fileID, ToID: eid, Type: RelContains})

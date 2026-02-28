@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
+
 	"github.com/cortexa-llc/ai-pack/internal/knowledge"
+	"github.com/spf13/cobra"
 )
 
 var searchCmd = &cobra.Command{
@@ -11,12 +12,14 @@ var searchCmd = &cobra.Command{
 	Short: "Search the knowledge graph",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		query := args[0]
-		store, err := knowledge.OpenStore(".ai/knowledge.db")
+		store, projectID, err := openStore()
 		if err != nil {
-			return fmt.Errorf("open store: %w", err)
+			return err
 		}
-		results, err := store.HybridSearch("", query, nil, knowledge.DefaultSearchConfig())
+		defer store.Close()
+
+		query := args[0]
+		results, err := store.HybridSearch(projectID, query, nil, knowledge.DefaultSearchConfig())
 		if err != nil {
 			return err
 		}

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	gitignore "github.com/sabhiram/go-gitignore"
 )
@@ -53,8 +54,8 @@ type entityRecord struct {
 	Name      string
 	Type      string
 	ProjectID string
-	CreatedAt string
-	UpdatedAt string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // relationRecord holds relation data before batch insert
@@ -264,8 +265,9 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 	return stats, nil
 }
 
-// writeEntity appends an entity to the slice if not already seen
-func writeEntity(entities *[]entityRecord, seen map[string]bool, id, name, typ, projectID, createdAt, updatedAt string) bool {
+// writeEntity appends an entity to the slice if not already seen.
+// ts is the timestamp to use for both created_at and updated_at.
+func writeEntity(entities *[]entityRecord, seen map[string]bool, id, name, typ, projectID string, ts time.Time) bool {
 	if seen[id] {
 		return false
 	}
@@ -275,8 +277,8 @@ func writeEntity(entities *[]entityRecord, seen map[string]bool, id, name, typ, 
 		Name:      name,
 		Type:      typ,
 		ProjectID: projectID,
-		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
+		CreatedAt: ts,
+		UpdatedAt: ts,
 	})
 	return true
 }
@@ -320,7 +322,8 @@ func (idx *Indexer) createEntityBatch(batch []entityRecord) error {
 			"updated_at": ent.UpdatedAt,
 		})
 		if err != nil {
-			// Log but continue — duplicate or constraint violation
+			// Continue on duplicate key; log unexpected errors
+			fmt.Printf("Warning: insert entity %s: %v\n", ent.ID, err)
 			continue
 		}
 		result.Close()

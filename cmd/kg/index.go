@@ -3,11 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/cortexa-llc/ai-pack/internal/knowledge"
+	"github.com/spf13/cobra"
 )
 
 var indexCmd = &cobra.Command{
@@ -18,16 +17,20 @@ var indexCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		store, err := knowledge.OpenStore(".ai/knowledge.db")
+		root := findProjectRoot(cwd)
+		dbPath := root + "/.ai/knowledge.db"
+		store, err := knowledge.OpenStore(dbPath)
 		if err != nil {
 			return fmt.Errorf("open Kuzu store: %w", err)
 		}
-		projectID := filepath.Base(cwd)
-		indexer, err := knowledge.NewIndexer(store, projectID, cwd)
+		defer store.Close()
+
+		projectID := projectIDFromCwd(cwd)
+		indexer, err := knowledge.NewIndexer(store, projectID, root)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("🔍 Indexing codebase at %s...\n", cwd)
+		fmt.Printf("🔍 Indexing codebase at %s...\n", root)
 		start := time.Now()
 		stats, err := indexer.Index()
 		if err != nil {
