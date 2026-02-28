@@ -1,30 +1,35 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"github.com/cortexa-llc/ai-pack/internal/knowledge"
 	"os"
+
+	"github.com/cortexa-llc/ai-pack/internal/knowledge"
 )
 
 func handleServer(args []string) {
-	fs := flag.NewFlagSet("server", flag.ExitOnError)
-	useStdio := fs.Bool("stdio", false, "Serve over stdio (MCP mode)")
-	projectID := fs.String("project", "default", "Project ID (default: 'default')")
-	_ = fs.Parse(args)
-	if *useStdio {
-		store, err := knowledge.OpenStore(".ai/knowledge.db")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "kg server: could not open store: %v\n", err)
-			os.Exit(1)
+	// Parse --stdio flag (all other flags obsolete now that project root is auto-detected)
+	useStdio := false
+	for _, a := range args {
+		if a == "--stdio" {
+			useStdio = true
 		}
-		err = knowledge.RunMCPServer(store, *projectID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "kg server: MCP server error: %v\n", err)
-			os.Exit(2)
-		}
-		return
 	}
-	fmt.Println("kg server: --stdio flag required (MCP mode)")
-	os.Exit(1)
+
+	if !useStdio {
+		fmt.Fprintln(os.Stderr, "kg server: --stdio flag required (MCP mode)")
+		os.Exit(1)
+	}
+
+	store, projectID, err := openStore()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "kg server: %v\n", err)
+		os.Exit(1)
+	}
+	defer store.Close()
+
+	if err := knowledge.RunMCPServer(store, projectID); err != nil {
+		fmt.Fprintf(os.Stderr, "kg server: MCP server error: %v\n", err)
+		os.Exit(2)
+	}
 }

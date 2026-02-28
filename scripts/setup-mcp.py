@@ -3,19 +3,18 @@
 setup-mcp.py — Register AI-Pack MCP servers in Claude Code settings.
 
 Usage:
-    python3 scripts/setup-mcp.py [--global] [--project-id NAME] [--dry-run]
+    python3 scripts/setup-mcp.py [--local] [--dry-run]
 
 Flags:
-    --global        Write to ~/.claude/settings.json (affects all projects).
-                    Default: write to .claude/settings.local.json in the
-                    current project (recommended — keeps config project-local
-                    and out of version control).
-    --project-id    Override the project ID used by kg (default: basename of cwd).
+    --local         Write to .claude/settings.local.json in the current project
+                    instead of the global ~/.claude/settings.json.
     --dry-run       Print what would be written without modifying any files.
 
 MCP servers registered:
-    kg   kg server --stdio --project <project-id>
-         Knowledge graph search and query for the current codebase.
+    kg   kg server --stdio
+         Knowledge graph search/query. Project root and ID are auto-detected
+         from the working directory when the server starts (no --project flag
+         needed — handled by kg's built-in project root detection).
 """
 
 import argparse
@@ -45,10 +44,10 @@ def save_json(path: Path, data: dict, dry_run: bool) -> None:
         print(f"✅ Written: {path}")
 
 
-def build_kg_entry(project_id: str) -> dict:
+def build_kg_entry() -> dict:
     return {
         "command": "kg",
-        "args": ["server", "--stdio", "--project", project_id],
+        "args": ["server", "--stdio"],
     }
 
 
@@ -67,27 +66,23 @@ def claude_settings_dir() -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--global", dest="write_global", action="store_true",
-                        help="Write to the global Claude settings instead of project-local")
-    parser.add_argument("--project-id", default=None,
-                        help="Project ID for kg (default: basename of current directory)")
+    parser.add_argument("--local", dest="write_local", action="store_true",
+                        help="Write to the project-local .claude/settings.local.json instead of global")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print changes without writing")
     args = parser.parse_args()
 
     cwd = Path(os.getcwd())
-    project_id = args.project_id or cwd.name
 
-    if args.write_global:
-        settings_path = claude_settings_dir() / "settings.json"
-        scope = "global"
-    else:
+    if args.write_local:
         settings_path = cwd / ".claude" / "settings.local.json"
         scope = "project-local"
+    else:
+        settings_path = claude_settings_dir() / "settings.json"
+        scope = "global"
 
     print(f"AI-Pack MCP Setup")
     print(f"  Settings file : {settings_path} ({scope})")
-    print(f"  Project ID    : {project_id}")
     print()
 
     settings = load_json(settings_path)
@@ -97,7 +92,7 @@ def main() -> None:
     updated = []
 
     # kg MCP server
-    new_kg = build_kg_entry(project_id)
+    new_kg = build_kg_entry()
     if "kg" not in servers:
         servers["kg"] = new_kg
         added.append("kg")

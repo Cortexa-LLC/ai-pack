@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	kuzu "github.com/kuzudb/go-kuzu"
@@ -35,6 +36,11 @@ func OpenStore(dbPath string) (*Store, error) {
 	// Open database
 	db, err := kuzu.OpenDatabase(dbPath, kuzu.DefaultSystemConfig())
 	if err != nil {
+		// "status 1" is Kuzu's lock-acquisition failure — give a human-readable hint
+		if strings.Contains(err.Error(), "status 1") {
+			return nil, fmt.Errorf("knowledge graph database is locked by another process "+
+				"(is `kg index` running?): %w", err)
+		}
 		return nil, fmt.Errorf("open kuzu database: %w", err)
 	}
 
