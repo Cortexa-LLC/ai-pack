@@ -19,7 +19,6 @@ package knowledge
 
 import (
 	"context"
-	"encoding/csv"
 	"fmt"
 	"os"
 	"strings"
@@ -51,7 +50,7 @@ var yamlNameKeys = map[string]bool{
 //   - Values of yamlNameKeys at any depth as "type" entities
 func (idx *Indexer) processYAMLFile(
 	absPath, relPath string,
-	entityWriter *csv.Writer,
+	entities *[]entityRecord,
 	seenEntities map[string]bool,
 	relations *[]relationRecord,
 	stats *IndexStats,
@@ -76,7 +75,7 @@ func (idx *Indexer) processYAMLFile(
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	fileID := fmt.Sprintf("file:%s", relPath)
-	if writeEntity(entityWriter, seenEntities, fileID, relPath, EntityTypeFile, idx.projectID, now, now) {
+	if writeEntity(entities, seenEntities, fileID, relPath, EntityTypeFile, idx.projectID, now, now) {
 		stats.EntitiesCreated++
 	}
 
@@ -85,7 +84,7 @@ func (idx *Indexer) processYAMLFile(
 			return
 		}
 		eid := fmt.Sprintf("type:%s:%s", relPath, name)
-		if writeEntity(entityWriter, seenEntities, eid, name, EntityTypeType, idx.projectID, now, now) {
+		if writeEntity(entities, seenEntities, eid, name, EntityTypeType, idx.projectID, now, now) {
 			stats.EntitiesCreated++
 		}
 		*relations = append(*relations, relationRecord{FromID: fileID, ToID: eid, Type: RelContains})
