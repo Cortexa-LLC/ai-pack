@@ -78,7 +78,7 @@ func WriteBack(
 
 	// 1. Create the entity
 	var entity knowledge.Entity
-	err := mcpManager.CallToolInto(wbCtx, "add_entity", map[string]interface{}{
+	err := mcpManager.CallToolIntoForProject(wbCtx, projectRoot, "add_entity", map[string]interface{}{
 		"name": entityName,
 		"type": "task_outcome",
 	}, &entity)
@@ -103,7 +103,7 @@ func WriteBack(
 	// 2. Build observations
 	observations := buildObservations(role, taskDescription, fullOutput, startTime, now)
 	for _, obs := range observations {
-		if err := mcpManager.CallToolInto(wbCtx, "add_observation", map[string]interface{}{
+		if err := mcpManager.CallToolIntoForProject(wbCtx, projectRoot, "add_observation", map[string]interface{}{
 			"entity_id": entityID,
 			"content":   obs,
 		}, nil); err != nil {

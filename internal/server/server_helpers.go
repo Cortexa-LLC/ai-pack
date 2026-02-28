@@ -242,7 +242,9 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 	// Register task and project root
 	s.mu.Lock()
 	s.activeTasks[taskID] = execution
+	isNewProject := false
 	if projectRoot != "" && projectRoot != s.rootDir {
+		isNewProject = true
 		s.projectRoots[projectRoot] = time.Now()
 		s.mu.Unlock()
 		// Persist project registry
@@ -251,6 +253,12 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		}
 	} else {
 		s.mu.Unlock()
+	}
+
+	// Start KG server for newly registered projects now (not lazily in executeAgentWorkflow)
+	// so it warms up while the task waits in queue.
+	if isNewProject {
+		go s.ensureKGForProject(projectRoot)
 	}
 
 	// Queue for execution using a non-blocking send. If the buffered channel is

@@ -443,6 +443,9 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskExecution, prompt, roleContext, workingDir string, logMsg func(string)) (string, error) {
 	s.sendStreamEvent(execution, "api_call_start", map[string]interface{}{})
 
+	// Lazy safety net: ensure the KG server is running for this project's root.
+	s.ensureKGForProject(execution.ProjectRoot)
+
 	// Pre-flight: inject knowledge-graph context into system prompt (best-effort, 2 s timeout).
 	systemPrompt := s.buildSystemPromptForProject(roleContext, execution.ProjectRoot)
 	if kgBlock := kgclient.PreflightContext(ctx, s.mcpManager, execution.Task, execution.ProjectRoot); kgBlock != "" {

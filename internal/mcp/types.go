@@ -5,6 +5,7 @@ type ServerConfig struct {
 	Command string            `json:"command"`
 	Args    []string          `json:"args"`
 	Env     map[string]string `json:"env,omitempty"`
+	Dir     string            `json:"dir,omitempty"` // working directory for subprocess; defaults to process CWD
 }
 
 // Tool represents an MCP tool definition
