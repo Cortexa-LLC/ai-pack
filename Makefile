@@ -99,11 +99,11 @@ install-kg: build-kg ## Install kg binary to /usr/local/bin
 	@install -m 755 bin/kg /usr/local/bin/kg
 	@echo "✅ kg installed to /usr/local/bin"
 
-setup-mcp: ## Register AI-Pack MCP servers in Claude Code (.claude/settings.local.json)
+setup-mcp: ## Register AI-Pack MCP servers globally (~/.claude/settings.json)
 	@python3 scripts/setup-mcp.py
 
-setup-mcp-global: ## Register AI-Pack MCP servers globally (~/.claude/settings.json)
-	@python3 scripts/setup-mcp.py --global
+setup-mcp-local: ## Register AI-Pack MCP servers in project-local .claude/settings.local.json
+	@python3 scripts/setup-mcp.py --local
 
 uninstall: uninstall-agent uninstall-kg ## Uninstall all binaries from /usr/local/bin (run with: sudo make uninstall)
 
