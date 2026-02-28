@@ -10,7 +10,7 @@ import (
 
 // PreflightContext calls the knowledge MCP server's get_preflight_context tool.
 // Returns the markdown block (may be empty if tool returns no relevant context, or on error).
-func PreflightContext(ctx context.Context, mcpManager *mcp.Manager, taskDescription string, projectID string) string {
+func PreflightContext(ctx context.Context, mcpManager *mcp.Manager, taskDescription string, projectRoot string) string {
 	if mcpManager == nil {
 		monitoring.Logger.Info("preflight_skipped", "reason", "no MCP manager defined")
 		return ""
@@ -20,7 +20,7 @@ func PreflightContext(ctx context.Context, mcpManager *mcp.Manager, taskDescript
 	params := map[string]interface{}{
 		"task": taskDescription,
 	}
-	result, err := mcpManager.CallTool(callCtx, "get_preflight_context", params)
+	result, err := mcpManager.CallToolForProject(callCtx, projectRoot, "get_preflight_context", params)
 	if err != nil {
 		monitoring.Logger.Info("preflight_skipped", "reason", err.Error())
 		return ""

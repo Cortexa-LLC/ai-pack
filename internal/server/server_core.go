@@ -498,6 +498,9 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		monitoring.Logger.Info("mcp_integration_disabled")
 	}
 
+	// Start KG server for the server root directory
+	server.ensureKGForProject(rootDir)
+
 	// Start worker pool
 	go server.startWorkerPool()
 
@@ -554,18 +557,27 @@ func (s *AgentServer) loadProjectRoots() error {
 		return nil
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	var loadedPaths []string
 
+	s.mu.Lock()
 	for path, lastAccessedStr := range s.config.Projects {
 		lastAccessed, err := time.Parse(time.RFC3339, lastAccessedStr)
 		if err != nil {
 			continue // Skip invalid entries
 		}
 		s.projectRoots[path] = lastAccessed
+		loadedPaths = append(loadedPaths, path)
+	}
+	s.mu.Unlock()
+
+	monitoring.Logger.Info("project_registry_loaded", "count", len(loadedPaths))
+
+	// Start KG servers for all known project roots (outside lock to avoid holding
+	// s.mu while spawning subprocesses).
+	for _, path := range loadedPaths {
+		s.ensureKGForProject(path)
 	}
 
-	monitoring.Logger.Info("project_registry_loaded", "count", len(s.projectRoots))
 	return nil
 }
 
@@ -914,6 +926,24 @@ func (s *AgentServer) archiveTask(projectRoot string, task *beads.Task) error {
 		"archive_path", destDir)
 
 	return nil
+}
+
+// ensureKGForProject starts a KG MCP server for the given project root if one
+// is not already running. It is idempotent and safe to call concurrently.
+func (s *AgentServer) ensureKGForProject(projectRoot string) {
+	if s.mcpManager == nil {
+		return
+	}
+	cfg := mcp.ServerConfig{
+		Command: "kg",
+		Args:    []string{"server", "--stdio"},
+		Dir:     projectRoot,
+	}
+	if err := s.mcpManager.EnsureProjectServer(context.Background(), projectRoot, cfg); err != nil {
+		monitoring.Logger.Warn("kg_server_start_failed", "project", projectRoot, "err", err.Error())
+	} else {
+		monitoring.Logger.Info("kg_server_ready", "project", projectRoot)
+	}
 }
 
 func (s *AgentServer) GetActiveTaskCount() int {

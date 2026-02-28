@@ -61,6 +61,11 @@ func (c *Client) Start(ctx context.Context) error {
 		c.cmd.Env = append(c.cmd.Env, fmt.Sprintf("%s=%s", key, value))
 	}
 
+	// Set working directory if specified
+	if c.config.Dir != "" {
+		c.cmd.Dir = c.config.Dir
+	}
+
 	// Set up pipes
 	stdin, err := c.cmd.StdinPipe()
 	if err != nil {
