@@ -24,10 +24,12 @@ func RunMCPServer(dbPath, projectID, projectRoot string) error {
 		for k, typ := range props {
 			properties[k] = map[string]string{"type": typ}
 		}
+		req := make([]string, len(required))
+		copy(req, required)
 		return map[string]interface{}{
 			"type":       "object",
 			"properties": properties,
-			"required":   required,
+			"required":   req,
 		}
 	}
 

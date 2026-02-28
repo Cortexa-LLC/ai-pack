@@ -16,7 +16,7 @@ MCP servers registered:
          from the working directory when the server starts.
 
 Targets updated:
-    1. ~/.claude/settings.json (or .claude/settings.local.json with --local)
+    1. ~/.claude.json (or .claude/settings.local.json with --local)
        → mcpServers.kg  for interactive Claude Code sessions
     2. ~/.claude/agent-server.json
        → mcp.servers.kg + mcp.enabled_servers  for agent sessions
@@ -56,12 +56,21 @@ def build_kg_entry() -> dict:
     }
 
 
-def claude_settings_dir() -> Path:
-    """Return the platform-appropriate Claude Code settings directory.
+def claude_global_config_path() -> Path:
+    """Return the path to Claude Code's global config file.
 
-    - macOS / Linux:  ~/.claude/
-    - Windows:        %APPDATA%\\Claude\\  (Claude stores settings in AppData)
+    - macOS / Linux:  ~/.claude.json
+    - Windows:        %APPDATA%\\Claude\\claude.json
     """
+    if sys.platform == "win32":
+        appdata = os.environ.get("APPDATA", "")
+        if appdata:
+            return Path(appdata) / "Claude" / "claude.json"
+    return Path.home() / ".claude.json"
+
+
+def claude_settings_dir() -> Path:
+    """Return the platform-appropriate Claude Code settings directory (for local settings)."""
     if sys.platform == "win32":
         appdata = os.environ.get("APPDATA", "")
         if appdata:
@@ -70,7 +79,7 @@ def claude_settings_dir() -> Path:
 
 
 def configure_claude_settings(settings_path: Path, dry_run: bool) -> None:
-    """Update mcpServers in a Claude Code settings.json."""
+    """Update mcpServers in a Claude Code config file."""
     settings = load_json(settings_path)
     servers = settings.setdefault("mcpServers", {})
     new_kg = build_kg_entry()
@@ -139,7 +148,7 @@ def main() -> None:
     if args.write_local:
         settings_path = cwd / ".claude" / "settings.local.json"
     else:
-        settings_path = claude_settings_dir() / "settings.json"
+        settings_path = claude_global_config_path()
     configure_claude_settings(settings_path, args.dry_run)
 
     # 2. Agent-server config (agent sessions)

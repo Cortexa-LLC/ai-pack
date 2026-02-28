@@ -102,8 +102,20 @@ func (s *Server) Serve() error {
 				})
 				continue
 			}
+			var text string
+			switch v := resp.(type) {
+			case string:
+				text = v
+			default:
+				b, merr := json.Marshal(v)
+				if merr != nil {
+					text = fmt.Sprintf("%v", v)
+				} else {
+					text = string(b)
+				}
+			}
 			s.sendResult(req.ID, CallToolResult{
-				Content: []ContentBlock{{Type: "text", Text: fmt.Sprintf("%v", resp)}},
+				Content: []ContentBlock{{Type: "text", Text: text}},
 			})
 
 		default:
