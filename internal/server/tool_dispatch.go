@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cortexa-llc/ai-pack/internal/tools"
-
+	"github.com/cortexa-llc/ai-pack/internal/mcp"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/internal/streaming"
+	"github.com/cortexa-llc/ai-pack/internal/tools"
 )
 
 func toolParamPreview(toolName string, input map[string]interface{}) string {
@@ -60,30 +60,47 @@ func toolParamPreview(toolName string, input map[string]interface{}) string {
 // extractContractSections pulls the meaningful sections out of a 00-contract.md file,
 // skipping empty boilerplate placeholders ([Requirement X], [Assumption X], etc.).
 
-func (s *AgentServer) executeTool(ctx context.Context, toolName string, toolInput map[string]interface{}, workingDir string) (string, error) {
-	// Check if this is an MCP tool
+func (s *AgentServer) executeTool(ctx context.Context, toolName string, toolInput map[string]interface{}, workingDir string, projectRoot string) (string, error) {
 	if s.mcpManager != nil {
-		mcpTools := s.mcpManager.GetAllTools()
-		for _, serverTools := range mcpTools {
-			for _, tool := range serverTools {
-				if tool.Name == toolName {
-					// This is an MCP tool
-					result, err := s.mcpManager.CallTool(ctx, toolName, toolInput)
-					if err != nil {
-						return "", fmt.Errorf("MCP tool error: %w", err)
-					}
-
-					// Convert MCP result to string
-					var resultText strings.Builder
-					for _, block := range result.Content {
-						if block.Type == "text" {
-							resultText.WriteString(block.Text)
-						}
-					}
-
-					return resultText.String(), nil
+		// Determine if this is an MCP tool by checking project client first, then named clients.
+		isProjectTool := false
+		if projectRoot != "" {
+			for _, t := range s.mcpManager.GetProjectTools(projectRoot) {
+				if t.Name == toolName {
+					isProjectTool = true
+					break
 				}
 			}
+		}
+
+		isNamedTool := false
+		if !isProjectTool {
+			for _, serverTools := range s.mcpManager.GetAllTools() {
+				for _, t := range serverTools {
+					if t.Name == toolName {
+						isNamedTool = true
+						break
+					}
+				}
+				if isNamedTool {
+					break
+				}
+			}
+		}
+
+		if isProjectTool || isNamedTool {
+			// Route via CallToolForProject: tries project client first, falls back to named clients.
+			result, err := s.mcpManager.CallToolForProject(ctx, projectRoot, toolName, toolInput)
+			if err != nil {
+				return "", fmt.Errorf("MCP tool error: %w", err)
+			}
+			var resultText strings.Builder
+			for _, block := range result.Content {
+				if block.Type == "text" {
+					resultText.WriteString(block.Text)
+				}
+			}
+			return resultText.String(), nil
 		}
 	}
 
@@ -114,95 +131,86 @@ func cleanSchemaProperties(properties map[string]interface{}) map[string]interfa
 	return cleaned
 }
 
+// buildMCPStreamTool converts an mcp.Tool to a streaming.Tool, cleaning the schema.
+func buildMCPStreamTool(tool mcp.Tool, serverName string) streaming.Tool {
+	var properties map[string]interface{}
+	var required []string
+
+	if props, ok := tool.InputSchema["properties"].(map[string]interface{}); ok {
+		properties = props
+		if req, ok := tool.InputSchema["required"].([]interface{}); ok {
+			for _, r := range req {
+				if rStr, ok := r.(string); ok {
+					required = append(required, rStr)
+				}
+			}
+		}
+	} else {
+		properties = make(map[string]interface{})
+		for key, value := range tool.InputSchema {
+			if key != "$schema" && key != "type" && key != "required" && key != "additionalProperties" {
+				properties[key] = value
+			}
+		}
+		if req, ok := tool.InputSchema["required"].([]interface{}); ok {
+			for _, r := range req {
+				if rStr, ok := r.(string); ok {
+					required = append(required, rStr)
+				}
+			}
+		}
+	}
+
+	cleanedProperties := cleanSchemaProperties(properties)
+	schema := map[string]interface{}{
+		"type":       "object",
+		"properties": cleanedProperties,
+	}
+	if len(required) > 0 {
+		schema["required"] = required
+	}
+
+	monitoring.Logger.Debug("mcp_tool_registered", "server", serverName, "tool", tool.Name)
+	return streaming.Tool{
+		Name:        tool.Name,
+		Description: tool.Description,
+		InputSchema: schema,
+	}
+}
+
 // getAllTools returns all available tools in provider-agnostic format.
-// Includes native tools and any tools registered via MCP servers.
-func (s *AgentServer) getAllTools() []streaming.Tool {
+// Includes native tools, named MCP server tools, and project-specific KG tools.
+// Project tools (KG) are included once, deduplicated against named-client tools.
+func (s *AgentServer) getAllTools(projectRoot string) []streaming.Tool {
 	// Start with native tools (already in streaming.Tool format)
 	toolList := tools.DefineTools()
 
-	// Add MCP tools if manager is initialized
+	// Track tool names already added to prevent duplicates
+	seen := make(map[string]bool)
+	for _, t := range toolList {
+		seen[t.Name] = true
+	}
+
 	if s.mcpManager != nil {
+		// Add project-specific KG tools first (highest priority for dedup)
+		if projectRoot != "" {
+			for _, tool := range s.mcpManager.GetProjectTools(projectRoot) {
+				if !seen[tool.Name] {
+					toolList = append(toolList, buildMCPStreamTool(tool, "kg:"+projectRoot))
+					seen[tool.Name] = true
+				}
+			}
+		}
+
+		// Add named client tools
 		mcpTools := s.mcpManager.GetAllTools()
 
 		for serverName, serverTools := range mcpTools {
 			for _, tool := range serverTools {
-				// MCP InputSchema structure varies:
-				// - Some have {"properties": {...}, "required": [...]}
-				// - Others have properties directly at root: {"param1": {...}, "param2": {...}}
-
-				var properties map[string]interface{}
-				var required []string
-
-				// Check if schema has explicit "properties" field (JSON Schema standard format)
-				if props, ok := tool.InputSchema["properties"].(map[string]interface{}); ok {
-					properties = props
-
-					// Extract required array if present
-					if req, ok := tool.InputSchema["required"].([]interface{}); ok {
-						for _, r := range req {
-							if rStr, ok := r.(string); ok {
-								required = append(required, rStr)
-							}
-						}
-					}
-				} else {
-					// No "properties" field - MCP schema has properties at root level
-					// Treat entire InputSchema as properties, excluding meta fields
-					properties = make(map[string]interface{})
-					for key, value := range tool.InputSchema {
-						// Skip meta fields - only keep actual parameter definitions
-						if key != "$schema" && key != "type" && key != "required" && key != "additionalProperties" {
-							properties[key] = value
-						}
-					}
-
-					// Extract required array if present at root
-					if req, ok := tool.InputSchema["required"].([]interface{}); ok {
-						for _, r := range req {
-							if rStr, ok := r.(string); ok {
-								required = append(required, rStr)
-							}
-						}
-					}
+				if !seen[tool.Name] {
+					toolList = append(toolList, buildMCPStreamTool(tool, serverName))
+					seen[tool.Name] = true
 				}
-
-				// Clean properties recursively - remove $schema, additionalProperties, etc.
-				cleanedProperties := cleanSchemaProperties(properties)
-
-				// Debug log the cleaned schema
-				if schemaJSON, err := json.MarshalIndent(cleanedProperties, "", "  "); err == nil {
-					monitoring.Logger.Debug("mcp_tool_schema_cleaned",
-						"tool", tool.Name,
-						"schema", string(schemaJSON))
-				}
-
-				// Build provider-agnostic streaming.Tool with a complete JSON Schema
-				schema := map[string]interface{}{
-					"type":       "object",
-					"properties": cleanedProperties,
-				}
-				if len(required) > 0 {
-					schema["required"] = required
-				}
-
-				streamTool := streaming.Tool{
-					Name:        tool.Name,
-					Description: tool.Description,
-					InputSchema: schema,
-				}
-
-				// Debug log the final schema
-				if finalSchemaJSON, err := json.MarshalIndent(schema, "", "  "); err == nil {
-					monitoring.Logger.Debug("mcp_tool_final_schema",
-						"tool", tool.Name,
-						"final_schema", string(finalSchemaJSON))
-				}
-
-				toolList = append(toolList, streamTool)
-
-				monitoring.Logger.Debug("mcp_tool_registered",
-					"server", serverName,
-					"tool", tool.Name)
 			}
 		}
 	}

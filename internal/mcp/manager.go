@@ -85,7 +85,7 @@ func (m *Manager) GetClient(name string) (*Client, error) {
 	return client, nil
 }
 
-// GetAllTools returns all tools from all connected MCP servers
+// GetAllTools returns all tools from all connected named MCP servers
 func (m *Manager) GetAllTools() map[string][]Tool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -96,6 +96,19 @@ func (m *Manager) GetAllTools() map[string][]Tool {
 	}
 
 	return result
+}
+
+// GetProjectTools returns tools from the project-specific KG client for projectRoot.
+// Returns nil if no client has been started for that root yet.
+func (m *Manager) GetProjectTools(projectRoot string) []Tool {
+	m.projectMu.RLock()
+	defer m.projectMu.RUnlock()
+
+	client, ok := m.projectClients[projectRoot]
+	if !ok {
+		return nil
+	}
+	return client.GetTools()
 }
 
 // findClientWithTool returns the first named client that has the given tool.

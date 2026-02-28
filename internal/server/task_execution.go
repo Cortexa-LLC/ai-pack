@@ -18,7 +18,7 @@ import (
 
 func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, role string, initialPrompt string, roleContext string, workingDir string, projectRoot string, config *AgentConfig, logMsg func(string)) (string, error) {
 	// Define tools (native + MCP tools) in provider-agnostic format
-	toolDefs := s.getAllTools()
+	toolDefs := s.getAllTools(projectRoot)
 
 	// roleContext already has the shared policy prepended by the caller
 	systemPrompt := roleContext
@@ -322,7 +322,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		// TaskComplete is intercepted here — other tools run normally first,
 		// then if TaskComplete was called the loop exits with the summary.
 		totalToolCalls += len(toolUses)
-		turnResult := s.processOneTurn(ctx, toolUses, workingDir, logMsg)
+		turnResult := s.processOneTurn(ctx, toolUses, workingDir, projectRoot, logMsg)
 		toolResults := turnResult.ToolResults
 		completionSummary := turnResult.CompletionSummary
 
