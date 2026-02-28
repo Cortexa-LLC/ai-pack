@@ -2,7 +2,6 @@ package knowledge
 
 import (
 	"context"
-	"encoding/csv"
 	"fmt"
 	"os"
 	"slices"
@@ -404,7 +403,7 @@ func init() {
 func (idx *Indexer) processWithTreeSitter(
 	absPath, relPath string,
 	cfg langConfig,
-	entityWriter *csv.Writer,
+	entities *[]entityRecord,
 	seenEntities map[string]bool,
 	relations *[]relationRecord,
 	stats *IndexStats,
@@ -430,11 +429,11 @@ func (idx *Indexer) processWithTreeSitter(
 
 	// Create file entity
 	fileID := fmt.Sprintf("file:%s", relPath)
-	if writeEntity(entityWriter, seenEntities, fileID, relPath, EntityTypeFile, idx.projectID, now, now) {
+	if writeEntity(entities, seenEntities, fileID, relPath, EntityTypeFile, idx.projectID, now, now) {
 		stats.EntitiesCreated++
 	}
 
-	idx.walkNode(tree.RootNode(), src, fileID, relPath, cfg, entityWriter, seenEntities, relations, stats, now)
+	idx.walkNode(tree.RootNode(), src, fileID, relPath, cfg, entities, seenEntities, relations, stats, now)
 	return nil
 }
 
@@ -445,7 +444,7 @@ func (idx *Indexer) walkNode(
 	src []byte,
 	fileID, relPath string,
 	cfg langConfig,
-	entityWriter *csv.Writer,
+	entities *[]entityRecord,
 	seenEntities map[string]bool,
 	relations *[]relationRecord,
 	stats *IndexStats,
@@ -461,7 +460,7 @@ func (idx *Indexer) walkNode(
 			if child.Type() == "package_identifier" {
 				pkgName := child.Content(src)
 				pkgID := fmt.Sprintf("package:%s", pkgName)
-				if writeEntity(entityWriter, seenEntities, pkgID, pkgName, EntityTypePackage, idx.projectID, now, now) {
+				if writeEntity(entities, seenEntities, pkgID, pkgName, EntityTypePackage, idx.projectID, now, now) {
 					stats.EntitiesCreated++
 				}
 				*relations = append(*relations, relationRecord{FromID: fileID, ToID: pkgID, Type: RelBelongsTo})
@@ -484,7 +483,7 @@ func (idx *Indexer) walkNode(
 			break
 		}
 		funcID := fmt.Sprintf("function:%s:%s", relPath, name)
-		if writeEntity(entityWriter, seenEntities, funcID, name, EntityTypeFunction, idx.projectID, now, now) {
+		if writeEntity(entities, seenEntities, funcID, name, EntityTypeFunction, idx.projectID, now, now) {
 			stats.EntitiesCreated++
 		}
 		*relations = append(*relations, relationRecord{FromID: fileID, ToID: funcID, Type: RelContains})
@@ -504,7 +503,7 @@ func (idx *Indexer) walkNode(
 			break
 		}
 		typeID := fmt.Sprintf("type:%s:%s", relPath, name)
-		if writeEntity(entityWriter, seenEntities, typeID, name, EntityTypeType, idx.projectID, now, now) {
+		if writeEntity(entities, seenEntities, typeID, name, EntityTypeType, idx.projectID, now, now) {
 			stats.EntitiesCreated++
 		}
 		*relations = append(*relations, relationRecord{FromID: fileID, ToID: typeID, Type: RelContains})
@@ -518,7 +517,7 @@ func (idx *Indexer) walkNode(
 					continue
 				}
 				importID := fmt.Sprintf("import:%s", importPath)
-				if writeEntity(entityWriter, seenEntities, importID, importPath, EntityTypeImport, idx.projectID, now, now) {
+				if writeEntity(entities, seenEntities, importID, importPath, EntityTypeImport, idx.projectID, now, now) {
 					stats.EntitiesCreated++
 				}
 				*relations = append(*relations, relationRecord{FromID: fileID, ToID: importID, Type: RelImports})
@@ -530,7 +529,7 @@ func (idx *Indexer) walkNode(
 	// Recurse into children
 	for i := 0; i < int(node.ChildCount()); i++ {
 		if child := node.Child(i); child != nil {
-			idx.walkNode(child, src, fileID, relPath, cfg, entityWriter, seenEntities, relations, stats, now)
+			idx.walkNode(child, src, fileID, relPath, cfg, entities, seenEntities, relations, stats, now)
 		}
 	}
 }

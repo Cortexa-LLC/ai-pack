@@ -20,7 +20,6 @@ package knowledge
 
 import (
 	"context"
-	"encoding/csv"
 	"fmt"
 	"os"
 	"regexp"
@@ -62,7 +61,7 @@ var mermaidNodeRe = regexp.MustCompile(
 // mermaid diagram component entities into the shared CSV writers.
 func (idx *Indexer) processMarkdownFile(
 	absPath, relPath string,
-	entityWriter *csv.Writer,
+	entities *[]entityRecord,
 	seenEntities map[string]bool,
 	relations *[]relationRecord,
 	stats *IndexStats,
@@ -75,7 +74,7 @@ func (idx *Indexer) processMarkdownFile(
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	fileID := fmt.Sprintf("file:%s", relPath)
-	if writeEntity(entityWriter, seenEntities, fileID, relPath, EntityTypeFile, idx.projectID, now, now) {
+	if writeEntity(entities, seenEntities, fileID, relPath, EntityTypeFile, idx.projectID, now, now) {
 		stats.EntitiesCreated++
 	}
 
@@ -96,7 +95,7 @@ func (idx *Indexer) processMarkdownFile(
 				break
 			}
 			eid := fmt.Sprintf("topic:%s:%s", relPath, text)
-			if writeEntity(entityWriter, seenEntities, eid, text, EntityTypeTopic, idx.projectID, now, now) {
+			if writeEntity(entities, seenEntities, eid, text, EntityTypeTopic, idx.projectID, now, now) {
 				stats.EntitiesCreated++
 			}
 			*relations = append(*relations, relationRecord{FromID: fileID, ToID: eid, Type: RelContains})
@@ -109,7 +108,7 @@ func (idx *Indexer) processMarkdownFile(
 			}
 			for _, name := range extractMermaidEntities(content) {
 				eid := fmt.Sprintf("type:%s:%s", relPath, name)
-				if writeEntity(entityWriter, seenEntities, eid, name, EntityTypeType, idx.projectID, now, now) {
+				if writeEntity(entities, seenEntities, eid, name, EntityTypeType, idx.projectID, now, now) {
 					stats.EntitiesCreated++
 				}
 				*relations = append(*relations, relationRecord{FromID: fileID, ToID: eid, Type: RelContains})

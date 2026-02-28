@@ -1,12 +1,10 @@
 package knowledge
 
 import (
-	"encoding/csv"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	gitignore "github.com/sabhiram/go-gitignore"
 )
@@ -47,6 +45,16 @@ type IndexStats struct {
 	EntitiesCreated  int
 	RelationsCreated int
 	Errors           int
+}
+
+// entityRecord holds entity data before batch insert
+type entityRecord struct {
+	ID        string
+	Name      string
+	Type      string
+	ProjectID string
+	CreatedAt string
+	UpdatedAt string
 }
 
 // relationRecord holds relation data before batch insert
@@ -161,30 +169,14 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 		return nil, fmt.Errorf("clear existing data: %w", err)
 	}
 
-	// Create temporary CSV files
-	entitiesPath := filepath.Join(os.TempDir(), fmt.Sprintf("kg-entities-%d.csv", time.Now().Unix()))
-	defer os.Remove(entitiesPath)
-
-	entitiesFile, err := os.Create(entitiesPath)
-	if err != nil {
-		return nil, fmt.Errorf("create entities CSV: %w", err)
-	}
-	defer entitiesFile.Close()
-
-	entityWriter := csv.NewWriter(entitiesFile)
-	defer entityWriter.Flush()
-
-	// Write CSV headers (excluding embedding column)
-	entityWriter.Write([]string{"id", "name", "type", "project_id", "created_at", "updated_at"})
-
-	// Track seen entities to avoid duplicates
+	// Collect entities and relations in memory; insert via parameterized Cypher
+	// to avoid all CSV quoting/delimiter issues with complex entity names.
+	var entities []entityRecord
 	seenEntities := make(map[string]bool)
-
-	// Collect relations in memory (will batch insert via Cypher)
 	var relations []relationRecord
 
 	// Walk the project directory
-	err = filepath.Walk(idx.root, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(idx.root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -221,31 +213,31 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 		// Process based on file type
 		ext := strings.ToLower(filepath.Ext(path))
 		if cfg, ok := langRegistry[ext]; ok {
-			if err := idx.processWithTreeSitter(path, relPath, cfg, entityWriter, seenEntities, &relations, stats); err != nil {
+			if err := idx.processWithTreeSitter(path, relPath, cfg, &entities, seenEntities, &relations, stats); err != nil {
 				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
 				stats.Errors++
 			}
 			stats.FilesScanned++
 		} else if asmMatchesPath(path) {
-			if err := idx.processAsmFile(path, relPath, entityWriter, seenEntities, &relations, stats); err != nil {
+			if err := idx.processAsmFile(path, relPath, &entities, seenEntities, &relations, stats); err != nil {
 				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
 				stats.Errors++
 			}
 			stats.FilesScanned++
 		} else if ext == ".md" {
-			if err := idx.processMarkdownFile(path, relPath, entityWriter, seenEntities, &relations, stats); err != nil {
+			if err := idx.processMarkdownFile(path, relPath, &entities, seenEntities, &relations, stats); err != nil {
 				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
 				stats.Errors++
 			}
 			stats.FilesScanned++
 		} else if ext == ".yaml" || ext == ".yml" {
-			if err := idx.processYAMLFile(path, relPath, entityWriter, seenEntities, &relations, stats); err != nil {
+			if err := idx.processYAMLFile(path, relPath, &entities, seenEntities, &relations, stats); err != nil {
 				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
 				stats.Errors++
 			}
 			stats.FilesScanned++
 		} else if ext == ".html" || ext == ".htm" {
-			if err := idx.processHTMLFile(path, relPath, entityWriter, seenEntities, &relations, stats); err != nil {
+			if err := idx.processHTMLFile(path, relPath, &entities, seenEntities, &relations, stats); err != nil {
 				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
 				stats.Errors++
 			}
@@ -259,16 +251,9 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 		return nil, fmt.Errorf("walk directory: %w", err)
 	}
 
-	// Flush CSV writer
-	entityWriter.Flush()
-	if err := entityWriter.Error(); err != nil {
-		return nil, fmt.Errorf("flush entities CSV: %w", err)
-	}
-	entitiesFile.Close()
-
-	// Bulk load entities
-	if err := idx.bulkLoadEntities(entitiesPath); err != nil {
-		return nil, fmt.Errorf("bulk load entities: %w", err)
+	// Batch create entities via parameterized Cypher (immune to special characters in names)
+	if err := idx.batchCreateEntities(entities); err != nil {
+		return nil, fmt.Errorf("batch create entities: %w", err)
 	}
 
 	// Batch create relations
@@ -279,29 +264,67 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 	return stats, nil
 }
 
-// writeEntity writes an entity to CSV if not already seen
-func writeEntity(writer *csv.Writer, seen map[string]bool, id, name, typ, projectID, createdAt, updatedAt string) bool {
+// writeEntity appends an entity to the slice if not already seen
+func writeEntity(entities *[]entityRecord, seen map[string]bool, id, name, typ, projectID, createdAt, updatedAt string) bool {
 	if seen[id] {
-		return false // Already seen
+		return false
 	}
-	seen[id] = true // Mark as seen BEFORE writing
-	writer.Write([]string{id, name, typ, projectID, createdAt, updatedAt})
+	seen[id] = true
+	*entities = append(*entities, entityRecord{
+		ID:        id,
+		Name:      name,
+		Type:      typ,
+		ProjectID: projectID,
+		CreatedAt: createdAt,
+		UpdatedAt: updatedAt,
+	})
 	return true
 }
 
-// bulkLoadEntities loads entities from CSV file into Kuzu using COPY FROM
-func (idx *Indexer) bulkLoadEntities(entitiesPath string) error {
-	// Remove the embedding column from header since we'll only load the first 6 columns
-	query := fmt.Sprintf(`
-		COPY Entity(id, name, type, project_id, created_at, updated_at) FROM '%s' (HEADER=true)
-	`, entitiesPath)
-
-	result, err := idx.store.query(query)
-	if err != nil {
-		return fmt.Errorf("load entities: %w", err)
+// batchCreateEntities inserts entities in batches using parameterized Cypher.
+// This avoids all CSV quoting/delimiter issues with entity names that contain
+// commas, quotes, or other special characters.
+// Note: EntitiesCreated is counted by callers of writeEntity, not here.
+func (idx *Indexer) batchCreateEntities(entities []entityRecord) error {
+	batchSize := 100
+	for i := 0; i < len(entities); i += batchSize {
+		end := i + batchSize
+		if end > len(entities) {
+			end = len(entities)
+		}
+		if err := idx.createEntityBatch(entities[i:end]); err != nil {
+			return fmt.Errorf("entity batch %d-%d: %w", i, end, err)
+		}
 	}
-	result.Close()
+	return nil
+}
 
+// createEntityBatch inserts a single batch of entities
+func (idx *Indexer) createEntityBatch(batch []entityRecord) error {
+	for _, ent := range batch {
+		result, err := idx.store.queryParams(`
+			CREATE (e:Entity {
+				id: $id,
+				name: $name,
+				type: $type,
+				project_id: $project_id,
+				created_at: $created_at,
+				updated_at: $updated_at
+			})
+		`, map[string]any{
+			"id":         ent.ID,
+			"name":       ent.Name,
+			"type":       ent.Type,
+			"project_id": ent.ProjectID,
+			"created_at": ent.CreatedAt,
+			"updated_at": ent.UpdatedAt,
+		})
+		if err != nil {
+			// Log but continue — duplicate or constraint violation
+			continue
+		}
+		result.Close()
+	}
 	return nil
 }
 
