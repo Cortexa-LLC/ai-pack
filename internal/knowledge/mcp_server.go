@@ -18,46 +18,59 @@ import (
 // Reads open in read-only mode (multiple concurrent readers allowed).
 // Writes open in write mode (exclusive, but released immediately after the call).
 func RunMCPServer(dbPath, projectID, projectRoot string) error {
+	// jsonSchema is a helper to build a minimal JSON Schema object descriptor.
+	jsonSchema := func(props map[string]string, required ...string) map[string]interface{} {
+		properties := map[string]interface{}{}
+		for k, typ := range props {
+			properties[k] = map[string]string{"type": typ}
+		}
+		return map[string]interface{}{
+			"type":       "object",
+			"properties": properties,
+			"required":   required,
+		}
+	}
+
 	tools := []mcp.Tool{
 		{
 			Name:        "get_preflight_context",
-			Description: "Returns formatted context block of relevant knowledge entities for a given task description",
-			InputSchema: map[string]interface{}{"task": "string"},
+			Description: "Returns a formatted context block of relevant knowledge graph entities for a given task description. Called automatically before each agent task.",
+			InputSchema: jsonSchema(map[string]string{"task": "string"}, "task"),
 		},
 		{
 			Name:        "search_knowledge",
-			Description: "Hybrid search for entities/observations in the knowledge graph",
-			InputSchema: map[string]interface{}{"query": "string", "limit": "integer"},
+			Description: "Hybrid search for entities and observations in the knowledge graph. Returns matching functions, types, files, and topics.",
+			InputSchema: jsonSchema(map[string]string{"query": "string", "limit": "integer"}, "query"),
 		},
 		{
 			Name:        "add_entity",
-			Description: "Upsert an entity in the graph (name and type required; returns the entity ID)",
-			InputSchema: map[string]interface{}{"name": "string", "type": "string"},
+			Description: "Create or upsert an entity in the knowledge graph. Type should be one of: function, type, file, module, topic, package, import. Returns the entity ID.",
+			InputSchema: jsonSchema(map[string]string{"name": "string", "type": "string"}, "name", "type"),
 		},
 		{
 			Name:        "add_observation",
-			Description: "Attach a text observation/note to an existing entity",
-			InputSchema: map[string]interface{}{"entity_id": "string", "content": "string"},
+			Description: "Attach a text observation or note to an existing entity (e.g. a bug found, a design decision, a caveat discovered during the task).",
+			InputSchema: jsonSchema(map[string]string{"entity_id": "string", "content": "string"}, "entity_id", "content"),
 		},
 		{
 			Name:        "link_entities",
-			Description: "Create a directed relation (edge) between two entities",
-			InputSchema: map[string]interface{}{"from_id": "string", "relation": "string", "to_id": "string"},
+			Description: "Create a directed relation between two entities. Relation must be one of: CONTAINS, IMPORTS, CALLS, IMPLEMENTS, BELONGS_TO, DEPENDS_ON, RELATES_TO.",
+			InputSchema: jsonSchema(map[string]string{"from_id": "string", "relation": "string", "to_id": "string"}, "from_id", "relation", "to_id"),
 		},
 		{
 			Name:        "get_file_context",
-			Description: "Return all entities associated with a file path",
-			InputSchema: map[string]interface{}{"file": "string"},
+			Description: "Return all entities associated with a file path (functions, types, imports defined in that file).",
+			InputSchema: jsonSchema(map[string]string{"file": "string"}, "file"),
 		},
 		{
 			Name:        "query_graph",
-			Description: "Run a read-only Cypher query against the knowledge graph",
-			InputSchema: map[string]interface{}{"cypher": "string"},
+			Description: "Run a read-only Cypher query against the knowledge graph. Only MATCH/RETURN queries are allowed.",
+			InputSchema: jsonSchema(map[string]string{"cypher": "string"}, "cypher"),
 		},
 		{
 			Name:        "index_project",
-			Description: "Re-index the project codebase into the knowledge graph (scans all source files and updates entities/relations). Call this after significant code changes.",
-			InputSchema: map[string]interface{}{},
+			Description: "Re-index the entire project codebase into the knowledge graph (scans all source files, updates entities and relations). Call this after making significant code changes.",
+			InputSchema: jsonSchema(map[string]string{}),
 		},
 	}
 

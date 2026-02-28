@@ -3,6 +3,7 @@ package mcp
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 )
 
@@ -25,18 +26,26 @@ func NewServer(tools []Tool, handlers map[string]ToolHandler, in *bufio.Reader, 
 	}
 }
 
-// Serve runs the main MCP server loop: reads requests over stdin, dispatches to handlers, writes responses.
-func (s *Server) Serve() error {
-	// Announce tools as MCP capability
-	caps := map[string]any{
-		"jsonrpc": "2.0",
-		"method":  "capabilities",
-		"params": map[string]any{
-			"tools": s.tools,
-		},
-	}
-	json.NewEncoder(s.out).Encode(caps)
+func (s *Server) send(v any) {
+	json.NewEncoder(s.out).Encode(v)
+}
 
+func (s *Server) sendResult(id any, result any) {
+	s.send(map[string]any{"jsonrpc": "2.0", "id": id, "result": result})
+}
+
+func (s *Server) sendError(id any, code int, msg string) {
+	s.send(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      id,
+		"error":   map[string]any{"code": code, "message": msg},
+	})
+}
+
+// Serve runs the MCP server loop: reads JSON-RPC requests over stdin, handles
+// the standard MCP handshake (initialize / notifications/initialized / tools/list)
+// and dispatches tools/call to registered handlers.
+func (s *Server) Serve() error {
 	for {
 		line, err := s.in.ReadBytes('\n')
 		if err != nil {
@@ -45,52 +54,63 @@ func (s *Server) Serve() error {
 			}
 			return err
 		}
+
 		var req struct {
-			JSONRPC string                 `json:"jsonrpc"`
-			ID      interface{}            `json:"id"`
-			Method  string                 `json:"method"`
-			Params  map[string]interface{} `json:"params"`
+			JSONRPC string          `json:"jsonrpc"`
+			ID      any             `json:"id"`
+			Method  string          `json:"method"`
+			Params  json.RawMessage `json:"params"`
 		}
 		if err := json.Unmarshal(line, &req); err != nil {
-			json.NewEncoder(s.out).Encode(map[string]any{
-				"jsonrpc": "2.0",
-				"id":      nil,
-				"error":   map[string]any{"code": -32600, "message": "Malformed JSON"},
-			})
+			s.sendError(nil, -32600, "Malformed JSON")
 			continue
 		}
-		if req.Method != "callTool" {
-			json.NewEncoder(s.out).Encode(map[string]any{
-				"jsonrpc": "2.0",
-				"id":      req.ID,
-				"error":   map[string]any{"code": -32601, "message": "Unknown method"},
+
+		switch req.Method {
+
+		case "initialize":
+			s.sendResult(req.ID, InitializeResult{
+				ProtocolVersion: "2024-11-05",
+				Capabilities: ServerCapabilities{
+					Tools: &ToolsCapability{},
+				},
+				ServerInfo: ServerInfo{Name: "kg", Version: "1.0.0"},
 			})
-			continue
-		}
-		name, _ := req.Params["name"].(string)
-		args, _ := req.Params["arguments"].(map[string]interface{})
-		handler, ok := s.handlers[name]
-		if !ok {
-			json.NewEncoder(s.out).Encode(map[string]any{
-				"jsonrpc": "2.0",
-				"id":      req.ID,
-				"error":   map[string]any{"code": -32601, "message": "Unknown tool: " + name},
+
+		case "notifications/initialized":
+			// Notification — no response required.
+
+		case "tools/list":
+			s.sendResult(req.ID, ListToolsResult{Tools: s.tools})
+
+		case "tools/call":
+			var params CallToolParams
+			if err := json.Unmarshal(req.Params, &params); err != nil {
+				s.sendError(req.ID, -32600, "Invalid params: "+err.Error())
+				continue
+			}
+			handler, ok := s.handlers[params.Name]
+			if !ok {
+				s.sendError(req.ID, -32601, "Unknown tool: "+params.Name)
+				continue
+			}
+			resp, err := handler(&ToolCallRequest{Name: params.Name, Arguments: params.Arguments})
+			if err != nil {
+				s.sendResult(req.ID, CallToolResult{
+					Content: []ContentBlock{{Type: "text", Text: err.Error()}},
+					IsError: true,
+				})
+				continue
+			}
+			s.sendResult(req.ID, CallToolResult{
+				Content: []ContentBlock{{Type: "text", Text: fmt.Sprintf("%v", resp)}},
 			})
-			continue
+
+		default:
+			// Ignore notifications (no ID); return error for requests.
+			if req.ID != nil {
+				s.sendError(req.ID, -32601, "Unknown method: "+req.Method)
+			}
 		}
-		resp, err := handler(&ToolCallRequest{Name: name, Arguments: args})
-		if err != nil {
-			json.NewEncoder(s.out).Encode(map[string]any{
-				"jsonrpc": "2.0",
-				"id":      req.ID,
-				"error":   map[string]any{"code": -32000, "message": err.Error()},
-			})
-			continue
-		}
-		json.NewEncoder(s.out).Encode(map[string]any{
-			"jsonrpc": "2.0",
-			"id":      req.ID,
-			"result":  resp,
-		})
 	}
 }

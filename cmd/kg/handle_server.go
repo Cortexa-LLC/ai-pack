@@ -6,17 +6,11 @@ import (
 	"path/filepath"
 
 	"github.com/cortexa-llc/ai-pack/internal/knowledge"
+	"github.com/spf13/cobra"
 )
 
-func handleServer(args []string) {
-	// Parse --stdio flag (all other flags obsolete now that project root is auto-detected)
-	useStdio := false
-	for _, a := range args {
-		if a == "--stdio" {
-			useStdio = true
-		}
-	}
-
+func handleServer(cmd *cobra.Command) {
+	useStdio, _ := cmd.Flags().GetBool("stdio")
 	if !useStdio {
 		fmt.Fprintln(os.Stderr, "kg server: --stdio flag required (MCP mode)")
 		os.Exit(1)
