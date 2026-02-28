@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/spf13/cobra"
-	"github.com/cortexa-llc/ai-pack/internal/knowledge"
 )
 
 var addEntityType string
@@ -14,11 +14,13 @@ var addEntityCmd = &cobra.Command{
 	Use:   "entity",
 	Short: "Add a new entity",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := knowledge.OpenStore(".ai/knowledge.db")
+		store, projectID, err := openStore()
 		if err != nil {
 			return err
 		}
-		entity, err := store.CreateEntity(addEntityName, addEntityType, "")
+		defer store.Close()
+
+		entity, err := store.CreateEntity(addEntityName, addEntityType, projectID)
 		if err != nil {
 			return err
 		}
@@ -40,10 +42,12 @@ var addObservationCmd = &cobra.Command{
 	Short: "Add an observation to an entity",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := knowledge.OpenStore(".ai/knowledge.db")
+		store, _, err := openStore()
 		if err != nil {
 			return err
 		}
+		defer store.Close()
+
 		obs, err := store.CreateObservation(args[0], args[1], "")
 		if err != nil {
 			return err

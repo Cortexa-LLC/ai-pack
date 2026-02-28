@@ -57,10 +57,10 @@ func (idx *Indexer) processHTMLFile(
 	}
 	defer tree.Close()
 
-	now := time.Now().UTC().Format(time.RFC3339)
+	now := time.Now().UTC()
 
 	fileID := fmt.Sprintf("file:%s", relPath)
-	if writeEntity(entities, seenEntities, fileID, relPath, EntityTypeFile, idx.projectID, now, now) {
+	if writeEntity(entities, seenEntities, fileID, relPath, EntityTypeFile, idx.projectID, now) {
 		stats.EntitiesCreated++
 	}
 
@@ -69,7 +69,7 @@ func (idx *Indexer) processHTMLFile(
 			return
 		}
 		eid := fmt.Sprintf("topic:%s:%s", relPath, name)
-		if writeEntity(entities, seenEntities, eid, name, EntityTypeTopic, idx.projectID, now, now) {
+		if writeEntity(entities, seenEntities, eid, name, EntityTypeTopic, idx.projectID, now) {
 			stats.EntitiesCreated++
 		}
 		*relations = append(*relations, relationRecord{FromID: fileID, ToID: eid, Type: RelContains})
@@ -80,7 +80,7 @@ func (idx *Indexer) processHTMLFile(
 			return
 		}
 		eid := fmt.Sprintf("type:%s:%s", relPath, name)
-		if writeEntity(entities, seenEntities, eid, name, EntityTypeType, idx.projectID, now, now) {
+		if writeEntity(entities, seenEntities, eid, name, EntityTypeType, idx.projectID, now) {
 			stats.EntitiesCreated++
 		}
 		*relations = append(*relations, relationRecord{FromID: fileID, ToID: eid, Type: RelContains})

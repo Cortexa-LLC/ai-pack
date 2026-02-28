@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/spf13/cobra"
-	"github.com/cortexa-llc/ai-pack/internal/knowledge"
 )
 
 var fromID string
@@ -15,16 +15,18 @@ var linkCmd = &cobra.Command{
 	Short: "Create a relation between entities",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := knowledge.OpenStore(".ai/knowledge.db")
+		store, projectID, err := openStore()
 		if err != nil {
 			return err
 		}
+		defer store.Close()
+
 		fromID := args[0]
 		toID := args[1]
 		if relType == "" {
 			return fmt.Errorf("missing --rel flag")
 		}
-		if err := store.CreateRelation(fromID, toID, relType, ""); err != nil {
+		if err := store.CreateRelation(fromID, toID, relType, projectID); err != nil {
 			return err
 		}
 		fmt.Printf("Linked %s --%s--> %s\n", fromID, relType, toID)

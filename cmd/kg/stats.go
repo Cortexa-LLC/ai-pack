@@ -2,19 +2,21 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/spf13/cobra"
-	"github.com/cortexa-llc/ai-pack/internal/knowledge"
 )
 
 var statsCmd = &cobra.Command{
 	Use:   "stats",
 	Short: "Show entity, relation, and observation statistics",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := knowledge.OpenStore(".ai/knowledge.db")
+		store, projectID, err := openStore()
 		if err != nil {
 			return err
 		}
-		entities, err := store.ListEntities("", "")
+		defer store.Close()
+
+		entities, err := store.ListEntities(projectID, "")
 		if err != nil {
 			return err
 		}
@@ -22,7 +24,7 @@ var statsCmd = &cobra.Command{
 		relationCount := 0
 		observationCount := 0
 		for _, e := range entities {
-			rels, _ := store.GetRelations(e.ID, "")
+			rels, _ := store.GetRelations(e.ID, projectID)
 			relationCount += len(rels)
 			obs, _ := store.GetObservations(e.ID, "")
 			observationCount += len(obs)

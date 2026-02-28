@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/spf13/cobra"
-	"github.com/cortexa-llc/ai-pack/internal/knowledge"
 )
 
 var showCmd = &cobra.Command{
@@ -11,16 +11,18 @@ var showCmd = &cobra.Command{
 	Short: "Show entity with details (relations, observations)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := knowledge.OpenStore(".ai/knowledge.db")
+		store, projectID, err := openStore()
 		if err != nil {
 			return err
 		}
+		defer store.Close()
+
 		id := args[0]
-		entity, err := store.GetEntity(id, "")
+		entity, err := store.GetEntity(id, projectID)
 		if err != nil {
 			return err
 		}
-		relations, _ := store.GetRelations(id, "")
+		relations, _ := store.GetRelations(id, projectID)
 		observations, _ := store.GetObservations(id, "")
 		fmt.Printf("Entity: %s\nType: %s\nID: %s\n", entity.Name, entity.Type, entity.ID)
 		fmt.Println("Relations:")
