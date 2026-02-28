@@ -39,7 +39,7 @@ func runSpawn(role, taskInput string, wait, stream bool, inactiveTimeout time.Du
 	}
 
 	c := agentclient.Default()
-	resp, err := c.PostJSON("/a2a/tasks", requestBody)
+	resp, err := c.PostJSON("/a2a/execute", requestBody)
 	if err != nil {
 		return fmt.Errorf("failed to spawn agent: %w", err)
 	}
