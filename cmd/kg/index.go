@@ -36,12 +36,30 @@ var indexCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		dur := time.Since(start)
-		fmt.Println("✅ Indexing complete!")
+		codesDur := time.Since(start)
+		fmt.Println("✅ Source indexing complete!")
 		fmt.Printf("   Files scanned:     %d\n", stats.FilesScanned)
 		fmt.Printf("   Entities created:  %d\n", stats.EntitiesCreated)
 		fmt.Printf("   Relations created: %d\n", stats.RelationsCreated)
-		fmt.Printf("   Duration:          %.3fs\n", dur.Seconds())
+		fmt.Printf("   Duration:          %.3fs\n", codesDur.Seconds())
+
+		// Second pass: index agent execution logs from .beads/tasks/
+		fmt.Println("📋 Indexing execution logs...")
+		logStats, err := knowledge.IndexExecutionLogs(store, projectID, root)
+		logsDur := time.Since(start) - codesDur
+		if err != nil {
+			fmt.Printf("Warning: execution log indexing failed: %v\n", err)
+		} else {
+			fmt.Printf("   Logs found:        %d\n", logStats.LogsFound)
+			fmt.Printf("   Logs indexed:      %d\n", logStats.LogsIndexed)
+			if logStats.LogsSkipped > 0 {
+				fmt.Printf("   Logs skipped:      %d\n", logStats.LogsSkipped)
+			}
+			fmt.Printf("   Observations:      %d\n", logStats.Observations)
+			fmt.Printf("   Duration:          %.3fs\n", logsDur.Seconds())
+		}
+
+		fmt.Printf("✅ Total duration: %.3fs\n", time.Since(start).Seconds())
 		return nil
 	},
 }

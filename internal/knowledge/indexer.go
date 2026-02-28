@@ -130,18 +130,15 @@ func readLinesFromFile(path string) []string {
 	return result
 }
 
-// clearProjectData removes all entities and relations for this project
+// clearProjectData removes all entities, their observations, and all relations
+// for this project so the index can be rebuilt from scratch.
 func (idx *Indexer) clearProjectData() error {
-	// Delete all relation types for this project
-	relationTypes := AllowedRelTypes
-
-	for _, relType := range relationTypes {
-		// relType is from a hardcoded list above, not user input.
+	// Delete all typed entity-to-entity relations for this project.
+	for _, relType := range AllowedRelTypes {
 		query := fmt.Sprintf(`
 			MATCH (from:Entity {project_id: $project_id})-[r:%s]->(to:Entity {project_id: $project_id})
 			DELETE r
-		`, relType)
-
+		`, relType) // relType is from a hardcoded whitelist — safe to interpolate
 		result, err := idx.store.queryParams(query, map[string]any{"project_id": idx.projectID})
 		if err != nil {
 			return fmt.Errorf("delete %s relations: %w", relType, err)
@@ -149,8 +146,18 @@ func (idx *Indexer) clearProjectData() error {
 		result.Close()
 	}
 
-	// Then delete entities
+	// Delete HAS_OBSERVATION edges and their Observation nodes for this project.
 	result, err := idx.store.queryParams(`
+		MATCH (e:Entity {project_id: $project_id})-[r:HAS_OBSERVATION]->(o:Observation)
+		DELETE r, o
+	`, map[string]any{"project_id": idx.projectID})
+	if err != nil {
+		return fmt.Errorf("delete observations: %w", err)
+	}
+	result.Close()
+
+	// Finally delete the entities themselves.
+	result, err = idx.store.queryParams(`
 		MATCH (e:Entity {project_id: $project_id})
 		DELETE e
 	`, map[string]any{"project_id": idx.projectID})
