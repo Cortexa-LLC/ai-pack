@@ -61,6 +61,11 @@ func toolParamPreview(toolName string, input map[string]interface{}) string {
 // skipping empty boilerplate placeholders ([Requirement X], [Assumption X], etc.).
 
 func (s *AgentServer) executeTool(ctx context.Context, toolName string, toolInput map[string]interface{}, workingDir string, projectRoot string) (string, error) {
+	// Handle search_knowledge_in_project: routes to another project's KG.
+	if toolName == "search_knowledge_in_project" {
+		return s.executeSearchKnowledgeInProject(ctx, toolInput)
+	}
+
 	if s.mcpManager != nil {
 		// Determine if this is an MCP tool by checking project client first, then named clients.
 		isProjectTool := false
@@ -106,6 +111,47 @@ func (s *AgentServer) executeTool(ctx context.Context, toolName string, toolInpu
 
 	// Not an MCP tool, execute as native tool
 	return tools.ExecuteTool(toolName, toolInput, workingDir, s.claudeSettings)
+}
+
+// executeSearchKnowledgeInProject handles the search_knowledge_in_project synthetic tool.
+// It ensures the target project's KG server is running, then calls search_nodes on it.
+func (s *AgentServer) executeSearchKnowledgeInProject(ctx context.Context, toolInput map[string]interface{}) (string, error) {
+	projectPath, _ := toolInput["project_path"].(string)
+	query, _ := toolInput["query"].(string)
+
+	if projectPath == "" {
+		return "", fmt.Errorf("search_knowledge_in_project: project_path is required")
+	}
+	if query == "" {
+		return "", fmt.Errorf("search_knowledge_in_project: query is required")
+	}
+
+	// Ensure the KG server is running for the target project.
+	s.ensureKGForProject(projectPath)
+
+	if s.mcpManager == nil {
+		return "", fmt.Errorf("search_knowledge_in_project: MCP manager not available")
+	}
+
+	result, err := s.mcpManager.CallToolForProject(ctx, projectPath, "search_nodes", map[string]interface{}{
+		"query": query,
+	})
+	if err != nil {
+		return "", fmt.Errorf("search_knowledge_in_project: %w", err)
+	}
+
+	var resultText strings.Builder
+	for _, block := range result.Content {
+		if block.Type == "text" {
+			resultText.WriteString(block.Text)
+		}
+	}
+	monitoring.Logger.Info("search_knowledge_in_project",
+		"project_path", projectPath,
+		"query", query,
+		"result_len", resultText.Len(),
+	)
+	return resultText.String(), nil
 }
 
 // cleanSchemaProperties recursively cleans schema properties to be Anthropic-compatible

@@ -45,20 +45,18 @@ func runStatus(beadsTaskID string, jsonOutput, quiet bool) error {
 		os.Exit(3) //nolint:gocritic // intentional semantic exit code
 	}
 
-	c := agentclient.Default()
-	resp, err := c.Get(fmt.Sprintf("/a2a/status/%s", internalTaskID))
+	statusBody, err := runStatusByInternalID(internalTaskID)
 	if err != nil {
 		if jsonOutput {
 			fmt.Printf(`{"error":"connection_failed","message":"%v"}`+"\n", err)
 		} else if !quiet {
 			fmt.Printf("❌ Failed to get status: %v\n", err)
 		}
-		os.Exit(3)
+		os.Exit(3) //nolint:gocritic
 	}
 
-	body, _ := agentclient.ReadBody(resp)
 	var status map[string]interface{}
-	json.Unmarshal(body, &status) //nolint:errcheck
+	json.Unmarshal(statusBody, &status) //nolint:errcheck
 
 	statusStr, _ := status["status"].(string)
 
@@ -94,4 +92,16 @@ func runStatus(beadsTaskID string, jsonOutput, quiet bool) error {
 		os.Exit(3)
 	}
 	return nil
+}
+
+// runStatusByInternalID issues GET /a2a/status/<internalTaskID> and returns the
+// raw response body. It is extracted so that contract tests can verify the
+// correct endpoint path without requiring a Beads task lookup or calling os.Exit.
+func runStatusByInternalID(internalTaskID string) ([]byte, error) {
+	c := agentclient.Default()
+	resp, err := c.Get(fmt.Sprintf("/a2a/status/%s", internalTaskID))
+	if err != nil {
+		return nil, err
+	}
+	return agentclient.ReadBody(resp)
 }

@@ -62,7 +62,7 @@ func TestGetPreflightContext(t *testing.T) {
 	msg := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"id":      1,
-		"method":  "callTool",
+		"method":  "tools/call",
 		"params": map[string]interface{}{
 			"name":      "get_preflight_context",
 			"arguments": map[string]interface{}{"task": "TestEntity"},
@@ -87,8 +87,17 @@ func TestGetPreflightContext(t *testing.T) {
 			t.Fatalf("failed to decode response: %v", err)
 		}
 		if r, ok := response["result"]; ok {
-			result, _ = r.(string)
-			break
+			// result is a CallToolResult: {"content":[{"type":"text","text":"..."}]}
+			if resultMap, ok := r.(map[string]interface{}); ok {
+				if content, ok := resultMap["content"].([]interface{}); ok && len(content) > 0 {
+					if block, ok := content[0].(map[string]interface{}); ok {
+						result, _ = block["text"].(string)
+					}
+				}
+			}
+			if result != "" {
+				break
+			}
 		}
 	}
 

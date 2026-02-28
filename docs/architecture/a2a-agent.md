@@ -1,6 +1,6 @@
 # a2a-agent Architecture
 
-**Last updated:** 2026-02-19
+**Last updated:** 2026-02-28
 
 This document describes the design of the `a2a-agent` server — its components, request flows,
 task lifecycle, and streaming subsystem. For the rationale behind specific design decisions, see
@@ -18,6 +18,7 @@ the ADRs in `docs/adr/`.
 6. [Concurrency Model](#concurrency-model)
 7. [Persistence](#persistence)
 8. [Key Data Structures](#key-data-structures)
+9. [GUI Chat Context Awareness](#gui-chat-context-awareness)
 
 ---
 
@@ -326,6 +327,38 @@ type StreamEvent struct {
 Loaded from role `.md` files (e.g., `roles/engineer.md`). Specifies model, tier, timeout,
 max turns, allowed tools, and quality gates. The server's markdown parser extracts
 `**Field:** value` pairs from a `---`-delimited header block at the top of each role file.
+
+---
+
+## GUI Chat Context Awareness
+
+The GUI `ChatPanel` component maintains **independent chat sessions per project**. Switching
+the project selector gives a separate conversation history and context for each registered project.
+
+### Storage layout
+
+```
+localStorage key: "ai-pack-project-chats"
+  Value: { [projectPath: string]: ChatSession[] }
+  Example: {
+    "/Users/me/Projects/xasm++": [ {id, messages, ...}, ... ],
+    "/Users/me/Projects/A2osX":  [ {id, messages, ...}, ... ]
+  }
+
+localStorage key: "ai-pack-current-chat-per-project"
+  Value: { [projectPath: string]: chatSessionId }
+  Tracks which chat session is active for each project.
+```
+
+### How it works
+
+1. When the user switches projects in the sidebar, `ChatPanel` calls `loadProjectChats(newProject)` and restores the last active session for that project.
+2. New messages are saved via `saveProjectChats(projectPath, chats)` — other projects' chats are preserved.
+3. The chat panel passes the selected `projectRoot` to the GraphQL chat endpoint so the server can scope knowledge-graph context to that project.
+
+### Migration
+
+A one-time migration from the legacy single-chat localStorage format (`ai-pack-current-chat-id` / `ai-pack-chat-{id}`) runs on first load and moves existing messages into the first registered project's slot.
 
 ---
 

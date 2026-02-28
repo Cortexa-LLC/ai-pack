@@ -37,6 +37,9 @@ func DefineTools() []streaming.Tool {
 		// Task lifecycle
 		defineTaskCompleteTool(),
 
+		// Cross-project knowledge graph
+		defineSearchKnowledgeInProjectTool(),
+
 		// NOTE: Web operations disabled - not yet implemented
 		// defineWebSearchTool(),
 		// defineWebFetchTool(),
@@ -243,7 +246,33 @@ func defineWebFetchTool() streaming.Tool {
 	}
 }
 
-// ExecuteTool executes a tool call and returns the result
+// defineSearchKnowledgeInProjectTool creates the search_knowledge_in_project
+// synthetic tool. It allows agents to query the knowledge graph of a different
+// project registered with the AI-Pack server at runtime.
+func defineSearchKnowledgeInProjectTool() streaming.Tool {
+	return streaming.Tool{
+		Name: "search_knowledge_in_project",
+		Description: "Hybrid search for entities and observations in another project's knowledge graph. " +
+			"Use this when working across multiple projects (e.g. patching a dependency) to " +
+			"retrieve relevant functions, types, files, and topics from that project's KG. " +
+			"The project must be registered with the AI-Pack server (i.e. it has a .kg/ directory).",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"project_path": map[string]interface{}{
+					"type":        "string",
+					"description": "Absolute path to the other project's root directory.",
+				},
+				"query": map[string]interface{}{
+					"type":        "string",
+					"description": "The search query to match against entity names, types, and observation content.",
+				},
+			},
+			"required": []string{"project_path", "query"},
+		},
+	}
+}
+
 // defineTaskCompleteTool creates the TaskComplete signal tool. Agents MUST call
 // this to end the task. Text-only responses are never accepted as completion —
 // the loop nudges the model to continue until this tool is called.

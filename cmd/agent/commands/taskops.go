@@ -60,7 +60,7 @@ func newCancelCmd() *cobra.Command {
 }
 
 func runCancel(taskID string) error {
-	url := fmt.Sprintf("%s/a2a/cancel/%s", agentclient.ServerURL, taskID)
+	url := fmt.Sprintf("%s/a2a/cancel/%s", agentclient.DefaultBaseURL, taskID)
 	resp, err := http.Post(url, "application/json", nil) //nolint:gosec,noctx
 	if err != nil {
 		return fmt.Errorf("failed to cancel task: %w", err)
@@ -92,7 +92,7 @@ func newRetryCmd() *cobra.Command {
 }
 
 func runRetry(taskID string) error {
-	url := fmt.Sprintf("%s/a2a/retry/%s", agentclient.ServerURL, taskID)
+	url := fmt.Sprintf("%s/a2a/retry/%s", agentclient.DefaultBaseURL, taskID)
 	resp, err := http.Post(url, "application/json", nil) //nolint:gosec,noctx
 	if err != nil {
 		return fmt.Errorf("failed to retry task: %w", err)

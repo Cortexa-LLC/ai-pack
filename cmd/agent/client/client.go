@@ -11,8 +11,14 @@ import (
 	"time"
 )
 
-// ServerURL is the default agent server base URL.
+// ServerURL is the canonical default agent server base URL.
+// Use DefaultBaseURL for runtime overrides (e.g. tests).
 const ServerURL = "http://localhost:8080"
+
+// DefaultBaseURL is the base URL used by Default(). Tests can override this
+// variable to redirect CLI HTTP calls to an httptest.Server without modifying
+// production code. Production code should not change this variable.
+var DefaultBaseURL = ServerURL
 
 // SSEDataPrefix is the standard Server-Sent Events data line prefix ("data: ").
 const SSEDataPrefix = "data: "
@@ -48,9 +54,11 @@ func New(baseURL string) *Client {
 	}
 }
 
-// Default returns a Client pointed at the default server URL.
+// Default returns a Client pointed at DefaultBaseURL (normally ServerURL).
+// Tests may redirect CLI calls by setting DefaultBaseURL before invoking
+// a run* function.
 func Default() *Client {
-	return New(ServerURL)
+	return New(DefaultBaseURL)
 }
 
 // Get performs a GET request to path and returns the raw response body.

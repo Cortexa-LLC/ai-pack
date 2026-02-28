@@ -180,7 +180,7 @@ func TestProcessOneTurn_TaskComplete(t *testing.T) {
 		{ID: "tu1", Name: "TaskComplete", Input: map[string]interface{}{"summary": "all done"}},
 	}
 
-	res := s.processOneTurn(context.Background(), toolUses, "/tmp", nopLog)
+	res := s.processOneTurn(context.Background(), toolUses, "/tmp", "", nopLog)
 
 	if res.CompletionSummary != "all done" {
 		t.Errorf("CompletionSummary: want 'all done', got %q", res.CompletionSummary)
@@ -200,7 +200,7 @@ func TestProcessOneTurn_TaskComplete_NoSummary(t *testing.T) {
 		{ID: "tu1", Name: "TaskComplete", Input: map[string]interface{}{}},
 	}
 
-	res := s.processOneTurn(context.Background(), toolUses, "/tmp", nopLog)
+	res := s.processOneTurn(context.Background(), toolUses, "/tmp", "", nopLog)
 
 	if res.CompletionSummary != "(no summary provided)" {
 		t.Errorf("expected default summary, got %q", res.CompletionSummary)
@@ -210,7 +210,7 @@ func TestProcessOneTurn_TaskComplete_NoSummary(t *testing.T) {
 func TestProcessOneTurn_NoTools(t *testing.T) {
 	s := makeTestServer()
 
-	res := s.processOneTurn(context.Background(), nil, "/tmp", nopLog)
+	res := s.processOneTurn(context.Background(), nil, "/tmp", "", nopLog)
 
 	if res.CompletionSummary != "" {
 		t.Errorf("expected empty CompletionSummary, got %q", res.CompletionSummary)
@@ -227,7 +227,7 @@ func TestProcessOneTurn_ToolError(t *testing.T) {
 		{ID: "tu1", Name: "NonExistentTool", Input: map[string]interface{}{}},
 	}
 
-	res := s.processOneTurn(context.Background(), toolUses, "/tmp", nopLog)
+	res := s.processOneTurn(context.Background(), toolUses, "/tmp", "", nopLog)
 
 	if len(res.ToolResults) != 1 {
 		t.Fatalf("expected 1 ToolResult, got %d", len(res.ToolResults))

@@ -113,6 +113,7 @@ def install_macos_service(project_root, openai_key, anthropic_key):
 
     # Replace placeholders
     plist_content = plist_content.replace('{{PROJECT_ROOT}}', str(project_root))
+    plist_content = plist_content.replace('{{HOME}}', str(Path.home()))
 
     # Write to install location
     with open(install_plist, 'w') as f:

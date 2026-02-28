@@ -155,6 +155,20 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 	return tasks
 }
 
+// parseFolderTimestamp extracts and parses the timestamp suffix from an execution folder name.
+// Folder format: {beads-id}-YYYYMMDD-HHMMSS (e.g. "ai-pack-x008-20260228-130230").
+// The prefix (e.g. "ai-pack-x008-") must be supplied so we know where the timestamp starts.
+// Returns the zero time if parsing fails so callers can fall back to other sorting strategies.
+func parseFolderTimestamp(folderName, prefix string) time.Time {
+	suffix := strings.TrimPrefix(folderName, prefix)
+	// Timestamp format produced by time.Now().Format("20060102-150405")
+	t, err := time.Parse("20060102-150405", suffix)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
 // findMostRecentExecution finds the most recent execution for a Beads task ID in a project root
 // Returns nil if no execution found, otherwise returns the TaskInfo for the most recent execution
 // Skips executions marked as superseded (from retries)
@@ -168,7 +182,7 @@ func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, beadsID string) *g
 	// Build list of all matching executions sorted by time (most recent first)
 	type executionEntry struct {
 		folderName string
-		modTime    time.Time
+		folderTime time.Time // parsed from folder name, not filesystem mtime
 	}
 	var executions []executionEntry
 
@@ -182,13 +196,13 @@ func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, beadsID string) *g
 		folderName := entry.Name()
 		// Check if folder matches pattern: {beads-id}-{timestamp}
 		if strings.HasPrefix(folderName, prefix) {
-			info, err := entry.Info()
-			if err != nil {
-				continue
-			}
 			executions = append(executions, executionEntry{
 				folderName: folderName,
-				modTime:    info.ModTime(),
+				// Sort by the timestamp embedded in the folder name, not by filesystem
+				// mtime. mtime is unreliable: marking an old execution as superseded
+				// updates its mtime AFTER the new execution folder was created, causing
+				// the old (failed) folder to appear newer than the running one.
+				folderTime: parseFolderTimestamp(folderName, prefix),
 			})
 		}
 	}
@@ -197,9 +211,9 @@ func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, beadsID string) *g
 		return nil // No execution found
 	}
 
-	// Sort by time (most recent first)
+	// Sort by folder name timestamp (most recent first)
 	sort.Slice(executions, func(i, j int) bool {
-		return executions[i].modTime.After(executions[j].modTime)
+		return executions[i].folderTime.After(executions[j].folderTime)
 	})
 
 	// Find first non-superseded execution
@@ -435,8 +449,23 @@ func (a *GraphQLAdapter) applyBeadsStatusOverride(taskInfo *graphql.TaskInfo, ex
 
 // GetTaskStatus returns status for a specific task
 func (a *GraphQLAdapter) GetTaskStatus(taskID string) (*graphql.TaskInfo, error) {
+	// Search active tasks: match by exact execution ID OR by beads ID prefix.
+	// convertToTaskInfo rewrites TaskID to the short beads ID, so the UI often
+	// calls back with the short ID (e.g. "ai-pack-x008") while activeTasks is
+	// keyed by the full timestamped ID (e.g. "ai-pack-x008-20260228-130230").
 	a.server.mu.RLock()
 	execution, exists := a.server.activeTasks[taskID]
+	if !exists {
+		// Try prefix match: active key starts with "<beadsID>-"
+		prefix := taskID + "-"
+		for activeID, exec := range a.server.activeTasks {
+			if strings.HasPrefix(activeID, prefix) {
+				execution = exec
+				exists = true
+				break
+			}
+		}
+	}
 	a.server.mu.RUnlock()
 
 	if exists {

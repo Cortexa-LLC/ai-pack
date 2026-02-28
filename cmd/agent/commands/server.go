@@ -28,7 +28,17 @@ func newResumeCmd() *cobra.Command {
 }
 
 func runResume(taskID string, newBudget int64) error {
-	url := fmt.Sprintf("%s/a2a/resume/%s", agentclient.ServerURL, taskID)
+	if err := runResumeHTTP(taskID, newBudget); err != nil {
+		return err
+	}
+	fmt.Printf("⏵  Task %s resuming from checkpoint\n", taskID)
+	return nil
+}
+
+// runResumeHTTP issues POST /a2a/resume/<taskID> with an optional budget body.
+// It is extracted so that contract tests can verify the correct endpoint path.
+func runResumeHTTP(taskID string, newBudget int64) error {
+	url := fmt.Sprintf("%s/a2a/resume/%s", agentclient.DefaultBaseURL, taskID)
 
 	var body io.Reader
 	if newBudget > 0 {
@@ -48,8 +58,6 @@ func runResume(taskID string, newBudget int64) error {
 		}
 		return fmt.Errorf("failed to resume task: %s", string(respBody))
 	}
-
-	fmt.Printf("⏵  Task %s resuming from checkpoint\n", taskID)
 	return nil
 }
 

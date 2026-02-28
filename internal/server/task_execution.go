@@ -452,6 +452,22 @@ func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskE
 		systemPrompt = kgBlock + "\n---\n\n" + systemPrompt
 	}
 
+	// Pre-flight for related projects declared in the task contract.
+	// Reads "Related Projects: /path" lines from 00-contract.md and merges each
+	// project's KG context into the system prompt.
+	if taskPacketPath := execution.metadata["task_packet_path"]; taskPacketPath != "" {
+		contractPath := filepath.Join(workingDir, taskPacketPath, "00-contract.md")
+		if relatedPaths := kgclient.ParseRelatedProjects(contractPath); len(relatedPaths) > 0 {
+			for _, relProject := range relatedPaths {
+				s.ensureKGForProject(relProject)
+				if relBlock := kgclient.PreflightContext(ctx, s.mcpManager, execution.Task, relProject); relBlock != "" {
+					logMsg(fmt.Sprintf("   🔗 Merged KG context from related project: %s", relProject))
+					systemPrompt = relBlock + "\n---\n\n" + systemPrompt
+				}
+			}
+		}
+	}
+
 	result, err := s.executeAgenticLoop(ctx, execution.TaskID, execution.Role, prompt, systemPrompt, workingDir, execution.ProjectRoot, execution.Config, logMsg)
 	if err != nil {
 		// Check if error is due to cancellation or timeout.

@@ -60,6 +60,21 @@ func runWait(beadsTaskID string, timeout time.Duration, stream bool, inactiveTim
 			continue
 		}
 
+		if err := runWaitHTTP(internalTaskID, timeout, inactiveTimeout); err == nil {
+			return nil
+		}
+	}
+	fmt.Printf("⏰ Timeout waiting for task %s\n", beadsTaskID)
+	os.Exit(1)
+	return nil
+}
+
+// runWaitHTTP polls GET /a2a/tasks/<internalTaskID> until the task reaches a
+// terminal state or the timeout elapses. It is extracted so that contract tests
+// can verify the correct endpoint path without a Beads task lookup.
+func runWaitHTTP(internalTaskID string, timeout, _ time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
 		c := agentclient.Default()
 		resp, err := c.Get(fmt.Sprintf("/a2a/tasks/%s", internalTaskID))
 		if err != nil {
@@ -85,7 +100,5 @@ func runWait(beadsTaskID string, timeout time.Duration, stream bool, inactiveTim
 			time.Sleep(10 * time.Second)
 		}
 	}
-	fmt.Printf("⏰ Timeout waiting for task %s\n", beadsTaskID)
-	os.Exit(1)
-	return nil
+	return fmt.Errorf("timeout waiting for task %s", internalTaskID)
 }
