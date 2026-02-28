@@ -77,8 +77,8 @@ corruption on multi-file Go refactoring tasks. Grade A performance on LiveBench 
 not predict safe agentic behavior.
 
 The `GradeSourceLiveBench` constant is retained in `performance_grading.go` for
-backward compatibility (existing seeded files may carry this source tag), but no new
-grades are derived from LiveBench data.
+backward compatibility (existing grade files may carry this source tag), but no new
+grades are derived from LiveBench or benchmark data.
 
 ### Why the 5-run anchor
 

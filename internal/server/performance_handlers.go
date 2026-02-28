@@ -2,13 +2,8 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
 
-	"github.com/cortexa-llc/ai-pack/internal/config"
 	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 )
@@ -299,80 +294,6 @@ func (s *AgentServer) HandlePerformanceReload(w http.ResponseWriter, r *http.Req
 	})
 }
 
-// HandleBenchmarkRun launches scripts/benchmark-models.py in the background.
-// POST /api/performance/benchmark/run
-// Optional JSON body: {"project": "/path/to/project"} (defaults to first known project root)
-func (s *AgentServer) HandleBenchmarkRun(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Allow optional override from request body
-	var body struct {
-		Project string `json:"project"`
-	}
-	projectRoot := ""
-	if r.Body != nil {
-		json.NewDecoder(r.Body).Decode(&body) //nolint:errcheck
-		projectRoot = body.Project
-	}
-
-	if projectRoot == "" {
-		roots := s.GetProjectRoots()
-		if len(roots) > 0 {
-			projectRoot = roots[0]
-		}
-	}
-
-	if projectRoot == "" {
-		w.Header().Set("Content-Type", constants.ContentTypeJSON)
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "no project root available"})
-		return
-	}
-
-	// Locate benchmark script relative to the project root
-	scriptPath := filepath.Join(projectRoot, "scripts", "benchmark-models.py")
-	if _, err := os.Stat(scriptPath); err != nil {
-		w.Header().Set("Content-Type", constants.ContentTypeJSON)
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": fmt.Sprintf("benchmark script not found: %s", scriptPath),
-		})
-		return
-	}
-
-	// Pass the canonical data dir so benchmark grades land in the same store
-	// the server reads from, regardless of where either binary is invoked.
-	dataDir, err := config.DataDir()
-	if err != nil {
-		w.Header().Set("Content-Type", constants.ContentTypeJSON)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		return
-	}
-	gradesDir := filepath.Join(dataDir, "performance_grades")
-	cmd := exec.Command("python3", scriptPath, "--project", projectRoot, "--grades-dir", gradesDir)
-	cmd.Dir = projectRoot
-	if err := cmd.Start(); err != nil {
-		w.Header().Set("Content-Type", constants.ContentTypeJSON)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		return
-	}
-
-	// Don't wait – let it run asynchronously
-	go func() { _ = cmd.Wait() }()
-
-	w.Header().Set("Content-Type", constants.ContentTypeJSON)
-	w.WriteHeader(http.StatusAccepted)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": "started",
-		"pid":    cmd.Process.Pid,
-	})
-}
-
 // Register performance API routes
 func (s *AgentServer) registerPerformanceRoutes() {
 	// Performance grade endpoints
@@ -381,5 +302,4 @@ func (s *AgentServer) registerPerformanceRoutes() {
 	http.HandleFunc("/api/performance/by-role", s.HandlePerformanceByRole)
 	http.HandleFunc("/api/performance/by-project", s.HandlePerformanceByProject)
 	http.HandleFunc("/api/performance/reload", s.HandlePerformanceReload)
-	http.HandleFunc("/api/benchmark/run", s.HandleBenchmarkRun)
 }
