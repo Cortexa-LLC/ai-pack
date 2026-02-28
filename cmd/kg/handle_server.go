@@ -21,7 +21,7 @@ func handleServer(args []string) {
 		os.Exit(1)
 	}
 
-	store, projectID, err := openStore()
+	store, projectID, err := openStoreRO()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "kg server: %v\n", err)
 		os.Exit(1)

@@ -12,7 +12,7 @@ var searchCmd = &cobra.Command{
 	Short: "Search the knowledge graph",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, projectID, err := openStore()
+		store, projectID, err := openStoreRO()
 		if err != nil {
 			return err
 		}
