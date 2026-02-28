@@ -88,6 +88,50 @@ func (s *Store) GetEntity(id, projectID string) (*Entity, error) {
 	return entity, nil
 }
 
+// GetEntityByName retrieves an entity by name for a specific project.
+// Returns (nil, nil) when no entity with that name exists.
+func (s *Store) GetEntityByName(name, projectID string) (*Entity, error) {
+	result, err := s.queryParams(`
+		MATCH (e:Entity)
+		WHERE e.name = $name AND e.project_id = $project_id
+		RETURN e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at
+		LIMIT 1
+	`, map[string]any{"name": name, "project_id": projectID})
+	if err != nil {
+		return nil, fmt.Errorf("query entity by name: %w", err)
+	}
+	defer result.Close()
+
+	if !result.HasNext() {
+		return nil, nil
+	}
+
+	tuple, err := result.Next()
+	if err != nil {
+		return nil, fmt.Errorf("get next: %w", err)
+	}
+	defer tuple.Close()
+
+	row, err := tuple.GetAsSlice()
+	if err != nil {
+		return nil, fmt.Errorf("get row: %w", err)
+	}
+
+	entity := &Entity{
+		ID:        stringOrEmpty(row[0]),
+		Name:      stringOrEmpty(row[1]),
+		Type:      stringOrEmpty(row[2]),
+		ProjectID: stringOrEmpty(row[3]),
+	}
+	if ts, ok := row[4].(int64); ok {
+		entity.CreatedAt = time.UnixMicro(ts).UTC()
+	}
+	if ts, ok := row[5].(int64); ok {
+		entity.UpdatedAt = time.UnixMicro(ts).UTC()
+	}
+	return entity, nil
+}
+
 // ListEntities retrieves all entities for a project, optionally filtered by type
 func (s *Store) ListEntities(projectID, entityType string) ([]*Entity, error) {
 	stmt := `
