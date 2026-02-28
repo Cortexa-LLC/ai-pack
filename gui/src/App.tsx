@@ -176,8 +176,6 @@ function App() {
   const serverLogsEndRef = useRef<HTMLTableRowElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const serverLogsEventSourceRef = useRef<EventSource | null>(null);
-  const followLogsRef = useRef(followLogs);
-  const followServerLogsRef = useRef(followServerLogs);
 
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState<{
@@ -243,28 +241,19 @@ function App() {
     };
   }, [isResizingChat, resizeStartX, resizeStartWidth]);
 
-  // Update follow refs when state changes
-  useEffect(() => {
-    followLogsRef.current = followLogs;
-  }, [followLogs]);
-
-  useEffect(() => {
-    followServerLogsRef.current = followServerLogs;
-  }, [followServerLogs]);
-
   // Auto-scroll to bottom when following logs
   useEffect(() => {
-    if (followLogsRef.current && logsEndRef.current) {
+    if (followLogs && logsEndRef.current) {
       logsEndRef.current.scrollIntoView({ behavior: 'auto' });
     }
-  }, [logs]);
+  }, [logs, followLogs]);
 
   // Auto-scroll server logs
   useEffect(() => {
-    if (followServerLogsRef.current && serverLogsEndRef.current) {
+    if (followServerLogs && serverLogsEndRef.current) {
       serverLogsEndRef.current.scrollIntoView({ behavior: 'auto' });
     }
-  }, [serverLogs]);
+  }, [serverLogs, followServerLogs]);
 
   // Save log column widths
   useEffect(() => {

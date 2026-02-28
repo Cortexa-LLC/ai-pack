@@ -386,7 +386,7 @@ func (s *AgentServer) findMostRecentExecutionInProject(projectRoot, beadsTaskID 
 	}
 
 	var mostRecentFolder string
-	var mostRecentTime time.Time
+	var mostRecentFolderTime time.Time
 
 	// Find all folders matching {beads-id}-{timestamp} pattern
 	prefix := beadsTaskID + "-"
@@ -398,13 +398,18 @@ func (s *AgentServer) findMostRecentExecutionInProject(projectRoot, beadsTaskID 
 		folderName := entry.Name()
 		// Check if folder matches pattern: {beads-id}-{timestamp}
 		if strings.HasPrefix(folderName, prefix) {
-			info, err := entry.Info()
+			// Sort by the timestamp embedded in the folder name, not by filesystem
+			// mtime. mtime is unreliable: marking an old execution as superseded
+			// updates its mtime AFTER the new execution folder was created, causing
+			// the old (failed) folder to appear newer than the running one.
+			suffix := strings.TrimPrefix(folderName, prefix)
+			folderTime, err := time.Parse("20060102-150405", suffix)
 			if err != nil {
 				continue
 			}
-			if mostRecentFolder == "" || info.ModTime().After(mostRecentTime) {
+			if mostRecentFolder == "" || folderTime.After(mostRecentFolderTime) {
 				mostRecentFolder = folderName
-				mostRecentTime = info.ModTime()
+				mostRecentFolderTime = folderTime
 			}
 		}
 	}

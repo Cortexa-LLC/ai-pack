@@ -245,28 +245,35 @@ func streamServerLogs(jsonOutput bool) {
 }
 
 func fetchRecentServerLogs(tailLines int, jsonOutput bool) {
-	url := fmt.Sprintf("%s/logs/recent", agentclient.ServerURL)
+	if err := runLogsRecent(agentclient.DefaultBaseURL, tailLines, jsonOutput); err != nil {
+		os.Exit(1)
+	}
+}
+
+// runLogsRecent issues GET /logs/recent against serverBaseURL. It is extracted
+// so that contract tests can pass an httptest.Server URL and verify the path.
+func runLogsRecent(serverBaseURL string, tailLines int, jsonOutput bool) error {
+	url := fmt.Sprintf("%s/logs/recent", serverBaseURL)
 	if tailLines > 0 {
 		url += fmt.Sprintf("?limit=%d", tailLines)
 	}
 
-	resp, err := http.Get(url)
+	resp, err := http.Get(url) //nolint:gosec,noctx
 	if err != nil {
 		fmt.Printf("❌ Failed to fetch server logs: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 	defer resp.Body.Close()
 
 	body, err := agentclient.ReadBody(resp)
 	if err != nil {
 		fmt.Printf("❌ Failed to read server logs: %v\n", err)
-		os.Exit(1)
-		return
+		return err
 	}
 
 	if jsonOutput {
 		fmt.Println(string(body))
-		return
+		return nil
 	}
 
 	var response struct {
@@ -276,8 +283,7 @@ func fetchRecentServerLogs(tailLines int, jsonOutput bool) {
 	}
 	if err := json.Unmarshal(body, &response); err != nil {
 		fmt.Printf("❌ Failed to parse logs: %v\n", err)
-		os.Exit(1)
-		return
+		return err
 	}
 
 	for _, entry := range response.Logs {
@@ -286,6 +292,7 @@ func fetchRecentServerLogs(tailLines int, jsonOutput bool) {
 		msg, _ := entry["message"].(string)
 		fmt.Printf("[%s] %s: %s\n", timestamp, level, msg)
 	}
+	return nil
 }
 
 func fetchAllLogs(tailLines int, jsonOutput bool) {

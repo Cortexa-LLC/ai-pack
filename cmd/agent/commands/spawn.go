@@ -27,40 +27,9 @@ func runSpawn(role, taskInput string, wait, stream bool, inactiveTimeout time.Du
 		projectRoot = mustGetWorkingDir()
 	}
 
-	requestBody := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"method":  "execute",
-		"params": map[string]interface{}{
-			"role":         role,
-			"task":         taskInput,
-			"project_root": projectRoot,
-		},
-		"id": 1,
-	}
-
-	c := agentclient.Default()
-	resp, err := c.PostJSON("/a2a/execute", requestBody)
+	taskID, err := runSpawnHTTP(role, taskInput, projectRoot)
 	if err != nil {
-		return fmt.Errorf("failed to spawn agent: %w", err)
-	}
-	body := agentclient.RequireOK(resp, "spawn agent")
-
-	var result map[string]interface{}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	taskID := ""
-	if id, ok := result["task_id"].(string); ok {
-		taskID = id
-	} else if r, ok := result["result"].(map[string]interface{}); ok {
-		if id, ok := r["task_id"].(string); ok {
-			taskID = id
-		}
-	}
-
-	if taskID == "" {
-		return fmt.Errorf("server returned no task_id")
+		return err
 	}
 
 	fmt.Printf("✅ Agent spawned: %s\n", taskID)
@@ -82,6 +51,48 @@ func runSpawn(role, taskInput string, wait, stream bool, inactiveTimeout time.Du
 	fmt.Printf("📜 Logs:    agent logs %s\n", taskInput)
 	fmt.Printf("⏳ Wait:    agent wait %s\n", taskInput)
 	return nil
+}
+
+// runSpawnHTTP issues the POST /a2a/execute request and returns the task ID.
+// It is extracted so that contract tests can redirect the HTTP call to an
+// httptest.Server by setting agentclient.DefaultBaseURL.
+func runSpawnHTTP(role, task, projectRoot string) (string, error) {
+	requestBody := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"method":  "execute",
+		"params": map[string]interface{}{
+			"role":         role,
+			"task":         task,
+			"project_root": projectRoot,
+		},
+		"id": 1,
+	}
+
+	c := agentclient.Default()
+	resp, err := c.PostJSON("/a2a/execute", requestBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to spawn agent: %w", err)
+	}
+	body := agentclient.RequireOK(resp, "spawn agent")
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	taskID := ""
+	if id, ok := result["task_id"].(string); ok {
+		taskID = id
+	} else if r, ok := result["result"].(map[string]interface{}); ok {
+		if id, ok := r["task_id"].(string); ok {
+			taskID = id
+		}
+	}
+
+	if taskID == "" {
+		return "", fmt.Errorf("server returned no task_id")
+	}
+	return taskID, nil
 }
 
 // validateBeadsTaskOrExit checks the task input looks like a Beads ID or a proper task string.

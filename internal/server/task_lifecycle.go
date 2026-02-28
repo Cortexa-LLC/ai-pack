@@ -132,6 +132,18 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 		startTime,
 	)
 
+	// Index the execution log into the KG so future agents can learn from this run
+	// (tool calls made, files touched, errors encountered, token usage).
+	go kgclient.IndexExecutionLog(
+		context.Background(),
+		s.mcpManager,
+		execution.ProjectRoot,
+		execution.TaskID,
+		execution.Role,
+		execution.Task,
+		startTime,
+	)
+
 	// Detect if the agent stopped due to blockers (missing task packets, etc.)
 	// Check for common blocker patterns in the result text
 	resultLower := strings.ToLower(result)
