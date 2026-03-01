@@ -10,7 +10,7 @@
 **MaxTurns:** 750
 **MaxContext:** 32000
 **Tools:** read, write, edit, bash, grep, glob
-**Gates:** tdd-enforcement, code-quality-review
+**Skills:** general, kg_reader, kg_writer, tdd, code_review
 **Delegation:** delegate
 ---
 

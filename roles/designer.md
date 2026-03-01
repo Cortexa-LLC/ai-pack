@@ -5,6 +5,7 @@
 **Timeout:** 15min
 **MaxContext:** 32000
 **Tools:** read, write, edit, bash, grep, glob, webfetch
+**Skills:** general, kg_reader
 **Delegation:** delegate
 ---
 

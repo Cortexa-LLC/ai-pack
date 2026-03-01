@@ -7,7 +7,7 @@
 **Timeout:** 10min
 **MaxContext:** 32000
 **Tools:** read, write, edit, bash, grep, glob
-**Gates:** tdd-enforcement
+**Skills:** general, kg_reader, tdd
 **Delegation:** delegate
 ---
 

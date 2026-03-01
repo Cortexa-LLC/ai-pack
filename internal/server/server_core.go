@@ -49,7 +49,9 @@ const (
 	configFieldTools           = "Tools"
 	configFieldGates           = "Gates"
 	configFieldChatTools       = "ChatTools"
+	configFieldSkills          = "Skills"
 	configFieldClass           = "Class"
+	configFieldExtends         = "Extends"
 )
 
 // Configuration defaults
@@ -171,7 +173,18 @@ type AgentConfig struct {
 	SuccessCriteria  []string
 	Metadata         map[string]interface{}
 	ExtendedThinking bool
-	ChatTools        bool // If true, inject chat-mode tools (spawn_agent, query_tasks, etc.)
+	ChatTools        bool     // If true, inject chat-mode tools (spawn_agent, query_tasks, etc.)
+	Skills           []string // Skill names declared in the role file (ADR 004)
+	SkillsLoaded     []string // Skill names successfully composed at spawn (ADR 004)
+
+	// Extends: name of base role this project-role file inherits from (ADR 006, Tier 3b).
+	// Empty means full substitution (Tier 3a). Consumed during loadAgentConfig; not forwarded.
+	Extends string
+
+	// ExplicitFields tracks which config header fields were explicitly present in the source
+	// file. Used during Extends merge to distinguish "not set" from "set to zero/false/empty".
+	// This field is internal and is not forwarded to the agent.
+	ExplicitFields map[string]bool
 }
 
 // GetProjectRoots returns all known project roots

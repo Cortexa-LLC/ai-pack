@@ -394,6 +394,7 @@ func parseMarkdownConfig(data []byte, roleName string) (*AgentConfig, string, er
 			MaxContext:      defaultMaxContext,
 			MaxBudgetTokens: defaultMaxBudgetTokens,
 		},
+		ExplicitFields: make(map[string]bool),
 	}
 
 	// Find the separator (---)
@@ -426,6 +427,9 @@ func parseMarkdownConfig(data []byte, roleName string) (*AgentConfig, string, er
 			field := strings.TrimPrefix(parts[0], markdownFieldStart)
 			value := strings.TrimSpace(parts[1])
 
+			// Record that this field was explicitly present in the file header.
+			config.ExplicitFields[field] = true
+
 			switch field {
 			case configFieldAgent:
 				config.Name = value
@@ -446,6 +450,8 @@ func parseMarkdownConfig(data []byte, roleName string) (*AgentConfig, string, er
 				if class := monitoring.ParseClassString(value); class != "" && monitoring.GlobalModelSelector != nil {
 					monitoring.GlobalModelSelector.SetRoleRequiredClass(roleName, class)
 				}
+			case configFieldExtends:
+				config.Extends = value
 			case configFieldTimeout:
 				config.Delegation.Timeout = value
 			case configFieldMaxContext:
@@ -476,6 +482,15 @@ func parseMarkdownConfig(data []byte, roleName string) (*AgentConfig, string, er
 				}
 			case configFieldChatTools:
 				config.ChatTools = strings.EqualFold(value, "true")
+			case configFieldSkills:
+				// Parse comma-separated skill list
+				skillNames := strings.Split(value, ",")
+				for _, sn := range skillNames {
+					sn = strings.TrimSpace(sn)
+					if sn != "" {
+						config.Skills = append(config.Skills, sn)
+					}
+				}
 			}
 		}
 	}
@@ -493,6 +508,153 @@ func parseMarkdownConfig(data []byte, roleName string) (*AgentConfig, string, er
 	}
 
 	return config, roleContent, nil
+}
+
+// mergeRoleContent merges free-text role content by section headings.
+//
+// Sections in the project content replace matching sections in the base content.
+// Sections absent in the project content are inherited from the base content.
+// Sections in the project content that have no matching base section are appended.
+//
+// A "section" is delimited by a markdown heading line (starting with one or more '#').
+func mergeRoleContent(baseContent, projectContent string) string {
+	parseSections := func(text string) ([]string, map[string]string) {
+		lines := strings.Split(text, "\n")
+		var order []string
+		sections := make(map[string]string)
+		var currentHeading string
+		var buf strings.Builder
+
+		for _, line := range lines {
+			if strings.HasPrefix(line, "#") {
+				// Save previous section
+				if currentHeading != "" || buf.Len() > 0 {
+					sections[currentHeading] = buf.String()
+					if currentHeading != "" {
+						order = append(order, currentHeading)
+					}
+				}
+				currentHeading = strings.TrimSpace(line)
+				buf.Reset()
+				buf.WriteString(line + "\n")
+			} else {
+				buf.WriteString(line + "\n")
+			}
+		}
+		// Save last section
+		if currentHeading != "" || buf.Len() > 0 {
+			sections[currentHeading] = buf.String()
+			if currentHeading != "" {
+				order = append(order, currentHeading)
+			}
+		}
+		return order, sections
+	}
+
+	baseOrder, baseSections := parseSections(baseContent)
+	projectOrder, projectSections := parseSections(projectContent)
+
+	// Start with base sections, replace with project overrides.
+	merged := make(map[string]string)
+	for k, v := range baseSections {
+		merged[k] = v
+	}
+	for k, v := range projectSections {
+		merged[k] = v
+	}
+
+	// Build output: base order first, then project-only sections at the end.
+	var out strings.Builder
+	seen := make(map[string]bool)
+	for _, heading := range baseOrder {
+		out.WriteString(merged[heading])
+		seen[heading] = true
+	}
+	for _, heading := range projectOrder {
+		if !seen[heading] {
+			out.WriteString(merged[heading])
+		}
+	}
+
+	return strings.TrimRight(out.String(), "\n")
+}
+
+// mergeRoleConfigs merges a project-override config (Tier 3b) on top of a base config.
+//
+// Rules (ADR 006):
+//   - Tier: is locked to the base value; project file must not set it.
+//   - All scalar fields (Model, Description, Class, Delegation.*) use the project
+//     value when the field was explicitly set in the project file; otherwise the
+//     base value is kept.
+//   - Slice fields (Tools, Gates, Skills, SuccessCriteria) use the project slice
+//     when it is non-empty; otherwise the base slice is kept.
+//   - Bool fields (ExtendedThinking, ChatTools) use the project value when the
+//     field was explicitly set in the project file; otherwise the base value is kept.
+//   - Free-text content is merged at the section level via mergeRoleContent.
+func mergeRoleConfigs(base, project *AgentConfig) (*AgentConfig, error) {
+	// Tier is locked — project file must not set it.
+	if project.ExplicitFields[configFieldTier] {
+		return nil, fmt.Errorf("role extension error: %q sets Tier: which is locked to the base role; remove Tier: from the project role file", project.Name)
+	}
+
+	merged := *base // shallow copy; slices replaced below
+
+	// Scalar fields: use project value when explicitly set.
+	if project.ExplicitFields[configFieldDescription] {
+		merged.Description = project.Description
+	}
+	if project.ExplicitFields[configFieldModel] {
+		merged.Model = project.Model
+	}
+	if project.ExplicitFields[configFieldClass] {
+		merged.Class = project.Class
+	}
+	if project.ExplicitFields[configFieldDelegation] {
+		merged.Delegation.Mode = project.Delegation.Mode
+	}
+	if project.ExplicitFields[configFieldTimeout] {
+		merged.Delegation.Timeout = project.Delegation.Timeout
+	}
+	if project.ExplicitFields[configFieldMaxContext] {
+		merged.Delegation.MaxContext = project.Delegation.MaxContext
+	}
+	if project.ExplicitFields[configFieldMaxBudgetTokens] {
+		merged.Delegation.MaxBudgetTokens = project.Delegation.MaxBudgetTokens
+	}
+	if project.ExplicitFields[configFieldMaxTurns] {
+		merged.Delegation.MaxTurns = project.Delegation.MaxTurns
+	}
+
+	// Bool fields: use project value when explicitly set.
+	if project.ExplicitFields[configFieldChatTools] {
+		merged.ChatTools = project.ChatTools
+	}
+
+	// Slice fields: use project slice when non-empty.
+	if len(project.Tools) > 0 {
+		merged.Tools = project.Tools
+	}
+	if len(project.Context.Gates) > 0 {
+		merged.Context.Gates = project.Context.Gates
+	}
+	if len(project.Skills) > 0 {
+		merged.Skills = project.Skills
+	}
+	if len(project.SuccessCriteria) > 0 {
+		merged.SuccessCriteria = project.SuccessCriteria
+	}
+
+	// Free-text content: section-level merge.
+	merged.Context.RoleContent = mergeRoleContent(base.Context.RoleContent, project.Context.RoleContent)
+
+	// Use project role file path for reference.
+	merged.Context.RoleFile = project.Context.RoleFile
+
+	// Clear internal-only fields so they are not forwarded to the agent.
+	merged.Extends = ""
+	merged.ExplicitFields = nil
+
+	return &merged, nil
 }
 
 func (s *AgentServer) loadAgentConfig(role string, projectRoot string) (*AgentConfig, error) {
@@ -548,6 +710,46 @@ func (s *AgentServer) loadAgentConfig(role string, projectRoot string) (*AgentCo
 	// Store role content and path in config for later use
 	config.Context.RoleContent = roleContent
 	config.Context.RoleFile = configPath // Store actual path for reference
+
+	// Tier 3b: Extends inheritance (ADR 006).
+	// Only project-override files (.ai/roles/) may use Extends:.
+	if config.Extends != "" {
+		if source != "project_override" {
+			return nil, fmt.Errorf("role extension error: base role %q contains Extends: which is not permitted (only 1-level deep inheritance is allowed)", role)
+		}
+
+		baseName := config.Extends
+
+		// Load base role from non-project paths only (prevents chaining and infinite loops).
+		baseData, basePath, err := s.readBaseRoleFile(baseName, projectRoot)
+		if err != nil {
+			return nil, fmt.Errorf("role extension error: cannot load base role %q for %q: %w", baseName, role, err)
+		}
+
+		baseConfig, baseRoleContent, err := parseMarkdownConfig(baseData, baseName)
+		if err != nil {
+			return nil, fmt.Errorf("role extension error: failed to parse base role %q at %s: %w", baseName, basePath, err)
+		}
+
+		// Chain detection: base role must not itself use Extends:.
+		if baseConfig.Extends != "" {
+			return nil, fmt.Errorf("role extension error: base role %q also has Extends: — only 1-level deep inheritance is allowed", baseName)
+		}
+
+		baseConfig.Context.RoleContent = baseRoleContent
+		baseConfig.Context.RoleFile = basePath
+
+		merged, err := mergeRoleConfigs(baseConfig, config)
+		if err != nil {
+			return nil, err
+		}
+		config = merged
+	}
+
+	// Compose skills into the config (ADR 004 Phase 1)
+	if err := composeSkills(config, projectRoot); err != nil {
+		return nil, fmt.Errorf("skill composition failed for role %s: %w", role, err)
+	}
 
 	return config, nil
 }
@@ -698,6 +900,27 @@ func (s *AgentServer) GetModelForRole(role string) string {
 	}
 
 	return cfg.Model
+}
+
+// readBaseRoleFile loads a base role file from non-project paths only (ADR 006).
+// Project override paths (.ai/roles/) are intentionally excluded to prevent chaining.
+func (s *AgentServer) readBaseRoleFile(baseName, projectRoot string) ([]byte, string, error) {
+	// Search base role in framework and development paths only — never in .ai/roles/.
+	candidates := []string{
+		filepath.Join(projectRoot, ".ai-pack", "roles", baseName+".md"),
+		filepath.Join(s.rootDir, ".ai-pack", "roles", baseName+".md"),
+		filepath.Join(s.rootDir, "..", "roles", baseName+".md"),
+		filepath.Join(s.rootDir, "roles", baseName+".md"),
+	}
+
+	for _, p := range candidates {
+		data, err := os.ReadFile(p)
+		if err == nil {
+			return data, p, nil
+		}
+	}
+
+	return nil, "", fmt.Errorf("base role %q not found in any framework role path", baseName)
 }
 
 // loadAgentConfigForRole loads the agent config from the role .md file
