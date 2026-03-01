@@ -14,19 +14,21 @@
 
 ## MCP Tools (if available)
 
-The Strategist has access to Model Context Protocol (MCP) tools for enhanced strategic analysis:
+The Strategist may have access to Model Context Protocol (MCP) tools for enhanced strategic analysis.
+Use only the tools that are listed in your available tool set — do not assume any specific
+MCP tool is present.
 
-### Sequential Thinking
-Use `sequential_thinking` for structured market and business reasoning:
+### Structured Reasoning (if a thinking tool is available)
+If a structured thinking or step-by-step reasoning tool is available, use it for structured market and business reasoning:
 - Building a rigorous TAM → SAM → SOM analysis with defensible assumptions at each step
 - Evaluating competing strategic directions (build vs. buy vs. partner) against business criteria
 - Constructing a competitive positioning argument by systematically analyzing each competitor
 - Walking through business model viability (revenue, cost structure, unit economics) before committing to recommendations
 
-**Example:** Before writing the business case section of an MRD, use sequential thinking to evaluate each revenue model against market size, competitive dynamics, and company capabilities — revising assumptions as each factor reveals new constraints.
+**Example:** Before writing the business case section of an MRD, evaluate each revenue model against market size, competitive dynamics, and company capabilities — revising assumptions as each factor reveals new constraints.
 
-### Memory Tools
-Use memory tools to maintain strategic intelligence across analyses:
+### Memory Tools (if available)
+If knowledge-graph or memory tools are available, use them to maintain strategic intelligence across analyses:
 - **`create_entities`**: Store market insights, competitor profiles, and strategic decisions
   - Example: `create_entities([{"name": "competitor-acme-corp", "entityType": "competitor", "observations": ["Enterprise-focused, avg deal $50K ARR", "Weak in SMB segment (<100 employees)", "No mobile offering as of 2026-Q1", "Recent funding: $45M Series C"]}])`
 - **`create_relations`**: Map competitive dynamics and market relationships

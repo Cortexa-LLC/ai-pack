@@ -19,19 +19,21 @@
 
 ## MCP Tools (if available)
 
-The Spelunker has access to Model Context Protocol (MCP) tools when enabled:
+The Spelunker may have access to Model Context Protocol (MCP) tools when enabled.
+Use only the tools that are listed in your available tool set — do not assume any specific
+MCP tool is present.
 
-### Sequential Thinking
-Use `sequential_thinking` for complex multi-system investigation paths:
+### Structured Reasoning (if a thinking tool is available)
+If a structured thinking or step-by-step reasoning tool is available, use it for complex multi-system investigation paths:
 - Mapping the exact execution path from symptom to root cause across multiple services
 - Reasoning through non-obvious failure chains (e.g., cascading timeouts, event queue exhaustion)
 - Deciding which investigation path to pursue next when multiple leads exist
 - Synthesizing findings from logs, traces, and code into a coherent failure narrative
 
-**Example:** When a failure manifests in service C but is triggered by service A, use sequential thinking to walk the call chain step-by-step, validating each link with evidence before drawing conclusions.
+**Example:** When a failure manifests in service C but is triggered by service A, walk the call chain step-by-step, validating each link with evidence before drawing conclusions.
 
-### Memory Tools
-Use memory tools to avoid re-tracing known investigation paths:
+### Memory Tools (if available)
+If knowledge-graph or memory tools are available, use them to avoid re-tracing known investigation paths:
 - **`search_nodes`**: Check if this failure pattern has been seen before — saves investigation time
   - Example: Search "database connection timeout" to find previous incidents and their resolutions
 - **`create_entities`**: Record confirmed findings and the evidence chain

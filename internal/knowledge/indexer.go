@@ -178,11 +178,13 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 		return nil, fmt.Errorf("clear existing data: %w", err)
 	}
 
-	// Collect entities and relations in memory; insert via parameterized Cypher
-	// to avoid all CSV quoting/delimiter issues with complex entity names.
+	// Collect entities, relations, and observations in memory; insert via
+	// parameterized Cypher to avoid all CSV quoting/delimiter issues with
+	// complex entity names.
 	var entities []entityRecord
 	seenEntities := make(map[string]bool)
 	var relations []relationRecord
+	var observations []obsRecord
 
 	// Walk the project directory
 	err := filepath.Walk(idx.root, func(path string, info os.FileInfo, err error) error {
@@ -251,6 +253,12 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 				stats.Errors++
 			}
 			stats.FilesScanned++
+		} else if ext == ".pdf" {
+			if err := idx.processPDFFile(path, relPath, &entities, seenEntities, &relations, &observations, stats); err != nil {
+				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
+				stats.Errors++
+			}
+			stats.FilesScanned++
 		} else if jsonSchemaMatchesPath(path) || (ext == ".json" && jsonHasSchemaKey(path)) {
 			if err := idx.processJSONSchemaFile(path, relPath, &entities, seenEntities, &relations, stats); err != nil {
 				fmt.Printf("Warning: Failed to process %s: %v\n", relPath, err)
@@ -292,6 +300,11 @@ func (idx *Indexer) Index() (*IndexStats, error) {
 	// Batch create relations
 	if err := idx.batchCreateRelations(relations, stats); err != nil {
 		return nil, fmt.Errorf("batch create relations: %w", err)
+	}
+
+	// Batch create observations (PDF text chunks, etc.)
+	if err := idx.batchCreateObservations(observations); err != nil {
+		return nil, fmt.Errorf("batch create observations: %w", err)
 	}
 
 	return stats, nil

@@ -40,19 +40,21 @@ Assistant: "I'll coordinate an architectural review. Let me create a Beads task 
 
 ## MCP Tools (if available)
 
-When MCP servers are enabled, the Orchestrator-Chat has access to enhanced coordination tools:
+When MCP servers are enabled, the Orchestrator-Chat may have access to enhanced coordination tools.
+Use only the tools that are listed in your available tool set — do not assume any specific
+MCP tool is present.
 
-### Sequential Thinking
-Use `sequential_thinking` for complex coordination planning:
+### Structured Reasoning (if a thinking tool is available)
+If a structured thinking or step-by-step reasoning tool is available, use it for complex coordination planning:
 - Decomposing a large user request into the correct sequence of agent delegations
 - Resolving dependency ordering when multiple tasks must execute in a specific sequence
 - Evaluating which specialist agent(s) best fit an ambiguous user request
 - Planning a rollback strategy when an agent reports failure mid-workflow
 
-**Example:** When a user asks for a new feature, use sequential thinking to determine: does this need a Strategist first? Then Architect? Then Engineer? Or can Engineer go directly? Reason through dependencies before spawning any agents.
+**Example:** When a user asks for a new feature, reason through: does this need a Strategist first? Then Architect? Then Engineer? Or can Engineer go directly? Think through dependencies before spawning any agents.
 
-### Memory Tools
-Use memory tools to maintain session continuity and project context:
+### Memory Tools (if available)
+If knowledge-graph or memory tools are available, use them to maintain session continuity and project context:
 - **`create_entities`**: Record in-flight task plans and agent assignments for complex multi-agent workflows
   - Example: `create_entities([{"name": "feature-x-plan", "entityType": "coordination_plan", "observations": ["Phase 1: Architect designs API (bd-a1b2)", "Phase 2: Engineer implements (bd-c3d4)", "Phase 3: Reviewer validates (bd-e5f6)"]}])`
 - **`search_nodes`**: Check if similar work was planned or done before (avoid re-planning)

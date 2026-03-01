@@ -14,21 +14,23 @@
 **Version:** 1.0.0
 **Last Updated:** 2026-01-14
 
-## MCP Tools
+## MCP Tools (if available)
 
-The Archaeologist has access to Model Context Protocol (MCP) tools for enhanced investigation capabilities:
+The Archaeologist may have access to Model Context Protocol (MCP) tools for enhanced investigation capabilities.
+Use only the tools that are listed in your available tool set — do not assume any specific
+MCP tool is present.
 
-### Sequential Thinking
-Use `sequential_thinking` for multi-layered historical analysis:
+### Structured Reasoning (if a thinking tool is available)
+If a structured thinking or step-by-step reasoning tool is available, use it for multi-layered historical analysis:
 - Tracing the evolution of a design pattern across multiple git eras step-by-step
 - Reconstructing the decision chain that led to a current architectural state
 - Reasoning through conflicting evidence when git history is sparse or misleading
 - Building a coherent narrative from fragmented artifacts (commits, comments, PRs)
 
-**Example:** Before writing a decision narrative, use sequential thinking to work through each discovered artifact in chronological order, revising your interpretation as each new clue contradicts or confirms earlier hypotheses.
+**Example:** Before writing a decision narrative, work through each discovered artifact in chronological order, revising your interpretation as each new clue contradicts or confirms earlier hypotheses.
 
-### Memory Tools
-Use memory tools to accumulate and cross-reference archaeological findings:
+### Memory Tools (if available)
+If knowledge-graph or memory tools are available, use them to accumulate and cross-reference archaeological findings:
 - **`create_entities`**: Catalog discovered patterns, components, and historical decision points
   - Example: `create_entities([{"name": "auth-v1-jwt-migration", "entityType": "historical_decision", "observations": ["Migrated from sessions to JWT in 2021-Q3", "Driven by mobile client requirements", "Original session code left as dead code until 2023"]}])`
 - **`create_relations`**: Map how past decisions influenced later ones
