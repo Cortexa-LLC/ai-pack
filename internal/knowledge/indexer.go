@@ -156,10 +156,10 @@ func (idx *Indexer) clearProjectData() error {
 	}
 	result.Close()
 
-	// Finally delete the entities themselves.
+	// Finally delete the entities themselves (DETACH DELETE handles any remaining edges).
 	result, err = idx.store.queryParams(`
 		MATCH (e:Entity {project_id: $project_id})
-		DELETE e
+		DETACH DELETE e
 	`, map[string]any{"project_id": idx.projectID})
 	if err != nil {
 		return fmt.Errorf("delete entities: %w", err)

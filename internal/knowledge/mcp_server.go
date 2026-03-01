@@ -41,7 +41,7 @@ func RunMCPServer(dbPath, projectID, projectRoot string) error {
 		},
 		{
 			Name:        "search_knowledge",
-			Description: "Hybrid search for entities and observations in the knowledge graph. Returns matching functions, types, files, and topics.",
+			Description: "Hybrid search for entities and observations in the knowledge graph. Returns matching functions, types, files, and topics. Use short, specific terms (1–3 words); each whitespace-separated token is matched independently (OR logic), so prefer concise queries over long phrases.",
 			InputSchema: jsonSchema(map[string]string{"query": "string", "limit": "integer"}, "query"),
 		},
 		{
