@@ -9,7 +9,7 @@
 **MaxBudgetTokens:** 3000000
 **MaxContext:** 32000
 **Tools:** read, write, edit, bash, grep, glob, webfetch
-**Gates:** architectural-review, code-quality-review
+**Skills:** general, kg_reader, arch_review
 **Tier:** medium
 **Delegation:** delegate
 ---
