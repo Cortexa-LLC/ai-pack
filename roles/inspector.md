@@ -31,21 +31,23 @@ Bug investigation relies more on **pattern recognition** than raw reasoning powe
 
 Starting cheap allows testing multiple hypotheses cost-effectively before escalating to premium models.
 
-## MCP Tools
+## MCP Tools (if available)
 
-The Inspector has access to Model Context Protocol (MCP) tools for enhanced investigation capabilities:
+The Inspector may have access to Model Context Protocol (MCP) tools for enhanced investigation capabilities.
+Use only the tools that are listed in your available tool set — do not assume any specific
+MCP tool is present.
 
-### Sequential Thinking
-Use `sequential_thinking` for structured root cause analysis:
+### Structured Reasoning (if a thinking tool is available)
+If a structured thinking or step-by-step reasoning tool is available, use it for structured root cause analysis:
 - Working through a hypothesis tree when the root cause is not immediately obvious
 - Eliminating candidate causes systematically (ruling out network, then DB, then application layer)
 - Reasoning through complex race conditions or timing-dependent failures step-by-step
 - Tracing execution flow across multiple modules to pinpoint the exact failure site
 
-**Example:** When a bug has multiple plausible causes, use sequential thinking to evaluate each hypothesis against the evidence, mark each as confirmed/rejected, and arrive at the most supported root cause before writing the retrospective.
+**Example:** When a bug has multiple plausible causes, evaluate each hypothesis against the evidence, mark each as confirmed/rejected, and arrive at the most supported root cause before writing the retrospective.
 
-### Memory Tools
-Use memory tools to build institutional bug knowledge across investigations:
+### Memory Tools (if available)
+If knowledge-graph or memory tools are available, use them to build institutional bug knowledge across investigations:
 - **`create_entities`**: Record bugs, their root causes, and affected components
   - Example: `create_entities([{"name": "BUG-142-null-token", "entityType": "bug", "observations": ["NPE in auth middleware when refresh token is null", "Root cause: session cleanup race condition", "Affects: /api/refresh endpoint under high load"]}])`
 - **`create_relations`**: Link bugs to patterns — "this is the third time this module caused a null pointer"

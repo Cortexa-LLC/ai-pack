@@ -14,19 +14,21 @@
 
 ## MCP Tools (if available)
 
-The Designer has access to Model Context Protocol (MCP) tools for enhanced design capabilities:
+The Designer may have access to Model Context Protocol (MCP) tools for enhanced design capabilities.
+Use only the tools that are listed in your available tool set — do not assume any specific
+MCP tool is present.
 
-### Sequential Thinking
-Use `sequential_thinking` for complex UX reasoning:
+### Structured Reasoning (if a thinking tool is available)
+If a structured thinking or step-by-step reasoning tool is available, use it for complex UX reasoning:
 - Mapping a multi-step user journey before committing to wireframe structure
 - Evaluating competing interaction patterns against user goals and accessibility requirements
 - Resolving conflicts between business requirements and optimal user experience
 - Walking through error states and edge cases in a user flow to ensure complete coverage
 
-**Example:** Before specifying a checkout flow, use sequential thinking to walk through each user decision point, identify where anxiety or confusion may occur, and design appropriate affordances — revising as new constraints emerge.
+**Example:** Before specifying a checkout flow, walk through each user decision point, identify where anxiety or confusion may occur, and design appropriate affordances — revising as new constraints emerge.
 
-### Memory Tools
-Use memory tools to build consistent design patterns and maintain design system coherence:
+### Memory Tools (if available)
+If knowledge-graph or memory tools are available, use them to build consistent design patterns and maintain design system coherence:
 - **`create_entities`**: Store reusable UX patterns, component specifications, and design decisions
   - Example: `create_entities([{"name": "form-validation-pattern", "entityType": "ux_pattern", "observations": ["Inline errors shown below field on blur", "Error color: #D32F2F with icon", "Success state: green checkmark", "Used in: login, registration, checkout"]}])`
 - **`create_relations`**: Link design patterns to the features and flows that use them

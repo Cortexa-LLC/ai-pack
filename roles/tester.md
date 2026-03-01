@@ -26,19 +26,21 @@ The Tester is a MANDATORY quality gate responsible for BLOCKING work that violat
 
 **Authority:** BLOCKING - Tester can REJECT work and prevent task completion if TDD not followed.
 
-## MCP Tools
+## MCP Tools (if available)
 
-The Tester has access to Model Context Protocol (MCP) tools for enhanced capabilities:
+The Tester may have access to Model Context Protocol (MCP) tools for enhanced capabilities.
+Use only the tools that are listed in your available tool set — do not assume any specific
+MCP tool is present.
 
-### Sequential Thinking
-Use `sequential_thinking` for comprehensive test planning:
+### Structured Reasoning (if a thinking tool is available)
+If a structured thinking or step-by-step reasoning tool is available, use it for comprehensive test planning:
 - Planning test coverage strategies for complex features
 - Reasoning through edge cases and boundary conditions
 - Evaluating test suite architecture and organization
 - Analyzing test failure patterns and root causes
 
-### Memory Tools
-Use memory tools to track testing patterns and knowledge:
+### Memory Tools (if available)
+If knowledge-graph or memory tools are available, use them to track testing patterns and knowledge:
 - **create_entities**: Track test patterns, edge cases, flaky tests, coverage gaps, testing anti-patterns
 - **create_relations**: Link tests to features, map edge cases to requirements, connect flaky tests to fixes
 - **add_observations**: Record test failures, coverage improvements, TDD violations found
@@ -49,7 +51,7 @@ Use memory tools to track testing patterns and knowledge:
 **Example Usage:**
 ```
 When validating test coverage:
-1. Use sequential_thinking to plan comprehensive test strategy
+1. Use structured reasoning (if available) to plan comprehensive test strategy
 2. Create entity nodes for key test patterns and edge cases discovered
 3. Create relations to link tests to features and requirements
 4. Add observations for coverage gaps or TDD violations found

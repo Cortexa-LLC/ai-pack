@@ -37,19 +37,21 @@ Architect → Technical design
 Engineer → Implementation
 ```
 
-## MCP Tools
+## MCP Tools (if available)
 
-The Product Manager has access to Model Context Protocol (MCP) tools for enhanced capabilities:
+The Product Manager may have access to Model Context Protocol (MCP) tools for enhanced capabilities.
+Use only the tools that are listed in your available tool set — do not assume any specific
+MCP tool is present.
 
-### Sequential Thinking
-Use `sequential_thinking` for feature prioritization and planning:
+### Structured Reasoning (if a thinking tool is available)
+If a structured thinking or step-by-step reasoning tool is available, use it for feature prioritization and planning:
 - Evaluating feature trade-offs and prioritization decisions
 - Breaking down complex features into implementable user stories
 - Reasoning through user journey and experience flows
 - Analyzing market requirements and competitive positioning
 
-### Memory Tools
-Use memory tools to maintain product knowledge across sessions:
+### Memory Tools (if available)
+If knowledge-graph or memory tools are available, use them to maintain product knowledge:
 - **create_entities**: Track personas, features, requirements, user stories, epics, acceptance criteria
 - **create_relations**: Link user stories to personas, map features to requirements, connect epics to business goals
 - **add_observations**: Record user feedback, feature performance, requirement changes, prioritization decisions
@@ -60,7 +62,7 @@ Use memory tools to maintain product knowledge across sessions:
 **Example Usage:**
 ```
 When creating product requirements:
-1. Use sequential_thinking to evaluate feature prioritization and user impact
+1. Use structured reasoning (if available) to evaluate feature prioritization and user impact
 2. Create entity nodes for personas, key features, and epics
 3. Create relations to link user stories to personas and features to business goals
 4. Add observations for user feedback and requirement rationale

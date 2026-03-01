@@ -1,6 +1,6 @@
 module github.com/cortexa-llc/ai-pack
 
-go 1.24.0
+go 1.24.1
 
 require (
 	github.com/99designs/gqlgen v0.17.86
@@ -33,6 +33,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/kuzudb/go-kuzu v0.11.3 // indirect
+	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/smacker/go-tree-sitter v0.0.0-20240827094217-dd81d9e9be82 // indirect
