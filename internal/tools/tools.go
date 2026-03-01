@@ -255,7 +255,8 @@ func defineSearchKnowledgeInProjectTool() streaming.Tool {
 		Description: "Hybrid search for entities and observations in another project's knowledge graph. " +
 			"Use this when working across multiple projects (e.g. patching a dependency) to " +
 			"retrieve relevant functions, types, files, and topics from that project's KG. " +
-			"The project must be registered with the AI-Pack server (i.e. it has a .kg/ directory).",
+			"The project must be registered with the AI-Pack server (i.e. it has a .kg/ directory). " +
+			"Use short, specific terms (1–3 words); each whitespace-separated token is matched independently (OR logic).",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

@@ -34,6 +34,8 @@ type SearchResult struct {
 
 // KeywordSearch performs full-text search on entity names and observation content
 // using Cypher's CONTAINS operator for case-insensitive substring matching.
+// The query is tokenized on whitespace; tokens are matched with OR logic so that
+// multi-word queries like "open closed ocp" find entities matching any term.
 func (s *Store) KeywordSearch(projectID, query string, limit int) ([]*SearchResult, error) {
 	if query == "" {
 		return nil, fmt.Errorf("query cannot be empty")
@@ -42,29 +44,41 @@ func (s *Store) KeywordSearch(projectID, query string, limit int) ([]*SearchResu
 		limit = 20
 	}
 
-	// Normalize query for case-insensitive matching
-	normalizedQuery := strings.ToLower(query)
+	// Tokenize and normalize — each token matched independently (OR).
+	rawTokens := strings.Fields(strings.ToLower(query))
+	if len(rawTokens) == 0 {
+		return nil, fmt.Errorf("query contains no searchable terms")
+	}
 
-	// Cypher query to find entities where the name or any linked observation
-	// content contains the search term.  LIMIT takes an integer expression;
-	// using %d (not user input) is safe here.
+	// Build per-token CONTAINS conditions using numbered parameters ($t0, $t1, …).
+	// Parameter names are generated from an index (never from user input) so
+	// interpolating them into the Cypher string is safe.
+	params := map[string]any{"project_id": projectID}
+	var nameConds, obsConds []string
+	for i, tok := range rawTokens {
+		key := fmt.Sprintf("t%d", i)
+		params[key] = tok
+		nameConds = append(nameConds, fmt.Sprintf("lower(e.name) CONTAINS $%s", key))
+		obsConds = append(obsConds, fmt.Sprintf("lower(o.content) CONTAINS $%s", key))
+	}
+	nameClause := strings.Join(nameConds, " OR ")
+	obsClause := strings.Join(obsConds, " OR ")
+
+	// LIMIT takes an integer expression; using %d (not user input) is safe here.
 	cypherQuery := fmt.Sprintf(`
 		MATCH (e:Entity)
 		WHERE e.project_id = $project_id
-		  AND (lower(e.name) CONTAINS $query
+		  AND (%s
 		       OR EXISTS {
 		         MATCH (e)-[:HAS_OBSERVATION]->(o:Observation)
-		         WHERE lower(o.content) CONTAINS $query
+		         WHERE %s
 		       })
 		RETURN DISTINCT e.id, e.name, e.type, e.project_id, e.created_at, e.updated_at
 		ORDER BY e.updated_at DESC
 		LIMIT %d
-	`, limit)
+	`, nameClause, obsClause, limit)
 
-	result, err := s.queryParams(cypherQuery, map[string]any{
-		"project_id": projectID,
-		"query":      normalizedQuery,
-	})
+	result, err := s.queryParams(cypherQuery, params)
 	if err != nil {
 		return nil, fmt.Errorf("execute keyword search: %w", err)
 	}
