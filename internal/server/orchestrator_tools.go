@@ -32,8 +32,8 @@ func GetOrchestratorTools() []anthropic.ToolUnionParam {
 					},
 					"priority": map[string]interface{}{
 						"type":        "string",
-						"description": "Optional: Task priority (low/medium/high)",
-						"enum":        []string{"low", "medium", "high"},
+						"description": "Optional: Task priority (P0=critical, P1=urgent, P2=normal, P3=low, P4=backlog)",
+						"enum":        []string{"P0", "P1", "P2", "P3", "P4"},
 					},
 				},
 				Required: []string{"description", "project_root"},
@@ -143,7 +143,7 @@ func (s *AgentServer) executeCreateTask(input map[string]interface{}) (string, e
 
 	// Default priority
 	if priority == "" {
-		priority = "medium"
+		priority = "P2"
 	}
 
 	// Create Beads task using bd create command
@@ -166,13 +166,75 @@ func (s *AgentServer) executeCreateTask(input map[string]interface{}) (string, e
 		return "", fmt.Errorf("Beads task created but no ID returned")
 	}
 
-	monitoring.Logger.Info("orchestrator_task_created", "task_id", createResult.ID, "project", projectRoot)
+	// Build task packet directory slug: <beadsID>-<timestamp>-<short-desc>
+	timestamp := time.Now().Format("20060102150405")
+	firstLine := description
+	if idx := strings.Index(description, "\n"); idx != -1 {
+		firstLine = description[:idx]
+	}
+	// Build slug from first 5 words of description, lowercase, hyphens
+	words := strings.Fields(firstLine)
+	if len(words) > 5 {
+		words = words[:5]
+	}
+	shortDesc := strings.ToLower(strings.Join(words, "-"))
+	// Remove characters unsafe for directory names
+	var slugBuf bytes.Buffer
+	for _, r := range shortDesc {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			slugBuf.WriteRune(r)
+		} else if r == ' ' {
+			slugBuf.WriteRune('-')
+		}
+	}
+	slug := fmt.Sprintf("%s-%s-%s", createResult.ID, timestamp, slugBuf.String())
+
+	// Create task packet directory under .ai/tasks/<slug>/
+	taskPacketDir := filepath.Join(projectRoot, ".ai", "tasks", slug)
+	if err := os.MkdirAll(taskPacketDir, 0755); err != nil {
+		monitoring.Logger.Warn("task_packet_dir_failed", "dir", taskPacketDir, "error", err)
+	} else {
+		// Copy template files from templates/task-packet/ into the task packet dir
+		templatesDir := filepath.Join(s.rootDir, "templates", "task-packet")
+		entries, readErr := os.ReadDir(templatesDir)
+		if readErr != nil {
+			monitoring.Logger.Warn("task_packet_templates_unreadable", "dir", templatesDir, "error", readErr)
+		} else {
+			for _, entry := range entries {
+				if entry.IsDir() {
+					continue
+				}
+				srcPath := filepath.Join(templatesDir, entry.Name())
+				dstPath := filepath.Join(taskPacketDir, entry.Name())
+				srcData, readFileErr := os.ReadFile(srcPath)
+				if readFileErr != nil {
+					monitoring.Logger.Warn("task_packet_template_read_failed", "file", srcPath, "error", readFileErr)
+					continue
+				}
+				if writeErr := os.WriteFile(dstPath, srcData, 0644); writeErr != nil {
+					monitoring.Logger.Warn("task_packet_template_write_failed", "file", dstPath, "error", writeErr)
+				}
+			}
+		}
+
+		// Update the Beads description to include Working directory and Task packet lines
+		taskPacketRelPath := filepath.Join(".ai", "tasks", slug)
+		updatedDescription := fmt.Sprintf("%s\n\nWorking directory: %s\nTask packet: %s/", description, projectRoot, taskPacketRelPath)
+		updateCmd := exec.Command("bd", "update", createResult.ID, "-d", updatedDescription)
+		updateCmd.Dir = projectRoot
+		if updateOut, updateErr := updateCmd.CombinedOutput(); updateErr != nil {
+			monitoring.Logger.Warn("task_packet_description_update_failed", "task_id", createResult.ID, "error", updateErr, "output", string(updateOut))
+		}
+	}
+
+	monitoring.Logger.Info("orchestrator_task_created", "task_id", createResult.ID, "project", projectRoot, "packet_dir", taskPacketDir)
 
 	result := map[string]interface{}{
-		"success":  true,
-		"task_id":  createResult.ID,
-		"message":  fmt.Sprintf("Task created: %s", createResult.ID),
-		"priority": priority,
+		"success":    true,
+		"task_id":    createResult.ID,
+		"message":    fmt.Sprintf("Task created: %s", createResult.ID),
+		"priority":   priority,
+		"packet_dir": filepath.Join(".ai", "tasks", slug),
 	}
 
 	resultJSON, _ := json.Marshal(result)
