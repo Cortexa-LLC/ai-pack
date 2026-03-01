@@ -50,29 +50,31 @@ func (s *AgentServer) continueWithToolResults(
 	req *ChatRequest,
 	previousReq streaming.StreamRequest,
 	previousMessage *streaming.CompletedMessage,
+	toolUses []streaming.ToolUse,
 	toolResults []streaming.ToolResult,
 ) error {
 	// Build new conversation history with tool results
-	// The conversation should be:
-	// 1. Original user message
-	// 2. Assistant message with tool use
-	// 3. User message with tool results (this is how Anthropic handles it)
+	// The conversation must be:
+	// 1. Original messages (from previousReq)
+	// 2. Assistant message with ToolUses set (not plain text) so the provider
+	//    serialises it as a proper tool_use content block
+	// 3. User message with ToolResults set (not plain text) so the provider
+	//    serialises it as proper tool_result content blocks
 
-	// Format tool results as a user message
-	toolResultsText := "Tool execution results:\n\n"
-	for _, result := range toolResults {
-		if result.IsError {
-			toolResultsText += fmt.Sprintf("❌ Tool error: %s\n\n", result.Content)
-		} else {
-			toolResultsText += fmt.Sprintf("✓ Tool result: %s\n\n", result.Content)
-		}
+	assistantMsg := streaming.Message{
+		Role:     "assistant",
+		Content:  previousMessage.Content,
+		ToolUses: toolUses,
+	}
+
+	toolResultMsg := streaming.Message{
+		Role:        "user",
+		ToolResults: toolResults,
 	}
 
 	// Create new request with tool results
 	continuationReq := streaming.StreamRequest{
-		Messages: append(previousReq.Messages,
-			streaming.Message{Role: "assistant", Content: previousMessage.Content},
-			streaming.Message{Role: "user", Content: toolResultsText}),
+		Messages:     append(previousReq.Messages, assistantMsg, toolResultMsg),
 		SystemPrompt: previousReq.SystemPrompt,
 		MaxTokens:    previousReq.MaxTokens,
 		Tools:        previousReq.Tools,
@@ -439,7 +441,7 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 		}
 
 		// Continue conversation with tool results
-		if err := s.continueWithToolResults(ctx, w, flusher, req, streamReq, message, toolResults); err != nil {
+		if err := s.continueWithToolResults(ctx, w, flusher, req, streamReq, message, toolCalls, toolResults); err != nil {
 			monitoring.Logger.Error("tool_continuation_failed", "error", err)
 			errorData, _ := json.Marshal(map[string]interface{}{
 				"error": fmt.Sprintf("Tool continuation failed: %v", err),
