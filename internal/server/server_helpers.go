@@ -165,6 +165,19 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 	timestamp := time.Now().Format("20060102-150405")
 	taskID := fmt.Sprintf("%s-%s", beadsTaskID, timestamp)
 
+	// Supersede any previous execution for this beads task so the GUI
+	// shows the new run rather than the old failed one.
+	if prevFolder := s.findMostRecentExecutionInProject(projectRoot, beadsTaskID); prevFolder != "" {
+		monitoring.Logger.Info("superseding_previous_execution",
+			"beads_task_id", beadsTaskID,
+			"previous_execution", prevFolder,
+			"new_task_id", taskID)
+		if err := s.markExecutionAsSuperseded(prevFolder, projectRoot, "rerun"); err != nil {
+			monitoring.Logger.Warn("failed_to_supersede_previous_execution",
+				"folder", prevFolder, "error", err)
+		}
+	}
+
 	// Load agent configuration
 	config, err := s.loadAgentConfig(role, projectRoot)
 	if err != nil {

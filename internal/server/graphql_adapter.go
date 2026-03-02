@@ -411,6 +411,24 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 							_ = os.WriteFile(metadataPath, updatedData, 0644)
 						}
 					}
+				} else if beadsStatus == "in_progress" {
+					// A new run is already executing — show it as in_progress, not failed.
+					monitoring.Logger.Info("reconciling_stale_execution_metadata",
+						"task_id", beadsTaskID,
+						"old_status", taskInfo.Status,
+						"beads_status", beadsStatus,
+						"execution_folder", taskID)
+					taskInfo.Status = constants.StatusInProgress
+					taskInfo.Error = nil
+				} else if beadsStatus == "open" {
+					// Beads was auto-reset after failure; a new run is imminent — show as queued.
+					monitoring.Logger.Info("reconciling_stale_execution_metadata",
+						"task_id", beadsTaskID,
+						"old_status", taskInfo.Status,
+						"beads_status", beadsStatus,
+						"execution_folder", taskID)
+					taskInfo.Status = constants.StatusQueued
+					taskInfo.Error = nil
 				}
 			}
 		}
