@@ -35,6 +35,7 @@ func init() {
 	rootCmd.AddCommand(embedCmd)
 	rootCmd.AddCommand(graphCmd)
 	rootCmd.AddCommand(statsCmd)
+	rootCmd.AddCommand(perfCmd)
 	rootCmd.AddCommand(versionCmd)
 }
 

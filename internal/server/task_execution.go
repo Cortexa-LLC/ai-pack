@@ -447,26 +447,41 @@ func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskE
 	s.ensureKGForProject(execution.ProjectRoot)
 
 	// Pre-flight: inject knowledge-graph context into system prompt (best-effort, 2 s timeout).
+	// Set AIPACK_KG_DISABLED=1 to suppress preflight for baseline/benchmarking runs.
 	systemPrompt := s.buildSystemPromptForProject(roleContext, execution.ProjectRoot)
-	if kgBlock := kgclient.PreflightContext(ctx, s.mcpManager, execution.Task, execution.ProjectRoot); kgBlock != "" {
-		systemPrompt = kgBlock + "\n---\n\n" + systemPrompt
+	kgPreflightBytes := 0
+	if os.Getenv("AIPACK_KG_DISABLED") != "1" {
+		if kgBlock := kgclient.PreflightContext(ctx, s.mcpManager, execution.Task, execution.ProjectRoot); kgBlock != "" {
+			kgPreflightBytes = len(kgBlock)
+			systemPrompt = kgBlock + "\n---\n\n" + systemPrompt
+		}
 	}
 
 	// Pre-flight for related projects declared in the task contract.
 	// Reads "Related Projects: /path" lines from 00-contract.md and merges each
 	// project's KG context into the system prompt.
-	if taskPacketPath := execution.metadata["task_packet_path"]; taskPacketPath != "" {
-		contractPath := filepath.Join(workingDir, taskPacketPath, "00-contract.md")
-		if relatedPaths := kgclient.ParseRelatedProjects(contractPath); len(relatedPaths) > 0 {
-			for _, relProject := range relatedPaths {
-				s.ensureKGForProject(relProject)
-				if relBlock := kgclient.PreflightContext(ctx, s.mcpManager, execution.Task, relProject); relBlock != "" {
-					logMsg(fmt.Sprintf("   🔗 Merged KG context from related project: %s", relProject))
-					systemPrompt = relBlock + "\n---\n\n" + systemPrompt
+	if os.Getenv("AIPACK_KG_DISABLED") != "1" {
+		if taskPacketPath := execution.metadata["task_packet_path"]; taskPacketPath != "" {
+			contractPath := filepath.Join(workingDir, taskPacketPath, "00-contract.md")
+			if relatedPaths := kgclient.ParseRelatedProjects(contractPath); len(relatedPaths) > 0 {
+				for _, relProject := range relatedPaths {
+					s.ensureKGForProject(relProject)
+					if relBlock := kgclient.PreflightContext(ctx, s.mcpManager, execution.Task, relProject); relBlock != "" {
+						kgPreflightBytes += len(relBlock)
+						logMsg(fmt.Sprintf("   🔗 Merged KG context from related project: %s", relProject))
+						systemPrompt = relBlock + "\n---\n\n" + systemPrompt
+					}
 				}
 			}
 		}
 	}
+
+	// Store kg_preflight_bytes in metadata so saveAndCompleteTask can include it in metrics.
+	s.mu.Lock()
+	if exec, ok := s.activeTasks[execution.TaskID]; ok {
+		exec.metadata["kg_preflight_bytes"] = fmt.Sprintf("%d", kgPreflightBytes)
+	}
+	s.mu.Unlock()
 
 	result, err := s.executeAgenticLoop(ctx, execution.TaskID, execution.Role, prompt, systemPrompt, workingDir, execution.ProjectRoot, execution.Config, logMsg)
 	if err != nil {

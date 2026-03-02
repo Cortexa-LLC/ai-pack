@@ -54,6 +54,9 @@ type ParsedLog struct {
 	// TotalTokens is the last "cumulative" token count seen in the log,
 	// which represents the total tokens used across all API calls.
 	TotalTokens int64
+	// KgPreflightBytes is the byte length of the KG context block injected into
+	// the system prompt. Zero means KG was absent or returned an empty block.
+	KgPreflightBytes int
 }
 
 // parseExecutionLog reads and parses an execution.log file, extracting
@@ -197,6 +200,11 @@ func buildLogObservations(parsed *ParsedLog, role, taskDesc string, startTime ti
 	// Files touched
 	if len(parsed.FilesTouched) > 0 {
 		obs = append(obs, "files_touched: "+strings.Join(parsed.FilesTouched, ", "))
+	}
+
+	// KG preflight context size
+	if parsed.KgPreflightBytes > 0 {
+		obs = append(obs, fmt.Sprintf("kg_preflight_bytes: %d", parsed.KgPreflightBytes))
 	}
 
 	// Errors
