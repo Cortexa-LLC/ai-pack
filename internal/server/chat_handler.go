@@ -27,9 +27,13 @@ func convertAnthropicToolsToStreaming(anthropicTools []anthropic.ToolUnionParam)
 		}
 
 		// Convert to streaming.Tool format
+		desc := ""
+		if d := toolUnion.GetDescription(); d != nil {
+			desc = *d
+		}
 		streamTool := streaming.Tool{
 			Name:        tool.Name,
-			Description: *toolUnion.GetDescription(),
+			Description: desc,
 			InputSchema: map[string]interface{}{
 				"type":       tool.InputSchema.Type,
 				"properties": tool.InputSchema.Properties,
