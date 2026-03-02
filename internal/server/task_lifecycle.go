@@ -278,7 +278,54 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 			}
 		}
 	}
+
+	// Persist execution metrics snapshot to the task packet directory.
+	s.writeExecutionMetrics(execution, startTime, finalStatus)
+
 	logMsg("=" + strings.Repeat("=", 70))
+}
+
+// writeExecutionMetrics persists an ExecutionMetrics snapshot to the task packet
+// directory (if one exists for this execution). Errors are logged but not fatal.
+func (s *AgentServer) writeExecutionMetrics(execution *TaskExecution, startTime time.Time, finalStatus string) {
+	if execution.metadata == nil {
+		return
+	}
+	taskPacketPath := execution.metadata["task_packet_path"]
+	workingDir := execution.metadata["working_directory"]
+	if taskPacketPath == "" || workingDir == "" {
+		return
+	}
+	taskPacketDir := filepath.Join(workingDir, taskPacketPath)
+
+	// Read kg_preflight_bytes stored by executeAgentWorkflow.
+	kgPreflightBytes := 0
+	if v, ok := execution.metadata["kg_preflight_bytes"]; ok {
+		fmt.Sscanf(v, "%d", &kgPreflightBytes)
+	}
+
+	endTime := time.Now()
+	durationMs := endTime.Sub(startTime).Milliseconds()
+
+	m := monitoring.ExecutionMetrics{
+		TaskID:           execution.TaskID,
+		Role:             execution.Role,
+		StartTime:        startTime,
+		EndTime:          endTime,
+		DurationMs:       durationMs,
+		KgPreflightBytes: kgPreflightBytes,
+		// Turns, ToolCallsTotal, and ExplorationRatio are not yet tracked in
+		// per-execution metadata; they default to zero until that plumbing lands.
+		HasErrors: finalStatus == "failed",
+	}
+
+	if err := monitoring.WriteMetrics(taskPacketDir, m); err != nil {
+		monitoring.Logger.Warn("failed_to_write_execution_metrics",
+			"task_id", execution.TaskID,
+			"task_packet_dir", taskPacketDir,
+			"error", err.Error(),
+		)
+	}
 }
 
 // saveTaskResults saves the task results to disk
