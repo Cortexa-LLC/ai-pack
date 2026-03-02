@@ -260,12 +260,15 @@ const RolesTab: React.FC<{ summary: any }> = ({ summary }) => {
 // Models Tab
 const ModelsTab: React.FC<{ summary: any }> = ({ summary }) => {
   const modelData = summary.byModel || {};
+  const activeModels = Object.entries(modelData).filter(
+    ([, data]: [string, any]) => (data.totalAttempts || 0) > 0
+  );
 
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-white mb-4">Performance by Model</h3>
       <div className="grid gap-4">
-        {Object.entries(modelData).map(([model, data]: [string, any]) => (
+        {activeModels.map(([model, data]: [string, any]) => (
           <div key={model} className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-lg font-semibold text-white">{model}</h4>
@@ -301,7 +304,9 @@ const ModelsTab: React.FC<{ summary: any }> = ({ summary }) => {
 const GradesTab: React.FC<{ grades: any[] }> = ({ grades }) => {
   const [sortBy, setSortBy] = useState<'grade' | 'confidence' | 'attempts'>('grade');
 
-  const sortedGrades = [...(grades || [])].sort((a, b) => {
+  const activeGrades = (grades || []).filter((g) => (g.totalAttempts || 0) > 0);
+
+  const sortedGrades = [...activeGrades].sort((a, b) => {
     if (sortBy === 'grade') {
       const gradeOrder = { A: 0, B: 1, C: 2, D: 3, F: 4 };
       return (gradeOrder[a.grade as keyof typeof gradeOrder] || 5) -
