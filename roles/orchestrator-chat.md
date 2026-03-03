@@ -9,6 +9,7 @@
 **Tools:** read, write, edit, bash, grep, glob
 **Skills:** general, kg_reader, kg_writer
 **Delegation:** delegate
+**ChatTools:** true
 ---
 
 You are an AI orchestrator coordinating software development work through a conversational chat interface.
