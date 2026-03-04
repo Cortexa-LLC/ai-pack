@@ -364,8 +364,82 @@ func (s *AgentServer) executeGetTaskDetails(input map[string]interface{}) (strin
 		return "", fmt.Errorf("task not found: %s", taskID)
 	}
 
-	resultJSON, _ := json.Marshal(result.Data.Task)
+	task := result.Data.Task
+
+	// Augment with last execution metadata (status, error, turn count) so the
+	// model knows if a previous run was interrupted, failed, or completed.
+	projectRoot, _ := task["projectRoot"].(string)
+	if projectRoot != "" {
+		if execStatus := s.getLastExecutionStatus(taskID, projectRoot); execStatus != nil {
+			task["last_execution"] = execStatus
+		}
+	}
+
+	resultJSON, _ := json.Marshal(task)
 	return string(resultJSON), nil
+}
+
+// getLastExecutionStatus reads the most recent execution metadata for a task and
+// returns a summary suitable for the orchestrator model.
+func (s *AgentServer) getLastExecutionStatus(taskID, projectRoot string) map[string]interface{} {
+	tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
+	entries, err := os.ReadDir(tasksDir)
+	if err != nil {
+		return nil
+	}
+
+	prefix := taskID + "-"
+	type execEntry struct {
+		name string
+		t    time.Time
+	}
+	var found []execEntry
+	for _, e := range entries {
+		if !e.IsDir() || !strings.HasPrefix(e.Name(), prefix) {
+			continue
+		}
+		suffix := strings.TrimPrefix(e.Name(), prefix)
+		t, err := time.Parse("20060102-150405", suffix)
+		if err != nil {
+			continue
+		}
+		found = append(found, execEntry{e.Name(), t})
+	}
+	if len(found) == 0 {
+		return nil
+	}
+	// Sort most-recent first
+	for i := 0; i < len(found)-1; i++ {
+		for j := i + 1; j < len(found); j++ {
+			if found[j].t.After(found[i].t) {
+				found[i], found[j] = found[j], found[i]
+			}
+		}
+	}
+
+	metadataPath := filepath.Join(tasksDir, found[0].name, "00-metadata.json")
+	data, err := os.ReadFile(metadataPath)
+	if err != nil {
+		return nil
+	}
+	var meta map[string]interface{}
+	if json.Unmarshal(data, &meta) != nil {
+		return nil
+	}
+
+	summary := map[string]interface{}{
+		"execution_folder": found[0].name,
+		"started_at":       meta["started_at"],
+		"updated_at":       meta["updated_at"],
+		"status":           meta["status"],
+	}
+	if r, ok := meta["error_reason"].(string); ok && r != "" {
+		summary["error_reason"] = r
+	}
+	if n, ok := meta["turn_count"]; ok {
+		summary["turn_count"] = n
+	}
+	return summary
 }
 
 func (s *AgentServer) executeUpdateTaskStatus(input map[string]interface{}) (string, error) {
