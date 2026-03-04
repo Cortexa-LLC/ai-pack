@@ -11,6 +11,15 @@ interface Message {
   id?: number; // Unique ID for this message
 }
 
+interface ToolCallDisplay {
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+  result?: string;
+  isError?: boolean;
+  pending: boolean;
+}
+
 interface ChatSession {
   id: string;
   name: string;
@@ -63,6 +72,7 @@ export default function ChatPanel() {
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
+  const [streamingToolCalls, setStreamingToolCalls] = useState<ToolCallDisplay[]>([]);
   const [selectedRole, setSelectedRole] = useState('orchestrator');
   const [mode] = useState<'chat' | 'agent'>('chat'); // Always chat mode with orchestrator
   const [chatId, setChatId] = useState<string>('');
@@ -675,6 +685,7 @@ export default function ChatPanel() {
     setAttachedImages([]);
     setIsStreaming(true);
     setStreamingMessage('');
+    setStreamingToolCalls([]);
 
     const requestPayload = {
       message: messageContent,
@@ -759,6 +770,7 @@ export default function ChatPanel() {
       const decoder = new TextDecoder();
       let buffer = '';
       let accumulatedText = ''; // Track accumulated text synchronously
+      let currentEventType = 'message'; // Track SSE event type
 
       if (!reader) {
         console.error('[ChatPanel] No response body reader available');
@@ -779,7 +791,12 @@ export default function ChatPanel() {
 
         for (const line of lines) {
           if (line.startsWith('event:')) {
-            // Skip event type line
+            currentEventType = line.substring(6).trim();
+            continue;
+          }
+
+          if (line === '') {
+            currentEventType = 'message'; // reset after blank line
             continue;
           }
 
@@ -787,9 +804,22 @@ export default function ChatPanel() {
             const data = line.substring(5).trim();
             try {
               const parsed = JSON.parse(data);
-              if (DEBUG_CHAT) console.log('[ChatPanel] SSE event:', parsed);
+              if (DEBUG_CHAT) console.log('[ChatPanel] SSE event:', currentEventType, parsed);
 
-              if (parsed.status === 'connected') {
+              if (currentEventType === 'tool_use') {
+                setStreamingToolCalls(prev => [...prev, {
+                  id: parsed.id,
+                  name: parsed.tool,
+                  input: parsed.input || {},
+                  pending: true,
+                }]);
+              } else if (currentEventType === 'tool_result') {
+                setStreamingToolCalls(prev => prev.map(tc =>
+                  tc.id === parsed.id
+                    ? { ...tc, result: parsed.result, isError: parsed.is_error, pending: false }
+                    : tc
+                ));
+              } else if (parsed.status === 'connected') {
                 if (DEBUG_CHAT) console.log('[ChatPanel] Chat stream connected');
               } else if (parsed.status === 'complete') {
                 if (DEBUG_CHAT) console.log('[ChatPanel] Stream complete');
@@ -800,6 +830,7 @@ export default function ChatPanel() {
                 };
                 setMessages(prev => [...prev, assistantMessage]);
                 setStreamingMessage('');
+                setStreamingToolCalls([]);
                 setIsStreaming(false);
                 // Set suggestion from backend if provided
                 if (parsed.suggestion && input === '') {
@@ -1451,6 +1482,37 @@ export default function ChatPanel() {
           </div>
         ))}
 
+        {/* Tool call indicators */}
+        {streamingToolCalls.map((tc) => (
+          <div key={tc.id} className="flex justify-start">
+            <div className="max-w-[85%] rounded-lg px-3 py-2 bg-gray-800 border border-gray-600 text-xs font-mono">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">⚙</span>
+                <span className="text-yellow-400 font-semibold">{tc.name}</span>
+                {tc.pending
+                  ? <span className="text-gray-500 animate-pulse">running…</span>
+                  : tc.isError
+                    ? <span className="text-red-400">✗ error</span>
+                    : <span className="text-green-400">✓ done</span>
+                }
+              </div>
+              <div className="text-gray-500 mt-1 truncate">
+                {Object.entries(tc.input).map(([k, v]) => (
+                  <span key={k} className="mr-2">
+                    <span className="text-gray-400">{k}:</span>{' '}
+                    <span className="text-gray-300">{typeof v === 'string' ? v.substring(0, 60) : JSON.stringify(v).substring(0, 60)}</span>
+                  </span>
+                ))}
+              </div>
+              {!tc.pending && tc.result && (
+                <div className={`mt-1 truncate ${tc.isError ? 'text-red-400' : 'text-gray-400'}`}>
+                  {tc.result.substring(0, 120)}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
         {/* Streaming message */}
         {isStreaming && streamingMessage && (
           <div className="flex justify-start">
@@ -1463,7 +1525,7 @@ export default function ChatPanel() {
         )}
 
         {/* Typing indicator */}
-        {isStreaming && !streamingMessage && (
+        {isStreaming && !streamingMessage && streamingToolCalls.length === 0 && (
           <div className="flex justify-start">
             <div className="bg-gray-700 rounded-lg px-4 py-3">
               <div className="flex gap-1">
