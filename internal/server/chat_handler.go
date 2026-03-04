@@ -46,7 +46,33 @@ func convertAnthropicToolsToStreaming(anthropicTools []anthropic.ToolUnionParam)
 	return tools
 }
 
-// continueWithToolResults continues the conversation with tool execution results
+// sendToolUseEvent sends a tool_use SSE event to the client
+func sendToolUseEvent(w http.ResponseWriter, flusher http.Flusher, toolCall streaming.ToolUse) {
+	data, _ := json.Marshal(map[string]interface{}{
+		"tool":  toolCall.Name,
+		"id":    toolCall.ID,
+		"input": toolCall.Input,
+	})
+	fmt.Fprintf(w, "event: tool_use\n")
+	fmt.Fprintf(w, "data: %s\n\n", data)
+	flusher.Flush()
+}
+
+// sendToolResultEvent sends a tool_result SSE event to the client
+func sendToolResultEvent(w http.ResponseWriter, flusher http.Flusher, toolCall streaming.ToolUse, result string, isError bool) {
+	data, _ := json.Marshal(map[string]interface{}{
+		"tool":     toolCall.Name,
+		"id":       toolCall.ID,
+		"result":   result,
+		"is_error": isError,
+	})
+	fmt.Fprintf(w, "event: tool_result\n")
+	fmt.Fprintf(w, "data: %s\n\n", data)
+	flusher.Flush()
+}
+
+// continueWithToolResults continues the conversation after tool execution, supporting
+// multiple rounds of tool use until the model produces a final text response.
 func (s *AgentServer) continueWithToolResults(
 	ctx context.Context,
 	w http.ResponseWriter,
@@ -57,76 +83,115 @@ func (s *AgentServer) continueWithToolResults(
 	toolUses []streaming.ToolUse,
 	toolResults []streaming.ToolResult,
 ) error {
-	// Build new conversation history with tool results
-	// The conversation must be:
-	// 1. Original messages (from previousReq)
-	// 2. Assistant message with ToolUses set (not plain text) so the provider
-	//    serialises it as a proper tool_use content block
-	// 3. User message with ToolResults set (not plain text) so the provider
-	//    serialises it as proper tool_result content blocks
-
-	assistantMsg := streaming.Message{
-		Role:     "assistant",
-		Content:  previousMessage.Content,
-		ToolUses: toolUses,
-	}
-
-	toolResultMsg := streaming.Message{
-		Role:        "user",
-		ToolResults: toolResults,
-	}
-
-	// Create new request with tool results
+	// Build initial continuation request
 	continuationReq := streaming.StreamRequest{
-		Messages:     append(previousReq.Messages, assistantMsg, toolResultMsg),
+		Messages: append(previousReq.Messages,
+			streaming.Message{
+				Role:     "assistant",
+				Content:  previousMessage.Content,
+				ToolUses: toolUses,
+			},
+			streaming.Message{
+				Role:        "user",
+				ToolResults: toolResults,
+			},
+		),
 		SystemPrompt: previousReq.SystemPrompt,
 		MaxTokens:    previousReq.MaxTokens,
 		Tools:        previousReq.Tools,
 		Model:        previousReq.Model,
 	}
 
-	// Create new stream
-	stream, err := s.streamingService.CreateStream(ctx, req.Role, continuationReq)
-	if err != nil {
-		return fmt.Errorf("failed to create continuation stream: %w", err)
-	}
-	defer stream.Close()
-
-	// Stream the continuation
-	for stream.Next() {
-		event := stream.Current()
-
-		// Send delta events
-		if event.Delta != nil && event.Delta.Text != "" {
-			textData, _ := json.Marshal(map[string]interface{}{
-				"text": event.Delta.Text,
-			})
-			fmt.Fprintf(w, "event: delta\n")
-			fmt.Fprintf(w, "data: %s\n\n", textData)
-			flusher.Flush()
+	const maxToolRounds = 10
+	for round := 0; round < maxToolRounds; round++ {
+		stream, err := s.streamingService.CreateStream(ctx, req.Role, continuationReq)
+		if err != nil {
+			return fmt.Errorf("failed to create continuation stream: %w", err)
 		}
+
+		roundToolCalls := []streaming.ToolUse{}
+		var roundContent string
+
+		for stream.Next() {
+			event := stream.Current()
+			if event.ToolUse != nil {
+				roundToolCalls = append(roundToolCalls, *event.ToolUse)
+				monitoring.Logger.Info("tool_use_in_continuation", "tool", event.ToolUse.Name, "round", round+1)
+				continue
+			}
+			if event.Delta != nil && event.Delta.Text != "" {
+				roundContent += event.Delta.Text
+				textData, _ := json.Marshal(map[string]interface{}{"text": event.Delta.Text})
+				fmt.Fprintf(w, "event: delta\n")
+				fmt.Fprintf(w, "data: %s\n\n", textData)
+				flusher.Flush()
+			}
+		}
+
+		streamErr := stream.Err()
+		finalMessage := stream.GetMessage()
+		stream.Close() //nolint:errcheck
+
+		if streamErr != nil {
+			return fmt.Errorf("continuation stream error: %w", streamErr)
+		}
+
+		if len(roundToolCalls) == 0 {
+			// No more tool calls — send completion and return
+			completeData, _ := json.Marshal(map[string]interface{}{
+				"status":        "complete",
+				"input_tokens":  finalMessage.InputTokens,
+				"output_tokens": finalMessage.OutputTokens,
+				"model":         finalMessage.Model,
+			})
+			fmt.Fprintf(w, "event: complete\n")
+			fmt.Fprintf(w, "data: %s\n\n", completeData)
+			flusher.Flush()
+			return nil
+		}
+
+		// Execute tools and notify the client
+		monitoring.Logger.Info("executing_tools_continuation", "count", len(roundToolCalls), "round", round+1)
+		roundToolResults := []streaming.ToolResult{}
+		for _, toolCall := range roundToolCalls {
+			sendToolUseEvent(w, flusher, toolCall)
+			result, execErr := s.ExecuteTool(toolCall.Name, toolCall.Input)
+			if execErr != nil {
+				monitoring.Logger.Error("tool_execution_failed", "tool", toolCall.Name, "round", round+1, "error", execErr)
+				errStr := fmt.Sprintf("Error: %v", execErr)
+				sendToolResultEvent(w, flusher, toolCall, errStr, true)
+				roundToolResults = append(roundToolResults, streaming.ToolResult{
+					ToolUseID: toolCall.ID,
+					ToolName:  toolCall.Name,
+					Content:   errStr,
+					IsError:   true,
+				})
+			} else {
+				sendToolResultEvent(w, flusher, toolCall, result, false)
+				roundToolResults = append(roundToolResults, streaming.ToolResult{
+					ToolUseID: toolCall.ID,
+					ToolName:  toolCall.Name,
+					Content:   result,
+					IsError:   false,
+				})
+			}
+		}
+
+		// Append this round to the conversation history for the next turn
+		continuationReq.Messages = append(continuationReq.Messages,
+			streaming.Message{
+				Role:     "assistant",
+				Content:  roundContent,
+				ToolUses: roundToolCalls,
+			},
+			streaming.Message{
+				Role:        "user",
+				ToolResults: roundToolResults,
+			},
+		)
 	}
 
-	// Check for errors
-	if err := stream.Err(); err != nil {
-		return fmt.Errorf("continuation stream error: %w", err)
-	}
-
-	// Get final message
-	finalMessage := stream.GetMessage()
-
-	// Send completion event
-	completeData, _ := json.Marshal(map[string]interface{}{
-		"status":        "complete",
-		"input_tokens":  finalMessage.InputTokens,
-		"output_tokens": finalMessage.OutputTokens,
-		"model":         finalMessage.Model,
-	})
-	fmt.Fprintf(w, "event: complete\n")
-	fmt.Fprintf(w, "data: %s\n\n", completeData)
-	flusher.Flush()
-
-	return nil
+	return fmt.Errorf("exceeded maximum tool call rounds (%d)", maxToolRounds)
 }
 
 // ChatRequest represents an incoming chat message
@@ -427,17 +492,23 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 		// Execute each tool and collect results
 		toolResults := []streaming.ToolResult{}
 		for _, toolCall := range toolCalls {
+			sendToolUseEvent(w, flusher, toolCall)
 			result, err := s.ExecuteTool(toolCall.Name, toolCall.Input)
 			if err != nil {
 				monitoring.Logger.Error("tool_execution_failed", "tool", toolCall.Name, "error", err)
+				errStr := fmt.Sprintf("Error: %v", err)
+				sendToolResultEvent(w, flusher, toolCall, errStr, true)
 				toolResults = append(toolResults, streaming.ToolResult{
 					ToolUseID: toolCall.ID,
-					Content:   fmt.Sprintf("Error: %v", err),
+					ToolName:  toolCall.Name,
+					Content:   errStr,
 					IsError:   true,
 				})
 			} else {
+				sendToolResultEvent(w, flusher, toolCall, result, false)
 				toolResults = append(toolResults, streaming.ToolResult{
 					ToolUseID: toolCall.ID,
+					ToolName:  toolCall.Name,
 					Content:   result,
 					IsError:   false,
 				})
