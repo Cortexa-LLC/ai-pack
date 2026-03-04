@@ -25,8 +25,7 @@ func (cv *ConfigValidator) ValidateAllConfigs() []ValidationWarning {
 
 	// Check for agent config directories
 	agentDirs := []string{
-		filepath.Join(cv.server.rootDir, ".ai-pack", "agents"),
-		filepath.Join(cv.server.rootDir, "agents"),
+		filepath.Join(cv.server.rootDir, "roles"),
 	}
 
 	for _, dir := range agentDirs {

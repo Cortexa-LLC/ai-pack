@@ -264,14 +264,8 @@ func (s *AgentServer) discoverAvailableAgents() []protocol.AgentDescription {
 	// Build set of all agent roles (combining framework and project overrides)
 	agentRoles := make(map[string]bool)
 
-	// Try multiple locations for agent configs:
-	// 1. Production: .ai-pack/agents/ (when deployed as submodule)
-	// 2. Development: ../agents/ (when running from bin/ directory)
-	// 3. Development: agents/ (when running from repo root)
 	frameworkAgentsDirs := []string{
-		s.rootDir + "/.ai-pack/agents",
-		s.rootDir + "/../agents",
-		s.rootDir + "/agents",
+		s.rootDir + "/roles",
 	}
 
 	// Project overrides
