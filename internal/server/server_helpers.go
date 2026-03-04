@@ -940,14 +940,11 @@ func (s *AgentServer) readBaseRoleFile(baseName, projectRoot string) ([]byte, st
 func (s *AgentServer) loadAgentConfigForRole(role string) (*AgentConfig, error) {
 	// Check multiple locations for role files
 	locations := []string{
-		filepath.Join(s.rootDir, ".ai-pack", "agents", fmt.Sprintf("%s.md", role)),
-		filepath.Join(s.rootDir, "agents", fmt.Sprintf("%s.md", role)),
 		filepath.Join(s.rootDir, "roles", fmt.Sprintf("%s.md", role)),
 	}
 
 	// Convention: check for a {role}-chat.md variant first (any role may have one).
 	chatLocations := []string{
-		filepath.Join(s.rootDir, ".ai-pack", "agents", fmt.Sprintf("%s-chat.md", role)),
 		filepath.Join(s.rootDir, "roles", fmt.Sprintf("%s-chat.md", role)),
 	}
 	locations = append(chatLocations, locations...)
