@@ -454,6 +454,9 @@ func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskE
 		if kgBlock := kgclient.PreflightContext(ctx, s.mcpManager, execution.Task, execution.ProjectRoot); kgBlock != "" {
 			kgPreflightBytes = len(kgBlock)
 			systemPrompt = kgBlock + "\n---\n\n" + systemPrompt
+			s.mu.Lock()
+			s.kgPreflightHits[execution.ProjectRoot]++
+			s.mu.Unlock()
 		}
 	}
 

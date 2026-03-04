@@ -112,11 +112,12 @@ type AgentServer struct {
 	complexityRiskAnalyzer *monitoring.ComplexityRiskAnalyzer       // v2 structural risk scorer
 
 	// Concurrent execution tracking
-	mu           sync.RWMutex
-	activeTasks  map[string]*TaskExecution
-	taskQueue    chan *TaskExecution
-	workerPool   chan struct{}        // Semaphore for max concurrent agents
-	projectRoots map[string]time.Time // Registry of known project roots with last access time
+	mu               sync.RWMutex
+	activeTasks      map[string]*TaskExecution
+	taskQueue        chan *TaskExecution
+	workerPool       chan struct{}             // Semaphore for max concurrent agents
+	projectRoots     map[string]time.Time     // Registry of known project roots with last access time
+	kgPreflightHits  map[string]int64         // KG preflight context injections per project root
 
 	// Server-level context — cancelled by Shutdown() to pre-empt in-flight tasks.
 	ctx    context.Context
@@ -332,7 +333,8 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		activeTasks:    make(map[string]*TaskExecution),
 		taskQueue:      make(chan *TaskExecution, maxConcurrent*taskQueueMultiplier),
 		workerPool:     make(chan struct{}, maxConcurrent),
-		projectRoots:   make(map[string]time.Time),
+		projectRoots:    make(map[string]time.Time),
+		kgPreflightHits: make(map[string]int64),
 		ctx:            serverCtx,
 		cancel:         serverCancel,
 	}
