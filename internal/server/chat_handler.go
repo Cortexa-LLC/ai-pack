@@ -177,6 +177,15 @@ func (s *AgentServer) continueWithToolResults(
 			}
 		}
 
+		// If this round produced text before tool calls, send a paragraph break
+		// so the next round's reply starts on a new line.
+		if roundContent != "" {
+			sepData, _ := json.Marshal(map[string]interface{}{"text": "\n\n"})
+			fmt.Fprintf(w, "event: delta\n")
+			fmt.Fprintf(w, "data: %s\n\n", sepData)
+			flusher.Flush()
+		}
+
 		// Append this round to the conversation history for the next turn
 		continuationReq.Messages = append(continuationReq.Messages,
 			streaming.Message{
@@ -513,6 +522,15 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 					IsError:   false,
 				})
 			}
+		}
+
+		// If the model produced text before the tool calls, send a paragraph break
+		// so the continuation reply starts on a new line rather than running together.
+		if message.Content != "" {
+			sepData, _ := json.Marshal(map[string]interface{}{"text": "\n\n"})
+			fmt.Fprintf(w, "event: delta\n")
+			fmt.Fprintf(w, "data: %s\n\n", sepData)
+			flusher.Flush()
 		}
 
 		// Continue conversation with tool results
