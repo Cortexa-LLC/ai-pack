@@ -530,6 +530,7 @@ func main() {
 	mux.HandleFunc("/api/browse-directories", s.HandleBrowseDirectories) // Directory autocomplete
 	mux.HandleFunc("/api/search", s.HandleSearch)                        // Codebase search
 	mux.HandleFunc("/api/search/options", s.HandleSearchOptions)         // CORS preflight
+	mux.HandleFunc("/api/kg/stats", s.HandleKGStats)                     // Knowledge graph statistics
 
 	// Setup GraphQL endpoints
 	s.SetupGraphQLHandlers(mux)

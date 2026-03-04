@@ -5,16 +5,55 @@ interface PerformanceDashboardProps {
   apiUrl: string;
 }
 
+interface KGProjectStats {
+  project_root: string;
+  project_name: string;
+  entity_count: number;
+  relation_count: number;
+  entity_by_type: Record<string, number>;
+  relation_by_type: Record<string, number>;
+  preflight_hits: number;
+  available: boolean;
+  error?: string;
+}
+
+interface KGStats {
+  projects: KGProjectStats[];
+  total_entities: number;
+  total_relations: number;
+  indexed_projects: number;
+  generated_at: string;
+}
+
 const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ apiUrl }) => {
   const { summary, grades, loading, error, refresh } = usePerformance(apiUrl);
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'models' | 'grades'>('overview');
+  const [selectedTab, setSelectedTab] = useState<'overview' | 'models' | 'grades' | 'knowledge'>('overview');
   const [totalCost, setTotalCost] = useState<number | null>(null);
+  const [kgStats, setKgStats] = useState<KGStats | null>(null);
+  const [kgLoading, setKgLoading] = useState(false);
 
   useEffect(() => {
     // Refresh every 30 seconds
     const interval = setInterval(refresh, 30000);
     return () => clearInterval(interval);
   }, [refresh]);
+
+  const fetchKGStats = () => {
+    setKgLoading(true);
+    fetch('/api/kg/stats')
+      .then(res => res.json())
+      .then((data: KGStats) => setKgStats(data))
+      .catch(err => console.error('Failed to fetch KG stats:', err))
+      .finally(() => setKgLoading(false));
+  };
+
+  useEffect(() => {
+    fetchKGStats();
+  }, []);
+
+  useEffect(() => {
+    if (selectedTab === 'knowledge') fetchKGStats();
+  }, [selectedTab]);
 
   useEffect(() => {
     // Fetch daily metrics to calculate total cost
@@ -85,7 +124,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ apiUrl }) =
 
       {/* Tab Navigation */}
       <div className="flex gap-2 border-b border-gray-700">
-        {(['overview', 'models', 'grades'] as const).map((tab) => (
+        {(['overview', 'models', 'grades', 'knowledge'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setSelectedTab(tab)}
@@ -105,6 +144,9 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ apiUrl }) =
         {selectedTab === 'overview' && <OverviewTab summary={summary} totalCost={totalCost} />}
         {selectedTab === 'models' && <ModelsTab summary={summary} />}
         {selectedTab === 'grades' && <GradesTab grades={grades} />}
+        {selectedTab === 'knowledge' && (
+          <KnowledgeGraphTab stats={kgStats} loading={kgLoading} onRefresh={fetchKGStats} />
+        )}
       </div>
     </div>
   );
@@ -451,6 +493,165 @@ const GradeBadge: React.FC<{ grade: string }> = ({ grade }) => {
     <span className={`px-3 py-1 rounded-full text-sm font-bold border ${color}`}>
       Grade {grade}
     </span>
+  );
+};
+
+// Knowledge Graph Tab
+const KnowledgeGraphTab: React.FC<{
+  stats: KGStats | null;
+  loading: boolean;
+  onRefresh: () => void;
+}> = ({ stats, loading, onRefresh }) => {
+  if (loading) {
+    return (
+      <div className="flex items-center gap-3 p-8 text-gray-400">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500" />
+        Loading knowledge graph stats…
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <div className="p-6 bg-gray-800/50 border border-gray-700 rounded-lg text-gray-400 text-sm">
+        No knowledge graph data available. Ensure the server is running and a project is registered.
+      </div>
+    );
+  }
+
+  const entityTypeColors: Record<string, string> = {
+    function: 'bg-blue-600',
+    file: 'bg-green-600',
+    type: 'bg-purple-600',
+    import: 'bg-yellow-600',
+    package: 'bg-orange-600',
+    topic: 'bg-pink-600',
+  };
+
+  const totalPreflightHits = stats.projects.reduce((s, p) => s + (p.preflight_hits || 0), 0);
+
+  return (
+    <div className="space-y-6">
+      {/* Summary row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard label="Total Entities" value={stats.total_entities.toLocaleString()} subtext="across all projects" />
+        <StatCard label="Total Relations" value={stats.total_relations.toLocaleString()} subtext="graph edges" />
+        <StatCard label="Indexed Projects" value={`${stats.indexed_projects}`} subtext={`of ${stats.projects.length} registered`} />
+        <StatCard label="Context Injections" value={totalPreflightHits.toLocaleString()} subtext="preflight hits" />
+      </div>
+
+      {/* Per-project cards */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-white">Projects</h3>
+          <button
+            onClick={onRefresh}
+            className="px-3 py-1 bg-purple-700/40 hover:bg-purple-700/60 rounded text-xs text-purple-300"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {stats.projects.map((proj) => (
+            <div
+              key={proj.project_root}
+              className={`rounded-lg border p-5 ${
+                proj.available
+                  ? 'bg-gray-800/60 border-gray-700'
+                  : 'bg-gray-900/40 border-gray-800 opacity-60'
+              }`}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <span className="font-semibold text-white">{proj.project_name}</span>
+                  <span className="ml-2 text-xs text-gray-500 font-mono">{proj.project_root}</span>
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  proj.available ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'
+                }`}>
+                  {proj.available ? 'indexed' : 'unavailable'}
+                </span>
+              </div>
+
+              {proj.error && (
+                <p className="text-xs text-red-400 mb-3">{proj.error}</p>
+              )}
+
+              {proj.available && (
+                <>
+                  {/* Stats row */}
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-purple-300">{proj.entity_count.toLocaleString()}</div>
+                      <div className="text-xs text-gray-500">Entities</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-300">{proj.relation_count.toLocaleString()}</div>
+                      <div className="text-xs text-gray-500">Relations</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-300">{(proj.preflight_hits || 0).toLocaleString()}</div>
+                      <div className="text-xs text-gray-500">Context Hits</div>
+                    </div>
+                  </div>
+
+                  {/* Entity type breakdown */}
+                  {Object.keys(proj.entity_by_type).length > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2">Entity types</p>
+                      <div className="space-y-1.5">
+                        {Object.entries(proj.entity_by_type)
+                          .sort(([, a], [, b]) => b - a)
+                          .map(([type, count]) => {
+                            const pct = proj.entity_count > 0
+                              ? Math.round((count / proj.entity_count) * 100)
+                              : 0;
+                            const color = entityTypeColors[type] || 'bg-gray-600';
+                            return (
+                              <div key={type} className="flex items-center gap-2">
+                                <span className="w-16 text-xs text-gray-400 text-right">{type}</span>
+                                <div className="flex-1 bg-gray-700 rounded-full h-2">
+                                  <div
+                                    className={`${color} h-2 rounded-full transition-all`}
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                                <span className="w-12 text-xs text-gray-400 text-right">
+                                  {count.toLocaleString()}
+                                </span>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Relation type breakdown */}
+                  {Object.keys(proj.relation_by_type).length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs text-gray-500 mb-2">Top relation types</p>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(proj.relation_by_type)
+                          .sort(([, a], [, b]) => b - a)
+                          .map(([type, count]) => (
+                            <span
+                              key={type}
+                              className="px-2 py-0.5 bg-gray-700 rounded text-xs text-gray-300"
+                            >
+                              {type} <span className="text-gray-500">{count}</span>
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 };
 
