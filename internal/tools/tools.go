@@ -554,7 +554,7 @@ func executeGrep(input map[string]interface{}, workingDir string, settings *clau
 
 	// Load .claudeignore and build grep exclusion flags so grep never scans ignored paths.
 	claudeIgnore, ignoreErr := LoadClaudeIgnore(workingDir)
-	grepArgs := []string{"-r", "-n"}
+	grepArgs := []string{"-r", "-n", "-I"} // -I skips binary files
 	if ignoreErr == nil {
 		grepArgs = append(grepArgs, claudeIgnore.GrepExcludeArgs()...)
 	}

@@ -1585,6 +1585,20 @@ Work Log Entry:
 - Read, Write, Edit (file operations)
 - Grep, Glob (search operations)
 - Bash (for build, test, git commands)
+
+### CRITICAL: Use Dedicated Tools — Not Bash Equivalents
+
+**NEVER use Bash to run `grep`, `find`, `cat`, `head`, `tail`, `ls` for code exploration.**
+
+Use the dedicated tools instead — they apply `.claudeignore` automatically, skip binary/socket files, and are faster:
+
+| Task | Use this | NOT this |
+|------|----------|----------|
+| Search file contents | `Grep` tool | `Bash(grep -r ...)` |
+| Find files by name/pattern | `Glob` tool | `Bash(find ...)` |
+| Read a file | `Read` tool | `Bash(cat ...)` |
+
+Reserve `Bash` for: building, testing, running git commands, and shell operations that have no dedicated tool equivalent.
 - Beads (`bd` command) for persistent task tracking
   - `bd ready` - Find next available task
   - `bd show` - View task details
