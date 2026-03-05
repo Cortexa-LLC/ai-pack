@@ -31,9 +31,9 @@ func parseRoleTimeout(s string) time.Duration {
 }
 
 // applyTaskContractOverrides reads 00-contract.md from the task packet directory
-// and applies any MaxBudgetTokens or MaxTurns overrides found there, allowing
-// individual tasks to raise (or remove) limits set by the role file without
-// permanently modifying the role.
+// and applies any Model, MaxBudgetTokens, or MaxTurns overrides found there,
+// allowing individual tasks to redirect to a different model or adjust limits
+// without permanently modifying the role.
 //
 // Override fields use the same **Key:** value header format as role files.
 // Missing fields leave the role value unchanged.
@@ -61,6 +61,16 @@ func applyTaskContractOverrides(config *AgentConfig, taskPacketPath, projectRoot
 		value := strings.TrimSpace(parts[1])
 
 		switch field {
+		case configFieldModel:
+			if value != "" {
+				monitoring.Logger.Info("task_contract_override",
+					"field", "Model",
+					"role_value", config.Model,
+					"contract_value", value,
+					"contract", contractPath,
+				)
+				config.Model = value
+			}
 		case configFieldMaxBudgetTokens:
 			var v int
 			if n, _ := fmt.Sscanf(value, "%d", &v); n == 1 {

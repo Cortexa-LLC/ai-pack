@@ -120,7 +120,7 @@ func (cv *ConfigValidator) validateModelAvailability(model, configPath string) [
 
 	// Check OpenAI models
 	if strings.HasPrefix(model, "gpt-") {
-		if cv.server.openaiProvider == nil {
+		if cv.server.openaiKey == "" {
 			warnings = append(warnings, ValidationWarning{
 				Type:       "missing_api_key",
 				ConfigFile: configPath,

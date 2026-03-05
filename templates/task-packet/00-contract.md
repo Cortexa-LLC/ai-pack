@@ -6,6 +6,30 @@
 **Assigned Role:** [Orchestrator/Worker/Reviewer]
 **Workflow:** [Standard/Feature/Bugfix/Refactor/Research]
 **Requires Review:** true
+**Model:** [optional — overrides role default, e.g. Qwen3.5-35B-A3B-Q6_K.gguf or claude-opus-4-6]
+
+---
+
+## KG Orientation (MANDATORY FIRST STEP)
+
+**Before filling out this contract, query the Knowledge Graph to understand existing context.**
+
+```
+mcp__kg__search_knowledge("<task keywords>")
+mcp__kg__search_knowledge("<affected component or file area>")
+```
+
+**Fill in findings below — this prevents rediscovering what's already indexed:**
+
+### Existing KG Context
+```
+Entities found:    [list relevant entities from search_knowledge results]
+Key observations:  [any past decisions, bugs, or design notes found]
+Related files:     [file paths from get_file_context results]
+Gaps / unknowns:   [what the KG didn't know — needs investigation]
+```
+
+> Skip this section only for trivial 1-step tasks. For all code changes: KG first, then grep.
 
 ---
 

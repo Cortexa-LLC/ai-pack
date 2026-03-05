@@ -124,12 +124,19 @@ def start_server(project_root):
     """Start the agent server in a subprocess."""
     print(f"{Colors.GREEN}🚀 Starting Agent Server...{Colors.RESET}")
 
-    server_script = project_root / 'a2a-agent' / 'scripts' / 'start-server.py'
+    import shutil
+    server_bin = project_root / 'bin' / 'agent-server'
+    if not server_bin.exists():
+        found = shutil.which('agent-server')
+        if not found:
+            print(f"{Colors.RED}❌ agent-server binary not found. Run: make build-server{Colors.RESET}")
+            return None
+        server_bin = Path(found)
 
     try:
         # Start server as subprocess
         proc = subprocess.Popen(
-            [sys.executable, str(server_script)],
+            [str(server_bin), '--server'],
             cwd=project_root,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,

@@ -148,6 +148,11 @@ func (s *Service) translateModelForProvider(model, fromProvider, toProvider stri
 		return "gpt-4o"
 	}
 
+	// Qwen -> Anthropic fallback
+	if fromProvider == ProviderQwen && toProvider == ProviderAnthropic {
+		return "claude-sonnet-4-6"
+	}
+
 	// Gemini -> Anthropic fallback
 	if fromProvider == ProviderGemini && toProvider == ProviderAnthropic {
 		if strings.Contains(strings.ToLower(model), "pro") {

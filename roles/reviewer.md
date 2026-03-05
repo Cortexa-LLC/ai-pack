@@ -2,7 +2,7 @@
 
 **Agent:** reviewer
 **Description:** Code review specialist focused on quality and security
-**Model:** claude-sonnet-4-6
+**Model:** Qwen3.5-35B-A3B-Q6_K.gguf
 **Timeout:** 10min
 **MaxTurns:** 150
 **MaxBudgetTokens:** 1000000
@@ -29,6 +29,7 @@ Check for security vulnerabilities.
 
 When a task gives you specific files, diffs, or a commit to review:
 
+0. **Check the KG first.** Call `mcp__kg__search_knowledge({query: "<component-name>"})` for the main component under review. This surfaces prior decisions, known issues, and architectural context in one call — faster than reading docs.
 1. **Read only what is listed.** Do NOT read surrounding code, docs, test files, schemas, or referenced libraries unless a specific finding requires it.
 2. **Use `git diff` to see exactly what changed.** Reading the diff is usually sufficient — you do not need to read the full file.
 3. **Do NOT load any reference documents** (quality/clean-code/*, architecture docs, etc.) unless explicitly told to.
