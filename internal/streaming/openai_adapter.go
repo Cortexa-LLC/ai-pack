@@ -293,6 +293,22 @@ func usesMaxCompletionTokens(model string) bool {
 	return false
 }
 
+// extractReasoningContent parses the raw JSON delta from a chat completion chunk
+// and returns the reasoning_content field value. This handles providers (e.g. Qwen)
+// that emit thinking tokens in reasoning_content instead of content.
+func extractReasoningContent(rawDelta string) string {
+	if rawDelta == "" {
+		return ""
+	}
+	var d struct {
+		ReasoningContent string `json:"reasoning_content"`
+	}
+	if err := json.Unmarshal([]byte(rawDelta), &d); err != nil {
+		return ""
+	}
+	return d.ReasoningContent
+}
+
 // OpenAIChatStreamAdapter wraps an OpenAI chat completion stream to implement StreamProvider
 type OpenAIChatStreamAdapter struct {
 	stream        *ssestream.Stream[openai.ChatCompletionChunk]
@@ -317,11 +333,19 @@ func (a *OpenAIChatStreamAdapter) Next() bool {
 	for a.stream.Next() {
 		chunk := a.stream.Current()
 		a.acc.AddChunk(chunk)
-		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
+		if len(chunk.Choices) > 0 {
 			text := chunk.Choices[0].Delta.Content
-			a.message.Content += text
-			a.current = StreamEvent{Type: "content_block_delta", Delta: &DeltaContent{Text: text, Type: "text_delta"}}
-			return true
+			// For providers that support extended thinking (e.g. Qwen), the model may
+			// emit reasoning tokens in reasoning_content with an empty content field.
+			// Fall back to reasoning_content so the agent loop receives output.
+			if text == "" && a.provider == ProviderQwen {
+				text = extractReasoningContent(chunk.Choices[0].Delta.RawJSON())
+			}
+			if text != "" {
+				a.message.Content += text
+				a.current = StreamEvent{Type: "content_block_delta", Delta: &DeltaContent{Text: text, Type: "text_delta"}}
+				return true
+			}
 		}
 	}
 	if err := a.stream.Err(); err != nil {
