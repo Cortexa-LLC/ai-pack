@@ -12,6 +12,7 @@ const (
 	ProviderAnthropic = constants.ProviderAnthropic
 	ProviderOpenAI    = constants.ProviderOpenAI
 	ProviderGemini    = constants.ProviderGemini
+	ProviderQwen      = constants.ProviderQwen
 )
 
 // StreamEvent represents a single event in the stream

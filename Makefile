@@ -1,7 +1,9 @@
 .PHONY: test test-short test-coverage build build-gui build-kg codegen-gui clean clean-all sonarqube help
 .PHONY: install install-agent install-kg uninstall uninstall-agent uninstall-kg setup-mcp
-.PHONY: start-server start-gui start-all stop-all
+.PHONY: start-server start-gui start-all stop-server stop-gui stop-all restart-server restart-gui restart-all
+.PHONY: setup-services uninstall-services status-services
 .PHONY: setup-launchd uninstall-launchd status-launchd
+UNAME_S := $(shell uname -s)
 
 # Default target
 .DEFAULT_GOAL := help
@@ -40,7 +42,7 @@ help: ## Show this help message
 	@echo "  make setup-mcp            # Register MCP servers in Claude Code"
 	@echo "  kg index                  # Index codebase into knowledge graph"
 	@echo "  make start-all            # Start server and GUI"
-	@echo "  make setup-launchd        # Setup auto-start with launchd"
+	@echo "  make setup-services       # Setup auto-start (macOS/Linux)"
 
 # ============================================================================
 # BUILD TARGETS
@@ -117,47 +119,62 @@ uninstall-kg: ## Uninstall kg binary from /usr/local/bin
 	@echo "✅ kg uninstalled"
 
 # ============================================================================
-# START/STOP TARGETS
+# START/STOP TARGETS (via launchctl on macOS, systemd on Linux)
+# Run 'make setup-services' first to install the background services.
+# Use 'make run-*' for foreground mode (no service manager needed).
 # ============================================================================
 
-start-server: ## Start the agent server (foreground)
-	@echo "Starting AI-Pack Agent Server..."
+start-server: ## Start agent server via service manager
+	@python3 scripts/setup-services.py start-server
+
+start-gui: ## Start GUI via service manager
+	@python3 scripts/setup-services.py start-gui
+
+start-all: start-server start-gui ## Start both services
+
+stop-server: ## Stop agent server
+	@python3 scripts/setup-services.py stop-server
+
+stop-gui: ## Stop GUI
+	@python3 scripts/setup-services.py stop-gui
+
+stop-all: stop-server stop-gui ## Stop all services
+
+restart-server: stop-server start-server ## Restart agent server
+
+restart-gui: stop-gui start-gui ## Restart GUI
+
+restart-all: stop-all start-all ## Restart all services
+
+run-server: ## Run agent server in foreground (no service manager)
+	@echo "Starting AI-Pack Agent Server (foreground)..."
 	@python3 scripts/start-all.py --server-only
 
-start-gui: ## Start the GUI dev server (foreground)
-	@echo "Starting GUI..."
+run-gui: ## Run GUI in foreground (no service manager)
+	@echo "Starting GUI (foreground)..."
 	@python3 scripts/start-all.py --gui-only
 
-start-all: ## Start both agent server and GUI (foreground)
-	@echo "Starting AI-Pack (Server + GUI)..."
+run-all: ## Run both services in foreground (no service manager)
+	@echo "Starting AI-Pack (foreground)..."
 	@python3 scripts/start-all.py
 
-stop-all: ## Stop all running services
-	@echo "Stopping services..."
-	@pkill -f "agent-server" || true
-	@pkill -f "vite.*gui" || true
-	@echo "✅ Services stopped"
-
 # ============================================================================
-# LAUNCHD TARGETS (macOS)
+# SERVICE MANAGEMENT (macOS launchd / Linux systemd)
 # ============================================================================
 
-setup-launchd: ## Install launchd plists for auto-start (macOS)
-	@echo "Installing launchd configuration..."
-	@python3 scripts/setup-launchd.py install
-	@echo ""
-	@echo "✅ launchd setup complete"
-	@echo ""
-	@echo "Services will start automatically on login."
-	@echo "To start now: make status-launchd"
+setup-services: ## Install and enable background services (macOS/Linux)
+	@python3 scripts/setup-services.py install
 
-uninstall-launchd: ## Uninstall launchd plists (macOS)
-	@echo "Uninstalling launchd configuration..."
-	@python3 scripts/setup-launchd.py uninstall
-	@echo "✅ launchd configuration removed"
+uninstall-services: ## Remove background services
+	@python3 scripts/setup-services.py uninstall
 
-status-launchd: ## Show launchd service status (macOS)
-	@python3 scripts/setup-launchd.py status
+status-services: ## Show service status
+	@python3 scripts/setup-services.py status
+
+# Backwards-compat aliases
+setup-launchd: setup-services ## Alias for setup-services (macOS)
+uninstall-launchd: uninstall-services ## Alias for uninstall-services
+status-launchd: status-services ## Alias for status-services
 
 # ============================================================================
 # TEST TARGETS

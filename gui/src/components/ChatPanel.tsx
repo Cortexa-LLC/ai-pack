@@ -9,6 +9,7 @@ interface Message {
   content: string;
   replyTo?: number; // Index of the message being replied to
   id?: number; // Unique ID for this message
+  toolCalls?: ToolCallDisplay[];
 }
 
 interface ToolCallDisplay {
@@ -38,6 +39,8 @@ interface CurrentChatPerProject {
 
 // Debug flag for verbose logging
 const DEBUG_CHAT = false;
+const LS_SELECTED_MODEL = 'ai-pack-selected-model';
+const API_MODELS = '/api/models';
 
 // Initialize mermaid
 mermaid.initialize({
@@ -75,6 +78,10 @@ export default function ChatPanel() {
   const [streamingToolCalls, setStreamingToolCalls] = useState<ToolCallDisplay[]>([]);
   const [selectedRole, setSelectedRole] = useState('orchestrator');
   const [mode] = useState<'chat' | 'agent'>('chat'); // Always chat mode with orchestrator
+  const [selectedModel, setSelectedModel] = useState(
+    () => localStorage.getItem(LS_SELECTED_MODEL) ?? ''
+  );
+  const [availableModels, setAvailableModels] = useState<Array<{ id: string; provider: string }>>([]);
   const [chatId, setChatId] = useState<string>('');
   const [promptHistory, setPromptHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -472,6 +479,19 @@ export default function ChatPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectRoot]);
 
+  // Fetch available models on mount; auto-select first (Qwen) if no saved preference
+  useEffect(() => {
+    fetch(API_MODELS)
+      .then(r => r.json())
+      .then(data => {
+        if (data.models?.length) {
+          setAvailableModels(data.models);
+          setSelectedModel(prev => prev || data.models[0].id);
+        }
+      })
+      .catch(() => {}); // silently ignore if server not yet up
+  }, []);
+
   // Connect to orchestrator SSE stream when project is selected
   useEffect(() => {
     if (!projectRoot) {
@@ -691,6 +711,7 @@ export default function ChatPanel() {
       message: messageContent,
       messages: messages,
       role: selectedRole,
+      model: selectedModel,
       mode: mode,
       project_root: projectRoot,
       use_project_context: useProjectContext,
@@ -770,6 +791,7 @@ export default function ChatPanel() {
       const decoder = new TextDecoder();
       let buffer = '';
       let accumulatedText = ''; // Track accumulated text synchronously
+      const accumulatedToolCalls: ToolCallDisplay[] = []; // Track tool calls synchronously
       let currentEventType = 'message'; // Track SSE event type
 
       if (!reader) {
@@ -807,13 +829,19 @@ export default function ChatPanel() {
               if (DEBUG_CHAT) console.log('[ChatPanel] SSE event:', currentEventType, parsed);
 
               if (currentEventType === 'tool_use') {
-                setStreamingToolCalls(prev => [...prev, {
+                const newTc: ToolCallDisplay = {
                   id: parsed.id,
                   name: parsed.tool,
                   input: parsed.input || {},
                   pending: true,
-                }]);
+                };
+                accumulatedToolCalls.push(newTc);
+                setStreamingToolCalls(prev => [...prev, newTc]);
               } else if (currentEventType === 'tool_result') {
+                const idx = accumulatedToolCalls.findIndex(tc => tc.id === parsed.id);
+                if (idx !== -1) {
+                  accumulatedToolCalls[idx] = { ...accumulatedToolCalls[idx], result: parsed.result, isError: parsed.is_error, pending: false };
+                }
                 setStreamingToolCalls(prev => prev.map(tc =>
                   tc.id === parsed.id
                     ? { ...tc, result: parsed.result, isError: parsed.is_error, pending: false }
@@ -823,10 +851,11 @@ export default function ChatPanel() {
                 if (DEBUG_CHAT) console.log('[ChatPanel] Chat stream connected');
               } else if (parsed.status === 'complete') {
                 if (DEBUG_CHAT) console.log('[ChatPanel] Stream complete');
-                // Completion event - use accumulated text (not React state)
+                // Completion event - use accumulated text/tool calls (not React state)
                 const assistantMessage: Message = {
                   role: 'assistant',
                   content: parsed.text || accumulatedText,
+                  ...(accumulatedToolCalls.length > 0 && { toolCalls: [...accumulatedToolCalls] }),
                 };
                 setMessages(prev => [...prev, assistantMessage]);
                 setStreamingMessage('');
@@ -1293,6 +1322,27 @@ export default function ChatPanel() {
           )}
         </div>
 
+        {/* Model Selector */}
+        <div className="mt-2 flex items-center gap-2">
+          <span className="text-xs text-gray-500">Model:</span>
+          <select
+            value={selectedModel}
+            onChange={e => {
+              setSelectedModel(e.target.value);
+              localStorage.setItem(LS_SELECTED_MODEL, e.target.value);
+            }}
+            className="flex-1 bg-gray-700 text-white text-xs rounded px-2 py-1 border border-gray-600 focus:outline-none focus:border-gray-400"
+          >
+            {availableModels.length > 0 ? (
+              availableModels.map(m => (
+                <option key={m.id} value={m.id}>{m.id} ({m.provider})</option>
+              ))
+            ) : (
+              <option value={selectedModel}>{selectedModel}</option>
+            )}
+          </select>
+        </div>
+
         {/* Project Context Toggle */}
         {projectRoot && (
           <div className="mt-2 flex items-center gap-2">
@@ -1432,6 +1482,36 @@ export default function ChatPanel() {
                   >
                     ↩️
                   </button>
+                  {/* Persisted tool calls */}
+                  {msg.toolCalls && msg.toolCalls.length > 0 && (
+                    <div className="mb-2 space-y-1">
+                      {msg.toolCalls.map((tc) => (
+                        <div key={tc.id} className="rounded px-2 py-1 bg-gray-800 border border-gray-600 text-xs font-mono">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500">⚙</span>
+                            <span className="text-yellow-400 font-semibold">{tc.name}</span>
+                            {tc.isError
+                              ? <span className="text-red-400">✗ error</span>
+                              : <span className="text-green-400">✓ done</span>
+                            }
+                          </div>
+                          <div className="text-gray-500 mt-1 truncate">
+                            {Object.entries(tc.input).map(([k, v]) => (
+                              <span key={k} className="mr-2">
+                                <span className="text-gray-400">{k}:</span>{' '}
+                                <span className="text-gray-300">{typeof v === 'string' ? v.substring(0, 60) : JSON.stringify(v).substring(0, 60)}</span>
+                              </span>
+                            ))}
+                          </div>
+                          {tc.result && (
+                            <div className={`mt-1 truncate ${tc.isError ? 'text-red-400' : 'text-gray-400'}`}>
+                              {tc.result.substring(0, 120)}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="prose prose-invert prose-sm max-w-none">
                     <ReactMarkdown
                       components={{

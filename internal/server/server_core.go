@@ -15,7 +15,6 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	anthropic_option "github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/cortexa-llc/ai-pack/internal/beads"
-	openai_option "github.com/openai/openai-go/option"
 
 	"github.com/cortexa-llc/ai-pack/internal/claude"
 	"github.com/cortexa-llc/ai-pack/internal/config"
@@ -25,7 +24,6 @@ import (
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/internal/protocol"
 	"github.com/cortexa-llc/ai-pack/internal/streaming"
-	openai "github.com/openai/openai-go"
 )
 
 var Version = "dev"
@@ -101,10 +99,6 @@ type AgentServer struct {
 	// Multi-provider LLM support
 	openaiKey              string
 	geminiKey              string
-	openaiClient           openai.Client
-	anthropicProvider      *AnthropicProvider
-	openaiProvider         *OpenAIProvider
-	modelSelector          *ModelSelector
 	streamingService       *streaming.Service                       // Clean streaming abstraction
 	projectMetrics         map[string]*monitoring.PersistentMetrics // Per-project persistent metrics
 	providerCosts          map[string][2]float64                    // Provider cost configuration
@@ -298,15 +292,11 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	openaiKey := os.Getenv("OPENAI_API_KEY")
 	geminiKey := os.Getenv("GEMINI_API_KEY")
 
-	clientOpts := []openai_option.RequestOption{
-		openai_option.WithRequestTimeout(10 * time.Second),
+	// Qwen local provider — configurable via QWEN_BASE_URL, defaults to localhost:9000
+	qwenBaseURL := os.Getenv("QWEN_BASE_URL")
+	if qwenBaseURL == "" {
+		qwenBaseURL = constants.QwenLocalBaseURL
 	}
-
-	if openaiKey != "" {
-		clientOpts = append(clientOpts, openai_option.WithAPIKey(openaiKey))
-	}
-
-	openaiClient := openai.NewClient(clientOpts...)
 
 	anthropicOpts := []anthropic_option.RequestOption{
 		anthropic_option.WithRequestTimeout(10 * time.Second),
@@ -326,7 +316,6 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		maxTokens:      maxTokens,
 		model:          model,
 		config:         cfg,
-		openaiClient:   openaiClient,
 		client:         anthropicClient,
 		projectMetrics: make(map[string]*monitoring.PersistentMetrics),
 		providerCosts:  make(map[string][2]float64),
@@ -442,11 +431,6 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	server.maxConsecutiveErrorTurns = maxConsecutiveErrorTurns
 	server.providerCosts = costs
 
-	// Initialize LLM providers
-	server.anthropicProvider = NewAnthropicProvider(&server.client, model, maxTokens)
-	server.openaiProvider = NewOpenAIProvider(&server.openaiClient, model, maxTokens)
-	server.modelSelector = NewModelSelector(server)
-
 	// Initialize streaming service with performance-grade-based model selection
 	streamingSelector := streaming.NewPerformanceGradeModelSelector(
 		rootDir,
@@ -464,6 +448,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	if geminiKey != "" {
 		streamingService.RegisterProvider(streaming.NewGeminiFactory(geminiKey, maxTokens))
 	}
+	streamingService.RegisterProvider(streaming.NewQwenFactory(qwenBaseURL))
 
 	server.streamingService = streamingService
 	monitoring.Logger.Info("streaming_service_initialized",

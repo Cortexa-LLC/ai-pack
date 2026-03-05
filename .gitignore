@@ -101,3 +101,7 @@ tests/workflow_test_workspace/
 /bin/agent
 /bin/agent-server
 /bin/kg
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db

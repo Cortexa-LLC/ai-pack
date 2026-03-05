@@ -12,6 +12,10 @@ import (
 // without returning an error — the fallback is a successful resolution.
 func resolveProvider(modelID string, openaiAvailable, geminiAvailable bool, defaultModel string) (string, string, error) {
 	lower := strings.ToLower(modelID)
+	if strings.HasPrefix(lower, "qwen") {
+		// Qwen models route to local provider; always available (no key needed)
+		return modelID, ProviderQwen, nil
+	}
 	if strings.HasPrefix(lower, "gpt-") || strings.HasPrefix(lower, "o1") || strings.HasPrefix(lower, "o3") || strings.HasPrefix(lower, "o4") {
 		if !openaiAvailable {
 			return defaultModel, ProviderAnthropic, nil
@@ -61,6 +65,9 @@ func (s *SimpleModelSelector) SelectModel(role string, requestedModel string, _ 
 
 	// Determine provider based on model name
 	modelLower := strings.ToLower(requestedModel)
+	if strings.HasPrefix(modelLower, "qwen") {
+		return requestedModel, ProviderQwen, nil
+	}
 	if strings.HasPrefix(modelLower, "gpt-") || strings.HasPrefix(modelLower, "o1") || strings.HasPrefix(modelLower, "o3") || strings.HasPrefix(modelLower, "o4") {
 		// OpenAI model requested
 		if !s.openaiAvailable {

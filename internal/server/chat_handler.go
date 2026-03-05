@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/cortexa-llc/ai-pack/internal/constants"
@@ -208,6 +210,7 @@ type ChatRequest struct {
 	Message           string        `json:"message"`
 	Messages          []ChatMessage `json:"messages,omitempty"`            // Full conversation history
 	Role              string        `json:"role,omitempty"`                // Agent role (orchestrator, engineer, etc.)
+	Model             string        `json:"model,omitempty"`               // Override model (e.g. "Qwen3.5-35B-A3B-Q6_K.gguf")
 	Mode              string        `json:"mode,omitempty"`                // "chat" or "agent"
 	ProjectRoot       string        `json:"project_root,omitempty"`        // Working directory for agent mode
 	UseProjectContext bool          `json:"use_project_context,omitempty"` // Whether to load project context files
@@ -404,10 +407,14 @@ func (s *AgentServer) handleChatMode(w http.ResponseWriter, r *http.Request, req
 	}
 
 	// Build generic streaming request
+	model := s.model
+	if req.Model != "" {
+		model = req.Model
+	}
 	streamReq := streaming.StreamRequest{
 		Messages:  make([]streaming.Message, 0),
 		MaxTokens: s.maxTokens,
-		Model:     s.model, // Default model, will be overridden by role config
+		Model:     model,
 	}
 
 	// Add conversation history
@@ -634,4 +641,54 @@ func (s *AgentServer) HandleChatOptions(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	w.WriteHeader(http.StatusOK)
+}
+
+// ModelInfo describes an available model for the chat UI.
+type ModelInfo struct {
+	ID       string `json:"id"`
+	Provider string `json:"provider"`
+}
+
+// HandleModels returns available models: local Qwen models + known cloud models.
+func (s *AgentServer) HandleModels(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", constants.ContentTypeJSON)
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	var models []ModelInfo
+
+	// Fetch local Qwen models from llama-server
+	qwenBaseURL := os.Getenv("QWEN_BASE_URL")
+	if qwenBaseURL == "" {
+		qwenBaseURL = constants.QwenLocalBaseURL
+	}
+	client := &http.Client{Timeout: 2 * time.Second}
+	if resp, err := client.Get(qwenBaseURL + "/models"); err == nil {
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		var result struct {
+			Data []struct {
+				ID string `json:"id"`
+			} `json:"data"`
+		}
+		if json.Unmarshal(body, &result) == nil {
+			for _, m := range result.Data {
+				models = append(models, ModelInfo{ID: m.ID, Provider: constants.ProviderQwen})
+			}
+		}
+	}
+
+	// Always include cloud fallbacks
+	cloudModels := []ModelInfo{
+		{ID: "claude-sonnet-4-6", Provider: constants.ProviderAnthropic},
+		{ID: "claude-haiku-4-5-20251001", Provider: constants.ProviderAnthropic},
+	}
+	if s.openaiKey != "" {
+		cloudModels = append(cloudModels,
+			ModelInfo{ID: "gpt-4.1-mini", Provider: constants.ProviderOpenAI},
+			ModelInfo{ID: "gpt-4.1", Provider: constants.ProviderOpenAI},
+		)
+	}
+	models = append(models, cloudModels...)
+
+	json.NewEncoder(w).Encode(map[string]interface{}{"models": models})
 }

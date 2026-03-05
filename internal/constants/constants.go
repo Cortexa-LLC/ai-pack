@@ -21,6 +21,12 @@ const (
 	ProviderAnthropic = "anthropic"
 	ProviderOpenAI    = "openai"
 	ProviderGemini    = "gemini"
+	ProviderQwen      = "qwen"
+)
+
+// Local provider endpoints
+const (
+	QwenLocalBaseURL = "http://localhost:9000/v1"
 )
 
 // Message Roles (for LLM conversations)

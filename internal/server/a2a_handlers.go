@@ -542,11 +542,26 @@ func (s *AgentServer) HandleRetryTask(w http.ResponseWriter, r *http.Request) {
 	if btid, ok := taskInfo.Metadata["beads_task_id"].(string); ok && btid != "" {
 		beadsTaskID = btid
 	}
+	// Also check nested "metadata" object (written by updateTaskPacketMetadataInProject)
+	if beadsTaskID == taskID {
+		if nested, ok := taskInfo.Metadata["metadata"].(map[string]interface{}); ok {
+			if btid, ok := nested["beads_task_id"].(string); ok && btid != "" {
+				beadsTaskID = btid
+			}
+		}
+	}
 
-	// Extract project root from metadata
+	// Extract project root from metadata (check both top-level and nested)
 	projectRoot := ""
 	if pr, ok := taskInfo.Metadata["project_root"].(string); ok {
 		projectRoot = pr
+	}
+	if projectRoot == "" {
+		if nested, ok := taskInfo.Metadata["metadata"].(map[string]interface{}); ok {
+			if pr, ok := nested["project_root"].(string); ok {
+				projectRoot = pr
+			}
+		}
 	}
 
 	// Mark the old execution as superseded before retrying
@@ -721,10 +736,14 @@ func (s *AgentServer) HandleResumeTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Determine project root
+	// Determine project root (check both top-level and nested metadata)
 	projectRoot := s.rootDir
 	if pr, ok := taskInfo.Metadata["project_root"].(string); ok && pr != "" {
 		projectRoot = pr
+	} else if nested, ok := taskInfo.Metadata["metadata"].(map[string]interface{}); ok {
+		if pr, ok := nested["project_root"].(string); ok && pr != "" {
+			projectRoot = pr
+		}
 	}
 
 	// Load checkpoint
