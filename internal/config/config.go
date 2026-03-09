@@ -46,6 +46,7 @@ type Config struct {
 	MCP             MCPConfig             `json:"mcp"`
 	ComplexityGate  ComplexityGateConfig  `json:"complexity_gate"`
 	Projects        map[string]string     `json:"projects,omitempty"` // map[projectPath]lastAccessed
+	Providers       ProvidersConfig       `json:"providers,omitempty"` // per-provider endpoint / key-env overrides
 }
 
 // ServerConfig holds server-specific settings
@@ -100,6 +101,8 @@ type ProviderCostsConfig struct {
 	Models         map[string]ModelCost `json:"models"`
 	LastUpdated    string               `json:"last_updated,omitempty"`    // ISO 8601 timestamp
 	UpdateInterval int                  `json:"update_interval,omitempty"` // Days between updates (default: 30)
+	FreeProviders  []string             `json:"free_providers,omitempty"`  // Providers with no per-token cost (e.g. local)
+	ReferenceModel string               `json:"reference_model,omitempty"` // Baseline model for cost savings calculation
 }
 
 // ModelCost holds input/output token costs per 1M tokens in USD
@@ -137,6 +140,17 @@ type MCPServerConfig struct {
 	Args    []string          `json:"args"`
 	Env     map[string]string `json:"env,omitempty"`
 }
+
+// ProviderConfig holds per-provider settings that can be set in
+// agent-server.json under the "providers" key.
+type ProviderConfig struct {
+	Endpoint  string `json:"endpoint,omitempty"`    // Base URL override (local/proxy)
+	APIKeyEnv string `json:"api_key_env,omitempty"` // Env var name for API key
+}
+
+// ProvidersConfig is a map of provider name -> per-provider settings.
+// Supported provider keys: "anthropic", "openai", "gemini", "qwen".
+type ProvidersConfig map[string]ProviderConfig
 
 // DefaultConfig returns default configuration
 func DefaultConfig() *Config {
@@ -356,6 +370,27 @@ func DataDir() (string, error) {
 		return "", fmt.Errorf("cannot determine home directory: %w", err)
 	}
 	return filepath.Join(home, ".claude"), nil
+}
+
+// ProviderEndpoint returns the configured endpoint override for the given
+// provider name, or "" if none is configured.
+func (c *Config) ProviderEndpoint(provider string) string {
+	if c == nil || c.Providers == nil {
+		return ""
+	}
+	return c.Providers[provider].Endpoint
+}
+
+// ProviderAPIKeyEnv returns the configured env-var name for the given
+// provider's API key, or the supplied defaultEnv if none is configured.
+func (c *Config) ProviderAPIKeyEnv(provider, defaultEnv string) string {
+	if c == nil || c.Providers == nil {
+		return defaultEnv
+	}
+	if pc, ok := c.Providers[provider]; ok && pc.APIKeyEnv != "" {
+		return pc.APIKeyEnv
+	}
+	return defaultEnv
 }
 
 // SaveConfig saves configuration to file

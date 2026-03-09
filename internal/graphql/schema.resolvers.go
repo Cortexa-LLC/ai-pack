@@ -184,6 +184,19 @@ func (r *queryResolver) Metrics(ctx context.Context) (*Metrics, error) {
 		Performance: &Performance{
 			Uptime: metricsInfo.Uptime,
 		},
+		ProviderBreakdown: func() []ProviderUsage {
+			breakdown := make([]ProviderUsage, 0, len(metricsInfo.ProviderBreakdown))
+			for _, p := range metricsInfo.ProviderBreakdown {
+				breakdown = append(breakdown, ProviderUsage{
+					Provider:     p.Provider,
+					Model:        p.Model,
+					Calls:        int(p.Calls),
+					InputTokens:  int(p.InputTokens),
+					OutputTokens: int(p.OutputTokens),
+				})
+			}
+			return breakdown
+		}(),
 	}, nil
 }
 

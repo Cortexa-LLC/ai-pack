@@ -124,6 +124,61 @@ func WriteBack(
 	)
 }
 
+// WriteAgentReasoning persists a text-only agent response to the KG as an
+// [AGENT-REASONING] observation on an entity named "exec:<beadsTaskID>".
+// This ensures intermediate reasoning from text-only turns is not lost when
+// the task times out and is retried. Runs best-effort (errors are logged, not returned).
+func WriteAgentReasoning(
+	ctx context.Context,
+	mcpManager *mcp.Manager,
+	projectRoot string,
+	beadsTaskID string,
+	turn int,
+	text string,
+) {
+	if mcpManager == nil || projectRoot == "" || beadsTaskID == "" || text == "" {
+		return
+	}
+
+	// Trim to a reasonable observation size.
+	const maxLen = 3000
+	if len(text) > maxLen {
+		text = text[:maxLen] + "... [truncated]"
+	}
+
+	go func() {
+		wbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		entityName := fmt.Sprintf("exec:%s", beadsTaskID)
+
+		var entity knowledge.Entity
+		if err := mcpManager.CallToolIntoForProject(wbCtx, projectRoot, "add_entity", map[string]interface{}{
+			"name": entityName,
+			"type": "topic",
+		}, &entity); err != nil {
+			monitoring.Logger.Debug("kg_reasoning_entity_failed",
+				"beads_task_id", beadsTaskID,
+				"error", err.Error())
+			return
+		}
+		if entity.ID == "" {
+			return
+		}
+
+		obs := fmt.Sprintf("[AGENT-REASONING turn %d] %s", turn, text)
+		if err := mcpManager.CallToolIntoForProject(wbCtx, projectRoot, "add_observation", map[string]interface{}{
+			"entity_id": entity.ID,
+			"content":   obs,
+		}, nil); err != nil {
+			monitoring.Logger.Debug("kg_reasoning_obs_failed",
+				"beads_task_id", beadsTaskID,
+				"turn", turn,
+				"error", err.Error())
+		}
+	}()
+}
+
 // buildObservations constructs the set of observation strings for a task outcome.
 func buildObservations(
 	role string,

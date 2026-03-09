@@ -241,3 +241,144 @@ func TestLoadConfigEnvVarOverrides(t *testing.T) {
 		t.Errorf("Expected host '0.0.0.0' from env var, got '%s'", cfg.Server.Host)
 	}
 }
+
+// ─── providers config tests ───────────────────────────────────────────────────
+
+func TestProvidersConfigParsed(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "providers-config.json")
+
+	configContent := `{
+		"providers": {
+			"qwen": {
+				"endpoint": "http://localhost:1234/v1",
+				"api_key_env": "MY_QWEN_KEY"
+			},
+			"anthropic": {
+				"api_key_env": "CORP_ANTHROPIC_KEY"
+			}
+		}
+	}`
+
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	if cfg.Providers == nil {
+		t.Fatal("expected Providers to be non-nil after parsing")
+	}
+	qwen := cfg.Providers["qwen"]
+	if qwen.Endpoint != "http://localhost:1234/v1" {
+		t.Errorf("qwen endpoint: got %q, want %q", qwen.Endpoint, "http://localhost:1234/v1")
+	}
+	if qwen.APIKeyEnv != "MY_QWEN_KEY" {
+		t.Errorf("qwen api_key_env: got %q, want %q", qwen.APIKeyEnv, "MY_QWEN_KEY")
+	}
+	anth := cfg.Providers["anthropic"]
+	if anth.APIKeyEnv != "CORP_ANTHROPIC_KEY" {
+		t.Errorf("anthropic api_key_env: got %q, want %q", anth.APIKeyEnv, "CORP_ANTHROPIC_KEY")
+	}
+}
+
+func TestProvidersConfigOmittedIsBackwardCompatible(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "no-providers-config.json")
+
+	// Config without providers section
+	configContent := `{
+		"api": {
+			"mode": "direct"
+		}
+	}`
+
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	// Helper methods must return defaults when providers section is absent
+	if got := cfg.ProviderEndpoint("qwen"); got != "" {
+		t.Errorf("ProviderEndpoint qwen: got %q, want empty", got)
+	}
+	if got := cfg.ProviderAPIKeyEnv("qwen", "LLAMA_API_KEY"); got != "LLAMA_API_KEY" {
+		t.Errorf("ProviderAPIKeyEnv qwen default: got %q, want %q", got, "LLAMA_API_KEY")
+	}
+	if got := cfg.ProviderAPIKeyEnv("anthropic", "ANTHROPIC_API_KEY"); got != "ANTHROPIC_API_KEY" {
+		t.Errorf("ProviderAPIKeyEnv anthropic default: got %q, want %q", got, "ANTHROPIC_API_KEY")
+	}
+}
+
+func TestProviderEndpointOverridesQwenDefault(t *testing.T) {
+	cfg := &Config{
+		Providers: ProvidersConfig{
+			"qwen": {Endpoint: "http://my-proxy:8080/v1"},
+		},
+	}
+
+	got := cfg.ProviderEndpoint("qwen")
+	if got != "http://my-proxy:8080/v1" {
+		t.Errorf("ProviderEndpoint: got %q, want %q", got, "http://my-proxy:8080/v1")
+	}
+}
+
+func TestProviderAPIKeyEnvOverrides(t *testing.T) {
+	cfg := &Config{
+		Providers: ProvidersConfig{
+			"qwen":      {APIKeyEnv: "MY_QWEN_KEY"},
+			"anthropic": {APIKeyEnv: "CORP_ANTHROPIC_KEY"},
+			"openai":    {APIKeyEnv: "CORP_OPENAI_KEY"},
+			"gemini":    {APIKeyEnv: "CORP_GEMINI_KEY"},
+		},
+	}
+
+	cases := []struct {
+		provider   string
+		defaultEnv string
+		wantEnv    string
+	}{
+		{"qwen", "LLAMA_API_KEY", "MY_QWEN_KEY"},
+		{"anthropic", "ANTHROPIC_API_KEY", "CORP_ANTHROPIC_KEY"},
+		{"openai", "OPENAI_API_KEY", "CORP_OPENAI_KEY"},
+		{"gemini", "GEMINI_API_KEY", "CORP_GEMINI_KEY"},
+	}
+	for _, tc := range cases {
+		got := cfg.ProviderAPIKeyEnv(tc.provider, tc.defaultEnv)
+		if got != tc.wantEnv {
+			t.Errorf("ProviderAPIKeyEnv(%q, %q): got %q, want %q", tc.provider, tc.defaultEnv, got, tc.wantEnv)
+		}
+	}
+}
+
+func TestProviderAPIKeyEnvFallsBackToDefault(t *testing.T) {
+	// Provider exists but api_key_env is empty — fallback expected
+	cfg := &Config{
+		Providers: ProvidersConfig{
+			"qwen": {Endpoint: "http://localhost:9000"},
+		},
+	}
+
+	got := cfg.ProviderAPIKeyEnv("qwen", "LLAMA_API_KEY")
+	if got != "LLAMA_API_KEY" {
+		t.Errorf("expected fallback default LLAMA_API_KEY, got %q", got)
+	}
+}
+
+func TestNilConfigProviderHelpers(t *testing.T) {
+	var cfg *Config
+
+	if got := cfg.ProviderEndpoint("qwen"); got != "" {
+		t.Errorf("nil Config ProviderEndpoint: got %q, want empty", got)
+	}
+	if got := cfg.ProviderAPIKeyEnv("qwen", "LLAMA_API_KEY"); got != "LLAMA_API_KEY" {
+		t.Errorf("nil Config ProviderAPIKeyEnv: got %q, want LLAMA_API_KEY", got)
+	}
+}

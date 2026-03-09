@@ -16,7 +16,7 @@ import (
 	"github.com/cortexa-llc/ai-pack/internal/streaming"
 )
 
-func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, role string, initialPrompt string, roleContext string, workingDir string, projectRoot string, config *AgentConfig, logMsg func(string)) (string, error) {
+func (s *AgentServer) executeAgenticLoop(ctx context.Context, roleTimeout time.Duration, taskID string, role string, initialPrompt string, roleContext string, workingDir string, projectRoot string, config *AgentConfig, logMsg func(string)) (string, error) {
 	// Define tools (native + MCP tools) in provider-agnostic format
 	toolDefs := s.getAllTools(projectRoot)
 
@@ -173,6 +173,27 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 				exec.WasDowngraded = selectedTier < defaultTier
 			}
 			s.mu.Unlock()
+
+			// Extend context deadline for free/local providers — they are slower than
+			// cloud APIs so the default timeout is insufficient.
+			isFreeProvider := false
+			for _, fp := range s.freeProviders {
+				if fp == selectedProvider {
+					isFreeProvider = true
+					break
+				}
+			}
+			if isFreeProvider {
+				extendedTimeout := roleTimeout * 2
+				newCtx, newCancel := context.WithTimeout(s.ctx, extendedTimeout)
+				ctx = newCtx
+				s.mu.Lock()
+				if exec, ok := s.activeTasks[taskID]; ok {
+					exec.cancel = newCancel
+				}
+				s.mu.Unlock()
+				logMsg(fmt.Sprintf("   ⏱️ Local provider %q — timeout extended to %v (2× multiplier)", selectedProvider, extendedTimeout))
+			}
 		}
 
 		// Accumulate response from streaming events
@@ -211,6 +232,42 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			monitoring.GlobalMetrics.IncrementAPICallsFailed()
 			errMsg := err.Error()
 
+			// LM Studio KV-cache diff failure: the server's cached prompt state has
+			// stale tool_call counts (e.g. from a previous run that used OpenAI format
+			// while the current run uses XML format). Retry the turn once — LM Studio
+			// will process the full prompt fresh since the cache is now invalidated.
+			if strings.Contains(errMsg, "Invalid diff") || strings.Contains(errMsg, "now finding less tool calls") {
+				logMsg(fmt.Sprintf("⚠️  LM Studio KV-cache mismatch on turn %d — retrying turn once", turn))
+				stream.Close()
+				retryStream, retryErr := s.streamingService.CreateStream(ctx, role, streamReq)
+				if retryErr != nil {
+					return "", fmt.Errorf("API call failed on turn %d (retry): %w", turn, retryErr)
+				}
+				responseText.Reset()
+				toolUses = nil
+				for retryStream.Next() {
+					ev := retryStream.Current()
+					if ev.Delta != nil && ev.Delta.Text != "" {
+						responseText.WriteString(ev.Delta.Text)
+					}
+					if ev.ToolUse != nil {
+						toolUses = append(toolUses, *ev.ToolUse)
+					}
+				}
+				if retryErr2 := retryStream.Err(); retryErr2 != nil {
+					retryStream.Close()
+					return "", fmt.Errorf("API call failed on turn %d (retry): %w", turn, retryErr2)
+				}
+				if retryFinal := retryStream.GetMessage(); retryFinal != nil {
+					finalMessage = retryFinal
+					stopReason = retryFinal.StopReason
+					inputTokens = int64(retryFinal.InputTokens)
+					outputTokens = int64(retryFinal.OutputTokens)
+				}
+				retryStream.Close()
+				goto afterStreamErr
+			}
+
 			// Check for token limit errors and provide actionable guidance
 			if strings.Contains(errMsg, "prompt is too long") || strings.Contains(errMsg, "maximum") {
 				logMsg(fmt.Sprintf("❌ Context size exceeded API limit on turn %d", turn))
@@ -223,6 +280,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 
 			return "", fmt.Errorf("API call failed on turn %d: %w", turn, err)
 		}
+	afterStreamErr:
 
 		// Check for max_tokens limit
 		if stopReason == "max_tokens" {
@@ -292,13 +350,27 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 			}
 		}
 
+		// If no tool uses: text-only response. Before giving up, attempt a fallback
+		// XML parse for Qwen — thinking tokens can confuse the streaming-layer parser,
+		// causing valid <tool_call> blocks to be missed there. We re-parse here from
+		// the clean responseText (which never contains thinking tokens from the loop).
+		if len(toolUses) == 0 && hasText {
+			if xmlUses, cleanText := streaming.ParseQwenXMLToolCalls(responseTextStr); len(xmlUses) > 0 {
+				logMsg(fmt.Sprintf("   🔄 Fallback XML parse recovered %d tool call(s) from text", len(xmlUses)))
+				toolUses = xmlUses
+				responseTextStr = cleanText
+			}
+		}
+
 		// If no tool uses: text-only response. Completion is ONLY signalled by calling
 		// TaskComplete — never by text alone. Nudge, but fail after too many in a row.
 		if len(toolUses) == 0 {
 			if hasText {
 				consecutiveTextOnlyTurns++
-				preview := responseTextStr[:min(60, len(responseTextStr))]
-				logMsg(fmt.Sprintf("⚠️  Text-only response (turn %d, %d consecutive) — nudging to use tools: %q", turn, consecutiveTextOnlyTurns, preview))
+				logMsg(fmt.Sprintf("⚠️  Text-only response (turn %d, %d consecutive) — nudging to use tools:", turn, consecutiveTextOnlyTurns))
+				logMsg(responseTextStr)
+				// Capture the reasoning to the KG so retries inherit the agent's findings.
+				kgclient.WriteAgentReasoning(ctx, s.mcpManager, projectRoot, beadsIDFromTaskID(taskID), turn, responseTextStr)
 				const maxTextOnlyTurns = 5
 				if consecutiveTextOnlyTurns >= maxTextOnlyTurns {
 					return "", fmt.Errorf("agent produced %d consecutive text-only responses without making a tool call", maxTextOnlyTurns)
@@ -326,8 +398,24 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, taskID string, rol
 		toolResults := turnResult.ToolResults
 		completionSummary := turnResult.CompletionSummary
 
-		// If TaskComplete was called this turn, exit cleanly.
+		// If TaskComplete was called this turn, exit cleanly — but reject premature
+		// completions (no real work done yet) by bouncing the agent back.
 		if completionSummary != "" {
+			// Count non-TaskComplete tool calls made so far (excluding this turn's TaskComplete).
+			realToolCalls := totalToolCalls - len(toolUses)
+			if realToolCalls == 0 {
+				logMsg("⚠️  TaskComplete called on turn 1 with no prior tool calls — rejecting premature completion")
+				messages = append(messages, streaming.Message{
+					Role:    "assistant",
+					Content: completionSummary,
+				})
+				messages = append(messages, streaming.Message{
+					Role:    "user",
+					Content: "You have not done any work yet. Do NOT call TaskComplete until you have actually investigated and made changes. Start by using Read, Grep, Glob, or Bash to investigate the task.",
+				})
+				turn++
+				continue
+			}
 			logMsg(fmt.Sprintf("✅ Agent called TaskComplete in %d turns", turn))
 			logMsg(fmt.Sprintf("   Total tokens: %d (in:%d out:%d)", totalInputTokens+totalOutputTokens, totalInputTokens, totalOutputTokens))
 			monitoring.LogAPICall(ctx, taskID, s.model, int(totalInputTokens+totalOutputTokens))
@@ -389,6 +477,7 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	// s.ctx is the server-level context cancelled by Shutdown(), so task
 	// cancellation propagates automatically on server shutdown.
 	roleTimeout := parseRoleTimeout(execution.Config.Delegation.Timeout)
+
 	ctx, cancel := context.WithTimeout(s.ctx, roleTimeout)
 
 	// Store cancel function so task can be cancelled later
@@ -431,7 +520,7 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	prompt := s.buildAndSavePrompt(execution, roleContext, taskPacketPath, workingDir, logMsg)
 
 	// Execute the agent's work
-	result, err := s.executeAgentWorkflow(ctx, execution, prompt, roleContext, workingDir, logMsg)
+	result, err := s.executeAgentWorkflow(ctx, roleTimeout, execution, prompt, roleContext, workingDir, logMsg)
 	if err != nil {
 		return
 	}
@@ -440,7 +529,7 @@ func (s *AgentServer) executeAgentTask(execution *TaskExecution) {
 	s.saveAndCompleteTask(ctx, execution, result, startTime, logMsg)
 }
 
-func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskExecution, prompt, roleContext, workingDir string, logMsg func(string)) (string, error) {
+func (s *AgentServer) executeAgentWorkflow(ctx context.Context, roleTimeout time.Duration, execution *TaskExecution, prompt, roleContext, workingDir string, logMsg func(string)) (string, error) {
 	s.sendStreamEvent(execution, "api_call_start", map[string]interface{}{})
 
 	// Lazy safety net: ensure the KG server is running for this project's root.
@@ -486,7 +575,7 @@ func (s *AgentServer) executeAgentWorkflow(ctx context.Context, execution *TaskE
 	}
 	s.mu.Unlock()
 
-	result, err := s.executeAgenticLoop(ctx, execution.TaskID, execution.Role, prompt, systemPrompt, workingDir, execution.ProjectRoot, execution.Config, logMsg)
+	result, err := s.executeAgenticLoop(ctx, roleTimeout, execution.TaskID, execution.Role, prompt, systemPrompt, workingDir, execution.ProjectRoot, execution.Config, logMsg)
 	if err != nil {
 		// Check if error is due to cancellation or timeout.
 		// context.Canceled: User-initiated cancellation via CancelTask()
@@ -601,7 +690,7 @@ func (s *AgentServer) resumeFromCheckpoint(taskID, projectRoot string, cp *Agent
 	_, workingDir := s.extractTaskMetadata(execution, logMsg)
 
 	// Run the agentic loop
-	result, loopErr := s.executeAgentWorkflow(ctx, execution, resumePrompt, roleContext, workingDir, logMsg)
+	result, loopErr := s.executeAgentWorkflow(ctx, roleTimeout, execution, resumePrompt, roleContext, workingDir, logMsg)
 
 	if loopErr != nil {
 		if errors.Is(loopErr, ErrTaskPaused) {
@@ -615,4 +704,30 @@ func (s *AgentServer) resumeFromCheckpoint(taskID, projectRoot string, cp *Agent
 	}
 
 	s.saveAndCompleteTask(ctx, execution, result, execution.StartTime, logMsg)
+}
+
+// beadsIDFromTaskID strips the YYYYMMDD-HHMMSS timestamp suffix from a task ID
+// to recover the bare Beads ID. E.g. "xasm++-fz5t-20260306-074606" → "xasm++-fz5t".
+// If the ID has no timestamp suffix it is returned unchanged.
+func beadsIDFromTaskID(taskID string) string {
+	parts := strings.Split(taskID, "-")
+	n := len(parts)
+	if n >= 2 {
+		last := parts[n-1]
+		secondLast := parts[n-2]
+		if len(last) == 6 && len(secondLast) == 8 {
+			allDigits := func(s string) bool {
+				for _, c := range s {
+					if c < '0' || c > '9' {
+						return false
+					}
+				}
+				return true
+			}
+			if allDigits(last) && allDigits(secondLast) {
+				return strings.Join(parts[:n-2], "-")
+			}
+		}
+	}
+	return taskID
 }
