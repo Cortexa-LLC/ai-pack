@@ -16,7 +16,7 @@ interface CostBreakdownProps {
 
 /**
  * Cost breakdown by provider and model
- * Shows API costs per service (OpenAI vs Anthropic)
+ * Shows API costs per service (Anthropic, OpenAI, Gemini, Qwen/local)
  */
 function CostBreakdown({ totalInputTokens, totalOutputTokens, providers }: CostBreakdownProps) {
   // Calculate estimated costs
@@ -64,9 +64,15 @@ function CostBreakdown({ totalInputTokens, totalOutputTokens, providers }: CostB
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className={`text-xs px-2 py-0.5 rounded font-semibold ${
-                  provider.provider === 'openai' ? 'bg-green-900 text-green-300' : 'bg-purple-900 text-purple-300'
+                  provider.provider === 'openai' ? 'bg-green-900 text-green-300' :
+                  provider.provider === 'qwen' ? 'bg-orange-900 text-orange-300' :
+                  provider.provider === 'gemini' ? 'bg-blue-900 text-blue-300' :
+                  'bg-purple-900 text-purple-300'
                 }`}>
-                  {provider.provider === 'openai' ? '🟢 OpenAI' : '🔵 Anthropic'}
+                  {provider.provider === 'openai' ? '🟢 OpenAI' :
+                   provider.provider === 'qwen' ? '🟠 Qwen (local)' :
+                   provider.provider === 'gemini' ? '🔷 Gemini' :
+                   '🔵 Anthropic'}
                 </span>
                 <span className="text-xs text-gray-400">{provider.model}</span>
               </div>

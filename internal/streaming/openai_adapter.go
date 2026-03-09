@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/openai/openai-go"
@@ -12,6 +13,46 @@ import (
 	"github.com/openai/openai-go/packages/ssestream"
 	"github.com/openai/openai-go/responses"
 )
+
+// qwenToolCallRe matches <tool_call>...<function=Name>...<parameter=k>v</parameter>...</function>...</tool_call>
+// blocks that Qwen local models emit when the server doesn't convert their native format to OpenAI tool_calls.
+var (
+	qwenToolCallRe = regexp.MustCompile(`(?s)<tool_call>\s*<function=([^>]+)>(.*?)</function>\s*</tool_call>`)
+	qwenParamRe    = regexp.MustCompile(`(?s)<parameter=([^>]+)>(.*?)</parameter>`)
+)
+
+// ParseQwenXMLToolCalls extracts embedded Qwen-format tool calls from text content.
+// Returns the parsed ToolUse list and the text with all <tool_call> blocks stripped.
+// Exported so task_execution can use it as a fallback when the streaming parse missed a call.
+func ParseQwenXMLToolCalls(content string) ([]ToolUse, string) {
+	matches := qwenToolCallRe.FindAllStringSubmatch(content, -1)
+	if len(matches) == 0 {
+		return nil, content
+	}
+	toolUses := make([]ToolUse, 0, len(matches))
+	for i, m := range matches {
+		funcName := strings.TrimSpace(m[1])
+		params := make(map[string]interface{})
+		for _, pm := range qwenParamRe.FindAllStringSubmatch(m[2], -1) {
+			value := strings.TrimSpace(pm[2])
+			// Strip any stray XML closing tags that leaked into the value due to
+			// malformed model output (e.g. "</parameter>" appended to a file path).
+			for _, tag := range []string{"</parameter>", "</function>", "</tool_call>"} {
+				if strings.HasSuffix(value, tag) {
+					value = strings.TrimSpace(value[:len(value)-len(tag)])
+				}
+			}
+			params[strings.TrimSpace(pm[1])] = value
+		}
+		toolUses = append(toolUses, ToolUse{
+			ID:    fmt.Sprintf("qwen_tc_%d", i),
+			Name:  funcName,
+			Input: params,
+		})
+	}
+	cleanText := strings.TrimSpace(qwenToolCallRe.ReplaceAllString(content, ""))
+	return toolUses, cleanText
+}
 
 const (
 	// maxOutputTokens16k is the 16384-token completion limit shared by the gpt-4o
@@ -335,16 +376,19 @@ func (a *OpenAIChatStreamAdapter) Next() bool {
 		a.acc.AddChunk(chunk)
 		if len(chunk.Choices) > 0 {
 			text := chunk.Choices[0].Delta.Content
-			// For providers that support extended thinking (e.g. Qwen), the model may
-			// emit reasoning tokens in reasoning_content with an empty content field.
-			// Fall back to reasoning_content so the agent loop receives output.
-			if text == "" && a.provider == ProviderQwen {
-				text = extractReasoningContent(chunk.Choices[0].Delta.RawJSON())
-			}
 			if text != "" {
 				a.message.Content += text
 				a.current = StreamEvent{Type: "content_block_delta", Delta: &DeltaContent{Text: text, Type: "text_delta"}}
 				return true
+			}
+			// For Qwen: accumulate reasoning/thinking tokens separately so they don't
+			// contaminate Content and confuse the XML tool-call parser. We don't emit
+			// them as events — the streaming loop will simply block during the thinking
+			// phase until actual content tokens arrive.
+			if a.provider == ProviderQwen {
+				if thinking := extractReasoningContent(chunk.Choices[0].Delta.RawJSON()); thinking != "" {
+					a.message.ThinkingContent += thinking
+				}
 			}
 		}
 	}
@@ -359,6 +403,25 @@ func (a *OpenAIChatStreamAdapter) Next() bool {
 			json.Unmarshal([]byte(tc.Function.Arguments), &input)
 			a.pendingEvents = append(a.pendingEvents, StreamEvent{Type: "tool_use", ToolUse: &ToolUse{ID: tc.ID, Name: tc.Function.Name, Input: input}})
 		}
+	}
+	// Qwen local models sometimes emit tool calls as <tool_call> XML in text content
+	// rather than OpenAI-format tool_calls. Parse and emit them as tool_use events.
+	if a.provider == ProviderQwen && len(a.pendingEvents) == 0 {
+		if toolUses, cleanText := ParseQwenXMLToolCalls(a.message.Content); len(toolUses) > 0 {
+			a.message.Content = cleanText
+			for i := range toolUses {
+				a.pendingEvents = append(a.pendingEvents, StreamEvent{Type: "tool_use", ToolUse: &toolUses[i]})
+			}
+		}
+	}
+	// If the model produced only thinking tokens (no content, no tool calls), surface
+	// the thinking content as a text event so the agent loop can nudge rather than crash.
+	if a.provider == ProviderQwen && len(a.pendingEvents) == 0 && a.message.Content == "" && a.message.ThinkingContent != "" {
+		a.message.Content = a.message.ThinkingContent
+		a.pendingEvents = append(a.pendingEvents, StreamEvent{
+			Type:  "content_block_delta",
+			Delta: &DeltaContent{Text: a.message.ThinkingContent, Type: "text_delta"},
+		})
 	}
 	a.message.InputTokens = int(a.acc.Usage.PromptTokens)
 	a.message.OutputTokens = int(a.acc.Usage.CompletionTokens)

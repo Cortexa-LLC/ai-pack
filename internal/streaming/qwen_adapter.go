@@ -2,7 +2,6 @@ package streaming
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -12,6 +11,25 @@ import (
 	"github.com/openai/openai-go/packages/param"
 )
 
+// buildQwenXMLToolCall reconstructs a ToolUse in Qwen's native XML tool call format.
+// This keeps conversation history in the format the model was trained on, preventing
+// confusion from seeing OpenAI-format tool_calls in the history.
+func buildQwenXMLToolCall(tu ToolUse) string {
+	var sb strings.Builder
+	sb.WriteString("<tool_call>\n<function=")
+	sb.WriteString(tu.Name)
+	sb.WriteString(">\n")
+	for k, v := range tu.Input {
+		sb.WriteString("<parameter=")
+		sb.WriteString(k)
+		sb.WriteString(">")
+		sb.WriteString(fmt.Sprintf("%v", v))
+		sb.WriteString("</parameter>\n")
+	}
+	sb.WriteString("</function>\n</tool_call>")
+	return sb.String()
+}
+
 // QwenFactory creates stream providers for Qwen models running locally via
 // an OpenAI-compatible chat completions endpoint.
 type QwenFactory struct {
@@ -20,13 +38,17 @@ type QwenFactory struct {
 
 // NewQwenFactory creates a new Qwen factory pointing at the local server.
 // baseURL defaults to constants.QwenLocalBaseURL if empty.
-func NewQwenFactory(baseURL string) *QwenFactory {
+// apiKey is passed to the local server; use "none" for servers that require no auth.
+func NewQwenFactory(baseURL, apiKey string) *QwenFactory {
 	if baseURL == "" {
 		baseURL = constants.QwenLocalBaseURL
 	}
+	if apiKey == "" {
+		apiKey = "none"
+	}
 	client := openai.NewClient(
 		option.WithBaseURL(baseURL),
-		option.WithAPIKey("none"), // local server requires no real key
+		option.WithAPIKey(apiKey),
 		option.WithMaxRetries(2),
 	)
 	return &QwenFactory{client: client}
@@ -52,35 +74,34 @@ func (f *QwenFactory) CreateStream(ctx context.Context, req StreamRequest) (Stre
 		switch msg.Role {
 		case "user":
 			if len(msg.ToolResults) > 0 {
+				// Use native Qwen tool_response format rather than OpenAI tool-role messages.
+				// This keeps history in the format the model was trained on, preventing
+				// confusion from mismatched message formats across long conversations.
+				var sb strings.Builder
 				for _, tr := range msg.ToolResults {
-					messages = append(messages, openai.ToolMessage(tr.Content, tr.ToolUseID))
+					sb.WriteString("<tool_response>\n")
+					sb.WriteString(tr.Content)
+					sb.WriteString("\n</tool_response>\n")
 				}
+				messages = append(messages, openai.UserMessage(strings.TrimSpace(sb.String())))
 			} else {
 				messages = append(messages, openai.UserMessage(msg.Content))
 			}
 		case "assistant":
-			if len(msg.ToolUses) > 0 {
-				var toolCalls []openai.ChatCompletionMessageToolCallParam
-				for _, tu := range msg.ToolUses {
-					argsJSON, err := json.Marshal(tu.Input)
-					if err != nil {
-						return nil, fmt.Errorf("marshal tool input for %q: %w", tu.Name, err)
-					}
-					toolCalls = append(toolCalls, openai.ChatCompletionMessageToolCallParam{
-						ID:   tu.ID,
-						Type: "function",
-						Function: openai.ChatCompletionMessageToolCallFunctionParam{
-							Name:      tu.Name,
-							Arguments: string(argsJSON),
-						},
-					})
-				}
-				messages = append(messages, openai.ChatCompletionMessageParamUnion{
-					OfAssistant: &openai.ChatCompletionAssistantMessageParam{ToolCalls: toolCalls},
-				})
-			} else {
-				messages = append(messages, openai.AssistantMessage(msg.Content))
+			// Reconstruct tool calls as XML text so the history matches Qwen's
+			// training format. OpenAI-format tool_calls in history confuse the model
+			// and cause it to generate malformed output after many turns.
+			var assistantText strings.Builder
+			if msg.Content != "" {
+				assistantText.WriteString(msg.Content)
 			}
+			for _, tu := range msg.ToolUses {
+				if assistantText.Len() > 0 {
+					assistantText.WriteString("\n")
+				}
+				assistantText.WriteString(buildQwenXMLToolCall(tu))
+			}
+			messages = append(messages, openai.AssistantMessage(assistantText.String()))
 		default:
 			messages = append(messages, openai.UserMessage(msg.Content))
 		}

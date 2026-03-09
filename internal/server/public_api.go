@@ -115,6 +115,8 @@ func (s *AgentServer) GetDailyUsage() (*monitoring.DailyUsage, error) {
 		// Aggregate totals
 		aggregated.TotalInputTokens += daily.TotalInputTokens
 		aggregated.TotalOutputTokens += daily.TotalOutputTokens
+		aggregated.TotalCost += daily.TotalCost
+		aggregated.TotalSavings += daily.TotalSavings
 
 		// Merge provider breakdown
 		for key, usage := range daily.ProviderBreakdown {
@@ -124,6 +126,7 @@ func (s *AgentServer) GetDailyUsage() (*monitoring.DailyUsage, error) {
 				existing.InputTokens += usage.InputTokens
 				existing.OutputTokens += usage.OutputTokens
 				existing.Cost += usage.Cost
+				existing.Savings += usage.Savings
 			} else {
 				// Create new entry (copy to avoid reference issues)
 				aggregated.ProviderBreakdown[key] = &monitoring.ProviderDailyUsage{
@@ -133,6 +136,7 @@ func (s *AgentServer) GetDailyUsage() (*monitoring.DailyUsage, error) {
 					InputTokens:  usage.InputTokens,
 					OutputTokens: usage.OutputTokens,
 					Cost:         usage.Cost,
+					Savings:      usage.Savings,
 				}
 			}
 		}
@@ -170,6 +174,8 @@ func (s *AgentServer) GetDailyUsageRange(startDate, endDate string) ([]*monitori
 				// Aggregate
 				existing.TotalInputTokens += daily.TotalInputTokens
 				existing.TotalOutputTokens += daily.TotalOutputTokens
+				existing.TotalCost += daily.TotalCost
+				existing.TotalSavings += daily.TotalSavings
 
 				// Merge provider breakdown
 				for key, usage := range daily.ProviderBreakdown {
@@ -178,6 +184,7 @@ func (s *AgentServer) GetDailyUsageRange(startDate, endDate string) ([]*monitori
 						existingUsage.InputTokens += usage.InputTokens
 						existingUsage.OutputTokens += usage.OutputTokens
 						existingUsage.Cost += usage.Cost
+						existingUsage.Savings += usage.Savings
 					} else {
 						existing.ProviderBreakdown[key] = &monitoring.ProviderDailyUsage{
 							Provider:     usage.Provider,
@@ -186,6 +193,7 @@ func (s *AgentServer) GetDailyUsageRange(startDate, endDate string) ([]*monitori
 							InputTokens:  usage.InputTokens,
 							OutputTokens: usage.OutputTokens,
 							Cost:         usage.Cost,
+							Savings:      usage.Savings,
 						}
 					}
 				}
@@ -199,6 +207,8 @@ func (s *AgentServer) GetDailyUsageRange(startDate, endDate string) ([]*monitori
 					Date:              daily.Date,
 					TotalInputTokens:  daily.TotalInputTokens,
 					TotalOutputTokens: daily.TotalOutputTokens,
+					TotalCost:         daily.TotalCost,
+					TotalSavings:      daily.TotalSavings,
 					ProviderBreakdown: make(map[string]*monitoring.ProviderDailyUsage),
 					LastUpdated:       daily.LastUpdated,
 				}
@@ -210,6 +220,7 @@ func (s *AgentServer) GetDailyUsageRange(startDate, endDate string) ([]*monitori
 						InputTokens:  usage.InputTokens,
 						OutputTokens: usage.OutputTokens,
 						Cost:         usage.Cost,
+						Savings:      usage.Savings,
 					}
 				}
 				byDate[daily.Date] = newDaily

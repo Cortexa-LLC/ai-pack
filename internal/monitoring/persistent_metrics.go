@@ -14,6 +14,8 @@ type DailyUsage struct {
 	Date              string                         `json:"date"` // YYYY-MM-DD
 	TotalInputTokens  int64                          `json:"total_input_tokens"`
 	TotalOutputTokens int64                          `json:"total_output_tokens"`
+	TotalCost         float64                        `json:"total_cost"`    // Actual cost in USD
+	TotalSavings      float64                        `json:"total_savings"` // Savings vs reference model in USD
 	ProviderBreakdown map[string]*ProviderDailyUsage `json:"provider_breakdown"`
 	LastUpdated       time.Time                      `json:"last_updated"`
 }
@@ -25,29 +27,59 @@ type ProviderDailyUsage struct {
 	Calls        int64   `json:"calls"`
 	InputTokens  int64   `json:"input_tokens"`
 	OutputTokens int64   `json:"output_tokens"`
-	Cost         float64 `json:"cost"` // Calculated cost in USD
+	Cost         float64 `json:"cost"`    // Calculated cost in USD
+	Savings      float64 `json:"savings"` // Savings vs reference model in USD (for free/local providers)
 }
 
 // PersistentMetrics manages disk-based metrics storage
 type PersistentMetrics struct {
-	mu          sync.RWMutex
-	dataDir     string
-	currentDate string
-	currentDay  *DailyUsage
-	costs       map[string][2]float64 // Cost per 1M tokens [input, output]
+	mu             sync.RWMutex
+	dataDir        string
+	currentDate    string
+	currentDay     *DailyUsage
+	costs          map[string][2]float64 // Cost per 1M tokens [input, output]
+	freeProviders  map[string]bool       // Providers that are free (local/no-cost)
+	referenceCosts [2]float64            // Reference model costs [input, output] per 1M tokens
 }
 
-// NewPersistentMetrics creates a new persistent metrics tracker
-func NewPersistentMetrics(dataDir string, costs map[string][2]float64) (*PersistentMetrics, error) {
+// NewPersistentMetrics creates a new persistent metrics tracker.
+// freeProviders lists provider names (e.g. "qwen") whose usage counts as savings.
+// referenceModel is the model ID to compare against (e.g. "claude-sonnet-4-6");
+// its cost is looked up from the model registry; falls back to claude-sonnet-4-6 pricing.
+func NewPersistentMetrics(dataDir string, costs map[string][2]float64, freeProviders []string, referenceModel string) (*PersistentMetrics, error) {
 	// Create data directory if it doesn't exist
 	metricsDir := filepath.Join(dataDir, ".claude", "metrics", "daily")
 	if err := os.MkdirAll(metricsDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create metrics directory: %w", err)
 	}
 
+	// Build free providers set
+	free := make(map[string]bool, len(freeProviders))
+	for _, p := range freeProviders {
+		free[p] = true
+	}
+
+	// Resolve reference model costs from the model registry.
+	// Default to claude-sonnet-4-6 if not found.
+	const defaultRefIn, defaultRefOut = 3.00, 15.00
+	var refIn, refOut float64 = defaultRefIn, defaultRefOut
+	if referenceModel != "" {
+		for _, models := range ModelsByTier {
+			for _, m := range models {
+				if m.ID == referenceModel {
+					refIn = m.CostPerMIn
+					refOut = m.CostPerMOut
+					break
+				}
+			}
+		}
+	}
+
 	pm := &PersistentMetrics{
-		dataDir: metricsDir,
-		costs:   costs,
+		dataDir:        metricsDir,
+		costs:          costs,
+		freeProviders:  free,
+		referenceCosts: [2]float64{refIn, refOut},
 	}
 
 	// Load or create today's usage
@@ -125,11 +157,20 @@ func (pm *PersistentMetrics) RecordUsage(provider, model string, inputTokens, ou
 	usage.InputTokens += inputTokens
 	usage.OutputTokens += outputTokens
 
-	// Calculate and add cost
+	// Calculate actual cost (zero for free/local providers)
 	if costs, ok := pm.costs[key]; ok {
 		inputCost := float64(inputTokens) / 1_000_000 * costs[0]
 		outputCost := float64(outputTokens) / 1_000_000 * costs[1]
 		usage.Cost += inputCost + outputCost
+		pm.currentDay.TotalCost += inputCost + outputCost
+	}
+
+	// For free/local providers, compute what this would have cost on the reference model
+	if pm.freeProviders[provider] {
+		savedIn := float64(inputTokens) / 1_000_000 * pm.referenceCosts[0]
+		savedOut := float64(outputTokens) / 1_000_000 * pm.referenceCosts[1]
+		usage.Savings += savedIn + savedOut
+		pm.currentDay.TotalSavings += savedIn + savedOut
 	}
 
 	pm.currentDay.LastUpdated = time.Now()

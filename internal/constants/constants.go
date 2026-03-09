@@ -26,7 +26,7 @@ const (
 
 // Local provider endpoints
 const (
-	QwenLocalBaseURL = "http://localhost:9000/v1"
+	QwenLocalBaseURL = "http://localhost:9090/v1"
 )
 
 // Message Roles (for LLM conversations)

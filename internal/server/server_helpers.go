@@ -31,7 +31,7 @@ func parseRoleTimeout(s string) time.Duration {
 }
 
 // applyTaskContractOverrides reads 00-contract.md from the task packet directory
-// and applies any Model, MaxBudgetTokens, or MaxTurns overrides found there,
+// and applies any Model, Timeout, MaxBudgetTokens, or MaxTurns overrides found there,
 // allowing individual tasks to redirect to a different model or adjust limits
 // without permanently modifying the role.
 //
@@ -70,6 +70,16 @@ func applyTaskContractOverrides(config *AgentConfig, taskPacketPath, projectRoot
 					"contract", contractPath,
 				)
 				config.Model = value
+			}
+		case configFieldTimeout:
+			if value != "" {
+				monitoring.Logger.Info("task_contract_override",
+					"field", "Timeout",
+					"role_value", config.Delegation.Timeout,
+					"contract_value", value,
+					"contract", contractPath,
+				)
+				config.Delegation.Timeout = value
 			}
 		case configFieldMaxBudgetTokens:
 			var v int

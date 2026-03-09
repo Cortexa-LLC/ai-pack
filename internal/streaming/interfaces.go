@@ -32,14 +32,15 @@ type DeltaContent struct {
 
 // CompletedMessage represents the final accumulated message
 type CompletedMessage struct {
-	ID           string
-	Provider     string // Provider name (e.g., "anthropic", "openai")
-	Model        string
-	Role         string
-	Content      string
-	StopReason   string
-	InputTokens  int
-	OutputTokens int
+	ID               string
+	Provider         string // Provider name (e.g., "anthropic", "openai")
+	Model            string
+	Role             string
+	Content          string
+	ThinkingContent  string // Reasoning/thinking tokens (kept separate from Content to avoid XML parser confusion)
+	StopReason       string
+	InputTokens      int
+	OutputTokens     int
 }
 
 // StreamProvider abstracts streaming from any LLM provider

@@ -102,6 +102,8 @@ type AgentServer struct {
 	streamingService       *streaming.Service                       // Clean streaming abstraction
 	projectMetrics         map[string]*monitoring.PersistentMetrics // Per-project persistent metrics
 	providerCosts          map[string][2]float64                    // Provider cost configuration
+	freeProviders          []string                                 // Free/local provider names (savings tracking)
+	referenceModel         string                                   // Reference model for savings calculations
 	mcpManager             *mcp.Manager                             // MCP server manager
 	complexityRiskAnalyzer *monitoring.ComplexityRiskAnalyzer       // v2 structural risk scorer
 
@@ -278,7 +280,7 @@ func (s *AgentServer) getOrCreateProjectMetrics(projectRoot string) (*monitoring
 		return pm, nil
 	}
 
-	pm, err := monitoring.NewPersistentMetrics(projectRoot, s.providerCosts)
+	pm, err := monitoring.NewPersistentMetrics(projectRoot, s.providerCosts, s.freeProviders, s.referenceModel)
 	if err != nil {
 		return nil, err
 	}
@@ -288,15 +290,21 @@ func (s *AgentServer) getOrCreateProjectMetrics(projectRoot string) (*monitoring
 }
 
 func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model string, cfg *config.Config) (*AgentServer, error) {
-	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
-	openaiKey := os.Getenv("OPENAI_API_KEY")
-	geminiKey := os.Getenv("GEMINI_API_KEY")
+	anthropicKey := os.Getenv(cfg.ProviderAPIKeyEnv("anthropic", "ANTHROPIC_API_KEY"))
+	openaiKey := os.Getenv(cfg.ProviderAPIKeyEnv("openai", "OPENAI_API_KEY"))
+	geminiKey := os.Getenv(cfg.ProviderAPIKeyEnv("gemini", "GEMINI_API_KEY"))
 
-	// Qwen local provider — configurable via QWEN_BASE_URL, defaults to localhost:9000
-	qwenBaseURL := os.Getenv("QWEN_BASE_URL")
+	// Qwen local provider — endpoint configurable via providers.qwen.endpoint or
+	// QWEN_BASE_URL env var, defaulting to localhost:9000. API key env var
+	// configurable via providers.qwen.api_key_env, defaulting to LLAMA_API_KEY.
+	qwenBaseURL := cfg.ProviderEndpoint("qwen")
+	if qwenBaseURL == "" {
+		qwenBaseURL = os.Getenv("QWEN_BASE_URL")
+	}
 	if qwenBaseURL == "" {
 		qwenBaseURL = constants.QwenLocalBaseURL
 	}
+	qwenAPIKey := os.Getenv(cfg.ProviderAPIKeyEnv("qwen", "LLAMA_API_KEY")) // LM Studio / llama.cpp compatible key
 
 	anthropicOpts := []anthropic_option.RequestOption{
 		anthropic_option.WithRequestTimeout(10 * time.Second),
@@ -430,6 +438,16 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	server.maxInactiveTurns = maxInactiveTurns
 	server.maxConsecutiveErrorTurns = maxConsecutiveErrorTurns
 	server.providerCosts = costs
+	if cfg != nil {
+		server.freeProviders = cfg.ProviderCosts.FreeProviders
+		server.referenceModel = cfg.ProviderCosts.ReferenceModel
+	}
+	if len(server.freeProviders) == 0 {
+		server.freeProviders = []string{"qwen"}
+	}
+	if server.referenceModel == "" {
+		server.referenceModel = "claude-sonnet-4-6"
+	}
 
 	// Initialize streaming service with performance-grade-based model selection
 	streamingSelector := streaming.NewPerformanceGradeModelSelector(
@@ -448,7 +466,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	if geminiKey != "" {
 		streamingService.RegisterProvider(streaming.NewGeminiFactory(geminiKey, maxTokens))
 	}
-	streamingService.RegisterProvider(streaming.NewQwenFactory(qwenBaseURL))
+	streamingService.RegisterProvider(streaming.NewQwenFactory(qwenBaseURL, qwenAPIKey))
 
 	server.streamingService = streamingService
 	monitoring.Logger.Info("streaming_service_initialized",
