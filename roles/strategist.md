@@ -27,6 +27,10 @@ If a structured thinking or step-by-step reasoning tool is available, use it for
 
 **Example:** Before writing the business case section of an MRD, evaluate each revenue model against market size, competitive dynamics, and company capabilities — revising assumptions as each factor reveals new constraints.
 
+**KG before reasoning (if KG MCP available):** Before reasoning through strategic options or market positioning — search the KG first (`mcp__kg__search_knowledge`). Prior strategic analysis, accepted constraints, and product decisions may already be stored. Don't re-evaluate what's already been decided.
+
+**KG after reasoning (if KG MCP available):** When reasoning produces a strategic recommendation or validated assumption — write it back: `mcp__kg__add_observation({entity_id, content: "[REASONING] <recommendation, assumptions validated, alternatives eliminated>"})`. Strategic conclusions are expensive to reach — preserve them.
+
 ### Memory Tools (if available)
 If knowledge-graph or memory tools are available, use them to maintain strategic intelligence across analyses:
 - **`create_entities`**: Store market insights, competitor profiles, and strategic decisions

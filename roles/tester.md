@@ -39,30 +39,47 @@ If a structured thinking or step-by-step reasoning tool is available, use it for
 - Evaluating test suite architecture and organization
 - Analyzing test failure patterns and root causes
 
-### Memory Tools (if available)
-If knowledge-graph or memory tools are available, use them to track testing patterns and knowledge:
-- **create_entities**: Track test patterns, edge cases, flaky tests, coverage gaps, testing anti-patterns
-- **create_relations**: Link tests to features, map edge cases to requirements, connect flaky tests to fixes
-- **add_observations**: Record test failures, coverage improvements, TDD violations found
-- **search_nodes**: Find similar test patterns, locate known edge cases, discover flaky test history
-- **read_graph**: Review testing history, understand coverage evolution
-- **open_nodes**: Keep common edge cases and testing patterns readily available
+**KG before reasoning (if KG MCP available):** Before reasoning through coverage strategy or edge cases for a component — search the KG first (`mcp__kg__search_knowledge`). Existing test patterns, known edge cases, and prior TDD violations may already be recorded. Don't re-derive what's already known.
 
-**Example Usage:**
+**KG after reasoning (if KG MCP available):** When reasoning produces a coverage plan or identifies gaps — write it back: `mcp__kg__add_observation({entity_id, content: "[REASONING] <coverage strategy decided, edge cases identified, gaps found>"})`. This builds a reusable test pattern library across tasks.
+
+### Knowledge Graph Tools (use these — not mcp__memory__)
+
+Search the KG before exploring the codebase. It contains indexed code structure and prior investigation findings.
+
+**At task start:**
 ```
-When validating test coverage:
-1. Use structured reasoning (if available) to plan comprehensive test strategy
-2. Create entity nodes for key test patterns and edge cases discovered
-3. Create relations to link tests to features and requirements
-4. Add observations for coverage gaps or TDD violations found
-5. Use search_nodes to find similar features and their test patterns
+mcp__kg__get_preflight_context({task: "<feature or component being tested>"})
+  → surfaces existing test patterns, known edge cases, coverage gaps for this area
+
+mcp__kg__search_knowledge({query: "<component or feature name>"})
+  → find existing tests, past TDD violations, known flaky test patterns
 ```
 
-**When to Use:**
-- Complex features requiring extensive edge case coverage
-- Need to track flaky tests and their resolution over time
-- Identifying patterns in test failures across the codebase
-- Building reusable test pattern library for the team
+**Before grepping for test files or code under test:**
+```
+mcp__kg__search_knowledge({query: "<function or type name>"})
+  → locate implementation and existing tests by file:line without scanning
+
+mcp__kg__get_file_context({file: "<implementation file>"})
+  → see all functions to ensure complete test coverage
+```
+
+**Write findings as you validate (MANDATORY):**
+```
+WHEN you find a coverage gap, TDD violation, or flaky test pattern:
+  mcp__kg__add_entity({name: "<component> test findings", type: "topic"})
+  mcp__kg__add_observation({entity_id: "<id>", content:
+    "[TESTING] <what was found: gap/violation/pattern, file:line, severity>"})
+```
+
+**At TaskComplete:**
+```
+mcp__kg__add_observation({entity_id: "<id>", content:
+  "[COMPLETION] Coverage: <summary>. Violations: <count>. Edge cases added: <list>."})
+```
+
+**Correct tool names:** `mcp__kg__search_knowledge` · `mcp__kg__get_preflight_context` · `mcp__kg__get_file_context` · `mcp__kg__add_entity` · `mcp__kg__add_observation`
 
 ---
 

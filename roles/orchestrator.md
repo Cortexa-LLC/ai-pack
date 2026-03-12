@@ -115,30 +115,58 @@ multi-phase planning and problem-solving:
 - Planning complex dependency chains across agents
 - Reasoning through orchestration challenges step-by-step
 
-### Memory Tools (if available)
-If knowledge-graph or memory tools are available, use them to track coordination state:
-- **create_entities**: Track agents, tasks, blockers, dependencies, milestones
-- **create_relations**: Link agents to tasks, map dependencies, connect blockers to resolutions
-- **add_observations**: Record agent progress, completion status, blockers encountered
-- **search_nodes**: Find tasks by status, locate blocked work, discover agents by capability
-- **read_graph**: Understand full project state, review coordination history
-- **open_nodes**: Keep critical orchestration context readily available
+**KG before reasoning (if KG MCP available):** Before reasoning through task breakdown or delegation strategy — search the KG first (`mcp__kg__search_knowledge`). Prior design decisions, component ownership, and known constraints may already be recorded. Avoid planning around assumptions you can verify in one call.
 
-**Example Usage:**
+**KG after reasoning (if KG MCP available):** When reasoning produces a delegation plan or resolves a dependency question — write it back: `mcp__kg__add_observation({entity_id, content: "[REASONING] <plan decided, sequencing rationale, key assumptions>"})`. Survives session restarts and prevents re-planning the same initiative.
+
+### Knowledge Graph Tools (use these — not mcp__memory__)
+
+Use the KG to understand existing work before planning, and to record task decisions so they survive restarts.
+
+**At task start:**
 ```
-When starting complex coordination:
-1. Use structured reasoning (if available) to plan the orchestration strategy
-2. Create entity nodes for each agent spawn and key task
-3. Create relations to map task dependencies and agent assignments
-4. Add observations as agents complete work or encounter blockers
-5. Use search_nodes to find blocked tasks or available agents
+mcp__kg__get_preflight_context({task: "<initiative description>"})
+  → surfaces prior coordination decisions, known blockers, related components
+
+mcp__kg__search_knowledge({query: "<feature or component>"})
+  → find prior design decisions, ADRs, known constraints before spawning agents
 ```
+
+**Before breaking down a task into subtasks:**
+```
+mcp__kg__search_knowledge({query: "<component or subsystem>"})
+  → understand what already exists vs. what must be built
+  → avoids spawning engineer tasks for already-implemented work
+
+mcp__kg__get_file_context({file: "<key file path>"})
+  → get structure of key files to write accurate task contracts
+```
+
+**Record coordination decisions as you go:**
+```
+WHEN you make a significant planning decision (scope, ordering, approach):
+  mcp__kg__add_entity({name: "<initiative> coordination", type: "topic"})
+  mcp__kg__add_observation({entity_id: "<id>", content:
+    "[ORCHESTRATION] <decision made, rationale, agent assignments, dependency order>"})
+
+WHEN an agent completes and you review its output:
+  mcp__kg__add_observation({entity_id: "<id>", content:
+    "[PROGRESS] <task-id> completed: <one-line outcome>. Next: <what follows>."})
+```
+
+**At TaskComplete:**
+```
+mcp__kg__add_observation({entity_id: "<id>", content:
+  "[COMPLETION] Initiative complete: <summary>. Agents used: <list>. Key decisions: <list>."})
+```
+
+**Correct tool names:** `mcp__kg__search_knowledge` · `mcp__kg__get_preflight_context` · `mcp__kg__get_file_context` · `mcp__kg__add_entity` · `mcp__kg__add_observation` · `mcp__kg__link_entities`
 
 **When to Use:**
 - Multi-phase projects with many moving parts
 - Complex dependency management across agents
 - Long-running coordination that spans multiple sessions
-- Need to track agent performance and task completion patterns
+- Before spawning agents — to avoid duplicating already-complete work
 
 **⚠️ CRITICAL:** All task operations MUST use Beads commands. See **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** for mandatory requirements.
 

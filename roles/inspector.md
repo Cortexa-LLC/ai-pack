@@ -46,18 +46,53 @@ If a structured thinking or step-by-step reasoning tool is available, use it for
 
 **Example:** When a bug has multiple plausible causes, evaluate each hypothesis against the evidence, mark each as confirmed/rejected, and arrive at the most supported root cause before writing the retrospective.
 
-### Memory Tools (if available)
-If knowledge-graph or memory tools are available, use them to build institutional bug knowledge across investigations:
-- **`create_entities`**: Record bugs, their root causes, and affected components
-  - Example: `create_entities([{"name": "BUG-142-null-token", "entityType": "bug", "observations": ["NPE in auth middleware when refresh token is null", "Root cause: session cleanup race condition", "Affects: /api/refresh endpoint under high load"]}])`
-- **`create_relations`**: Link bugs to patterns — "this is the third time this module caused a null pointer"
-  - Example: `create_relations([{"from": "BUG-142-null-token", "to": "auth-middleware", "relationType": "originated_in"}])`
-- **`search_nodes`**: Before investigating, search for similar past bugs to skip re-discovery
-  - Example: Search "auth null pointer" to find if this was investigated before
-- **`add_observations`**: Append root cause findings as investigation progresses
-- **`read_graph`**: Identify modules that are bug hotspots before diving into code
+**KG before reasoning (if KG MCP available):** Before reasoning through hypotheses about root cause — search the KG first (`mcp__kg__search_knowledge`). A similar bug may already be documented with a known root cause. Avoid re-investigating what is already known.
 
-**When to Use Memory:** Search memory BEFORE starting any investigation. If a similar bug was solved before, the root cause pattern is likely the same. Store findings AFTER each investigation to build a knowledge base of bug patterns that prevents future re-investigation.
+**KG after reasoning (if KG MCP available):** When reasoning concludes — write back the result: `mcp__kg__add_observation({entity_id, content: "[REASONING] <which hypotheses were eliminated, which was confirmed, evidence used>"})`. This anchors the investigation so retries don't re-evaluate the same hypothesis tree.
+
+### Knowledge Graph Tools (use these — not mcp__memory__)
+
+Search the KG before reading code. Past investigations are stored there — avoid re-discovering known root causes.
+
+**At task start (MANDATORY):**
+```
+mcp__kg__get_preflight_context({task: "<bug description>"})
+  → surfaces related components, prior investigations for this area
+
+mcp__kg__search_knowledge({query: "<error message or symptom>"})
+  → find if this bug or pattern was investigated before; read prior findings first
+
+mcp__kg__search_knowledge({query: "<component or module name>"})
+  → identify known hotspots and past issues in the affected area
+```
+
+**Before grep/glob to locate a symbol or file:**
+```
+mcp__kg__search_knowledge({query: "<function or type name>"})
+  → get file:line without scanning
+
+mcp__kg__get_file_context({file: "<path>"})
+  → get function list for a file before deciding what to read
+```
+
+**Write findings incrementally (MANDATORY — do not wait until done):**
+```
+EVERY TIME you confirm something (root cause found, hypothesis ruled out, bug hotspot identified):
+  mcp__kg__add_entity({name: "<bug-id> or <component> finding", type: "topic"})
+  mcp__kg__add_observation({entity_id: "<id>", content:
+    "[INVESTIGATION] <what confirmed, what ruled out, evidence: file:line>"})
+
+  IF bug is linked to a known component:
+    mcp__kg__link_entities({from_id: "<bug-entity-id>", relation: "originated_in", to_id: "<component-entity-id>"})
+```
+
+**At TaskComplete (MANDATORY):**
+```
+mcp__kg__add_observation({entity_id: "<bug-entity-id>", content:
+  "[COMPLETION] Root cause: <description>. Fix location: <file:line>. Pattern: <reusable insight>."})
+```
+
+**Correct tool names:** `mcp__kg__search_knowledge` · `mcp__kg__get_preflight_context` · `mcp__kg__get_file_context` · `mcp__kg__add_entity` · `mcp__kg__add_observation` · `mcp__kg__link_entities`
 
 ---
 

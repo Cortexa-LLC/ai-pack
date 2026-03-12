@@ -32,16 +32,49 @@ If a structured thinking or step-by-step reasoning tool is available, use it for
 
 **Example:** When a failure manifests in service C but is triggered by service A, walk the call chain step-by-step, validating each link with evidence before drawing conclusions.
 
-### Memory Tools (if available)
-If knowledge-graph or memory tools are available, use them to avoid re-tracing known investigation paths:
-- **`search_nodes`**: Check if this failure pattern has been seen before — saves investigation time
-  - Example: Search "database connection timeout" to find previous incidents and their resolutions
-- **`create_entities`**: Record confirmed findings and the evidence chain
-  - Example: `create_entities([{"name": "incident-2026-02-db-pool", "entityType": "incident", "observations": ["DB connection pool exhaustion during peak load", "Root cause: N+1 queries in user listing endpoint", "Fix: added eager loading for user->roles"]}])`
-- **`create_relations`**: Map which code paths led to the failure
-- **`add_observations`**: Append evidence as you collect it to build a traceable investigation log
+**KG before reasoning (if KG MCP available):** When about to reason through "how does X work" or "what caused Y" — search the KG first (`mcp__kg__search_knowledge`). Avoid re-deriving facts that are already stored. Ground your reasoning in known facts before expanding hypotheses.
 
-**When to Use Memory:** Runtime investigations are time-sensitive. Search memory first for known patterns, then store confirmed findings so the next Spelunker (or Inspector) doesn't re-investigate the same issue from scratch.
+**KG after reasoning (if KG MCP available):** When reasoning concludes with a validated finding or ruled-out hypothesis — write it back: `mcp__kg__add_observation({entity_id, content: "[REASONING] <conclusion, what was validated or eliminated, confidence>"})`. Future reasoning on the same topic starts from here, not from scratch.
+
+### Knowledge Graph Tools (use these — not mcp__memory__)
+
+Search the KG before grepping or reading files. The KG has indexed the codebase and past investigation findings — one call often replaces many grep runs.
+
+**At task start (MANDATORY):**
+```
+mcp__kg__get_preflight_context({task: "<issue description>"})
+  → surfaces known context, prior investigations, related components
+
+mcp__kg__search_knowledge({query: "<error pattern or component>"})
+  → check if this failure was investigated before; skip re-discovery if so
+```
+
+**Before any grep/glob for a symbol or component:**
+```
+mcp__kg__search_knowledge({query: "<symbol or component name>"})
+  → get file:line location without a grep scan
+
+mcp__kg__get_file_context({file: "<path>"})
+  → get the function/type map for a file before deciding what to read
+```
+
+**Write findings incrementally as you investigate (MANDATORY — do not wait until done):**
+```
+EVERY TIME you confirm something significant (root cause, ruled-out hypothesis, surprise):
+  mcp__kg__add_entity({name: "<topic>", type: "topic"})  ← get entity ID
+  mcp__kg__add_observation({entity_id: "<id>", content:
+    "[INVESTIGATION] <what you found, what was ruled out, current hypothesis>"})
+```
+A timed-out investigation with KG notes is recoverable. One without is wasted work.
+
+**At TaskComplete (MANDATORY):**
+```
+mcp__kg__add_entity({name: "<issue> resolution", type: "investigation"})
+mcp__kg__add_observation({entity_id: "<id>", content:
+  "[COMPLETION] Root cause: <description>. Evidence: <file:line>. Fix: <summary>."})
+```
+
+**Correct tool names:** `mcp__kg__search_knowledge` · `mcp__kg__get_preflight_context` · `mcp__kg__get_file_context` · `mcp__kg__add_entity` · `mcp__kg__add_observation` · `mcp__kg__link_entities`
 
 ---
 

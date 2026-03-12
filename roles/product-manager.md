@@ -50,6 +50,10 @@ If a structured thinking or step-by-step reasoning tool is available, use it for
 - Reasoning through user journey and experience flows
 - Analyzing market requirements and competitive positioning
 
+**KG before reasoning (if KG MCP available):** Before reasoning through feature scope or user story breakdown — search the KG first (`mcp__kg__search_knowledge`). Prior product decisions, accepted requirements, and known constraints may already be recorded. Avoid re-deliberating settled questions.
+
+**KG after reasoning (if KG MCP available):** When reasoning concludes with a prioritization decision or scope boundary — write it back: `mcp__kg__add_observation({entity_id, content: "[REASONING] <decision reached, trade-offs accepted, requirements excluded and why>"})`. Prevents the same scope debate recurring in future planning sessions.
+
 ### Memory Tools (if available)
 If knowledge-graph or memory tools are available, use them to maintain product knowledge:
 - **create_entities**: Track personas, features, requirements, user stories, epics, acceptance criteria

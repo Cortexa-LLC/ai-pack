@@ -108,6 +108,10 @@ If a structured thinking or step-by-step reasoning tool is available, use it for
 - Analyzing scalability and performance implications
 - Evaluating technology stack options systematically
 
+**KG before reasoning (if KG MCP available):** Before reasoning through architectural options or constraints — search the KG first (`mcp__kg__search_knowledge`, `mcp__kg__query_graph`). Past ADRs and design decisions are stored there. Avoid re-evaluating already-settled decisions; build on what exists.
+
+**KG after reasoning (if KG MCP available):** When reasoning concludes with an architectural decision — write it back immediately: `mcp__kg__add_observation({entity_id, content: "[REASONING] <decision reached, alternatives rejected, rationale>"})`. This is more durable than an ADR file alone — it surfaces in every future agent's preflight context.
+
 ### Knowledge Graph Tools
 
 Use these to understand existing architecture before proposing changes, and to record design decisions for future agents.
