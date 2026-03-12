@@ -10,9 +10,10 @@ import (
 
 // Service handles streaming with multi-provider support and model selection
 type Service struct {
-	providers       map[string]ProviderFactory
-	modelSelector   ModelSelector
-	defaultProvider string
+	providers          map[string]ProviderFactory
+	modelSelector      ModelSelector
+	defaultProvider    string
+	modelTranslations  map[string]map[string]string // "from->to": {"model": "target", "*pattern*": "target", "*": "default"}
 }
 
 // ModelSelector selects the appropriate model and provider
@@ -21,11 +22,12 @@ type ModelSelector interface {
 }
 
 // NewService creates a new streaming service
-func NewService(selector ModelSelector, defaultProvider string) *Service {
+func NewService(selector ModelSelector, defaultProvider string, translations map[string]map[string]string) *Service {
 	return &Service{
-		providers:       make(map[string]ProviderFactory),
-		modelSelector:   selector,
-		defaultProvider: defaultProvider,
+		providers:         make(map[string]ProviderFactory),
+		modelSelector:     selector,
+		defaultProvider:   defaultProvider,
+		modelTranslations: translations,
 	}
 }
 
@@ -113,62 +115,45 @@ func (s *Service) GetProviderForModel(model string) string {
 	return s.defaultProvider
 }
 
-// translateModelForProvider translates a model name from one provider to an equivalent in another provider
+// translateModelForProvider translates a model name from one provider to an equivalent
+// in another provider using the configured model_translations table.
+//
+// Keys in each translation map are matched in order:
+//  1. Exact match (e.g. "gpt-4o")
+//  2. Glob-style substring match (e.g. "*sonnet*" matches any model containing "sonnet")
+//  3. Wildcard default ("*")
 func (s *Service) translateModelForProvider(model, fromProvider, toProvider string) string {
-	// If providers are the same, no translation needed
 	if fromProvider == toProvider {
 		return model
 	}
 
-	// OpenAI -> Anthropic translations
-	if fromProvider == ProviderOpenAI && toProvider == ProviderAnthropic {
-		switch model {
-		case "gpt-4o", "gpt-4o-2024-08-06":
-			return "claude-sonnet-4-5-20250929" // Map GPT-4o to Claude Sonnet 4.5
-		case "gpt-4o-mini", "gpt-4.1-nano":
-			return "claude-haiku-4-5-20251022" // Map small GPT models to Claude Haiku 4.5
-		case "gpt-4.1-mini":
-			return "claude-sonnet-4-5-20250929" // Map GPT-4.1-mini to Claude Sonnet 4.5
-		default:
-			// Default to Sonnet 4.5 for unknown GPT models
-			return "claude-sonnet-4-5-20250929"
+	key := fromProvider + "->" + toProvider
+	table := s.modelTranslations[key]
+	if len(table) == 0 {
+		return model
+	}
+
+	// 1. Exact match
+	if target, ok := table[model]; ok {
+		return target
+	}
+
+	// 2. Glob-style substring match: "*pattern*"
+	modelLower := strings.ToLower(model)
+	for pattern, target := range table {
+		if pattern == "*" || !strings.Contains(pattern, "*") {
+			continue
+		}
+		inner := strings.Trim(pattern, "*")
+		if inner != "" && strings.Contains(modelLower, strings.ToLower(inner)) {
+			return target
 		}
 	}
 
-	// Anthropic -> OpenAI translations
-	if fromProvider == ProviderAnthropic && toProvider == ProviderOpenAI {
-		if strings.Contains(strings.ToLower(model), "opus") {
-			return "gpt-4o" // Map Opus to GPT-4o
-		} else if strings.Contains(strings.ToLower(model), "sonnet") {
-			return "gpt-4o" // Map Sonnet to GPT-4o
-		} else if strings.Contains(strings.ToLower(model), "haiku") {
-			return "gpt-4o-mini" // Map Haiku to GPT-4o-mini
-		}
-		// Default to GPT-4o for unknown Claude models
-		return "gpt-4o"
+	// 3. Wildcard default
+	if target, ok := table["*"]; ok {
+		return target
 	}
 
-	// Qwen -> Anthropic fallback
-	if fromProvider == ProviderQwen && toProvider == ProviderAnthropic {
-		return "claude-sonnet-4-6"
-	}
-
-	// Gemini -> Anthropic fallback
-	if fromProvider == ProviderGemini && toProvider == ProviderAnthropic {
-		if strings.Contains(strings.ToLower(model), "pro") {
-			return "claude-sonnet-4-6"
-		}
-		return "claude-haiku-4-5"
-	}
-
-	// Gemini -> OpenAI fallback
-	if fromProvider == ProviderGemini && toProvider == ProviderOpenAI {
-		if strings.Contains(strings.ToLower(model), "pro") {
-			return "gpt-4.1"
-		}
-		return "gpt-4.1-mini"
-	}
-
-	// No translation available, return original model
 	return model
 }

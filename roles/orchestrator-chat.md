@@ -2,7 +2,6 @@
 
 **Agent:** orchestrator-chat
 **Description:** Conversational orchestrator for coordinating software development through chat
-**Model:** gpt-4o
 **Tier:** low
 **Timeout:** 30min
 **MaxContext:** 64000

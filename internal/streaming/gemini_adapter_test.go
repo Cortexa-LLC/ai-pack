@@ -2,6 +2,8 @@ package streaming
 
 import (
 	"testing"
+
+	"github.com/cortexa-llc/ai-pack/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -161,7 +163,7 @@ func TestBuildGeminiFunctionDeclarations_Simple(t *testing.T) {
 func newServiceWithGemini(t *testing.T) *Service {
 	t.Helper()
 	selector := &alwaysDefaultSelector{model: "claude-haiku-4-5", provider: ProviderAnthropic}
-	svc := NewService(selector, ProviderAnthropic)
+	svc := NewService(selector, ProviderAnthropic, config.DefaultConfig().ModelTranslations)
 	svc.RegisterProvider(NewGeminiFactory("test-key", 1024))
 	return svc
 }
