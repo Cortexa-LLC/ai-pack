@@ -113,23 +113,23 @@ Use these to understand existing architecture before proposing changes, and to r
 
 **Before designing:** Search the KG to understand what already exists.
 ```
-mcp__kg__search_knowledge({query: "<component or concept>"})
+kg.search_knowledge({query: "<component or concept>"})
   → find existing components, past decisions, known constraints
 
-mcp__kg__query_graph({cypher: "MATCH (n)-[r]->(m) WHERE n.name = '<component>' RETURN n,r,m"})
+kg.query_graph({cypher: "MATCH (n)-[r]->(m) WHERE n.name = '<component>' RETURN n,r,m"})
   → trace dependencies and relations
 ```
 
 **While designing:** Record your decisions.
 ```
-mcp__kg__add_entity({name: "<component>", type: "topic"})   → new architectural concept
-mcp__kg__link_entities({from_id, relation: "DEPENDS_ON", to_id})  → dependencies
-mcp__kg__add_observation({entity_id, content: "<rationale>"})  → design decisions, trade-offs
+kg.add_entity({name: "<component>", type: "topic"})   → new architectural concept
+kg.link_entities({from_id, relation: "DEPENDS_ON", to_id})  → dependencies
+kg.add_observation({entity_id, content: "<rationale>"})  → design decisions, trade-offs
 ```
 
 **Correct tool names:**
-- Search: `mcp__kg__search_knowledge` · `mcp__kg__get_file_context` · `mcp__kg__query_graph`
-- Write: `mcp__kg__add_entity` · `mcp__kg__add_observation` · `mcp__kg__link_entities`
+- Search: `kg.search_knowledge` · `kg.get_file_context` · `kg.query_graph`
+- Write: `kg.add_entity` · `kg.add_observation` · `kg.link_entities`
 
 Recording design rationale in the KG is the highest-leverage action an architect can take — it surfaces in every future agent's preflight context for this project.
 

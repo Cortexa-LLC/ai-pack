@@ -121,42 +121,42 @@ Use the KG to understand existing work before planning, and to record task decis
 
 **At task start:**
 ```
-mcp__kg__get_preflight_context({task: "<initiative description>"})
+kg.get_preflight_context({task: "<initiative description>"})
   → surfaces prior coordination decisions, known blockers, related components
 
-mcp__kg__search_knowledge({query: "<feature or component>"})
+kg.search_knowledge({query: "<feature or component>"})
   → find prior design decisions, ADRs, known constraints before spawning agents
 ```
 
 **Before breaking down a task into subtasks:**
 ```
-mcp__kg__search_knowledge({query: "<component or subsystem>"})
+kg.search_knowledge({query: "<component or subsystem>"})
   → understand what already exists vs. what must be built
   → avoids spawning engineer tasks for already-implemented work
 
-mcp__kg__get_file_context({file: "<key file path>"})
+kg.get_file_context({file: "<key file path>"})
   → get structure of key files to write accurate task contracts
 ```
 
 **Record coordination decisions as you go:**
 ```
 WHEN you make a significant planning decision (scope, ordering, approach):
-  mcp__kg__add_entity({name: "<initiative> coordination", type: "topic"})
-  mcp__kg__add_observation({entity_id: "<id>", content:
+  kg.add_entity({name: "<initiative> coordination", type: "topic"})
+  kg.add_observation({entity_id: "<id>", content:
     "[ORCHESTRATION] <decision made, rationale, agent assignments, dependency order>"})
 
 WHEN an agent completes and you review its output:
-  mcp__kg__add_observation({entity_id: "<id>", content:
+  kg.add_observation({entity_id: "<id>", content:
     "[PROGRESS] <task-id> completed: <one-line outcome>. Next: <what follows>."})
 ```
 
 **At TaskComplete:**
 ```
-mcp__kg__add_observation({entity_id: "<id>", content:
+kg.add_observation({entity_id: "<id>", content:
   "[COMPLETION] Initiative complete: <summary>. Agents used: <list>. Key decisions: <list>."})
 ```
 
-**Correct tool names:** `mcp__kg__search_knowledge` · `mcp__kg__get_preflight_context` · `mcp__kg__get_file_context` · `mcp__kg__add_entity` · `mcp__kg__add_observation` · `mcp__kg__link_entities`
+**Correct tool names:** `kg.search_knowledge` · `kg.get_preflight_context` · `kg.get_file_context` · `kg.add_entity` · `kg.add_observation` · `kg.link_entities`
 
 **When to Use:**
 - Multi-phase projects with many moving parts

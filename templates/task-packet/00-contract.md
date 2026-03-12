@@ -15,8 +15,8 @@
 **Before filling out this contract, query the Knowledge Graph to understand existing context.**
 
 ```
-mcp__kg__search_knowledge("<task keywords>")
-mcp__kg__search_knowledge("<affected component or file area>")
+kg.search_knowledge("<task keywords>")
+kg.search_knowledge("<affected component or file area>")
 ```
 
 **Fill in findings below — this prevents rediscovering what's already indexed:**

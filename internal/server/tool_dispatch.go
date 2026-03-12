@@ -67,11 +67,18 @@ func (s *AgentServer) executeTool(ctx context.Context, toolName string, toolInpu
 	}
 
 	if s.mcpManager != nil {
+		// Tools are exposed to agents as "<server>.<tool>" (e.g. "kg.search_knowledge").
+		// MCP internals use raw tool names, so strip the server prefix before lookup/dispatch.
+		rawToolName := toolName
+		if idx := strings.Index(toolName, "."); idx >= 0 {
+			rawToolName = toolName[idx+1:]
+		}
+
 		// Determine if this is an MCP tool by checking project client first, then named clients.
 		isProjectTool := false
 		if projectRoot != "" {
 			for _, t := range s.mcpManager.GetProjectTools(projectRoot) {
-				if t.Name == toolName {
+				if t.Name == rawToolName {
 					isProjectTool = true
 					break
 				}
@@ -82,7 +89,7 @@ func (s *AgentServer) executeTool(ctx context.Context, toolName string, toolInpu
 		if !isProjectTool {
 			for _, serverTools := range s.mcpManager.GetAllTools() {
 				for _, t := range serverTools {
-					if t.Name == toolName {
+					if t.Name == rawToolName {
 						isNamedTool = true
 						break
 					}
@@ -94,8 +101,8 @@ func (s *AgentServer) executeTool(ctx context.Context, toolName string, toolInpu
 		}
 
 		if isProjectTool || isNamedTool {
-			// Route via CallToolForProject: tries project client first, falls back to named clients.
-			result, err := s.mcpManager.CallToolForProject(ctx, projectRoot, toolName, toolInput)
+			// Route via CallToolForProject using the raw tool name.
+			result, err := s.mcpManager.CallToolForProject(ctx, projectRoot, rawToolName, toolInput)
 			if err != nil {
 				return "", fmt.Errorf("MCP tool error: %w", err)
 			}
@@ -177,7 +184,18 @@ func cleanSchemaProperties(properties map[string]interface{}) map[string]interfa
 	return cleaned
 }
 
+// mcpServerPrefix derives the short prefix from a serverName for tool qualification.
+// "kg:/path/to/project" → "kg", "memory" → "memory"
+func mcpServerPrefix(serverName string) string {
+	if idx := strings.Index(serverName, ":"); idx >= 0 {
+		return serverName[:idx]
+	}
+	return serverName
+}
+
 // buildMCPStreamTool converts an mcp.Tool to a streaming.Tool, cleaning the schema.
+// Tools are registered as "<server>.<tool>" (e.g. "kg.search_knowledge") so agents
+// use a framework-native naming convention rather than any external convention.
 func buildMCPStreamTool(tool mcp.Tool, serverName string) streaming.Tool {
 	var properties map[string]interface{}
 	var required []string
@@ -216,9 +234,10 @@ func buildMCPStreamTool(tool mcp.Tool, serverName string) streaming.Tool {
 		schema["required"] = required
 	}
 
-	monitoring.Logger.Debug("mcp_tool_registered", "server", serverName, "tool", tool.Name)
+	qualifiedName := mcpServerPrefix(serverName) + "." + tool.Name
+	monitoring.Logger.Debug("mcp_tool_registered", "server", serverName, "tool", qualifiedName)
 	return streaming.Tool{
-		Name:        tool.Name,
+		Name:        qualifiedName,
 		Description: tool.Description,
 		InputSchema: schema,
 	}
@@ -241,9 +260,10 @@ func (s *AgentServer) getAllTools(projectRoot string) []streaming.Tool {
 		// Add project-specific KG tools first (highest priority for dedup)
 		if projectRoot != "" {
 			for _, tool := range s.mcpManager.GetProjectTools(projectRoot) {
-				if !seen[tool.Name] {
-					toolList = append(toolList, buildMCPStreamTool(tool, "kg:"+projectRoot))
-					seen[tool.Name] = true
+				t := buildMCPStreamTool(tool, "kg:"+projectRoot)
+				if !seen[t.Name] {
+					toolList = append(toolList, t)
+					seen[t.Name] = true
 				}
 			}
 		}
@@ -253,9 +273,10 @@ func (s *AgentServer) getAllTools(projectRoot string) []streaming.Tool {
 
 		for serverName, serverTools := range mcpTools {
 			for _, tool := range serverTools {
-				if !seen[tool.Name] {
-					toolList = append(toolList, buildMCPStreamTool(tool, serverName))
-					seen[tool.Name] = true
+				t := buildMCPStreamTool(tool, serverName)
+				if !seen[t.Name] {
+					toolList = append(toolList, t)
+					seen[t.Name] = true
 				}
 			}
 		}
