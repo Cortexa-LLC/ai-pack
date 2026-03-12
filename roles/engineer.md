@@ -2,7 +2,7 @@
 
 **Agent:** engineer
 **Description:** Implementation specialist following TDD workflow
-**Model:** Qwen3.5-35B-A3B-Q6_K.gguf
+**Model:** claude-sonnet-4-6
 **Tier:** medium
 **Class:** agentic
 **Timeout:** 45min
