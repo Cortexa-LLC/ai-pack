@@ -242,63 +242,6 @@ const OverviewTab: React.FC<{ summary: any; totalCost: number | null }> = ({ sum
   );
 };
 
-// Roles Tab
-const RolesTab: React.FC<{ summary: any }> = ({ summary }) => {
-  const roleData = summary.byRole || {};
-
-  return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-white mb-4">Performance by Role</h3>
-      <div className="grid gap-4">
-        {Object.entries(roleData).map(([role, data]: [string, any]) => (
-          <div key={role} className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-lg font-semibold text-white capitalize">{role}</h4>
-              <div className="text-sm text-gray-400">
-                {data.total_attempts} attempts
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <div className="text-sm text-gray-400">Success Rate</div>
-                <div className="text-2xl font-bold text-green-400">
-                  {(data.success_rate * 100).toFixed(1)}%
-                </div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-400">Successes</div>
-                <div className="text-2xl font-bold text-blue-400">{data.successes}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-400">Failures</div>
-                <div className="text-2xl font-bold text-red-400">{data.failures}</div>
-              </div>
-            </div>
-
-            {/* Model usage */}
-            {data.models && Object.keys(data.models).length > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-700">
-                <div className="text-sm text-gray-400 mb-2">Models Used</div>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(data.models).map(([model, count]: [string, any]) => (
-                    <span
-                      key={model}
-                      className="px-2 py-1 bg-gray-700/50 rounded text-xs text-gray-300"
-                    >
-                      {model}: {count}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 // Models Tab
 const ModelsTab: React.FC<{ summary: any }> = ({ summary }) => {
   const modelData = summary.byModel || {};
@@ -534,10 +477,10 @@ const KnowledgeGraphTab: React.FC<{
     <div className="space-y-6">
       {/* Summary row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Total Entities" value={stats.total_entities.toLocaleString()} subtext="across all projects" />
-        <StatCard label="Total Relations" value={stats.total_relations.toLocaleString()} subtext="graph edges" />
-        <StatCard label="Indexed Projects" value={`${stats.indexed_projects}`} subtext={`of ${stats.projects.length} registered`} />
-        <StatCard label="Context Injections" value={totalPreflightHits.toLocaleString()} subtext="preflight hits" />
+        <StatCard label="Total Entities" value={stats.total_entities.toLocaleString()} subtext="across all projects" color="purple" />
+        <StatCard label="Total Relations" value={stats.total_relations.toLocaleString()} subtext="graph edges" color="blue" />
+        <StatCard label="Indexed Projects" value={`${stats.indexed_projects}`} subtext={`of ${stats.projects.length} registered`} color="green" />
+        <StatCard label="Context Injections" value={totalPreflightHits.toLocaleString()} subtext="preflight hits" color="gray" />
       </div>
 
       {/* Per-project cards */}
