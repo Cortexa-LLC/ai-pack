@@ -1,8 +1,27 @@
 import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import mermaid from 'mermaid';
+// Register only the languages needed — avoids bundling all ~200 Prism grammars
+import go from 'react-syntax-highlighter/dist/esm/languages/prism/go';
+import typescript from 'react-syntax-highlighter/dist/esm/languages/prism/typescript';
+import javascript from 'react-syntax-highlighter/dist/esm/languages/prism/javascript';
+import python from 'react-syntax-highlighter/dist/esm/languages/prism/python';
+import bash from 'react-syntax-highlighter/dist/esm/languages/prism/bash';
+import json from 'react-syntax-highlighter/dist/esm/languages/prism/json';
+import yaml from 'react-syntax-highlighter/dist/esm/languages/prism/yaml';
+import rust from 'react-syntax-highlighter/dist/esm/languages/prism/rust';
+import diff from 'react-syntax-highlighter/dist/esm/languages/prism/diff';
+SyntaxHighlighter.registerLanguage('go', go);
+SyntaxHighlighter.registerLanguage('typescript', typescript);
+SyntaxHighlighter.registerLanguage('javascript', javascript);
+SyntaxHighlighter.registerLanguage('python', python);
+SyntaxHighlighter.registerLanguage('bash', bash);
+SyntaxHighlighter.registerLanguage('shell', bash);
+SyntaxHighlighter.registerLanguage('json', json);
+SyntaxHighlighter.registerLanguage('yaml', yaml);
+SyntaxHighlighter.registerLanguage('rust', rust);
+SyntaxHighlighter.registerLanguage('diff', diff);
 import { DEFAULT_CHAT_ROLE } from '../lib/roles';
 
 interface Message {
@@ -43,29 +62,26 @@ const DEBUG_CHAT = false;
 const LS_SELECTED_MODEL = 'ai-pack-selected-model';
 const API_MODELS = '/api/models';
 
-// Initialize mermaid
-mermaid.initialize({
-  startOnLoad: true,
-  theme: 'dark',
-  securityLevel: 'loose',
-});
-
-// Mermaid diagram component
+// Mermaid diagram component — lazy-loads mermaid on first render so the
+// 1.7 MB library is only fetched when a diagram actually appears in a message.
 function MermaidDiagram({ chart }: { chart: string }) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (ref.current) {
-      try {
-        mermaid.contentLoaded();
-      } catch (err) {
-        console.error('Mermaid rendering error:', err);
-      }
-    }
+    let cancelled = false;
+    import('mermaid').then(({ default: mermaid }) => {
+      if (cancelled || !ref.current) return;
+      mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+      const id = 'mermaid-' + Math.random().toString(36).slice(2);
+      mermaid.render(id, chart)
+        .then(({ svg }) => { if (!cancelled && ref.current) ref.current.innerHTML = svg; })
+        .catch(err => console.error('Mermaid rendering error:', err));
+    });
+    return () => { cancelled = true; };
   }, [chart]);
 
   return (
-    <div className="mermaid bg-white p-4 rounded my-2" ref={ref}>
+    <div className="bg-white p-4 rounded my-2" ref={ref}>
       {chart}
     </div>
   );
