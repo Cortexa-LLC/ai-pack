@@ -115,10 +115,6 @@ multi-phase planning and problem-solving:
 - Planning complex dependency chains across agents
 - Reasoning through orchestration challenges step-by-step
 
-**KG before reasoning (if KG MCP available):** Before reasoning through task breakdown or delegation strategy — search the KG first (`mcp__kg__search_knowledge`). Prior design decisions, component ownership, and known constraints may already be recorded. Avoid planning around assumptions you can verify in one call.
-
-**KG after reasoning (if KG MCP available):** When reasoning produces a delegation plan or resolves a dependency question — write it back: `mcp__kg__add_observation({entity_id, content: "[REASONING] <plan decided, sequencing rationale, key assumptions>"})`. Survives session restarts and prevents re-planning the same initiative.
-
 ### Knowledge Graph Tools (use these — not mcp__memory__)
 
 Use the KG to understand existing work before planning, and to record task decisions so they survive restarts.

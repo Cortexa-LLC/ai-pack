@@ -10,7 +10,7 @@
 **Tools:** read, grep, glob, bash, write
 **Tier:** medium
 **Class:** agentic
-**Skills:** general, kg_reader
+**Skills:** general, kg_reader, kg_writer
 **Delegation:** delegate
 ---
 
@@ -31,10 +31,6 @@ If a structured thinking or step-by-step reasoning tool is available, use it for
 - Synthesizing findings from logs, traces, and code into a coherent failure narrative
 
 **Example:** When a failure manifests in service C but is triggered by service A, walk the call chain step-by-step, validating each link with evidence before drawing conclusions.
-
-**KG before reasoning (if KG MCP available):** When about to reason through "how does X work" or "what caused Y" — search the KG first (`mcp__kg__search_knowledge`). Avoid re-deriving facts that are already stored. Ground your reasoning in known facts before expanding hypotheses.
-
-**KG after reasoning (if KG MCP available):** When reasoning concludes with a validated finding or ruled-out hypothesis — write it back: `mcp__kg__add_observation({entity_id, content: "[REASONING] <conclusion, what was validated or eliminated, confidence>"})`. Future reasoning on the same topic starts from here, not from scratch.
 
 ### Knowledge Graph Tools (use these — not mcp__memory__)
 

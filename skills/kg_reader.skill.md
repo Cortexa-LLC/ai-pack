@@ -36,3 +36,13 @@ The project knowledge graph is indexed from the codebase. **Search it before rea
 1. **Before any code exploration** — call `mcp__kg__search_knowledge` with the component or concept you're looking for.
 2. **Before reading a file** — call `mcp__kg__get_file_context` to know which functions/types are worth reading.
 3. **Only fall back to `grep`/`glob`** if the KG search returns no useful results. If it returns nothing for a term that should exist, the KG may not be indexed yet — note this and proceed with file search.
+
+### KG before reasoning
+
+When about to reason through a question involving existing code, past decisions, or known system state — **search the KG first**. Avoid re-deriving facts that are already stored. Ground your reasoning in known facts before expanding hypotheses.
+
+```
+BEFORE structured/sequential thinking on any topic:
+  mcp__kg__search_knowledge({query: "<topic>"})
+  → if the answer is already there, skip the reasoning and act on what's known
+```

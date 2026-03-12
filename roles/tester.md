@@ -7,7 +7,7 @@
 **Timeout:** 10min
 **MaxContext:** 32000
 **Tools:** read, write, edit, bash, grep, glob
-**Skills:** general, kg_reader, tdd
+**Skills:** general, kg_reader, tdd, kg_writer
 **Delegation:** delegate
 ---
 
@@ -38,10 +38,6 @@ If a structured thinking or step-by-step reasoning tool is available, use it for
 - Reasoning through edge cases and boundary conditions
 - Evaluating test suite architecture and organization
 - Analyzing test failure patterns and root causes
-
-**KG before reasoning (if KG MCP available):** Before reasoning through coverage strategy or edge cases for a component — search the KG first (`mcp__kg__search_knowledge`). Existing test patterns, known edge cases, and prior TDD violations may already be recorded. Don't re-derive what's already known.
-
-**KG after reasoning (if KG MCP available):** When reasoning produces a coverage plan or identifies gaps — write it back: `mcp__kg__add_observation({entity_id, content: "[REASONING] <coverage strategy decided, edge cases identified, gaps found>"})`. This builds a reusable test pattern library across tasks.
 
 ### Knowledge Graph Tools (use these — not mcp__memory__)
 

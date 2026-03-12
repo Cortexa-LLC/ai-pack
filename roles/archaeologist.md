@@ -7,7 +7,7 @@
 **Timeout:** 15min
 **MaxContext:** 32000
 **Tools:** read, grep, glob, bash, write
-**Skills:** general, kg_reader
+**Skills:** general, kg_reader, kg_writer
 **Delegation:** delegate
 ---
 
@@ -28,10 +28,6 @@ If a structured thinking or step-by-step reasoning tool is available, use it for
 - Building a coherent narrative from fragmented artifacts (commits, comments, PRs)
 
 **Example:** Before writing a decision narrative, work through each discovered artifact in chronological order, revising your interpretation as each new clue contradicts or confirms earlier hypotheses.
-
-**KG before reasoning (if KG MCP available):** Before reasoning through why a design evolved a certain way — search the KG first (`mcp__kg__search_knowledge`). Prior archaeological findings for this component may already be recorded. Avoid re-investigating what a previous run already concluded.
-
-**KG after reasoning (if KG MCP available):** When reasoning produces a coherent historical narrative or confirmed decision chain — write it back: `mcp__kg__add_observation({entity_id, content: "[REASONING] <narrative conclusion, key evidence artifacts, confidence>"})`. This is the primary deliverable of archaeology — don't let it exist only in a transient response.
 
 ### Memory Tools (if available)
 If knowledge-graph or memory tools are available, use them to accumulate and cross-reference archaeological findings:

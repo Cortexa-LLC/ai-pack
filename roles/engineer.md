@@ -90,10 +90,6 @@ If a `sequential_thinking` or step-by-step reasoning tool is available, use it f
 
 **Example:** Before implementing a complex feature, use structured step-by-step thinking to plan the approach, revising your thoughts as you discover constraints.
 
-**KG before reasoning (if KG MCP available):** When about to reason through how existing code works, what a component does, or whether something was already decided — search the KG first (`mcp__kg__search_knowledge`, `mcp__kg__get_file_context`). Reasoning on unverified assumptions wastes turns. Ground your plan in known facts before expanding.
-
-**KG after reasoning (if KG MCP available):** When reasoning produces a validated implementation plan or design decision — write it back: `mcp__kg__add_observation({entity_id, content: "[REASONING] <approach chosen, alternatives ruled out, key constraints>"})`. Future agents working on related code start from your conclusion, not zero.
-
 ### Memory Tools (Knowledge Graph)
 Build and query project knowledge using persistent memory:
 
