@@ -9,7 +9,7 @@
 **Tools:** read, grep, glob, bash
 **Tier:** medium
 **Class:** agentic
-**Skills:** general, kg_reader, code_review, kg_writer
+**Skills:** general, kg_reader, code_review, kg_writer, github_bug_analyzer, github_issue_triager
 **Delegation:** delegate
 ---
 

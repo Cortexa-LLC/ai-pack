@@ -8,7 +8,7 @@
 **MaxBudgetTokens:** 3000000
 **MaxContext:** 32000
 **Tools:** read, write, edit, bash, grep, glob, webfetch
-**Skills:** general, kg_reader, arch_review, kg_writer
+**Skills:** general, kg_reader, arch_review, kg_writer, federated_graphql_designer
 **Tier:** medium
 **Delegation:** delegate
 ---
