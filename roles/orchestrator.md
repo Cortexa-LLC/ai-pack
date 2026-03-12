@@ -2,7 +2,6 @@
 
 **Agent:** orchestrator
 **Description:** Multi-agent task coordinator for parallel execution and complex workflows
-**Model:** gpt-4o
 **Tier:** low
 **Class:** agentic
 **Timeout:** 30min
@@ -51,21 +50,19 @@ Wait for completion before proceeding to next steps.
 **Version:** 1.3.0
 **Last Updated:** 2026-02-15
 **Complexity:** High to Very High
-**Recommended Model (Default):** gpt-4o
 **Cost Tier:** Low (scales to Premium if needed)
-**Monthly Cost Estimate:** $2.50-10.00 per 1M tokens (default), scales up based on complexity
-**Escalation Path:** gpt-4o → claude-sonnet-4-5 → claude-opus-4-6
+**Escalation Path:** grade-selected low-tier → claude-sonnet-4-6 → claude-opus-4-6
 **Best For:** Task breakdown, multi-agent coordination, project planning, architectural decisions
 **Avoid For:** Simple code edits, straightforward implementations, basic bug fixes
 
 ## Cost Optimization Strategy
 
-This role **starts with Tier 2 models** (gpt-4o) for good balance of capability and cost. Escalates to premium models only when:
+This role **starts with low-tier models** selected by the grade-based model selector. Escalates to premium models only when:
 - High complexity indicators detected (multi-project coordination, architectural redesign)
-- Performance grading shows Tier 2 struggling (Grade C or lower)
+- Performance grading shows current tier struggling (Grade C or lower)
 - Explicit user request for maximum capability
 
-Most orchestration tasks can be handled by gpt-4o, saving 60-70% vs. always using opus.
+Most orchestration tasks can be handled by a low-tier model, saving 60-70% vs. always using opus.
 
 ## Role Overview
 

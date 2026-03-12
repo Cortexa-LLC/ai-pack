@@ -45,8 +45,9 @@ type Config struct {
 	GradingCriteria GradingCriteriaConfig `json:"grading_criteria"`
 	MCP             MCPConfig             `json:"mcp"`
 	ComplexityGate  ComplexityGateConfig  `json:"complexity_gate"`
-	Projects        map[string]string     `json:"projects,omitempty"` // map[projectPath]lastAccessed
-	Providers       ProvidersConfig       `json:"providers,omitempty"` // per-provider endpoint / key-env overrides
+	Projects           map[string]string            `json:"projects,omitempty"`            // map[projectPath]lastAccessed
+	Providers          ProvidersConfig               `json:"providers,omitempty"`           // per-provider endpoint / key-env overrides
+	ModelTranslations  map[string]map[string]string  `json:"model_translations,omitempty"`  // "from->to": {"model-id": "target-id", "*pattern*": "target", "*": "default"}
 }
 
 // ServerConfig holds server-specific settings
@@ -211,6 +212,33 @@ func DefaultConfig() *Config {
 			RoleMultipliers: map[string]float64{},
 		},
 		Projects: make(map[string]string),
+		ModelTranslations: map[string]map[string]string{
+			"openai->anthropic": {
+				"gpt-4o":            "claude-sonnet-4-6",
+				"gpt-4o-2024-08-06": "claude-sonnet-4-6",
+				"gpt-4.1-mini":      "claude-sonnet-4-6",
+				"gpt-4o-mini":       "claude-haiku-4-5-20251022",
+				"gpt-4.1-nano":      "claude-haiku-4-5-20251022",
+				"*":                 "claude-sonnet-4-6",
+			},
+			"anthropic->openai": {
+				"*opus*":   "gpt-4o",
+				"*sonnet*": "gpt-4o",
+				"*haiku*":  "gpt-4o-mini",
+				"*":        "gpt-4o",
+			},
+			"qwen->anthropic": {
+				"*": "claude-sonnet-4-6",
+			},
+			"gemini->anthropic": {
+				"*pro*": "claude-sonnet-4-6",
+				"*":     "claude-haiku-4-5",
+			},
+			"gemini->openai": {
+				"*pro*": "gpt-4.1",
+				"*":     "gpt-4.1-mini",
+			},
+		},
 	}
 }
 

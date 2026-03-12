@@ -456,7 +456,11 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		openaiKey != "",
 		geminiKey != "",
 	)
-	streamingService := streaming.NewService(streamingSelector, constants.ProviderAnthropic)
+	var modelTranslations map[string]map[string]string
+	if cfg != nil {
+		modelTranslations = cfg.ModelTranslations
+	}
+	streamingService := streaming.NewService(streamingSelector, constants.ProviderAnthropic, modelTranslations)
 
 	// Register provider factories
 	streamingService.RegisterProvider(streaming.NewAnthropicFactory(anthropicKey, maxTokens))
