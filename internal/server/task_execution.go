@@ -443,6 +443,25 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, roleTimeout time.D
 			if sr == stallAbort {
 				return "", fmt.Errorf("agent stuck after %d turns without progress", s.maxInactiveTurns)
 			}
+
+			// Popcorn bidding: KG checkpoint written this turn — reset the deadline to
+			// a fresh roleTimeout window. KG writes are the canonical signal that the
+			// agent has crystallised a finding, not just spun through reads/greps.
+			// An agent that keeps checkpointing progress will never be interrupted
+			// mid-investigation; only agents that stop producing KG findings hit the wall.
+			if hasKGProgress(toolUses) {
+				newCtx, newCancel := context.WithTimeout(s.ctx, roleTimeout)
+				ctx = newCtx
+				s.mu.Lock()
+				if exec, ok := s.activeTasks[taskID]; ok {
+					if exec.cancel != nil {
+						exec.cancel() // free the old timer goroutine
+					}
+					exec.cancel = newCancel
+				}
+				s.mu.Unlock()
+				logMsg(fmt.Sprintf("   📚 KG checkpoint written — deadline reset (%v window)", roleTimeout))
+			}
 		}
 
 		// Add assistant message with text and tool uses

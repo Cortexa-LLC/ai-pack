@@ -280,6 +280,27 @@ func checkStallConditions(
 	return inactiveTurns, consecutiveErrorTurns, currentTextLength, currentToolSignature, stallNone
 }
 
+// ─── hasKGProgress ───────────────────────────────────────────────────────────
+
+// hasKGProgress returns true if any tool call this turn wrote to the knowledge
+// graph. KG writes are the canonical signal for "forward progress": the agent
+// has crystallised a finding into a durable checkpoint, not merely searched or
+// read files in a loop.
+//
+// These tool names match the kg__ prefix registered by buildMCPStreamTool and
+// represent the write-side of the KG API. Read-only calls (search_knowledge,
+// get_file_context, get_preflight_context) are intentionally excluded — they
+// may be repeated without indicating convergence.
+func hasKGProgress(toolUses []streaming.ToolUse) bool {
+	for _, t := range toolUses {
+		switch t.Name {
+		case "kg__add_entity", "kg__add_observation", "kg__link_entities", "kg__index_project":
+			return true
+		}
+	}
+	return false
+}
+
 // ─── flushCheckpoint ─────────────────────────────────────────────────────────
 
 // flushCheckpoint serialises the current loop state into an AgentCheckpoint and
