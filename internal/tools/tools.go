@@ -298,6 +298,10 @@ func defineTaskCompleteTool() streaming.Tool {
 }
 
 func ExecuteTool(toolName string, toolInput map[string]interface{}, workingDir string, settings *claude.Settings) (string, error) {
+	// Normalize to PascalCase so role files can declare tools in any case (e.g. "read" == "Read").
+	if len(toolName) > 0 {
+		toolName = strings.ToUpper(toolName[:1]) + toolName[1:]
+	}
 	switch toolName {
 	case "Bash":
 		return executeBash(toolInput, workingDir, settings)
