@@ -339,7 +339,7 @@ func TestComposeSkills_SkillsMergeTools(t *testing.T) {
 **Version:** 1.0
 **InjectAt:** role_context
 **Slot:** 50
-**Tools:** kg.search_nodes, kg.open_nodes
+**Tools:** kg__search_nodes, kg__open_nodes
 **Gates:** kg-gate
 **MaxExtraTokens:** 1000
 **Optional:** true
@@ -374,8 +374,8 @@ Query the knowledge graph.
 	if !toolMap["read"] {
 		t.Error("tool 'read' was dropped")
 	}
-	if !toolMap["kg.search_nodes"] {
-		t.Error("tool 'kg.search_nodes' from skill was not added")
+	if !toolMap["kg__search_nodes"] {
+		t.Error("tool 'kg__search_nodes' from skill was not added")
 	}
 
 	// Gates should be merged

@@ -118,42 +118,42 @@ Use the KG to understand existing work before planning, and to record task decis
 
 **At task start:**
 ```
-kg.get_preflight_context({task: "<initiative description>"})
+kg__get_preflight_context({task: "<initiative description>"})
   → surfaces prior coordination decisions, known blockers, related components
 
-kg.search_knowledge({query: "<feature or component>"})
+kg__search_knowledge({query: "<feature or component>"})
   → find prior design decisions, ADRs, known constraints before spawning agents
 ```
 
 **Before breaking down a task into subtasks:**
 ```
-kg.search_knowledge({query: "<component or subsystem>"})
+kg__search_knowledge({query: "<component or subsystem>"})
   → understand what already exists vs. what must be built
   → avoids spawning engineer tasks for already-implemented work
 
-kg.get_file_context({file: "<key file path>"})
+kg__get_file_context({file: "<key file path>"})
   → get structure of key files to write accurate task contracts
 ```
 
 **Record coordination decisions as you go:**
 ```
 WHEN you make a significant planning decision (scope, ordering, approach):
-  kg.add_entity({name: "<initiative> coordination", type: "topic"})
-  kg.add_observation({entity_id: "<id>", content:
+  kg__add_entity({name: "<initiative> coordination", type: "topic"})
+  kg__add_observation({entity_id: "<id>", content:
     "[ORCHESTRATION] <decision made, rationale, agent assignments, dependency order>"})
 
 WHEN an agent completes and you review its output:
-  kg.add_observation({entity_id: "<id>", content:
+  kg__add_observation({entity_id: "<id>", content:
     "[PROGRESS] <task-id> completed: <one-line outcome>. Next: <what follows>."})
 ```
 
 **At TaskComplete:**
 ```
-kg.add_observation({entity_id: "<id>", content:
+kg__add_observation({entity_id: "<id>", content:
   "[COMPLETION] Initiative complete: <summary>. Agents used: <list>. Key decisions: <list>."})
 ```
 
-**Correct tool names:** `kg.search_knowledge` · `kg.get_preflight_context` · `kg.get_file_context` · `kg.add_entity` · `kg.add_observation` · `kg.link_entities`
+**Correct tool names:** `kg__search_knowledge` · `kg__get_preflight_context` · `kg__get_file_context` · `kg__add_entity` · `kg__add_observation` · `kg__link_entities`
 
 **When to Use:**
 - Multi-phase projects with many moving parts
