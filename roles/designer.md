@@ -27,6 +27,10 @@ If a structured thinking or step-by-step reasoning tool is available, use it for
 
 **Example:** Before specifying a checkout flow, walk through each user decision point, identify where anxiety or confusion may occur, and design appropriate affordances — revising as new constraints emerge.
 
+**KG before reasoning (if KG MCP available):** Before reasoning through UX patterns or interaction design for a component — search the KG first (`mcp__kg__search_knowledge`). Prior design decisions, accepted patterns, and known constraints may already be recorded. Ground your reasoning in established context before exploring alternatives.
+
+**KG after reasoning (if KG MCP available):** When reasoning concludes with a design decision or rejected pattern — write it back: `mcp__kg__add_observation({entity_id, content: "[REASONING] <pattern chosen, alternatives rejected, user needs driving the decision>"})`. Prevents revisiting the same interaction debates in future design passes.
+
 ### Memory Tools (if available)
 If knowledge-graph or memory tools are available, use them to build consistent design patterns and maintain design system coherence:
 - **`create_entities`**: Store reusable UX patterns, component specifications, and design decisions

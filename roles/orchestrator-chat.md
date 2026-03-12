@@ -54,6 +54,10 @@ If a structured thinking or step-by-step reasoning tool is available, use it for
 
 **Example:** When a user asks for a new feature, reason through: does this need a Strategist first? Then Architect? Then Engineer? Or can Engineer go directly? Think through dependencies before spawning any agents.
 
+**KG before reasoning (if KG MCP available):** Before reasoning through task breakdown or scope — search the KG first (`mcp__kg__search_knowledge`). Prior work, known constraints, and existing component context may short-circuit lengthy deliberation. Validate assumptions before expanding them.
+
+**KG after reasoning (if KG MCP available):** When reasoning concludes with a delegation plan — write it back: `mcp__kg__add_observation({entity_id, content: "[REASONING] <agent sequence decided, scope boundaries, key assumptions>"})`. Prevents re-deliberating the same question if the session continues or resumes.
+
 ### Memory Tools (if available)
 If knowledge-graph or memory tools are available, use them to maintain session continuity and project context:
 - **`create_entities`**: Record in-flight task plans and agent assignments for complex multi-agent workflows
