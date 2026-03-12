@@ -67,11 +67,11 @@ func (s *AgentServer) executeTool(ctx context.Context, toolName string, toolInpu
 	}
 
 	if s.mcpManager != nil {
-		// Tools are exposed to agents as "<server>.<tool>" (e.g. "kg.search_knowledge").
+		// Tools are exposed to agents as "<server>__<tool>" (e.g. "kg__search_knowledge").
 		// MCP internals use raw tool names, so strip the server prefix before lookup/dispatch.
 		rawToolName := toolName
-		if idx := strings.Index(toolName, "."); idx >= 0 {
-			rawToolName = toolName[idx+1:]
+		if idx := strings.Index(toolName, "__"); idx >= 0 {
+			rawToolName = toolName[idx+2:]
 		}
 
 		// Determine if this is an MCP tool by checking project client first, then named clients.
@@ -194,8 +194,9 @@ func mcpServerPrefix(serverName string) string {
 }
 
 // buildMCPStreamTool converts an mcp.Tool to a streaming.Tool, cleaning the schema.
-// Tools are registered as "<server>.<tool>" (e.g. "kg.search_knowledge") so agents
-// use a framework-native naming convention rather than any external convention.
+// Tools are registered as "<server>__<tool>" (e.g. "kg__search_knowledge") — double
+// underscore is the framework-native separator. It satisfies the provider API constraint
+// of ^[a-zA-Z0-9_-]{1,128} and is unambiguous against raw tool names.
 func buildMCPStreamTool(tool mcp.Tool, serverName string) streaming.Tool {
 	var properties map[string]interface{}
 	var required []string
@@ -234,7 +235,7 @@ func buildMCPStreamTool(tool mcp.Tool, serverName string) streaming.Tool {
 		schema["required"] = required
 	}
 
-	qualifiedName := mcpServerPrefix(serverName) + "." + tool.Name
+	qualifiedName := mcpServerPrefix(serverName) + "__" + tool.Name
 	monitoring.Logger.Debug("mcp_tool_registered", "server", serverName, "tool", qualifiedName)
 	return streaming.Tool{
 		Name:        qualifiedName,

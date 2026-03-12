@@ -37,39 +37,39 @@ Search the KG before grepping or reading files. The KG has indexed the codebase 
 
 **At task start (MANDATORY):**
 ```
-kg.get_preflight_context({task: "<issue description>"})
+kg__get_preflight_context({task: "<issue description>"})
   → surfaces known context, prior investigations, related components
 
-kg.search_knowledge({query: "<error pattern or component>"})
+kg__search_knowledge({query: "<error pattern or component>"})
   → check if this failure was investigated before; skip re-discovery if so
 ```
 
 **Before any grep/glob for a symbol or component:**
 ```
-kg.search_knowledge({query: "<symbol or component name>"})
+kg__search_knowledge({query: "<symbol or component name>"})
   → get file:line location without a grep scan
 
-kg.get_file_context({file: "<path>"})
+kg__get_file_context({file: "<path>"})
   → get the function/type map for a file before deciding what to read
 ```
 
 **Write findings incrementally as you investigate (MANDATORY — do not wait until done):**
 ```
 EVERY TIME you confirm something significant (root cause, ruled-out hypothesis, surprise):
-  kg.add_entity({name: "<topic>", type: "topic"})  ← get entity ID
-  kg.add_observation({entity_id: "<id>", content:
+  kg__add_entity({name: "<topic>", type: "topic"})  ← get entity ID
+  kg__add_observation({entity_id: "<id>", content:
     "[INVESTIGATION] <what you found, what was ruled out, current hypothesis>"})
 ```
 A timed-out investigation with KG notes is recoverable. One without is wasted work.
 
 **At TaskComplete (MANDATORY):**
 ```
-kg.add_entity({name: "<issue> resolution", type: "investigation"})
-kg.add_observation({entity_id: "<id>", content:
+kg__add_entity({name: "<issue> resolution", type: "investigation"})
+kg__add_observation({entity_id: "<id>", content:
   "[COMPLETION] Root cause: <description>. Evidence: <file:line>. Fix: <summary>."})
 ```
 
-**Correct tool names:** `kg.search_knowledge` · `kg.get_preflight_context` · `kg.get_file_context` · `kg.add_entity` · `kg.add_observation` · `kg.link_entities`
+**Correct tool names:** `kg__search_knowledge` · `kg__get_preflight_context` · `kg__get_file_context` · `kg__add_entity` · `kg__add_observation` · `kg__link_entities`
 
 ---
 

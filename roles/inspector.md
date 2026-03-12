@@ -51,43 +51,43 @@ Search the KG before reading code. Past investigations are stored there — avoi
 
 **At task start (MANDATORY):**
 ```
-kg.get_preflight_context({task: "<bug description>"})
+kg__get_preflight_context({task: "<bug description>"})
   → surfaces related components, prior investigations for this area
 
-kg.search_knowledge({query: "<error message or symptom>"})
+kg__search_knowledge({query: "<error message or symptom>"})
   → find if this bug or pattern was investigated before; read prior findings first
 
-kg.search_knowledge({query: "<component or module name>"})
+kg__search_knowledge({query: "<component or module name>"})
   → identify known hotspots and past issues in the affected area
 ```
 
 **Before grep/glob to locate a symbol or file:**
 ```
-kg.search_knowledge({query: "<function or type name>"})
+kg__search_knowledge({query: "<function or type name>"})
   → get file:line without scanning
 
-kg.get_file_context({file: "<path>"})
+kg__get_file_context({file: "<path>"})
   → get function list for a file before deciding what to read
 ```
 
 **Write findings incrementally (MANDATORY — do not wait until done):**
 ```
 EVERY TIME you confirm something (root cause found, hypothesis ruled out, bug hotspot identified):
-  kg.add_entity({name: "<bug-id> or <component> finding", type: "topic"})
-  kg.add_observation({entity_id: "<id>", content:
+  kg__add_entity({name: "<bug-id> or <component> finding", type: "topic"})
+  kg__add_observation({entity_id: "<id>", content:
     "[INVESTIGATION] <what confirmed, what ruled out, evidence: file:line>"})
 
   IF bug is linked to a known component:
-    kg.link_entities({from_id: "<bug-entity-id>", relation: "originated_in", to_id: "<component-entity-id>"})
+    kg__link_entities({from_id: "<bug-entity-id>", relation: "originated_in", to_id: "<component-entity-id>"})
 ```
 
 **At TaskComplete (MANDATORY):**
 ```
-kg.add_observation({entity_id: "<bug-entity-id>", content:
+kg__add_observation({entity_id: "<bug-entity-id>", content:
   "[COMPLETION] Root cause: <description>. Fix location: <file:line>. Pattern: <reusable insight>."})
 ```
 
-**Correct tool names:** `kg.search_knowledge` · `kg.get_preflight_context` · `kg.get_file_context` · `kg.add_entity` · `kg.add_observation` · `kg.link_entities`
+**Correct tool names:** `kg__search_knowledge` · `kg__get_preflight_context` · `kg__get_file_context` · `kg__add_entity` · `kg__add_observation` · `kg__link_entities`
 
 ---
 

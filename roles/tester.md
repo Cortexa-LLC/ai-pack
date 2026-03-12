@@ -44,37 +44,37 @@ Search the KG before exploring the codebase. It contains indexed code structure 
 
 **At task start:**
 ```
-kg.get_preflight_context({task: "<feature or component being tested>"})
+kg__get_preflight_context({task: "<feature or component being tested>"})
   → surfaces existing test patterns, known edge cases, coverage gaps for this area
 
-kg.search_knowledge({query: "<component or feature name>"})
+kg__search_knowledge({query: "<component or feature name>"})
   → find existing tests, past TDD violations, known flaky test patterns
 ```
 
 **Before grepping for test files or code under test:**
 ```
-kg.search_knowledge({query: "<function or type name>"})
+kg__search_knowledge({query: "<function or type name>"})
   → locate implementation and existing tests by file:line without scanning
 
-kg.get_file_context({file: "<implementation file>"})
+kg__get_file_context({file: "<implementation file>"})
   → see all functions to ensure complete test coverage
 ```
 
 **Write findings as you validate (MANDATORY):**
 ```
 WHEN you find a coverage gap, TDD violation, or flaky test pattern:
-  kg.add_entity({name: "<component> test findings", type: "topic"})
-  kg.add_observation({entity_id: "<id>", content:
+  kg__add_entity({name: "<component> test findings", type: "topic"})
+  kg__add_observation({entity_id: "<id>", content:
     "[TESTING] <what was found: gap/violation/pattern, file:line, severity>"})
 ```
 
 **At TaskComplete:**
 ```
-kg.add_observation({entity_id: "<id>", content:
+kg__add_observation({entity_id: "<id>", content:
   "[COMPLETION] Coverage: <summary>. Violations: <count>. Edge cases added: <list>."})
 ```
 
-**Correct tool names:** `kg.search_knowledge` · `kg.get_preflight_context` · `kg.get_file_context` · `kg.add_entity` · `kg.add_observation`
+**Correct tool names:** `kg__search_knowledge` · `kg__get_preflight_context` · `kg__get_file_context` · `kg__add_entity` · `kg__add_observation`
 
 ---
 
