@@ -2,7 +2,6 @@
 
 **Agent:** architect
 **Description:** Technical design and system architecture specialist
-**Model:** Qwen3.5-35B-A3B-Q6_K.gguf
 **Tier:** medium
 **Timeout:** 30min
 **MaxTurns:** 450
