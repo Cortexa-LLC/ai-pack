@@ -9,7 +9,7 @@
 **MaxTurns:** 750
 **MaxContext:** 32000
 **Tools:** read, write, edit, bash, grep, glob
-**Skills:** general, kg_reader, kg_writer, tdd, code_review
+**Skills:** general, kg_reader, kg_writer, tdd, code_review, github_bug_analyzer, github_issue_triager, ios_developer, android_developer, react_developer
 **Delegation:** delegate
 ---
 

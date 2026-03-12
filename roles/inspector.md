@@ -6,7 +6,7 @@
 **Timeout:** 10min
 **MaxContext:** 32000
 **Tools:** read, grep, glob, bash, write
-**Skills:** general, kg_reader, kg_writer
+**Skills:** general, kg_reader, kg_writer, github_bug_analyzer, github_issue_triager
 **Delegation:** delegate
 ---
 
