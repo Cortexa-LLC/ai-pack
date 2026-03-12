@@ -37,39 +37,39 @@ Search the KG before grepping or reading files. The KG has indexed the codebase 
 
 **At task start (MANDATORY):**
 ```
-mcp__kg__get_preflight_context({task: "<issue description>"})
+kg.get_preflight_context({task: "<issue description>"})
   → surfaces known context, prior investigations, related components
 
-mcp__kg__search_knowledge({query: "<error pattern or component>"})
+kg.search_knowledge({query: "<error pattern or component>"})
   → check if this failure was investigated before; skip re-discovery if so
 ```
 
 **Before any grep/glob for a symbol or component:**
 ```
-mcp__kg__search_knowledge({query: "<symbol or component name>"})
+kg.search_knowledge({query: "<symbol or component name>"})
   → get file:line location without a grep scan
 
-mcp__kg__get_file_context({file: "<path>"})
+kg.get_file_context({file: "<path>"})
   → get the function/type map for a file before deciding what to read
 ```
 
 **Write findings incrementally as you investigate (MANDATORY — do not wait until done):**
 ```
 EVERY TIME you confirm something significant (root cause, ruled-out hypothesis, surprise):
-  mcp__kg__add_entity({name: "<topic>", type: "topic"})  ← get entity ID
-  mcp__kg__add_observation({entity_id: "<id>", content:
+  kg.add_entity({name: "<topic>", type: "topic"})  ← get entity ID
+  kg.add_observation({entity_id: "<id>", content:
     "[INVESTIGATION] <what you found, what was ruled out, current hypothesis>"})
 ```
 A timed-out investigation with KG notes is recoverable. One without is wasted work.
 
 **At TaskComplete (MANDATORY):**
 ```
-mcp__kg__add_entity({name: "<issue> resolution", type: "investigation"})
-mcp__kg__add_observation({entity_id: "<id>", content:
+kg.add_entity({name: "<issue> resolution", type: "investigation"})
+kg.add_observation({entity_id: "<id>", content:
   "[COMPLETION] Root cause: <description>. Evidence: <file:line>. Fix: <summary>."})
 ```
 
-**Correct tool names:** `mcp__kg__search_knowledge` · `mcp__kg__get_preflight_context` · `mcp__kg__get_file_context` · `mcp__kg__add_entity` · `mcp__kg__add_observation` · `mcp__kg__link_entities`
+**Correct tool names:** `kg.search_knowledge` · `kg.get_preflight_context` · `kg.get_file_context` · `kg.add_entity` · `kg.add_observation` · `kg.link_entities`
 
 ---
 

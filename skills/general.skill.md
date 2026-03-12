@@ -34,7 +34,7 @@ Use the capability that best fits the task, **if available**:
 | Capability | What to look for | When to use it |
 |---|---|---|
 | Structured reasoning | `sequential_thinking` or similar step-by-step tool | Complex multi-step planning, hypothesis evaluation |
-| Knowledge graph / memory | `mcp__kg__search_knowledge`, `mcp__kg__add_observation`, `mcp__kg__query_graph` | Architecture context, prior decisions, component relationships |
+| Knowledge graph / memory | `kg.search_knowledge`, `kg.add_observation`, `kg.query_graph` | Architecture context, prior decisions, component relationships |
 | Web access | `webfetch`, `browser`, `search` | External documentation, current events, URL content |
 
 **Never call a tool by a hardcoded name unless you have confirmed it is available.**

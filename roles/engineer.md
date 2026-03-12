@@ -299,9 +299,9 @@ The project KG is indexed from source. It answers "where is X" and "how does Y w
 
 ```
 AT TASK START — before any grep or file read:
-  CALL mcp__kg__get_preflight_context({task: "<task description>"})
-  CALL mcp__kg__search_knowledge({query: "<main topic> investigation findings"})
-  CALL mcp__kg__search_knowledge({query: "<main topic> root cause"})
+  CALL kg.get_preflight_context({task: "<task description>"})
+  CALL kg.search_knowledge({query: "<main topic> investigation findings"})
+  CALL kg.search_knowledge({query: "<main topic> root cause"})
 
   IF results contain prior findings THEN
     READ them — do not re-investigate what is already known
@@ -321,8 +321,8 @@ APIs, or data formats that the current project depends on.
 ```
 IF contract contains "Related Projects: /path/to/other/project" THEN
   FOR each related project path:
-    CALL mcp__kg__get_preflight_context({task: "<task>", project: "<related-path>"})
-    CALL mcp__kg__search_knowledge({query: "<key dependency/symbol/format>", project: "<related-path>"})
+    CALL kg.get_preflight_context({task: "<task>", project: "<related-path>"})
+    CALL kg.search_knowledge({query: "<key dependency/symbol/format>", project: "<related-path>"})
 
   WHY THIS MATTERS:
     - The related project KG contains symbol definitions, data layouts, API contracts
@@ -345,14 +345,14 @@ END IF
 ```
 BEFORE exploring code:
   FOR each key concept in the task (component names, function names, topics):
-    CALL mcp__kg__search_knowledge({query: "<concept>"})
+    CALL kg.search_knowledge({query: "<concept>"})
 
   FOR each file path mentioned in the contract:
-    CALL mcp__kg__get_file_context({file: "<path>"})
+    CALL kg.get_file_context({file: "<path>"})
     → use the returned function/type list to decide what to read
     → only read sections you actually need
 
-  IF mcp__kg__search_knowledge returns relevant results THEN
+  IF kg.search_knowledge returns relevant results THEN
     USE those results — do not re-discover with grep
   ELSE IF KG returns empty for a term that should exist THEN
     NOTE: KG may not be indexed for this project
@@ -369,8 +369,8 @@ END BEFORE
 EVERY TIME you discover something significant:
   → a root cause, a surprising behaviour, a confirmed hypothesis, a dead end
 
-  CALL mcp__kg__add_entity({name: "<topic>", type: "topic"})  ← get entity ID
-  CALL mcp__kg__add_observation({entity_id: "<id>", content:
+  CALL kg.add_entity({name: "<topic>", type: "topic"})  ← get entity ID
+  CALL kg.add_observation({entity_id: "<id>", content:
     "[INVESTIGATION] <what you found, what you ruled out, what remains>"})
 
 RULES:
@@ -390,8 +390,8 @@ RULES:
 
 ```
 BEFORE calling TaskComplete:
-  CALL mcp__kg__add_entity({name: "<task-id> completion", type: "investigation"})
-  CALL mcp__kg__add_observation({entity_id: "<id>", content:
+  CALL kg.add_entity({name: "<task-id> completion", type: "investigation"})
+  CALL kg.add_observation({entity_id: "<id>", content:
     "[COMPLETION] Task <id>: <one-line summary of what was fixed/found>
      Root cause: <description>
      Fix applied: <file:line or 'none — source change'>
