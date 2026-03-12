@@ -3,6 +3,7 @@
 .PHONY: start-server start-gui start-all stop-server stop-gui stop-all restart-server restart-gui restart-all
 .PHONY: setup-services uninstall-services status-services
 .PHONY: setup-launchd uninstall-launchd status-launchd
+.PHONY: bootstrap
 UNAME_S := $(shell uname -s)
 
 # Default target
@@ -37,12 +38,36 @@ help: ## Show this help message
 	@echo "Available targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
-	@echo "Quick Start:"
-	@echo "  make build install        # Build and install everything"
+	@echo "Quick Start (fresh clone):"
+	@echo "  make bootstrap            # Install all tool dependencies (run once)"
+	@echo "  make build install        # Build and install binaries"
 	@echo "  make setup-mcp            # Register MCP servers in Claude Code"
-	@echo "  kg index                  # Index codebase into knowledge graph"
-	@echo "  make start-all            # Start server and GUI"
 	@echo "  make setup-services       # Setup auto-start (macOS/Linux)"
+	@echo "  kg index                  # Index codebase into knowledge graph"
+
+# ============================================================================
+# BOOTSTRAP (first-time environment setup)
+# ============================================================================
+
+bootstrap: ## Install all tool dependencies (Go modules, npm, seeds) — run once after clone
+	@echo "Bootstrapping AI-Pack development environment..."
+	@echo ""
+	@echo "→ Downloading Go modules..."
+	@go mod download
+	@echo "✅ Go modules ready"
+	@echo ""
+	@echo "→ Installing GUI npm dependencies..."
+	@cd $(GUI_DIR) && npm install
+	@echo "✅ GUI dependencies installed"
+	@echo ""
+	@echo "→ Seeding model performance grades (LiveBench)..."
+	@python3 scripts/seed-grades.py
+	@echo "✅ Performance grades seeded"
+	@echo ""
+	@echo "✅ Bootstrap complete. Next steps:"
+	@echo "   make build install    # Build and install binaries"
+	@echo "   make setup-mcp        # Register MCP servers in Claude Code"
+	@echo "   make setup-services   # Setup auto-start (macOS/Linux)"
 
 # ============================================================================
 # BUILD TARGETS
