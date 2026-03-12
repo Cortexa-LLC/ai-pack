@@ -39,6 +39,28 @@ export default defineConfig({
       '/api': 'http://localhost:8080',
     }
   },
+  build: {
+    // mermaid + its deps (cytoscape, katex) form a single lazy chunk ~750 kB gzip.
+    // It's only fetched when a ```mermaid block appears in a message, so the
+    // warning is a false positive for initial load. Raise the limit to suppress it.
+    chunkSizeWarningLimit: 3000,
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          // Heavy diagram / visualisation libraries — load separately.
+          // mermaid pulls in cytoscape + katex as transitive deps; keep them
+          // together so the lazy import('mermaid') fetches one coherent chunk.
+          if (id.includes('mermaid') || id.includes('cytoscape') || id.includes('katex')) return 'vendor-mermaid';
+          // Markdown + syntax highlighting
+          if (id.includes('react-markdown') || id.includes('remark') || id.includes('rehype') ||
+              id.includes('react-syntax-highlighter')) return 'vendor-markdown';
+          // Core React stack
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') ||
+              id.includes('scheduler') || id.includes('@tanstack')) return 'vendor-react';
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',
