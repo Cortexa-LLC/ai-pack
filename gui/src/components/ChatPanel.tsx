@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import mermaid from 'mermaid';
+import { DEFAULT_CHAT_ROLE } from '../lib/roles';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -76,7 +77,7 @@ export default function ChatPanel() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
   const [streamingToolCalls, setStreamingToolCalls] = useState<ToolCallDisplay[]>([]);
-  const [selectedRole, setSelectedRole] = useState('orchestrator');
+  const [selectedRole] = useState(DEFAULT_CHAT_ROLE);
   const [mode] = useState<'chat' | 'agent'>('chat'); // Always chat mode with orchestrator
   const [selectedModel, setSelectedModel] = useState(
     () => localStorage.getItem(LS_SELECTED_MODEL) ?? ''
@@ -227,7 +228,7 @@ export default function ChatPanel() {
   const [directorySuggestions, setDirectorySuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const autocompleteTimerRef = useRef<number | null>(null);
+  const autocompleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastProjectRef = useRef<string>('');
 
   // Chat management functions
@@ -274,22 +275,6 @@ export default function ChatPanel() {
       // Create new chat if none left
       createNewChatInProject(projectRoot);
     }
-  };
-
-  const updateChatName = (chatIdToUpdate: string, firstMessage: string) => {
-    if (!projectRoot) return;
-
-    const chatToUpdate = projectChats.find(c => c.id === chatIdToUpdate);
-    if (!chatToUpdate || chatToUpdate.messages.length > 0) return; // Only update on first message
-
-    const newName = generateChatName(firstMessage);
-    const updatedChats = projectChats.map(c =>
-      c.id === chatIdToUpdate ? { ...c, name: newName, updatedAt: Date.now() } : c
-    );
-
-    setProjectChats(updatedChats);
-    setCurrentChatName(newName);
-    saveProjectChats(projectRoot, updatedChats);
   };
 
   // Load project roots and chat history from localStorage on mount
@@ -1070,63 +1055,6 @@ export default function ChatPanel() {
     e.stopPropagation();
     setIsDragging(false);
     handleFileSelect(e.dataTransfer.files);
-  };
-
-  const performCodebaseSearch = async (query: string) => {
-    if (!query.trim()) return;
-
-    // Add user message showing search query
-    const searchMessage: Message = {
-      role: 'user',
-      content: `🔍 Searching codebase for: **${query}**`,
-    };
-    setMessages(prev => [...prev, searchMessage]);
-
-    try {
-      const response = await fetch('/api/search', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query,
-          project_root: projectRoot || '',
-          max_results: 50,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      // Format results as markdown
-      let resultsContent = `### Search Results for "${query}"\n\n`;
-
-      if (data.count === 0) {
-        resultsContent += `No matches found.`;
-      } else {
-        resultsContent += `Found ${data.count} match${data.count !== 1 ? 'es' : ''}\n\n`;
-
-        data.results.forEach((result: any, idx: number) => {
-          resultsContent += `**${idx + 1}. ${result.file}:${result.line}**\n\`\`\`\n${result.content}\n\`\`\`\n\n`;
-        });
-      }
-
-      const resultsMessage: Message = {
-        role: 'assistant',
-        content: resultsContent,
-      };
-      setMessages(prev => [...prev, resultsMessage]);
-    } catch (err) {
-      console.error('Search failed:', err);
-      const errorMessage: Message = {
-        role: 'assistant',
-        content: `❌ Search failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    }
   };
 
   const startNewChat = () => {
