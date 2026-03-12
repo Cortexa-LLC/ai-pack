@@ -2,7 +2,6 @@
 
 **Agent:** inspector
 **Description:** Bug investigation specialist for root cause analysis and retrospectives
-**Model:** claude-sonnet-4-6
 **Tier:** medium
 **Timeout:** 10min
 **MaxContext:** 32000

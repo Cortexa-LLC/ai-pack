@@ -2,7 +2,6 @@
 
 **Agent:** tester
 **Description:** Testing specialist focused on comprehensive coverage
-**Model:** claude-sonnet-4-6
 **Tier:** medium
 **Timeout:** 10min
 **MaxContext:** 32000

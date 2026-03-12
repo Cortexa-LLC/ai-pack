@@ -2,7 +2,6 @@
 
 **Agent:** reviewer
 **Description:** Code review specialist focused on quality and security
-**Model:** Qwen3.5-35B-A3B-Q6_K.gguf
 **Timeout:** 10min
 **MaxTurns:** 150
 **MaxBudgetTokens:** 1000000

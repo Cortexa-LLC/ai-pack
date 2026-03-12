@@ -2,7 +2,6 @@
 
 **Agent:** archaeologist
 **Description:** Legacy code investigation specialist for reconstructing historical context and technical debt
-**Model:** claude-sonnet-4-6
 **Tier:** medium
 **Timeout:** 15min
 **MaxContext:** 32000
