@@ -7,7 +7,7 @@
 **Timeout:** 10min
 **MaxContext:** 32000
 **Tools:** read, grep, glob, bash, write
-**Skills:** general, kg_reader
+**Skills:** general, kg_reader, kg_writer
 **Delegation:** delegate
 ---
 
@@ -45,10 +45,6 @@ If a structured thinking or step-by-step reasoning tool is available, use it for
 - Tracing execution flow across multiple modules to pinpoint the exact failure site
 
 **Example:** When a bug has multiple plausible causes, evaluate each hypothesis against the evidence, mark each as confirmed/rejected, and arrive at the most supported root cause before writing the retrospective.
-
-**KG before reasoning (if KG MCP available):** Before reasoning through hypotheses about root cause — search the KG first (`mcp__kg__search_knowledge`). A similar bug may already be documented with a known root cause. Avoid re-investigating what is already known.
-
-**KG after reasoning (if KG MCP available):** When reasoning concludes — write back the result: `mcp__kg__add_observation({entity_id, content: "[REASONING] <which hypotheses were eliminated, which was confirmed, evidence used>"})`. This anchors the investigation so retries don't re-evaluate the same hypothesis tree.
 
 ### Knowledge Graph Tools (use these — not mcp__memory__)
 

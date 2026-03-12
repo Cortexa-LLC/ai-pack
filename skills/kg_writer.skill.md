@@ -42,3 +42,16 @@ The task may time out. Every finding written to the KG is preserved across retri
 2. Add observations to any entities you modified or learned something new about.
 3. If you created new components, add them as entities and link them to their parents.
 4. If root causes or design decisions became clear during the task, record them as observations — they're the highest-value knowledge for future agents.
+
+### KG after reasoning
+
+When structured/sequential thinking concludes with a validated finding, decision, or ruled-out hypothesis — **write it back immediately**.
+
+```
+AFTER reasoning concludes:
+  mcp__kg__add_entity({name: "<topic>", type: "topic"})  ← get entity ID
+  mcp__kg__add_observation({entity_id: "<id>", content:
+    "[REASONING] <conclusion, what was validated or eliminated, confidence>"})
+```
+
+Future agents working on the same topic start from your conclusion, not from scratch. Reasoning that lives only in a transient response is lost.

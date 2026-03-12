@@ -10,7 +10,7 @@
 **Tools:** read, grep, glob, bash
 **Tier:** medium
 **Class:** agentic
-**Skills:** general, kg_reader, code_review
+**Skills:** general, kg_reader, code_review, kg_writer
 **Delegation:** delegate
 ---
 
