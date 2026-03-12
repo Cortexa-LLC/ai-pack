@@ -312,6 +312,35 @@ AT TASK START — before any grep or file read:
 
 This is critical for resumed/retried tasks. Prior runs may have already identified root causes — read them before spending turns rediscovering.
 
+#### Step 1b: Cross-project KG orientation (when Related Projects declared)
+
+If the task contract (`00-contract.md`) contains a `Related Projects:` line, those
+projects have their own KG servers started automatically at agent launch. Query them
+**in addition to** the current project's KG — they often contain the upstream symbols,
+APIs, or data formats that the current project depends on.
+
+```
+IF contract contains "Related Projects: /path/to/other/project" THEN
+  FOR each related project path:
+    CALL mcp__kg__get_preflight_context({task: "<task>", project: "<related-path>"})
+    CALL mcp__kg__search_knowledge({query: "<key dependency/symbol/format>", project: "<related-path>"})
+
+  WHY THIS MATTERS:
+    - The related project KG contains symbol definitions, data layouts, API contracts
+      that the current project's source references but doesn't define
+    - Without querying the related KG, you may spend many turns reading source files
+      to understand things the KG can answer in one call
+    - Example: if xasm++ is assembling A2osX source, query the A2osX KG for symbol
+      definitions, macro expansions, and include file structures before reading .S files
+
+  COMMON QUERIES for cross-project investigation:
+    - "<symbol name> definition"      → find where a symbol/macro/label is defined
+    - "<file basename> structure"     → understand a source file's contents
+    - "<error message> root cause"    → find prior investigation notes about this error
+    - "<feature name> implementation" → find how a feature is implemented upstream
+END IF
+```
+
 #### Step 2: Concept and file lookup
 
 ```
@@ -357,6 +386,20 @@ RULES:
 - Ruled out a cause ("disk image layout matches reference — not the problem")
 - Found a new lead ("kernel.s is assembled as kernel.s.s — doubled extension bug")
 - Hit a dead end ("config file reader path not reachable from current entry point")
+
+#### Step 4: Write a completion summary to the KG (MANDATORY on TaskComplete)
+
+```
+BEFORE calling TaskComplete:
+  CALL mcp__kg__add_entity({name: "<task-id> completion", type: "investigation"})
+  CALL mcp__kg__add_observation({entity_id: "<id>", content:
+    "[COMPLETION] Task <id>: <one-line summary of what was fixed/found>
+     Root cause: <description>
+     Fix applied: <file:line or 'none — source change'>
+     Remaining: <any unresolved follow-up>"})
+
+WHY: Future agents investigating related files will find this and skip rediscovery.
+```
 
 ---
 
