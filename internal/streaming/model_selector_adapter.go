@@ -133,6 +133,15 @@ func (s *PerformanceGradeModelSelector) SelectModel(role string, requestedModel 
 		return s.resolveProviderForModel(s.defaultModel)
 	}
 
+	// When adaptive selection is disabled (config: adaptive_model_selection=false),
+	// skip tier/grade logic entirely and use the configured default model directly.
+	// This prevents the selector from picking cheaper OpenAI models when the operator
+	// only wants Anthropic models.
+	if !s.gradeSelector.IsEnabled() {
+		monitoring.Logger.Info("adaptive_selection_disabled_using_default", "model", s.defaultModel)
+		return s.resolveProviderForModel(s.defaultModel)
+	}
+
 	// Use empty string for taskDescription - selector will use role defaults
 	result := s.gradeSelector.SelectModel(role, s.projectID, "", minContextTokens)
 

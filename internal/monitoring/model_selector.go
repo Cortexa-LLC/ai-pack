@@ -138,6 +138,11 @@ func (ms *ModelSelector) SetEnabled(enabled bool) {
 	ms.enabled = enabled
 }
 
+// IsEnabled reports whether adaptive model selection is active.
+func (ms *ModelSelector) IsEnabled() bool {
+	return ms.enabled
+}
+
 // SetRoleDefaultTier registers a per-role starting tier from the **Tier:** role config field.
 // This allows role .md files to influence where grade-based selection begins.
 func (ms *ModelSelector) SetRoleDefaultTier(role string, tier ModelTier) {
@@ -399,11 +404,15 @@ func (ms *ModelSelector) getBestAvailableModelFromTier(tier ModelTier, role, pro
 		}
 	}
 
-	// Sort by combined cost (cheapest first) as the default preference.
+	// Sort by combined cost (cheapest first); break ties by model ID descending
+	// so newer model versions are preferred when cost is equal.
 	sort.Slice(available, func(i, j int) bool {
 		costI := available[i].CostPerMIn + available[i].CostPerMOut
 		costJ := available[j].CostPerMIn + available[j].CostPerMOut
-		return costI < costJ
+		if costI != costJ {
+			return costI < costJ
+		}
+		return available[i].ID > available[j].ID // higher ID = newer version wins
 	})
 
 	// Find cheapest model with a confirmed passing grade (A or B).
