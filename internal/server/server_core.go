@@ -425,7 +425,13 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	// Initialize model selector
 	if monitoring.GlobalGradeManager != nil && monitoring.GlobalComplexityAnalyzer != nil {
 		monitoring.InitModelSelector(monitoring.GlobalGradeManager, monitoring.GlobalComplexityAnalyzer, openaiKey != "", geminiKey != "")
-		monitoring.Logger.Info("adaptive_model_selection_enabled")
+		adaptiveEnabled := cfg == nil || cfg.API.AdaptiveModelSelection
+		if !adaptiveEnabled {
+			monitoring.GlobalModelSelector.SetEnabled(false)
+			monitoring.Logger.Info("adaptive_model_selection_disabled", "reason", "config adaptive_model_selection=false")
+		} else {
+			monitoring.Logger.Info("adaptive_model_selection_enabled")
+		}
 	}
 
 	// Populate server fields that require pre-computed values

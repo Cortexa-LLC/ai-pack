@@ -61,11 +61,12 @@ type ServerConfig struct {
 
 // APIConfig holds API-related settings
 type APIConfig struct {
-	AnthropicModel string       `json:"anthropic_model"`
-	MaxTokens      int          `json:"max_tokens"`
-	TimeoutSeconds int          `json:"timeout_seconds"`
-	Mode           string       `json:"mode"`            // "direct" or "proxy"
-	Proxy          *ProxyConfig `json:"proxy,omitempty"` // Only used when mode = "proxy"
+	AnthropicModel         string       `json:"anthropic_model"`
+	MaxTokens              int          `json:"max_tokens"`
+	TimeoutSeconds         int          `json:"timeout_seconds"`
+	Mode                   string       `json:"mode"`                      // "direct" or "proxy"
+	AdaptiveModelSelection bool         `json:"adaptive_model_selection"`  // default: true; set false to always use anthropic_model
+	Proxy                  *ProxyConfig `json:"proxy,omitempty"`           // Only used when mode = "proxy"
 }
 
 // AgentConfig holds agent behavior settings
@@ -163,11 +164,12 @@ func DefaultConfig() *Config {
 			WorkerPoolSize:      10,
 		},
 		API: APIConfig{
-			AnthropicModel: "claude-sonnet-4-6",
-			MaxTokens:      24000,
-			TimeoutSeconds: 600,
-			Mode:           "direct", // "direct" or "proxy"
-			Proxy:          nil,      // No proxy by default
+			AnthropicModel:         "claude-sonnet-4-6",
+			MaxTokens:              24000,
+			TimeoutSeconds:         600,
+			Mode:                   "direct", // "direct" or "proxy"
+			AdaptiveModelSelection: true,     // grade-based selection on by default
+			Proxy:                  nil,
 		},
 		Agent: AgentConfig{
 			MaxInactiveTurns: 10, // Stop after 10 turns without progress
