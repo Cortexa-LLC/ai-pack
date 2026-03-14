@@ -791,6 +791,24 @@ func (s *AgentServer) handleOrphanedTasks() {
 			if meta["status"] != "in_progress" {
 				continue
 			}
+			// Skip folders spawned very recently — they may belong to a task that was
+			// running in the previous server process which hasn't fully exited yet.
+			// launchctl starts the new process immediately on restart, so there is a
+			// race window (up to the 5-second graceful-shutdown timeout) where both the
+			// old and new processes are alive simultaneously.  Marking a task failed here
+			// while the old process is still executing it causes the stale-failed UX bug.
+			if spawnedStr, ok := meta["spawned_at"].(string); ok {
+				if spawned, err := time.Parse(time.RFC3339, spawnedStr); err == nil {
+					if time.Since(spawned) < 30*time.Second {
+						monitoring.Logger.Info("skipping_recently_spawned_execution",
+							"folder", folderName,
+							"spawned_at", spawnedStr,
+							"age_seconds", int(time.Since(spawned).Seconds()),
+						)
+						continue
+					}
+				}
+			}
 			// Not active — mark it failed so the GUI doesn't show it as running
 			s.mu.RLock()
 			_, isActive := s.activeTasks[folderName]
