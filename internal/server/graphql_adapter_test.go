@@ -167,10 +167,12 @@ func TestGetActiveTasksWithTask(t *testing.T) {
 	}
 }
 
-// TestGetAllTasks_CancelledBeadsTaskShowsCancelled verifies that a task which is
-// still in activeTasks with Status "in_progress" is correctly reported as
-// "cancelled" when the corresponding Beads task has status "open" (the state
-// Beads puts a task into after cancellation in some workflows).
+// TestGetAllTasks_CancelledBeadsTaskShowsCancelled verifies that when CloseTask
+// sets execution.Status = "closed" (the actual cancel sequence), the task is
+// reported as "cancelled" even though beads shows "open".
+// It also verifies that a genuinely running task (Status "in_progress") whose
+// beads entry was incorrectly reset to "open" by orphan cleanup continues to
+// show as "in_progress" — not downgraded to "cancelled".
 func TestGetAllTasks_CancelledBeadsTaskShowsCancelled(t *testing.T) {
 	monitoring.InitMetrics()
 
@@ -188,25 +190,39 @@ func TestGetAllTasks_CancelledBeadsTaskShowsCancelled(t *testing.T) {
 
 	beadsID := "ai-pack-test-cancelled"
 
-	// Execution is still in activeTasks with a stale in_progress status.
+	// CloseTask sets execution.Status = "closed" before removing from activeTasks.
+	// This is the in-flight window a GetAllTasks call would observe for a cancelled task.
 	execution := &TaskExecution{
 		TaskID:    "task-cancelled-test",
 		Role:      "engineer",
 		Task:      "some cancelled task",
-		Status:    "in_progress",
+		Status:    "closed",
 		StartTime: time.Now(),
 		metadata:  map[string]string{"beads_task_id": beadsID},
 	}
 
+	// Also add a legitimately running task whose beads was incorrectly reset to "open"
+	// by orphan cleanup from a second server instance. It must stay "in_progress".
+	beadsIDRunning := "ai-pack-test-running"
+	executionRunning := &TaskExecution{
+		TaskID:    "task-running-beads-open",
+		Role:      "engineer",
+		Task:      "running task with orphaned beads",
+		Status:    "in_progress",
+		StartTime: time.Now(),
+		metadata:  map[string]string{"beads_task_id": beadsIDRunning},
+	}
+
 	server.mu.Lock()
 	server.activeTasks["task-cancelled-test"] = execution
+	server.activeTasks["task-running-beads-open"] = executionRunning
 	server.mu.Unlock()
 
 	adapter := NewGraphQLAdapter(server)
-	// Override beadsClient with a mock that returns "open" (post-cancel state).
 	adapter.taskGetter = &mockBeadsTaskGetter{
 		tasks: map[string]*beads.Task{
-			beadsID: {ID: beadsID, Status: "open"},
+			beadsID:        {ID: beadsID, Status: "open"},
+			beadsIDRunning: {ID: beadsIDRunning, Status: "open"},
 		},
 	}
 
@@ -216,9 +232,16 @@ func TestGetAllTasks_CancelledBeadsTaskShowsCancelled(t *testing.T) {
 	if !ok {
 		t.Fatal("Expected task-cancelled-test in GetAllTasks result, but it was missing")
 	}
-
 	if got.Status != "cancelled" {
-		t.Errorf("Expected status 'cancelled', got %q — cancelled tasks must not show as in_progress in GUI", got.Status)
+		t.Errorf("Expected status 'cancelled' for closed execution, got %q", got.Status)
+	}
+
+	gotRunning, ok := tasks["task-running-beads-open"]
+	if !ok {
+		t.Fatal("Expected task-running-beads-open in GetAllTasks result, but it was missing")
+	}
+	if gotRunning.Status != "in_progress" {
+		t.Errorf("Expected status 'in_progress' for running task with orphaned beads, got %q — must not downgrade running task", gotRunning.Status)
 	}
 }
 

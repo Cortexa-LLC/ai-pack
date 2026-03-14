@@ -438,13 +438,14 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 }
 
 // applyBeadsStatusOverride updates taskInfo.Status based on the live Beads task status.
-// This is the source of truth for tasks that have been closed, cancelled, or completed.
+// Only applies overrides for terminal states. Tasks that are still in activeTasks are
+// live executions; we trust the in-memory status and do not downgrade it based on
+// Beads "open" state (which can occur when orphan cleanup resets beads while the task
+// is still running, or when StartTaskFromDir fails silently).
 //
 // Mapping:
-//   - Beads "closed" / "done"               → constants.StatusCompleted
-//   - Beads "open" with stale in-progress   → constants.StatusCancelled
-//     (task was reset to open after cancel)
-//   - anything else                         → leave taskInfo.Status unchanged
+//   - Beads "closed" / "done" → constants.StatusCompleted
+//   - anything else           → leave taskInfo.Status unchanged
 func (a *GraphQLAdapter) applyBeadsStatusOverride(taskInfo *graphql.TaskInfo, execution *TaskExecution) {
 	beadsTaskID, ok := execution.metadata["beads_task_id"]
 	if !ok || beadsTaskID == "" {
@@ -457,11 +458,6 @@ func (a *GraphQLAdapter) applyBeadsStatusOverride(taskInfo *graphql.TaskInfo, ex
 	switch beadsTask.Status {
 	case constants.StatusClosed, constants.StatusDone:
 		taskInfo.Status = constants.StatusCompleted
-	case "open":
-		// Task was reset to open (e.g. after cancel) — show as cancelled
-		if taskInfo.Status == "in_progress" || taskInfo.Status == constants.StatusCancelled {
-			taskInfo.Status = constants.StatusCancelled
-		}
 	}
 }
 
@@ -626,11 +622,18 @@ func convertToTaskInfo(execution *TaskExecution) *graphql.TaskInfo {
 		taskID = beadsID
 	}
 
+	status := execution.Status
+	// "closed" is the internal marker set by CloseTask when cancelling; surface it
+	// as "cancelled" so the GUI swimlane routes it correctly.
+	if status == constants.StatusClosed {
+		status = constants.StatusCancelled
+	}
+
 	taskInfo := &graphql.TaskInfo{
 		TaskID:    taskID,
 		Role:      execution.Role,
 		Task:      execution.Task,
-		Status:    execution.Status,
+		Status:    status,
 		CreatedAt: execution.StartTime.Format(time.RFC3339),
 		UpdatedAt: time.Now().Format(time.RFC3339),
 		Metadata:  execution.metadata,

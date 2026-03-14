@@ -683,10 +683,6 @@ function App() {
     // Clear logs immediately when switching tasks to avoid showing stale logs
     setLogs([]);
 
-    // Check if task is active (only check once, don't refetch when tasksData updates)
-    const task = tasksData?.tasks.find(t => t.taskID === selectedTask);
-    const isActiveTask = task?.status === 'IN_PROGRESS' || task?.status === 'in_progress';
-
     // Fetch initial logs
     fetch(`http://localhost:8080/a2a/tasks/${selectedTask}/logs`)
       .then(res => {
@@ -718,9 +714,10 @@ function App() {
         ]);
       });
 
-    // Set up SSE for log streaming (only for active tasks)
-    if (isActiveTask) {
-      try {
+    // Always attempt SSE streaming — the server decides whether to stream based on
+    // whether the task is actively running. Relying on the cached GUI status caused
+    // the log view to freeze when a task was incorrectly marked failed.
+    try {
         const eventSource = new EventSource(`http://localhost:8080/a2a/tasks/${selectedTask}/logs?stream=true`);
         eventSourceRef.current = eventSource;
 
@@ -793,7 +790,6 @@ function App() {
       } catch (err) {
         console.error('Failed to set up SSE:', err);
       }
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTask, activeTab]);
 

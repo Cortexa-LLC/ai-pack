@@ -249,11 +249,6 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		metadata:    metadata,
 	}
 
-	// Update task packet metadata with Beads task ID and project root
-	if err := s.updateTaskPacketMetadataInProject(taskID, metadata, projectRoot); err != nil {
-		monitoring.Logger.Warn("failed_to_update_task_metadata", "error", err.Error())
-	}
-
 	// Check for legacy folders before registering new project root
 	if projectRoot != "" && projectRoot != s.rootDir {
 		s.mu.RLock()
@@ -272,7 +267,11 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		}
 	}
 
-	// Register task and project root
+	// Register in activeTasks BEFORE writing metadata to disk.
+	// handleOrphanedTasks runs concurrently at startup and checks activeTasks to
+	// decide whether a disk-visible in_progress entry is stale. Writing metadata
+	// first creates a race window where the orphan scanner can find the file,
+	// see no active entry, and incorrectly mark the task as failed.
 	s.mu.Lock()
 	s.activeTasks[taskID] = execution
 	isNewProject := false
@@ -292,6 +291,13 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 	// so it warms up while the task waits in queue.
 	if isNewProject {
 		go s.ensureKGForProject(projectRoot)
+	}
+
+	// Write metadata to disk after the task is in activeTasks so that
+	// handleOrphanedTasks (running concurrently at startup) cannot observe
+	// an in_progress file with no corresponding active entry.
+	if err := s.updateTaskPacketMetadataInProject(taskID, metadata, projectRoot); err != nil {
+		monitoring.Logger.Warn("failed_to_update_task_metadata", "error", err.Error())
 	}
 
 	// Queue for execution using a non-blocking send. If the buffered channel is
