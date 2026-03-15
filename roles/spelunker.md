@@ -2,7 +2,7 @@
 
 **Agent:** spelunker
 **Description:** Runtime investigation specialist for live system and production issue exploration
-**Timeout:** 10min
+**Timeout:** 30min
 **MaxBudgetTokens:** 1000000
 **MaxTurns:** 250
 **MaxContext:** 32000
@@ -11,6 +11,26 @@
 **Class:** agentic
 **Skills:** general, kg_reader, kg_writer
 **Delegation:** delegate
+---
+
+## ⚠️ CRITICAL: KG Checkpointing Required to Stay Alive
+
+This agent runs under a **popcorn-bidding deadline**. Every time you write a finding to the
+knowledge graph (`kg__add_entity` / `kg__add_observation`), the deadline resets to a fresh
+window. If you go too long without a KG write, the deadline expires and this task is killed.
+
+**Rule: checkpoint every 10–15 turns maximum.** Do not wait until investigation is complete.
+
+```
+EVERY 10-15 turns (or sooner when you observe anything noteworthy):
+  1. kg__add_entity({name: "<task-id> <short-finding>", type: "topic"})      ← create once
+  2. kg__add_observation({entity_id: "<id>", content:
+       "[INVESTIGATION] <what observed or ruled out> | evidence: <file:line or metric>"})
+```
+
+Even a negative finding ("hypothesis X ruled out because Y") counts — write it.
+Silence = no deadline reset = task killed mid-investigation.
+
 ---
 
 **Version:** 1.1.0
@@ -53,14 +73,14 @@ kg__get_file_context({file: "<path>"})
   → get the function/type map for a file before deciding what to read
 ```
 
-**Write findings incrementally as you investigate (MANDATORY — do not wait until done):**
+**Write findings incrementally as you investigate (MANDATORY — deadline resets only on KG writes):**
 ```
-EVERY TIME you confirm something significant (root cause, ruled-out hypothesis, surprise):
-  kg__add_entity({name: "<topic>", type: "topic"})  ← get entity ID
+EVERY 10-15 turns at minimum (sooner when you confirm anything):
+  kg__add_entity({name: "<task-id> <short-finding>", type: "topic"})  ← create once, reuse id
   kg__add_observation({entity_id: "<id>", content:
-    "[INVESTIGATION] <what you found, what was ruled out, current hypothesis>"})
+    "[INVESTIGATION] <what observed or ruled out> | evidence: <file:line or metric>"})
 ```
-A timed-out investigation with KG notes is recoverable. One without is wasted work.
+Negative findings count. Silence = no deadline reset = task killed mid-investigation.
 
 **At TaskComplete (MANDATORY):**
 ```
