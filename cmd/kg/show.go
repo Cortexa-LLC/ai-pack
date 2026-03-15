@@ -23,7 +23,7 @@ var showCmd = &cobra.Command{
 			return err
 		}
 		relations, _ := store.GetRelations(id, projectID)
-		observations, _ := store.GetObservations(id, "")
+		observations, _ := store.GetObservations(id, projectID)
 		fmt.Printf("Entity: %s\nType: %s\nID: %s\n", entity.Name, entity.Type, entity.ID)
 		fmt.Println("Relations:")
 		for _, r := range relations {

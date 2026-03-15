@@ -26,7 +26,7 @@ var statsCmd = &cobra.Command{
 		for _, e := range entities {
 			rels, _ := store.GetRelations(e.ID, projectID)
 			relationCount += len(rels)
-			obs, _ := store.GetObservations(e.ID, "")
+			obs, _ := store.GetObservations(e.ID, projectID)
 			observationCount += len(obs)
 		}
 		fmt.Printf("Entities: %d\n", entityCount)

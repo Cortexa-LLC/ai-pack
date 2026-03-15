@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/cortexa-llc/ai-pack/internal/constants"
+	"github.com/cortexa-llc/ai-pack/internal/knowledge"
 	"github.com/cortexa-llc/ai-pack/internal/mcp"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 )
@@ -255,21 +256,26 @@ func IndexExecutionLog(
 	indexCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
+	var entity knowledge.Entity
 	err = mcpManager.CallToolIntoForProject(indexCtx, projectRoot, "add_entity", map[string]interface{}{
 		"name": entityName,
 		"type": "topic",
-	}, nil)
+	}, &entity)
 	if err != nil {
 		monitoring.Logger.Warn("kg_log_indexer_add_entity_failed",
 			"task_id", taskID,
 			"error", err.Error())
 		return
 	}
+	if entity.ID == "" {
+		monitoring.Logger.Warn("kg_log_indexer_empty_entity_id", "task_id", taskID)
+		return
+	}
 
 	// Attach each observation separately — same pattern as WriteBack.
 	for _, o := range observations {
 		if err := mcpManager.CallToolIntoForProject(indexCtx, projectRoot, "add_observation", map[string]interface{}{
-			"entity_id": entityName,
+			"entity_id": entity.ID,
 			"content":   o,
 		}, nil); err != nil {
 			monitoring.Logger.Warn("kg_log_indexer_add_observation_failed",

@@ -69,8 +69,10 @@ func WriteBack(
 		return
 	}
 
-	// Use a short timeout so a slow KG server cannot stall task teardown.
-	wbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	// Allow enough time for entity creation + one round-trip per observation.
+	// Each call opens a fresh KuzuDB write connection; 5 s was too tight when
+	// IndexExecutionLog runs concurrently and contends for the same write lock.
+	wbCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	now := time.Now()
