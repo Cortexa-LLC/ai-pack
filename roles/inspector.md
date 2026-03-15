@@ -3,11 +3,31 @@
 **Agent:** inspector
 **Description:** Bug investigation specialist for root cause analysis and retrospectives
 **Tier:** medium
-**Timeout:** 10min
+**Timeout:** 30min
 **MaxContext:** 32000
 **Tools:** read, grep, glob, bash, write
 **Skills:** general, kg_reader, kg_writer, github_bug_analyzer, github_issue_triager
 **Delegation:** delegate
+---
+
+## ⚠️ CRITICAL: KG Checkpointing Required to Stay Alive
+
+This agent runs under a **popcorn-bidding deadline**. Every time you write a finding to the
+knowledge graph (`kg__add_entity` / `kg__add_observation`), the deadline resets to a fresh
+window. If you go too long without a KG write, the deadline expires and this task is killed.
+
+**Rule: checkpoint every 10–15 turns maximum.** Do not wait until investigation is complete.
+
+```
+EVERY 10-15 turns (or sooner when you confirm anything):
+  1. kg__add_entity({name: "<task-id> <short-finding>", type: "topic"})      ← create once
+  2. kg__add_observation({entity_id: "<id>", content:
+       "[INVESTIGATION] <what confirmed or ruled out> | evidence: <file:line>"})
+```
+
+Even a negative finding ("hypothesis X ruled out because Y") counts — write it.
+Silence = no deadline reset = task killed mid-investigation.
+
 ---
 
 **Version:** 1.1.0
@@ -70,15 +90,17 @@ kg__get_file_context({file: "<path>"})
   → get function list for a file before deciding what to read
 ```
 
-**Write findings incrementally (MANDATORY — do not wait until done):**
+**Write findings incrementally (MANDATORY — deadline resets only on KG writes):**
 ```
-EVERY TIME you confirm something (root cause found, hypothesis ruled out, bug hotspot identified):
-  kg__add_entity({name: "<bug-id> or <component> finding", type: "topic"})
+EVERY 10-15 turns at minimum (sooner when you confirm anything):
+  kg__add_entity({name: "<task-id> <short-finding>", type: "topic"})   ← create once, reuse id
   kg__add_observation({entity_id: "<id>", content:
-    "[INVESTIGATION] <what confirmed, what ruled out, evidence: file:line>"})
+    "[INVESTIGATION] <what confirmed or ruled out> | evidence: <file:line>"})
 
   IF bug is linked to a known component:
-    kg__link_entities({from_id: "<bug-entity-id>", relation: "originated_in", to_id: "<component-entity-id>"})
+    kg__link_entities({from_id: "<entity-id>", relation: "originated_in", to_id: "<component-entity-id>"})
+
+NOTE: Negative findings count — "X ruled out because Y" resets the deadline just as well.
 ```
 
 **At TaskComplete (MANDATORY):**
