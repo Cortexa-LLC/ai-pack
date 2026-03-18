@@ -12,20 +12,32 @@
 
 ## ⚠️ CRITICAL: KG Checkpointing Required to Stay Alive
 
-This agent runs under a **popcorn-bidding deadline**. Every time you write a finding to the
-knowledge graph (`kg__add_entity` / `kg__add_observation`), the deadline resets to a fresh
-window. If you go too long without a KG write, the deadline expires and this task is killed.
+This agent runs under a **popcorn-bidding deadline**. Every time you write to the knowledge
+graph (`kg__add_entity` / `kg__add_observation`), the deadline resets to a fresh window.
+**If you go 8+ turns without a KG write, the task will be killed — even if you are actively
+making progress.**
 
-**Rule: checkpoint every 10–15 turns maximum.** Do not wait until investigation is complete.
+**Rule: write to the KG every 5–8 turns, no exceptions.** Track it yourself: count tool
+calls since your last KG write. At 5, write something.
 
 ```
-EVERY 10-15 turns (or sooner when you uncover anything about history or design intent):
-  1. kg__add_entity({name: "<task-id> <short-finding>", type: "topic"})      ← create once
-  2. kg__add_observation({entity_id: "<id>", content:
-       "[ARCHAEOLOGY] <historical finding or design rationale> | source: <file:line or commit>"})
+EVERY 5-8 turns (sooner when you uncover anything about history or design intent):
+  kg__add_entity({name: "<task-id> investigation", type: "topic"})  ← create ONCE, reuse id
+  kg__add_observation({entity_id: "<id>", content:
+    "[IN PROGRESS] Checked commits X-Y, files A/B. Found: <partial or negative>. Next: <plan>."})
 ```
 
-Even a negative finding ("no evidence of X in git history") counts — write it.
+**What counts as a valid checkpoint:**
+- ✅ Historical finding: "JWT migration happened in commit abc123 (2021-Q3)"
+- ✅ Negative evidence: "no evidence of X in git history — checked 50 commits"
+- ✅ Progress note: "examined era 2019-2021, moving to 2021-2023 next"
+- ✅ Partial finding: "something changed around this commit but rationale unclear yet"
+- ❌ NOT valid: reading more commits/files without writing
+
+**The anti-pattern that kills tasks:** Tracing git history through 20 commits, uncovering
+real context, but writing nothing to the KG because "I haven't confirmed the full narrative
+yet." Write partial findings. Write what eras you've covered. Write what you ruled out.
+
 Silence = no deadline reset = task killed mid-investigation.
 
 ---
@@ -48,17 +60,46 @@ If a structured thinking or step-by-step reasoning tool is available, use it for
 
 **Example:** Before writing a decision narrative, work through each discovered artifact in chronological order, revising your interpretation as each new clue contradicts or confirms earlier hypotheses.
 
-### Memory Tools (if available)
-If knowledge-graph or memory tools are available, use them to accumulate and cross-reference archaeological findings:
-- **`create_entities`**: Catalog discovered patterns, components, and historical decision points
-  - Example: `create_entities([{"name": "auth-v1-jwt-migration", "entityType": "historical_decision", "observations": ["Migrated from sessions to JWT in 2021-Q3", "Driven by mobile client requirements", "Original session code left as dead code until 2023"]}])`
-- **`create_relations`**: Map how past decisions influenced later ones
-  - Example: `create_relations([{"from": "auth-v1-jwt-migration", "to": "stateless-api-design", "relationType": "enabled"}])`
-- **`add_observations`**: Append new evidence as you dig deeper into history
-- **`search_nodes`**: Cross-reference findings — "did we see a similar pattern in another module?"
-- **`read_graph`**: Review the full historical map before writing the final narrative
+### Knowledge Graph Tools (use these — not mcp__memory__)
 
-**When to Use Memory:** Archaeology investigations span many files and commits. Use memory to avoid re-reading the same history and to build the narrative graph as you go — especially critical for large codebases where a single investigation may touch dozens of files across years of history.
+Search the KG before reading code or git history. Past investigations are stored there.
+
+**At task start (MANDATORY):**
+```
+kg__get_preflight_context({task: "<system or component being investigated>"})
+  → surfaces related components, prior archaeology for this area
+
+kg__search_knowledge({query: "<component or pattern name>"})
+  → find if this area was investigated before; read prior findings first
+```
+
+**Before grep/glob to locate a symbol or file:**
+```
+kg__search_knowledge({query: "<function or type name>"})
+  → get file:line without scanning
+
+kg__get_file_context({file: "<path>"})
+  → get function list for a file before deciding what to read
+```
+
+**Write findings incrementally as you dig (MANDATORY — deadline resets only on KG writes):**
+```
+EVERY 5-8 turns at minimum (sooner when you uncover anything):
+  kg__add_entity({name: "<task-id> investigation", type: "topic"})  ← create ONCE, reuse id
+  kg__add_observation({entity_id: "<id>", content:
+    "[ARCHAEOLOGY] <historical finding or design rationale> | source: <file:line or commit>"})
+
+  IF decision is linked to a known component:
+    kg__link_entities({from_id: "<decision-entity-id>", relation: "influenced", to_id: "<component-entity-id>"})
+```
+
+**At TaskComplete (MANDATORY):**
+```
+kg__add_observation({entity_id: "<investigation-entity-id>", content:
+  "[COMPLETION] Key findings: <summary>. Eras covered: <range>. Docs: <location>."})
+```
+
+**Correct tool names:** `kg__search_knowledge` · `kg__get_preflight_context` · `kg__get_file_context` · `kg__add_entity` · `kg__add_observation` · `kg__link_entities`
 
 ---
 

@@ -12,20 +12,33 @@
 
 ## ⚠️ CRITICAL: KG Checkpointing Required to Stay Alive
 
-This agent runs under a **popcorn-bidding deadline**. Every time you write a finding to the
-knowledge graph (`kg__add_entity` / `kg__add_observation`), the deadline resets to a fresh
-window. If you go too long without a KG write, the deadline expires and this task is killed.
+This agent runs under a **popcorn-bidding deadline**. Every time you write to the knowledge
+graph (`kg__add_entity` / `kg__add_observation`), the deadline resets to a fresh window.
+**If you go 8+ turns without a KG write, the task will be killed — even if you are actively
+making progress.**
 
-**Rule: checkpoint every 10–15 turns maximum.** Do not wait until investigation is complete.
+**Rule: write to the KG every 5–8 turns, no exceptions.** Track it yourself: count tool
+calls since your last KG write. At 5, write something.
 
 ```
-EVERY 10-15 turns (or sooner when you confirm anything):
-  1. kg__add_entity({name: "<task-id> <short-finding>", type: "topic"})      ← create once
-  2. kg__add_observation({entity_id: "<id>", content:
-       "[INVESTIGATION] <what confirmed or ruled out> | evidence: <file:line>"})
+EVERY 5-8 turns (sooner when you confirm anything):
+  kg__add_entity({name: "<task-id> investigation", type: "topic"})  ← create ONCE, reuse id
+  kg__add_observation({entity_id: "<id>", content:
+    "[IN PROGRESS] Checked X, Y, Z. Finding so far: <partial or negative>. Next: <plan>."})
 ```
 
-Even a negative finding ("hypothesis X ruled out because Y") counts — write it.
+**What counts as a valid checkpoint:**
+- ✅ Confirmed finding: "function foo at bar.go:42 is the entry point"
+- ✅ Ruled-out hypothesis: "not a nil pointer — checked all call sites"
+- ✅ Progress note: "examined files A, B, C — narrowing to module D"
+- ✅ Partial finding: "something is wrong in handleFoo but root cause unclear yet"
+- ❌ NOT valid: reading more files without writing
+
+**The anti-pattern that kills tasks:** Reading 15 files and running 10 greps, finding real
+things, but writing nothing to the KG because "I haven't confirmed the root cause yet."
+Write partial findings. Write progress notes. Write what you ruled out. The KG is your
+investigation notebook — write as you go, not when you're done.
+
 Silence = no deadline reset = task killed mid-investigation.
 
 ---
@@ -92,15 +105,16 @@ kg__get_file_context({file: "<path>"})
 
 **Write findings incrementally (MANDATORY — deadline resets only on KG writes):**
 ```
-EVERY 10-15 turns at minimum (sooner when you confirm anything):
-  kg__add_entity({name: "<task-id> <short-finding>", type: "topic"})   ← create once, reuse id
+EVERY 5-8 turns at minimum (sooner when you confirm anything):
+  kg__add_entity({name: "<task-id> investigation", type: "topic"})   ← create ONCE, reuse id
   kg__add_observation({entity_id: "<id>", content:
-    "[INVESTIGATION] <what confirmed or ruled out> | evidence: <file:line>"})
+    "[IN PROGRESS] Checked X, Y. Finding: <partial/negative/confirmed>. Next: <plan>."})
 
   IF bug is linked to a known component:
     kg__link_entities({from_id: "<entity-id>", relation: "originated_in", to_id: "<component-entity-id>"})
 
-NOTE: Negative findings count — "X ruled out because Y" resets the deadline just as well.
+NOTE: Progress notes count — "checked files A/B/C, narrowing to module D" resets the
+deadline just as well as a confirmed root cause.
 ```
 
 **At TaskComplete (MANDATORY):**
