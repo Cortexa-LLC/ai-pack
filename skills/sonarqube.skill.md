@@ -71,7 +71,7 @@ pathlib.Path("build/clang-tidy-report.txt").write_text(result.stdout)
 
 Verify `sonar-project.properties` contains:
 ```
-sonar.cxx.clangTidy.reportPaths=build/clang-tidy-report.txt
+sonar.cxx.clangtidy.reportPath=build/clang-tidy-report.txt
 ```
 
 ### Step 4: Verify sonar-project.properties
