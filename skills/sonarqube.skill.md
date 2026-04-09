@@ -59,19 +59,37 @@ cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
 Run clang-tidy and capture output:
 ```python
-import subprocess, pathlib
-clang_tidy = "/opt/homebrew/opt/llvm/bin/clang-tidy"
-sources = list(pathlib.Path("src").rglob("*.cpp"))
-result = subprocess.run(
-    [clang_tidy, "-p", "build", "--quiet"] + [str(s) for s in sources],
-    capture_output=True, text=True
+import subprocess, pathlib, shutil
+
+# Locate clang-tidy (prefer Homebrew LLVM for macOS)
+clang_tidy = (
+    shutil.which("clang-tidy")
+    or "/opt/homebrew/opt/llvm/bin/clang-tidy"
 )
+
+# Get macOS SDK path so stdlib headers resolve correctly
+sdk_result = subprocess.run(["xcrun", "--show-sdk-path"], capture_output=True, text=True)
+sdk_path = sdk_result.stdout.strip() if sdk_result.returncode == 0 else None
+
+cmd = [
+    clang_tidy, "-p", "build", "--quiet",
+    # Only report issues in project headers, not third-party deps
+    "--header-filter=^" + str(pathlib.Path.cwd()) + "/(src|include)/.*",
+]
+if sdk_path:
+    cmd += [f"--extra-arg=-isysroot{sdk_path}"]
+
+sources = list(pathlib.Path("src").rglob("*.cpp"))
+result = subprocess.run(cmd + [str(s) for s in sources], capture_output=True, text=True)
 pathlib.Path("build/clang-tidy-report.txt").write_text(result.stdout)
 ```
 
+Note: `--header-filter` limits findings to project files only (excludes `_deps/`, vendor headers).
+`--extra-arg=-isysroot<sdk>` prevents false "file not found" errors for stdlib headers on macOS.
+
 Verify `sonar-project.properties` contains:
 ```
-sonar.cxx.clangtidy.reportPath=build/clang-tidy-report.txt
+sonar.cxx.clangtidy.reportPaths=build/clang-tidy-report.txt
 ```
 
 ### Step 4: Verify sonar-project.properties
