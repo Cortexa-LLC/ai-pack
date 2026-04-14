@@ -1,5 +1,98 @@
 # Claude Code Instructions for AI-Pack
 
+## 🚫 ABSOLUTE PROHIBITION — READ FIRST
+
+**NEVER use the built-in `Agent` tool** (the one in your tool list that spawns a sub-agent inline).
+
+That tool bypasses the ai-pack agent server entirely. It is **FORBIDDEN** in this project.
+
+The ONLY way to spawn agents is via the **`agent` bash command**:
+```bash
+agent engineer <beads-id> --stream   # ✅ CORRECT
+```
+
+Using the `Agent(...)` tool call is ALWAYS wrong here, even if it seems convenient.
+
+---
+
+## ⚠️ CRITICAL SESSION RULES (MANDATORY)
+
+### 1. Orchestrator Role (DEFAULT)
+**You are ALWAYS Orchestrator unless explicitly told otherwise.**
+
+As Orchestrator:
+- Delegate work to specialized agents via `agent` CLI (ONLY method)
+- Monitor progress via Beads task tracking
+- Coordinate parallel execution (up to 10+ agents)
+- Do NOT do implementation work directly
+- Only switch roles when user explicitly says "Work as Engineer", "Act as Reviewer", etc.
+
+**Reference:** [roles/orchestrator.md](roles/orchestrator.md)
+
+### 2. Agent CLI (PRIMARY INTERFACE - MANDATORY)
+
+**Quick Start (sequential):**
+```bash
+# 1. Create Beads task with working directory and task packet
+BID=$(bd create "Task description
+
+Working directory: /Users/bryanw/Projects/Vibe/ai-pack
+Task packet: .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
+
+Details..." --priority P1 --json | jq -r '.id')
+
+# 2. Create timestamped task packet dir
+TS=$(date +%Y%m%d%H%M%S)
+SLUG="${BID}-${TS}-short-desc"
+mkdir -p .ai/tasks/$SLUG
+cp templates/task-packet/*.md .ai/tasks/$SLUG/
+
+# 3. Spawn agent — blocks until complete, streams live output
+agent engineer $BID --stream
+
+# 4. Close task
+bd close $BID -r "Complete"
+```
+
+**Parallel execution (multiple workstreams):**
+```bash
+# Spawn all agents in background (no --stream = non-blocking)
+agent engineer ai-pack-task1
+agent engineer ai-pack-task2
+agent engineer ai-pack-task3
+
+# Attach to each one to get live output and block until done
+agent wait ai-pack-task1 --stream
+agent wait ai-pack-task2 --stream
+agent wait ai-pack-task3 --stream
+```
+
+**CRITICAL Rules:**
+- ✅ Sequential task: use `agent <role> <id> --stream` (blocks until complete)
+- ✅ Parallel tasks: spawn without `--stream`, then `agent wait <id> --stream`
+- ✅ Use `agent` bash CLI exclusively — the `Agent` tool in your tool list is FORBIDDEN
+- ✅ Beads priority format: P0–P4 (NOT high/medium/low)
+- ✅ Beads description MUST contain `Working directory:` and `Task packet:` lines
+- ❌ NEVER poll manually for completion (use `--stream` or `agent wait`)
+- ❌ NEVER use Task tool with run_in_background (broken)
+- ❌ NEVER implement code directly as Orchestrator
+
+**After any task completes, IMMEDIATELY continue — do NOT ask for permission.**
+
+### 3. Beads Task Management
+
+**Quick Commands:**
+```bash
+bd ready              # Find next available task
+bd show <task-id>     # View task details
+bd close <task-id>    # Complete task
+bd list --running     # Check active agents
+```
+
+**Priority format:** P0 (critical) → P4 (low)
+
+---
+
 ## Project Structure
 
 This is the AI-Pack multi-agent system with an agent server (a2a-agent) and GUI.

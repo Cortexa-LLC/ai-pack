@@ -6,34 +6,49 @@
 
 **A comprehensive AI agent workflow framework for software development**
 
-📚 **[View Full Documentation](https://cortexa-llc.github.io/ai-pack/)**
+📚 **[View Full Documentation](https://cortexa-llc.github.io/ai-pack/)** · 📦 **[Installation Guide](INSTALL.md)**
 
 AI-Pack provides structured processes, quality gates, agent roles, and coding standards for AI agent-based software development. It ensures quality, consistency, and proper governance throughout the development lifecycle.
-
----
-
-## ⚠️ Important: Submodule Reset Required (2026-01-24)
-
-**If you're updating from an earlier version**, you need to reset your `.ai-pack` submodule due to infrastructure changes.
-
-**Quick Fix** (automated):
-```bash
-# If submodule is accessible
-python3 .ai-pack/scripts/reset-submodule.py
-
-# If submodule is broken, download from GitHub
-curl -fsSL https://raw.githubusercontent.com/Cortexa-LLC/ai-pack/main/scripts/reset-submodule.py | python3 -
-```
-
-**Documentation**: See [docs/SUBMODULE-RESET.md](docs/SUBMODULE-RESET.md) for details and manual procedure.
-
-**What's New**: Go-based A2A server, parallel execution, SSE streaming, production infrastructure ✅
 
 ---
 
 ## Overview
 
 AI-Pack is designed as a git submodule that projects include at `.ai-pack/`. It provides:
+
+```mermaid
+graph TD
+    subgraph "Your Project"
+        CC["Claude Code\n(Orchestrator)"]
+        BD[".beads/\nTask state"]
+        TP[".ai/tasks/\nTask packets"]
+        CLAUDE["CLAUDE.md\nBootstrap context"]
+    end
+
+    subgraph "AI-Pack Framework (.ai-pack/)"
+        GR["Gates\nQuality enforcement"]
+        RL["Roles\nAgent personas"]
+        WF["Workflows\nDev processes"]
+        QC["Quality Standards\nClean code guides"]
+    end
+
+    subgraph "Infrastructure (/usr/local/bin)"
+        CLI["agent CLI"]
+        SRV["agent-server\nA2A server"]
+        KG["kg\nKnowledge graph"]
+    end
+
+    CC -->|"agent engineer &lt;id&gt; --stream"| CLI
+    CLI --> SRV
+    SRV -->|"spawns"| A1["Engineer"]
+    SRV -->|"spawns"| A2["Reviewer"]
+    SRV -->|"spawns"| A3["Tester"]
+    A1 & A2 & A3 -->|"reads"| RL
+    A1 & A2 & A3 -->|"enforces"| GR
+    A1 & A2 & A3 -->|"updates"| BD
+    A1 -->|"reads/writes"| TP
+    SRV -->|"context"| KG
+```
 
 1. **AI Workflow Framework** - Structured processes for AI agent-based development
    - Quality gates (enforcement rules)
@@ -72,6 +87,29 @@ Quality gates define rules and constraints that govern what actions are permitte
 
 #### 👥 Roles - Agent Personas
 Roles define different agent personas with specific responsibilities. Located in `roles/`:
+
+```mermaid
+graph TD
+    User([User]) --> ORC["🎯 Orchestrator\nCoordinates · Delegates · Monitors"]
+
+    ORC -->|implementation| ENG["⚙️ Engineer\nTDD · Code · Tests"]
+    ORC -->|validation| TST["🧪 Tester\nCoverage · TDD compliance"]
+    ORC -->|validation| REV["🔍 Reviewer\nCode quality · Security"]
+
+    ORC -->|planning| PM["📋 Product Manager\nPRDs · User stories"]
+    ORC -->|planning| ARC["🏗️ Architect\nSystem design · ADRs"]
+    ORC -->|planning| DES["🎨 Designer\nUX flows · Wireframes"]
+    ORC -->|planning| STR["📈 Strategist\nMarket analysis · MRD"]
+
+    ORC -->|investigation| INS["🔎 Inspector\nBug RCA · Root cause"]
+    ORC -->|investigation| SPL["🕵️ Spelunker\nRuntime · Profiling"]
+    ORC -->|investigation| ARH["🏺 Archaeologist\nLegacy code · History"]
+
+    style ORC fill:#4a90d9,color:#fff
+    style ENG fill:#27ae60,color:#fff
+    style TST fill:#27ae60,color:#fff
+    style REV fill:#27ae60,color:#fff
+```
 
 - **[orchestrator.md](roles/orchestrator.md)** - High-level coordinator, delegates work, monitors progress
   - **ENFORCED:** Automatically analyzes and applies parallel execution for 3+ independent subtasks (max 5 concurrent)
@@ -136,6 +174,23 @@ Workflows define structured processes for different types of work. Located in `w
 #### 📋 Task-Packet Templates
 Structured templates for organizing work through all phases. Located in `templates/task-packet/`:
 
+```mermaid
+flowchart LR
+    A["00-contract.md\nRequirements\nAcceptance criteria"]
+    B["10-plan.md\nApproach\nExecution strategy"]
+    C["20-work-log.md\nProgress\nDecisions"]
+    D["30-review.md\nTester · Reviewer\nassessment"]
+    E["40-acceptance.md\nSign-off\nLessons learned"]
+
+    A --> B --> C --> D --> E
+
+    style A fill:#3498db,color:#fff
+    style B fill:#3498db,color:#fff
+    style C fill:#3498db,color:#fff
+    style D fill:#e67e22,color:#fff
+    style E fill:#27ae60,color:#fff
+```
+
 - **[00-contract.md](templates/task-packet/00-contract.md)** - Task definition and acceptance criteria
 - **[10-plan.md](templates/task-packet/10-plan.md)** - Implementation plan
 - **[20-work-log.md](templates/task-packet/20-work-log.md)** - Execution log and progress tracking
@@ -155,12 +210,11 @@ AI-Pack uses **[Beads](https://github.com/steveyegge/beads)** for persistent, gi
 
 **Core Workflow:**
 ```bash
-bd ready              # Find next available task (no blocking dependencies)
-bd show bd-a1b2       # View task details
-bd start bd-a1b2      # Begin work
-bd close bd-a1b2      # Mark complete
-bd create "Task"      # Create new task
-bd dep add bd-x bd-y  # Add dependency
+bd ready                          # Find next available task (no blocking dependencies)
+bd show bd-a1b2                   # View task details
+bd close bd-a1b2                  # Mark complete
+bd create "Task" --priority P1    # Create new task (P0–P4, NOT high/medium/low)
+bd dep add bd-x bd-y              # Add dependency
 ```
 
 **Integration with AI-Pack:**
@@ -181,43 +235,59 @@ irm https://raw.githubusercontent.com/steveyegge/beads/main/install.ps1 | iex
 
 #### 🚀 Agent-to-Agent (A2A) Server - Production Infrastructure
 
-AI-Pack includes a **production-grade Go-based A2A server** that enables autonomous agent delegation with parallel execution, real-time streaming, and full A2A protocol compliance.
+AI-Pack includes a **production-grade Go-based A2A server** that enables autonomous agent delegation with parallel execution and real-time streaming.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant CLI as agent CLI
+    participant SRV as agent-server
+    participant A as Agent (Claude)
+    participant BD as Beads
+
+    U->>CLI: agent engineer abc-123 --stream
+    CLI->>SRV: POST /a2a/invoke {taskId}
+    SRV->>BD: fetch task + task packet path
+    SRV->>A: spawn with role system prompt + context
+    A-->>SRV: SSE stream (progress events)
+    SRV-->>CLI: SSE proxy
+    CLI-->>U: live output
+    A->>BD: bd update (progress / close)
+    A-->>SRV: done
+    SRV-->>CLI: stream end
+```
 
 **Key Features:**
-- ✅ **Parallel Execution** - Multiple agents running concurrently (2x+ speedup)
-- ✅ **A2A Protocol Compliance** - Full JSON-RPC 2.0 implementation
-- ✅ **SSE Streaming** - Real-time progress updates via Server-Sent Events
-- ✅ **Production Infrastructure** - Structured logging, metrics, health checks
-- ✅ **Direct API Integration** - Anthropic API client with proxy support
-
-**Server Location:** `a2a-agent/` directory
+- ✅ **Parallel Execution** — Multiple agents running concurrently
+- ✅ **SSE Streaming** — Real-time progress via Server-Sent Events
+- ✅ **Beads Integration** — Task state tracked in `.beads/` across sessions
+- ✅ **KG Context** — Knowledge graph preflight injected into every agent
+- ✅ **Multi-provider** — Anthropic, OpenAI, local inference endpoints
 
 **Quick Start:**
 ```bash
-# Start the A2A server
-cd a2a-agent
-python3 scripts/start-server.py
+# Build and install
+make build install
 
-# Server runs on http://localhost:8080
-# A2A endpoints: /a2a/discovery, /a2a/execute, /a2a/status
-# SSE streaming: /stream/:task_id
+# Start the server (or use make setup-services for auto-start)
+agent-server &
+
+# Invoke an agent
+agent engineer <beads-id> --stream
 ```
 
 **API Endpoints:**
-- `POST /a2a/invoke` - Invoke an agent task (JSON-RPC 2.0)
-- `GET /a2a/stream/:taskId` - Stream task progress (SSE)
-- `GET /a2a/status/:taskId` - Get task status
-- `GET /health` - Health check
-- `GET /metrics` - Performance metrics
+- `POST /a2a/invoke` — Invoke an agent task
+- `GET /a2a/stream/:taskId` — Stream task progress (SSE)
+- `GET /a2a/status/:taskId` — Get task status
+- `GET /health` — Health check
+- `GET /metrics` — Performance metrics
 
 **Documentation:**
-- Server README: **[a2a-agent/README.md](a2a-agent/README.md)**
 - A2A Usage Guide: **[docs/content/framework/a2a-usage-guide.md](docs/content/framework/a2a-usage-guide.md)**
-- Phase 2 Roadmap: **[docs/content/framework/phase2-roadmap.md](docs/content/framework/phase2-roadmap.md)**
+- Installation: **[INSTALL.md](INSTALL.md)**
 
-**Status:** ✅ v2.0.0 Complete - Production Ready
-
-**⚠️ Known Limitation**: Agent commands currently accept free-form descriptions instead of Beads task IDs. Full Beads integration planned for v2.1.0. See [docs/BEADS-AGENT-INTEGRATION.md](docs/BEADS-AGENT-INTEGRATION.md)
+**Status:** ✅ v2.0.0 — Production Ready
 
 ### Deployment Model
 
@@ -368,6 +438,27 @@ Spelunker Production Investigation Complete:
   .ai/tasks/[id]/runtime-report.md → docs/incidents/[incident-id]-[date]-[summary].md
 ```
 
+```mermaid
+flowchart LR
+    subgraph tmp [".ai/tasks/ — Work-in-Progress"]
+        T1["contract · plan\nwork-log · review"]
+    end
+
+    subgraph perm ["docs/ — Permanent (committed)"]
+        D1["market/\nMRD · Competitive"]
+        D2["product/\nPRD · Stories"]
+        D3["architecture/\nDesign · ADRs"]
+        D4["investigations/\nBug retrospectives"]
+        D5["incidents/\nPost-mortems"]
+    end
+
+    T1 -->|"Strategist done"| D1
+    T1 -->|"PM done"| D2
+    T1 -->|"Architect done"| D3
+    T1 -->|"Bug verified"| D4
+    T1 -->|"Spelunker done"| D5
+```
+
 **Why This Matters:**
 - **Long-term knowledge**: PRDs and architecture docs referenced for years
 - **Team onboarding**: New developers understand "why" behind decisions
@@ -474,46 +565,40 @@ curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/insta
 irm https://raw.githubusercontent.com/steveyegge/beads/main/install.ps1 | iex
 ```
 
-#### 2. Create a Task with Beads
+#### 2. Create a Task and Spawn an Agent
 
 ```bash
-# Create a task in Beads (persistent across sessions)
-bd create "Implement user authentication" --priority high
+# Create a Beads task — description MUST include Working directory + Task packet lines
+BID=$(bd create "Implement user authentication
 
-# View available tasks
-bd ready
+Working directory: /path/to/your-project
+Task packet: .ai/tasks/${BID}-$(date +%Y%m%d%H%M%S)-user-auth/
 
-# Get task ID for task packet
-bd list
+Add email/password login with session management." \
+  --priority P1 --json | jq -r '.id')
+
+# Create task packet from templates
+TS=$(date +%Y%m%d%H%M%S)
+SLUG="${BID}-${TS}-user-auth"
+mkdir -p .ai/tasks/$SLUG
+cp .ai-pack/templates/task-packet/*.md .ai/tasks/$SLUG/
+
+# Fill in contract and plan, then spawn the agent
+# (--stream blocks until complete and shows live output)
+agent engineer $BID --stream
+
+# Close when done
+bd close $BID -r "Complete"
+bd ready   # Find next task
 ```
 
-#### 3. Create a Task Packet
-
-When starting a new task, create a task packet from templates:
-
-```bash
-# Create task directory
-TASK_ID=$(date +%Y-%m-%d)_feature-name
-mkdir -p .ai/tasks/$TASK_ID
-
-# Copy templates
-cp .ai-pack/templates/task-packet/00-contract.md .ai/tasks/$TASK_ID/
-cp .ai-pack/templates/task-packet/10-plan.md .ai/tasks/$TASK_ID/
-cp .ai-pack/templates/task-packet/20-work-log.md .ai/tasks/$TASK_ID/
-cp .ai-pack/templates/task-packet/30-review.md .ai/tasks/$TASK_ID/
-cp .ai-pack/templates/task-packet/40-acceptance.md .ai/tasks/$TASK_ID/
+```mermaid
+flowchart LR
+    A["bd create\nBeads task"] --> B["mkdir .ai/tasks/\nTask packet"]
+    B --> C["Fill contract\n+ plan"]
+    C --> D["agent engineer\n&lt;id&gt; --stream"]
+    D --> E["bd close\n+ bd ready"]
 ```
-
-#### 4. Follow the Workflow
-
-1. **Track** - Mark task as in progress: `bd start bd-a1b2`
-2. **Define** - Fill out `00-contract.md` with requirements
-3. **Plan** - Create implementation plan in `10-plan.md`
-4. **Execute** - Implement while updating `20-work-log.md`
-5. **Review** - Conduct review, document in `30-review.md`
-6. **Accept** - Complete acceptance checklist in `40-acceptance.md`
-7. **Complete** - Mark task as done: `bd close bd-a1b2`
-8. **Next** - Find next task: `bd ready`
 
 ### Migrating to v2.0.0
 
@@ -849,11 +934,18 @@ project-root/
 
 ### Enforcement Layers
 
-1. **Passive Documentation** - `CLAUDE.md` in project root
-2. **Active Rules** - `.claude/rules/*.md` auto-loaded
-3. **Auto-Triggered Skills** - Activate on keywords
-4. **Manual Commands** - `/ai-pack <command>` explicit invocation
-5. **Hook Enforcement** - Blocks gate violations (Python scripts)
+```mermaid
+flowchart TD
+    REQ["User Request"] --> L1
+    L1["1. CLAUDE.md\nPassive context · project orientation"] --> L2
+    L2["2. .claude/rules/\nAuto-loaded per file path"] --> L3
+    L3["3. Skills\nKeyword-triggered role guidance"] --> L4
+    L4["4. /ai-pack commands\nExplicit role invocation"] --> L5
+    L5["5. Hooks\n⛔ Blocks gate violations"]
+
+    style L5 fill:#e74c3c,color:#fff
+    style L1 fill:#95a5a6,color:#fff
+```
 
 ### Example: How Enforcement Works
 
