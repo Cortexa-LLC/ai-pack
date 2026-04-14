@@ -107,8 +107,10 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 	for _, projectRoot := range projectRoots {
 		beadsTasks, err := beadsClient.ListAllTasksFromDir(projectRoot)
 		if err != nil {
-			monitoring.Logger.Warn("failed_to_list_tasks_from_project", "project_root", projectRoot, "error", err.Error())
-			continue // Skip if can't list tasks from this project
+			monitoring.Logger.Warn("failed_to_list_tasks_from_project_falling_back_to_disk_scan", "project_root", projectRoot, "error", err.Error())
+			// Fall back to disk scan when bd is unavailable (e.g. Dolt server not serving this project)
+			a.scanProjectTasks(projectRoot, tasks)
+			continue
 		}
 		monitoring.Logger.Info("listed_tasks_from_project", "project_root", projectRoot, "task_count", len(beadsTasks))
 
@@ -244,7 +246,20 @@ func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, beadsID string) *g
 	return nil // All executions were superseded or failed to load
 }
 
-// scanProjectTasks scans a single project root for tasks
+// inferBeadsID extracts the beads task ID from an execution folder name.
+// Folder format: {beads-id}-YYYYMMDD-HHMMSS (e.g. "xasm++-01qi-20260210-120445").
+// Returns the folder name unchanged when it doesn't match the expected format.
+func inferBeadsID(folderName string) string {
+	parts := strings.Split(folderName, "-")
+	if len(parts) >= 3 && len(parts[len(parts)-1]) == 6 && len(parts[len(parts)-2]) == 8 {
+		return strings.Join(parts[:len(parts)-2], "-")
+	}
+	return folderName
+}
+
+// scanProjectTasks scans a single project root for tasks.
+// Groups execution folders by inferred beads ID and picks the most recent
+// non-superseded execution for each task, mirroring findMostRecentExecution logic.
 func (a *GraphQLAdapter) scanProjectTasks(projectRoot string, tasks map[string]*graphql.TaskInfo) {
 	tasksDir := filepath.Join(projectRoot, constants.BeadsDir, "tasks")
 	entries, err := os.ReadDir(tasksDir)
@@ -252,21 +267,59 @@ func (a *GraphQLAdapter) scanProjectTasks(projectRoot string, tasks map[string]*
 		return // Skip if can't read directory
 	}
 
+	type execEntry struct {
+		folderName string
+		folderTime time.Time
+	}
+
+	// Group execution folders by inferred beads ID
+	byBeadsID := make(map[string][]execEntry)
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
+		folderName := entry.Name()
+		beadsID := inferBeadsID(folderName)
+		prefix := beadsID + "-"
+		byBeadsID[beadsID] = append(byBeadsID[beadsID], execEntry{
+			folderName: folderName,
+			folderTime: parseFolderTimestamp(folderName, prefix),
+		})
+	}
 
-		taskID := entry.Name()
-		// Skip if already in tasks map
-		if _, exists := tasks[taskID]; exists {
+	for beadsID, executions := range byBeadsID {
+		// Skip if already present (active task or main-project bd list result)
+		if _, exists := tasks[beadsID]; exists {
 			continue
 		}
 
-		// Load from disk
-		taskInfo, err := a.loadTaskFromProject(projectRoot, taskID)
-		if err == nil {
-			tasks[taskID] = taskInfo
+		// Sort most-recent first by embedded timestamp
+		sort.Slice(executions, func(i, j int) bool {
+			return executions[i].folderTime.After(executions[j].folderTime)
+		})
+
+		// Pick the most recent non-superseded execution
+		for _, exec := range executions {
+			metadataPath := filepath.Join(projectRoot, constants.BeadsDir, "tasks", exec.folderName, constants.MetadataFileName)
+			if data, readErr := os.ReadFile(metadataPath); readErr == nil {
+				var meta map[string]interface{}
+				if json.Unmarshal(data, &meta) == nil {
+					if superseded, ok := meta["superseded"].(bool); ok && superseded {
+						continue // skip superseded retries
+					}
+				}
+			}
+
+			taskInfo, loadErr := a.loadTaskFromProject(projectRoot, exec.folderName)
+			if loadErr != nil {
+				continue
+			}
+			// Ensure the task is keyed by beads ID, not folder name
+			if taskInfo.TaskID == "" {
+				taskInfo.TaskID = beadsID
+			}
+			tasks[taskInfo.TaskID] = taskInfo
+			break
 		}
 	}
 }

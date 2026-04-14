@@ -992,6 +992,30 @@ func (s *AgentServer) ensureKGForProject(projectRoot string) {
 	}
 }
 
+// ensureBeadsForProject initializes a Beads database for the given project
+// root on the shared Dolt server at port 3307, if not already initialized.
+// It is a no-op when the `bd` command is not installed or the project already
+// has a .beads/ directory.  All errors are logged and never surface to callers.
+func (s *AgentServer) ensureBeadsForProject(projectRoot string) {
+	if !beads.IsInstalled() {
+		return
+	}
+
+	beadsDir := filepath.Join(projectRoot, ".beads")
+	if _, err := os.Stat(beadsDir); err == nil {
+		// .beads/ already exists — skip init.
+		return
+	}
+
+	cmd := exec.Command("bd", "init", "--server-host", "127.0.0.1", "--server-port", "3307")
+	cmd.Dir = projectRoot
+	if out, err := cmd.CombinedOutput(); err != nil {
+		monitoring.Logger.Warn("beads_init_failed", "project", projectRoot, "err", err.Error(), "output", string(out))
+	} else {
+		monitoring.Logger.Info("beads_init_done", "project", projectRoot)
+	}
+}
+
 func (s *AgentServer) GetActiveTaskCount() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

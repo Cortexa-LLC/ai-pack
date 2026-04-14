@@ -618,6 +618,14 @@ def main() -> None:
     profile = args.profile or detect_profile_name()
     language = args.language or detect_language()
 
+    # Read admin password from sonar.env if not overridden on CLI
+    if args.admin_password == DEFAULT_ADMIN_PASS and os.path.exists(args.env_file):
+        for line in open(args.env_file):
+            k, _, v = line.strip().partition("=")
+            if k == "SONAR_ADMIN_PASS" and v:
+                args.admin_password = v
+                break
+
     print()
     print("=" * 60)
     print("  SonarQube CE Setup")
