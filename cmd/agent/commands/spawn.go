@@ -80,6 +80,17 @@ func runSpawnHTTP(role, task, projectRoot string) (string, error) {
 		return "", fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	// Check for JSON-RPC error field first (server errors come back as HTTP 200
+	// with an "error" object — RequireOK only catches non-200 status codes).
+	if errObj, ok := result["error"].(map[string]interface{}); ok {
+		msg, _ := errObj["message"].(string)
+		data, _ := errObj["data"].(string)
+		if data != "" {
+			return "", fmt.Errorf("server error: %s: %s", msg, data)
+		}
+		return "", fmt.Errorf("server error: %s", msg)
+	}
+
 	taskID := ""
 	if id, ok := result["task_id"].(string); ok {
 		taskID = id
@@ -90,7 +101,7 @@ func runSpawnHTTP(role, task, projectRoot string) (string, error) {
 	}
 
 	if taskID == "" {
-		return "", fmt.Errorf("server returned no task_id")
+		return "", fmt.Errorf("server returned no task_id (raw response: %s)", string(body))
 	}
 	return taskID, nil
 }
