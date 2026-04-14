@@ -44,6 +44,238 @@ namespace core {
 
 ---
 
+## Braces Around Statements (Mandatory)
+
+**Rule:** All `if`, `else if`, and `else` clauses **must** use braces, even for single-statement bodies.
+
+**Enforced by:** `readability-braces-around-statements` (clang-tidy)
+
+**Rationale:** Single-line `if (cond) stmt;` is error-prone. The Apple SSL "goto fail" bug
+(CVE-2014-1266) was caused by a brace-less if. The Google C++ Style Guide and C++ Core
+Guidelines both mandate braces for this reason.
+
+```cpp
+// ❌ WRONG — no braces
+if (condition) do_something();
+if (error) return false;
+else handle_error();
+
+// ❌ WRONG — body on same line as brace
+if (condition) { do_something(); }
+if (error) { return false; }
+
+// ✅ CORRECT — K&R: opening brace on same line, body always on its own line
+if (condition) {
+  do_something();
+}
+if (error) {
+  return false;
+}
+else {
+  handle_error();
+}
+```
+
+**Switch cases** do not use braces (unless a local variable is declared). Each statement on its own line:
+```cpp
+// ❌ WRONG — multiple statements on one line
+case CpuMode::Cpu6502: mode_int = 0; break;
+
+// ❌ WRONG — braces around case body
+case CpuMode::Cpu6502: { mode_int = 0; break; }
+
+// ✅ CORRECT
+case CpuMode::Cpu6502:
+  mode_int = 0;
+  break;
+```
+
+---
+
+## Naming Conventions
+
+These conventions follow the Google C++ Style Guide, enforced via `clang-tidy`
+`readability-identifier-naming` checks.
+
+| Identifier | Convention | Example |
+|---|---|---|
+| Classes and structs | `CamelCase` | `PacketDecoder`, `IpxHeader` |
+| Functions and methods | `CamelCase` | `DecodePacket()`, `GetState()` |
+| Variables and parameters | `lower_case` | `packet_length`, `device_id` |
+| Private/protected members | `lower_case_` (trailing `_`) | `symbols_`, `current_state_` |
+| Constants (`constexpr`/`const`) | `kCamelCase` | `kMaxPacketLength`, `kPanjaPort` |
+| Enum values | `CamelCase` | `DeviceState::Initialized` |
+| File names | `snake_case.h` / `snake_case.cpp` | `packet_decoder.h` |
+| Namespaces | `lower_case` | `namespace panja_bridge` |
+
+```cpp
+// ✅ CORRECT
+namespace panja_bridge {
+
+constexpr uint16_t kPanjaPort = 0x1111;
+
+class PacketDecoder {
+public:
+  explicit PacketDecoder(uint32_t device_id);
+  bool DecodePacket(std::span<const uint8_t> data);
+
+private:
+  uint32_t device_id_;
+  DeviceState current_state_;
+};
+
+}  // namespace panja_bridge
+```
+
+**`kCamelCase` for constants** avoids the problems of `SCREAMING_SNAKE_CASE` (hard to
+distinguish from macros) while remaining visually distinct from regular variables.
+
+---
+
+## Header Guards
+
+Prefer `#pragma once` over traditional include guards. It is supported by all major
+compilers (GCC, Clang, MSVC) and is less error-prone.
+
+```cpp
+// ✅ CORRECT
+#pragma once
+
+#include <cstdint>
+#include "panja_bridge/packet.h"
+
+// ❌ AVOID — verbose and error-prone
+#ifndef PANJA_BRIDGE_PACKET_DECODER_H_
+#define PANJA_BRIDGE_PACKET_DECODER_H_
+// ...
+#endif
+```
+
+---
+
+## Include Order
+
+Group includes in this order, separated by blank lines:
+
+1. Related header (for `.cpp` files: the corresponding `.h`)
+2. C system headers (`<cstdint>`, `<cstring>`)
+3. C++ standard library (`<vector>`, `<string>`, `<memory>`)
+4. Third-party libraries
+5. Project headers (quoted)
+
+```cpp
+// packet_decoder.cpp
+#include "panja_bridge/packet_decoder.h"  // 1. own header first
+
+#include <cstdint>                         // 2. C system
+#include <cstring>
+
+#include <span>                            // 3. C++ stdlib
+#include <vector>
+
+#include "panja_bridge/ipx_header.h"       // 5. project headers
+```
+
+---
+
+## Compiler Flags
+
+All projects must compile cleanly with:
+
+```cmake
+target_compile_options(${TARGET} PRIVATE
+  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Werror>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
+)
+```
+
+Debug builds additionally enable sanitizers:
+
+```cmake
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT MSVC)
+  target_compile_options(${TARGET} PRIVATE
+    -fsanitize=address -fsanitize=undefined
+  )
+  target_link_options(${TARGET} PRIVATE
+    -fsanitize=address -fsanitize=undefined
+  )
+endif()
+```
+
+---
+
+## Static Analysis — clang-tidy
+
+All projects must provide a `.clang-tidy` at the project root. The **base check set** is:
+
+```yaml
+Checks: >
+  clang-diagnostic-*,
+  clang-analyzer-*,
+  bugprone-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+  cppcoreguidelines-*,
+  -modernize-use-trailing-return-type,
+  -readability-magic-numbers,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -readability-identifier-length,
+  -bugprone-easily-swappable-parameters
+
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*'
+CheckOptions:
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  - key: readability-identifier-naming.FunctionCase
+    value: CamelCase
+  - key: readability-identifier-naming.VariableCase
+    value: lower_case
+  - key: readability-identifier-naming.ParameterCase
+    value: lower_case
+  - key: readability-identifier-naming.PrivateMemberSuffix
+    value: '_'
+  - key: readability-identifier-naming.ConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.ConstantPrefix
+    value: k
+  - key: readability-function-cognitive-complexity.Threshold
+    value: 25
+  - key: readability-function-size.LineThreshold
+    value: 100
+  - key: readability-function-size.StatementThreshold
+    value: 50
+```
+
+**Project-specific disabled checks** (e.g. for low-level protocol code that legitimately
+uses C arrays or pointer arithmetic) belong in the project's own `.clang-tidy`, not here.
+Common project-specific exemptions:
+
+```yaml
+  # For projects with #pragma pack(1) packet structs or raw socket buffers:
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-avoid-c-arrays,
+  -modernize-avoid-c-arrays,
+```
+
+---
+
+## Complexity Limits
+
+| Metric | Limit | Enforced by |
+|---|---|---|
+| Cognitive complexity | ≤ 25 | `readability-function-cognitive-complexity` |
+| Function length | ≤ 100 lines | `readability-function-size` |
+| Statements per function | ≤ 50 | `readability-function-size` |
+
+Functions exceeding these limits are candidates for decomposition.
+
+---
+
 ## Overview
 
 This file contains C++-specific best practices from:
