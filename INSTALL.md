@@ -129,8 +129,15 @@ Install background services so `agent-server` starts automatically at login:
 make setup-services
 ```
 
-**macOS:** Installs a `launchd` plist to `~/Library/LaunchAgents/`.
-**Linux:** Installs a `systemd` user service.
+**macOS:** Installs launchd plists to `~/Library/LaunchAgents/` for:
+- `com.beads.dolt-shared` — shared Dolt SQL server at `~/.beads/dolt/` port 3307
+- `com.cortexa.ai-pack.agent-server` — AI-Pack agent server
+- `com.cortexa.ai-pack.gui` — GUI dev server
+
+**Linux:** Installs systemd user services (Dolt must be started manually on Linux).
+
+> **Important:** The shared Dolt service (`com.beads.dolt-shared`) must be running before
+> initializing Beads for any project. `make setup-services` starts it automatically on macOS.
 
 Without this, start the server manually before spawning agents:
 ```bash
@@ -175,8 +182,8 @@ git submodule update --init --recursive
 # 2. Create local workspace
 mkdir -p .ai/tasks
 
-# 3. Initialize Beads
-bd init
+# 3. Initialize Beads (use the shared centralized Dolt server)
+bd init --server-host 127.0.0.1 --server-port 3307
 
 # 4. Copy the bootstrap CLAUDE.md template
 cp .ai-pack/templates/CLAUDE.md ./CLAUDE.md
@@ -189,6 +196,11 @@ kg index
 git add .ai-pack .beads/issues.jsonl CLAUDE.md
 git commit -m "Add ai-pack framework"
 ```
+
+> **Beads backend:** `make setup-services` installs and starts a shared Dolt server at
+> `~/.beads/dolt/` (port 3307, managed by launchd). Always use
+> `bd init --server-host 127.0.0.1 --server-port 3307` — never plain `bd init`, which
+> falls back to an embedded Dolt that conflicts with the shared server.
 
 > **Critical:** Fill in `CLAUDE.md` before spawning any agent. The working directory
 > and task packet path in Beads task descriptions are parsed by the agent server — they
