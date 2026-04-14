@@ -333,9 +333,40 @@ int* q;
 ```
 
 **ES.11: Use auto to avoid redundant repetition of type names**
+
+`auto` is appropriate only when the type is **already stated or completely obvious** on the
+right-hand side. It should never hide information that the reader needs.
+
 ```cpp
-auto v = make_unique<Widget>();  // Type is obvious from context
+// GOOD — type is explicit in the cast (auto avoids stating it twice)
+auto word   = static_cast<uint32_t>(value);
+auto byte   = static_cast<uint8_t>(text[i]);
+
+// GOOD — type is explicit in the factory call
+auto ptr    = std::make_unique<Widget>();
+auto sptr   = std::make_shared<Connection>();
+
+// GOOD — iterator (type is verbose and obvious from the container)
+auto it     = container.find(key);
+for (auto& [k, v] : map) { ... }     // structured binding
+
+// BAD — type is not obvious; use explicit type
+auto count  = GetLineCount();         // int? size_t? uint32_t?
+auto result = Parse(token);           // ParseResult? bool? string?
+auto flag   = false;                  // use: bool flag = false;
+auto n      = 0;                      // use: int n = 0;
 ```
+
+**Rule summary:**
+
+| Right-hand side | Use `auto`? | Reason |
+|-----------------|-------------|--------|
+| `static_cast<T>(x)` | ✅ Yes | Type is stated in the cast |
+| `make_unique<T>()` / `make_shared<T>()` | ✅ Yes | Type is stated in the call |
+| `container.begin()` / `container.find()` | ✅ Yes | Iterator, type is verbose and derivable |
+| Structured binding (`auto& [k, v]`) | ✅ Yes | Required syntax |
+| Function return value (non-obvious) | ❌ No | Hides the return type |
+| Numeric / bool literals | ❌ No | `int`, `bool`, `size_t` are clearer |
 
 **ES.20: Always initialize an object**
 - Uninitialized variables cause bugs
@@ -343,8 +374,8 @@ auto v = make_unique<Widget>();  // Type is obvious from context
 ```cpp
 int x = 0;        // OK
 int y{0};         // Also OK
-auto z = 0;       // Also OK
 int w;            // BAD - uninitialized
+// Note: do NOT write 'auto z = 0;' — use 'int z = 0;' (type is not obvious from literal)
 ```
 
 **ES.21: Don't introduce a variable (or constant) before you need to use it**

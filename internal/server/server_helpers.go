@@ -289,8 +289,11 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 
 	// Start KG server for newly registered projects now (not lazily in executeAgentWorkflow)
 	// so it warms up while the task waits in queue.
+	// Also initialize Beads on the shared Dolt server so the project is
+	// immediately usable for task tracking.
 	if isNewProject {
 		go s.ensureKGForProject(projectRoot)
+		go s.ensureBeadsForProject(projectRoot)
 	}
 
 	// Write metadata to disk after the task is in activeTasks so that
