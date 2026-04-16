@@ -1,5 +1,5 @@
-.PHONY: test test-short test-coverage build build-gui build-kg codegen-gui clean clean-all sonarqube help
-.PHONY: install install-agent install-kg uninstall uninstall-agent uninstall-kg setup-mcp
+.PHONY: test test-short test-coverage build build-gui codegen-gui clean clean-all sonarqube help
+.PHONY: install install-agent uninstall uninstall-agent setup-mcp
 .PHONY: start-server start-gui start-all stop-server stop-gui stop-all restart-server restart-gui restart-all
 .PHONY: setup-services uninstall-services status-services
 .PHONY: setup-launchd uninstall-launchd status-launchd
@@ -26,9 +26,6 @@ BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 MODULE := github.com/cortexa-llc/ai-pack
 
 LDFLAGS_AGENT  := -ldflags "-X main.Version=$(VERSION) \
-                             -X main.Commit=$(COMMIT) \
-                             -X main.BuildTime=$(BUILD_TIME)"
-LDFLAGS_KG     := -ldflags "-X main.Version=$(VERSION) \
                              -X main.Commit=$(COMMIT) \
                              -X main.BuildTime=$(BUILD_TIME)"
 
@@ -73,8 +70,9 @@ bootstrap: ## Install all tool dependencies (Go modules, npm, seeds) — run onc
 # BUILD TARGETS
 # ============================================================================
 
-build: build-agent build-server build-kg ## Build all binaries
+build: build-agent build-server ## Build all binaries
 	@echo "✅ Binaries built in bin/"
+	@echo "   Note: kg binary is built separately — see ~/Projects/Vibe/mcp/src/kg"
 
 build-agent: ## Build the agent CLI (no CGO)
 	@mkdir -p bin
@@ -83,10 +81,6 @@ build-agent: ## Build the agent CLI (no CGO)
 build-server: ## Build the agent-server (CGO, go-kuzu bundled)
 	@mkdir -p bin
 	$(CGO) go build -o bin/agent-server ./cmd/server
-
-build-kg: ## Build the kg knowledge-graph CLI (CGO, go-kuzu + tree-sitter bundled)
-	@mkdir -p bin
-	$(CGO) go build $(LDFLAGS_KG) -o bin/kg ./cmd/kg
 
 
 codegen-gui: ## Regenerate GraphQL TypeScript types from schema
@@ -113,18 +107,14 @@ build-all: build build-gui ## Build everything (agent + GUI)
 # INSTALL TARGETS
 # ============================================================================
 
-install: install-agent install-kg ## Install all binaries to /usr/local/bin, then run: make setup-mcp
+install: install-agent ## Install agent binaries to /usr/local/bin, then run: make setup-mcp
 
 install-agent: build-agent build-server ## Install agent binaries to /usr/local/bin
 	@echo "Installing agent binaries..."
 	@install -m 755 bin/agent /usr/local/bin/agent
 	@install -m 755 bin/agent-server /usr/local/bin/agent-server
 	@echo "✅ Agent binaries installed to /usr/local/bin"
-
-install-kg: build-kg ## Install kg binary to /usr/local/bin
-	@echo "Installing kg binary..."
-	@install -m 755 bin/kg /usr/local/bin/kg
-	@echo "✅ kg installed to /usr/local/bin"
+	@echo "   To install kg: cd ~/Projects/Vibe/mcp/src/kg && make install"
 
 setup-mcp: ## Register AI-Pack MCP servers globally (~/.claude/settings.json)
 	@python3 scripts/setup-mcp.py
@@ -132,16 +122,12 @@ setup-mcp: ## Register AI-Pack MCP servers globally (~/.claude/settings.json)
 setup-mcp-local: ## Register AI-Pack MCP servers in project-local .claude/settings.local.json
 	@python3 scripts/setup-mcp.py --local
 
-uninstall: uninstall-agent uninstall-kg ## Uninstall all binaries from /usr/local/bin (run with: sudo make uninstall)
+uninstall: uninstall-agent ## Uninstall agent binaries from /usr/local/bin (run with: sudo make uninstall)
 
 uninstall-agent: ## Uninstall agent binaries from /usr/local/bin
 	@echo "Uninstalling agent binaries..."
 	@rm -f /usr/local/bin/agent /usr/local/bin/agent-server
 	@echo "✅ Agent binaries uninstalled"
-
-uninstall-kg: ## Uninstall kg binary from /usr/local/bin
-	@rm -f /usr/local/bin/kg
-	@echo "✅ kg uninstalled"
 
 # ============================================================================
 # START/STOP TARGETS (via launchctl on macOS, systemd on Linux)

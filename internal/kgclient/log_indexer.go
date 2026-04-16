@@ -14,7 +14,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/cortexa-llc/ai-pack/internal/constants"
-	"github.com/cortexa-llc/ai-pack/internal/knowledge"
 	"github.com/cortexa-llc/ai-pack/internal/mcp"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 )
@@ -256,7 +255,7 @@ func IndexExecutionLog(
 	indexCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	var entity knowledge.Entity
+	var entity entityRef
 	err = mcpManager.CallToolIntoForProject(indexCtx, projectRoot, "add_entity", map[string]interface{}{
 		"name": entityName,
 		"type": "topic",

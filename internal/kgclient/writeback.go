@@ -7,10 +7,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cortexa-llc/ai-pack/internal/knowledge"
 	"github.com/cortexa-llc/ai-pack/internal/mcp"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 )
+
+// entityRef is the minimal JSON shape returned by the kg add_entity MCP tool.
+// We only need the ID to attach subsequent observations.
+type entityRef struct {
+	ID string `json:"id"`
+}
 
 // filePath matches common file path patterns in agent output:
 //   - absolute:  /some/path/to/file.go
@@ -79,7 +84,7 @@ func WriteBack(
 	entityName := fmt.Sprintf("task:%s@%s", role, now.UTC().Format(time.RFC3339))
 
 	// 1. Create the entity
-	var entity knowledge.Entity
+	var entity entityRef
 	err := mcpManager.CallToolIntoForProject(wbCtx, projectRoot, "add_entity", map[string]interface{}{
 		"name": entityName,
 		"type": "task_outcome",
@@ -154,7 +159,7 @@ func WriteAgentReasoning(
 
 		entityName := fmt.Sprintf("exec:%s", beadsTaskID)
 
-		var entity knowledge.Entity
+		var entity entityRef
 		if err := mcpManager.CallToolIntoForProject(wbCtx, projectRoot, "add_entity", map[string]interface{}{
 			"name": entityName,
 			"type": "topic",
