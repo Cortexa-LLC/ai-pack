@@ -37,27 +37,24 @@ func TestHandleLogsStreamSSEHeaders(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	cfg.API.Mode = "direct"
-	server, err := NewAgentServer(tmpDir, 3, 4000, testModel, cfg)
+	agentServer, err := NewAgentServer(tmpDir, 3, 4000, testModel, cfg)
 	if err != nil {
 		t.Fatalf(errFailedToCreateServer, err)
 	}
 
-	// Create test HTTP request with cancellable context
-	req := httptest.NewRequest(http.MethodGet, testLogsStreamURL, nil)
-	w := httptest.NewRecorder()
+	// Use a real HTTP test server — httptest.ResponseRecorder is not safe for
+	// concurrent reads/writes from streaming handlers.
+	ts := httptest.NewServer(http.HandlerFunc(agentServer.HandleLogsStream))
+	defer ts.Close()
 
-	// Execute in goroutine since it's a long-running stream
-	done := make(chan bool, 1)
-	go func() {
-		server.HandleLogsStream(w, req)
-		done <- true
-	}()
+	resp, err := http.Get(ts.URL)
+	if err != nil {
+		t.Fatalf("Failed to connect to log stream: %v", err)
+	}
+	defer resp.Body.Close()
 
 	// Give it time to write headers and start streaming
 	time.Sleep(10 * time.Millisecond)
-
-	// Get response (headers should be written by now)
-	resp := w.Result()
 
 	// Verify SSE headers
 	if contentType := resp.Header.Get("Content-Type"); contentType != "text/event-stream" {
@@ -75,9 +72,6 @@ func TestHandleLogsStreamSSEHeaders(t *testing.T) {
 	if cors := resp.Header.Get("Access-Control-Allow-Origin"); cors != "*" {
 		t.Errorf("Expected Access-Control-Allow-Origin '*', got '%s'", cors)
 	}
-
-	// Close response body to trigger context cancellation
-	resp.Body.Close()
 }
 
 // TestHandleLogsStream_ConnectedEvent tests that stream sends initial connected event
@@ -92,26 +86,20 @@ func TestHandleLogsStreamConnectedEvent(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	cfg.API.Mode = "direct"
-	server, err := NewAgentServer(tmpDir, 3, 4000, "testModel", cfg)
+	agentServer, err := NewAgentServer(tmpDir, 3, 4000, "testModel", cfg)
 	if err != nil {
 		t.Fatalf(errFailedToCreateServer, err)
 	}
 
-	// Create test HTTP request
-	req := httptest.NewRequest(http.MethodGet, testLogsStreamURL, nil)
-	w := httptest.NewRecorder()
+	// Use a real HTTP test server to avoid concurrent access to ResponseRecorder.
+	ts := httptest.NewServer(http.HandlerFunc(agentServer.HandleLogsStream))
+	defer ts.Close()
 
-	// Execute in goroutine
-	done := make(chan bool)
-	go func() {
-		server.HandleLogsStream(w, req)
-		done <- true
-	}()
-
-	// Give it time to send connected event
-	time.Sleep(10 * time.Millisecond)
-
-	resp := w.Result()
+	resp, err := http.Get(ts.URL)
+	if err != nil {
+		t.Fatalf("Failed to connect to log stream: %v", err)
+	}
+	defer resp.Body.Close()
 
 	// Read initial events
 	scanner := bufio.NewScanner(resp.Body)
@@ -146,8 +134,6 @@ func TestHandleLogsStreamConnectedEvent(t *testing.T) {
 		t.Fatal("Timeout waiting for connected event")
 	}
 
-	resp.Body.Close()
-
 	// Verify connected event
 	if len(events) == 0 {
 		t.Fatal("Expected to receive connected event")
@@ -175,19 +161,23 @@ func TestHandleLogsStreamLogEvents(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	cfg.API.Mode = "direct"
-	server, err := NewAgentServer(tmpDir, 3, 4000, "testModel", cfg)
+	agentServer, err := NewAgentServer(tmpDir, 3, 4000, "testModel", cfg)
 	if err != nil {
 		t.Fatalf(errFailedToCreateServer, err)
 	}
 
-	// Create test HTTP request
-	req := httptest.NewRequest(http.MethodGet, testLogsStreamURL, nil)
-	w := httptest.NewRecorder()
+	// Use a real HTTP test server so the handler and client run in separate
+	// goroutines over real TCP — httptest.ResponseRecorder is not concurrent-safe
+	// for streaming handlers that write from a goroutine.
+	ts := httptest.NewServer(http.HandlerFunc(agentServer.HandleLogsStream))
+	defer ts.Close()
 
-	// Execute in goroutine
-	go func() {
-		server.HandleLogsStream(w, req)
-	}()
+	// Connect with a streaming client.
+	resp, err := http.Get(ts.URL) //nolint:noctx // test-only, timeout handled below
+	if err != nil {
+		t.Fatalf("Failed to connect to log stream: %v", err)
+	}
+	defer resp.Body.Close()
 
 	// Give stream time to start and subscribe to log buffer
 	time.Sleep(10 * time.Millisecond)
@@ -203,22 +193,15 @@ func TestHandleLogsStreamLogEvents(t *testing.T) {
 		},
 	})
 
-	// Give time for event to be delivered via channel and written to recorder
-	time.Sleep(10 * time.Millisecond)
-
-	resp := w.Result()
-	defer resp.Body.Close()
-
-	// Read events
-	scanner := bufio.NewScanner(resp.Body)
+	// Read events with timeout
 	foundLogEvent := false
 	foundTestMessage := false
 
-	// Read with timeout
 	timeout := time.After(500 * time.Millisecond)
 	lineChan := make(chan string, 10)
 
 	go func() {
+		scanner := bufio.NewScanner(resp.Body)
 		for scanner.Scan() {
 			lineChan <- scanner.Text()
 		}
