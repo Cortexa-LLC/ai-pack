@@ -402,14 +402,28 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 
 	tasksMap := make(map[string]TaskInfo)
 
-	// First, get all active tasks from memory
+	// First, get all active tasks from memory, skipping superseded entries.
+	// (markExecutionAsSuperseded now removes from activeTasks, but entries that
+	// were superseded before this fix may still be present until server restart.)
 	s.mu.RLock()
 	for _, execution := range s.activeTasks {
+		// Skip if the on-disk metadata marks this execution as superseded.
+		if execution.ProjectRoot != "" {
+			metaPath := filepath.Join(execution.ProjectRoot, constants.BeadsDir, "tasks", execution.TaskID, constants.MetadataFileName)
+			if data, err := os.ReadFile(metaPath); err == nil {
+				var meta map[string]interface{}
+				if json.Unmarshal(data, &meta) == nil {
+					if sup, _ := meta["superseded"].(bool); sup {
+						continue
+					}
+				}
+			}
+		}
 		task := TaskInfo{
 			TaskID:      execution.TaskID,
 			Status:      execution.Status,
 			Role:        execution.Role,
-			Description: execution.Task, // Task field contains the description
+			Description: execution.Task,
 			Error:       execution.Error,
 			ProjectRoot: execution.ProjectRoot,
 		}

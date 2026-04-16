@@ -66,6 +66,12 @@ func (s *AgentServer) markExecutionAsSuperseded(taskID, projectRoot, reason stri
 		return fmt.Errorf("failed to write metadata: %w", err)
 	}
 
+	// Remove from activeTasks so the superseded entry no longer appears in
+	// /a2a/tasks or the GUI. The on-disk metadata is the permanent record.
+	s.mu.Lock()
+	delete(s.activeTasks, taskID)
+	s.mu.Unlock()
+
 	monitoring.Logger.Info("marked_execution_superseded",
 		"task_id", taskID,
 		"reason", reason)
