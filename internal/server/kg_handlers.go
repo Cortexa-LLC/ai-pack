@@ -85,7 +85,8 @@ func (s *AgentServer) queryKGStatsForProject(projectRoot string) KGProjectStats 
 		return stats
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// 20 seconds: allows for kg subprocess cold-start (~3-5s) plus 4 sequential queries.
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	// Total entity count.
