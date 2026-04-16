@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/cortexa-llc/ai-pack/internal/constants"
 )
@@ -93,6 +94,7 @@ var ModelsByTier = map[ModelTier][]ModelInfo{
 
 // ModelSelector selects the best model based on performance and complexity
 type ModelSelector struct {
+	mu                  sync.RWMutex
 	gradeManager        *PerformanceGradeManager
 	complexityAnalyzer  *ComplexityAnalyzer
 	minTier             ModelTier
@@ -129,23 +131,31 @@ func NewModelSelector(gradeManager *PerformanceGradeManager, complexityAnalyzer 
 
 // SetTierLimits sets the min/max tier bounds
 func (ms *ModelSelector) SetTierLimits(minTier, maxTier ModelTier) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
 	ms.minTier = minTier
 	ms.maxTier = maxTier
 }
 
 // SetEnabled enables or disables adaptive selection
 func (ms *ModelSelector) SetEnabled(enabled bool) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
 	ms.enabled = enabled
 }
 
 // IsEnabled reports whether adaptive model selection is active.
 func (ms *ModelSelector) IsEnabled() bool {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	return ms.enabled
 }
 
 // SetRoleDefaultTier registers a per-role starting tier from the **Tier:** role config field.
 // This allows role .md files to influence where grade-based selection begins.
 func (ms *ModelSelector) SetRoleDefaultTier(role string, tier ModelTier) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
 	if ms.roleDefaultTiers == nil {
 		ms.roleDefaultTiers = make(map[string]ModelTier)
 	}
@@ -155,6 +165,8 @@ func (ms *ModelSelector) SetRoleDefaultTier(role string, tier ModelTier) {
 // GetRoleDefaultTier returns the per-role starting tier registered via SetRoleDefaultTier.
 // It returns TierStandard when no role-specific tier has been registered.
 func (ms *ModelSelector) GetRoleDefaultTier(role string) ModelTier {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	if ms.roleDefaultTiers == nil {
 		return TierStandard
 	}
@@ -167,6 +179,8 @@ func (ms *ModelSelector) GetRoleDefaultTier(role string) ModelTier {
 // SetRoleRequiredClass registers a class filter for a role from the **Class:** role config field.
 // When set, only models of that class are eligible for selection in that role.
 func (ms *ModelSelector) SetRoleRequiredClass(role string, class ModelClass) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
 	if ms.roleRequiredClasses == nil {
 		ms.roleRequiredClasses = make(map[string]ModelClass)
 	}
@@ -175,6 +189,8 @@ func (ms *ModelSelector) SetRoleRequiredClass(role string, class ModelClass) {
 
 // getRequiredClass returns the class filter registered for a role, or "" if none.
 func (ms *ModelSelector) getRequiredClass(role string) ModelClass {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	if ms.roleRequiredClasses != nil {
 		if class, ok := ms.roleRequiredClasses[role]; ok {
 			return class
@@ -209,6 +225,15 @@ func (ms *ModelSelector) SelectModel(
 	taskDescription string,
 	minContextTokens int,
 ) ModelSelectionResult {
+	// Snapshot immutable-ish scalars under a brief read lock so the race
+	// detector is satisfied even if SetEnabled/SetTierLimits are called
+	// concurrently (they are only written at startup, but the lock is cheap).
+	ms.mu.RLock()
+	enabled := ms.enabled
+	minTier := ms.minTier
+	maxTier := ms.maxTier
+	ms.mu.RUnlock()
+
 	// Reload grades from disk on every selection to reflect real-time failures.
 	if ms.gradeManager != nil {
 		if err := ms.gradeManager.ReloadGrades(); err != nil {
@@ -217,7 +242,7 @@ func (ms *ModelSelector) SelectModel(
 	}
 
 	// If adaptive selection is disabled, use default
-	if !ms.enabled {
+	if !enabled {
 		defaultTier := ms.getDefaultTier(role)
 		requiredClass := ms.getRequiredClass(role)
 		model := ms.getBestAvailableModelFromTier(defaultTier, role, projectID, minContextTokens, requiredClass)
@@ -253,7 +278,7 @@ func (ms *ModelSelector) SelectModel(
 		switch grade.Grade {
 		case "A":
 			// Performing excellently - can we downgrade to save cost?
-			if selectedTier > ms.minTier && selectedTier > TierMinimal {
+			if selectedTier > minTier && selectedTier > TierMinimal {
 				// Don't downgrade below complexity minimum
 				complexityMinTier := ModelTier(GetMinimumTier(complexity))
 				if selectedTier-1 >= complexityMinTier {
@@ -278,7 +303,7 @@ func (ms *ModelSelector) SelectModel(
 
 		case "D", "F":
 			// Poor performance - escalate
-			if selectedTier < ms.maxTier {
+			if selectedTier < maxTier {
 				selectedTier = selectedTier + 1
 				reasoning = fmt.Sprintf("Escalated from tier %d to %d (Grade %s, %.0f%% success rate)",
 					defaultTier, selectedTier, grade.Grade, grade.SuccessRate*100)
@@ -340,6 +365,8 @@ func (ms *ModelSelector) SelectModel(
 // Uses the per-role override registered via SetRoleDefaultTier (from **Tier:** in .md),
 // falling back to TierLow when no override is set.
 func (ms *ModelSelector) getDefaultTier(role string) ModelTier {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	if ms.roleDefaultTiers != nil {
 		if tier, ok := ms.roleDefaultTiers[role]; ok && tier > 0 {
 			return tier
