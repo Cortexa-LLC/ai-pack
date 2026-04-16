@@ -1,10 +1,15 @@
 # Knowledge Graph Architecture
 
-**Last updated:** 2026-02-28
+**Last updated:** 2026-04-16
 
 Per-project knowledge graph that persists findings, code relationships, architectural
 decisions, and incident history across agent sessions. Agents read from it via MCP tools;
 the agent-server injects relevant context into the system prompt before each task starts.
+
+**The `kg` binary is a standalone MCP server** — it lives in a separate repository
+(`~/Projects/Vibe/mcp/src/kg/`, module `github.com/cortexa-llc/mcp/kg`) and is
+installed independently. ai-pack has no in-process KuzuDB dependency; all knowledge
+graph access is via MCP subprocess calls.
 
 For storage and build-tooling rationale see `docs/adr/003-knowledge-graph.md`.
 
@@ -40,58 +45,119 @@ investigation turns for known problem spaces.
 
 ## Component Overview
 
-The `internal/knowledge/` package is split into distinct sub-concerns:
+The knowledge graph implementation lives **entirely in the standalone `kg` binary**
+(`~/Projects/Vibe/mcp/src/kg/`, module `github.com/cortexa-llc/mcp/kg`,
+installed to `/usr/local/bin/kg`). ai-pack contains only a thin client layer:
 
 ```
-internal/knowledge/
-├── store.go               — Kuzu DB wrapper (OpenStore, OpenStoreReadOnly, schema init)
-├── entity.go              — CRUD for Entity nodes
-├── observation.go         — CRUD for Observation nodes
-├── relation.go            — CRUD for Relation edges
-├── types.go               — Entity, Relation, Observation structs
-├── embedder.go            — Embedder interface
-├── embedder_openai.go     — OpenAI text-embedding-3-small backend
-├── embedder_ollama.go     — Ollama (local) backend
-├── embeddings.go          — BatchEmbed (bulk un-embedded entity processing)
-├── hnsw_index.go          — In-memory HNSW index (vectorIndexCache, buildIndex)
-├── search.go              — KeywordSearch, VectorSearch, HybridSearch
-├── indexer.go             — Structural source-file scanner (walk + NDJSON bulk-load)
-├── indexer_treesitter.go  — Tree-sitter multi-language extractor (14 languages)
-├── indexer_asm.go         — Assembly file extractor
-├── indexer_markdown.go    — Markdown heading/topic extractor
-├── indexer_yaml.go        — YAML key/value extractor (tree-sitter)
-├── indexer_html.go        — HTML heading/id extractor (tree-sitter)
-├── indexer_graphql.go     — GraphQL SDL extractor (all drafts + Federation v1/v2)
-├── indexer_jsonschema.go  — JSON Schema extractor ($defs, definitions)
-├── indexer_makefile.go    — Makefile/CMake target and variable extractor
-├── preflight.go           — Pre-task context injection
-└── mcp_server.go          — MCP tool server over stdio (open-use-close per call)
+ai-pack (this repo)
+└── internal/kgclient/
+    ├── writeback.go      — WriteBack, WriteAgentReasoning (task outcome → KG)
+    ├── log_indexer.go    — IndexExecutionLog (execution.log metrics → KG)
+    └── preflight.go      — PreflightContext, ParseRelatedProjects
+
+kg binary (~/Projects/Vibe/mcp/src/kg/)
+├── internal/knowledge/
+│   ├── store.go               — KuzuDB wrapper (OpenStore, OpenStoreReadOnly, schema init)
+│   ├── entity.go / observation.go / relation.go / types.go
+│   ├── embedder*.go           — Embedder interface, OpenAI + Ollama backends
+│   ├── embeddings.go          — BatchEmbed (bulk un-embedded entity processing)
+│   ├── hnsw_index.go          — In-memory HNSW index (vectorIndexCache, buildIndex)
+│   ├── search.go              — KeywordSearch, VectorSearch, HybridSearch
+│   ├── indexer*.go            — Structural source-file scanner (tree-sitter, 14+ languages)
+│   └── mcp_server.go          — MCP tool server over stdio (open-use-close per call)
+└── *.go                       — CLI commands (kg index, kg search, kg server, …)
 ```
 
-### Data flow
+### Per-project database isolation
+
+Each project gets its own `.ai/knowledge.db`. The `kg` binary auto-discovers the
+correct database by walking up from its **working directory** to find a `.ai/`
+directory, a git root, or a common project marker (`go.mod`, `package.json`, etc.).
+
+`internal/mcp/Manager` spawns one `kg server --stdio` subprocess **per project root**,
+with that project directory as the subprocess CWD. This ensures every project sees its
+own isolated graph with no additional configuration.
+
+```
+agent-server spawns:
+  kg server --stdio  (CWD=/Users/bryanw/Projects/Vibe/ai-pack)  → ai-pack/.ai/knowledge.db
+  kg server --stdio  (CWD=/Users/bryanw/Projects/HomeControl)    → HomeControl/.ai/knowledge.db
+  kg server --stdio  (CWD=/Users/bryanw/Projects/xasm)           → xasm/.ai/knowledge.db
+```
+
+The subprocess is persistent for the lifetime of the agent-server session — it is
+spawned on first use for a project and reused for all subsequent tool calls to that
+project's graph within the session.
+
+### MCP interaction model
+
+`internal/mcp/Manager` communicates with each `kg server --stdio` subprocess over
+JSON-RPC on stdin/stdout. Within `kg`, each tool call uses an **open-use-close**
+pattern: it opens KuzuDB, executes the operation, and closes the connection before
+returning the response. No KuzuDB write lock is held between calls.
+
+```mermaid
+sequenceDiagram
+    participant Server as agent-server
+    participant KGClient as internal/kgclient
+    participant Manager as internal/mcp/Manager
+    participant KGProc as kg server --stdio<br/>(per project subprocess)
+    participant DB as .ai/knowledge.db<br/>(KuzuDB)
+
+    Server->>KGClient: WriteBack(ctx, projectRoot, …)
+    KGClient->>Manager: CallToolIntoForProject("add_entity", …)
+    Manager->>KGProc: JSON-RPC stdin: tools/call add_entity
+    KGProc->>DB: open → CreateEntity → close
+    DB-->>KGProc: entity {id, name, type}
+    KGProc-->>Manager: JSON-RPC stdout: {id: "abc123"}
+    Manager-->>KGClient: entityRef{ID: "abc123"}
+    KGClient->>Manager: CallToolIntoForProject("add_observation", …)
+    Manager->>KGProc: JSON-RPC stdin: tools/call add_observation
+    KGProc->>DB: open → CreateObservation → close
+    KGProc-->>Manager: JSON-RPC stdout: ok
+```
+
+### Why kgclient uses MCP — not direct KuzuDB access
+
+KuzuDB allows only one writer at a time. If `internal/kgclient` opened KuzuDB
+in-process inside `agent-server`, it would compete for the write lock with the
+already-running `kg server --stdio` subprocess — causing operations like `kg stats`
+to hang indefinitely.
+
+`internal/kgclient` communicates exclusively through `mcpManager.CallToolIntoForProject()`.
+The only KG-typed value in kgclient is a minimal local struct:
+
+```go
+// entityRef is the only KG type used by kgclient —
+// the minimal JSON shape returned by add_entity.
+type entityRef struct {
+    ID string `json:"id"`
+}
+```
+
+ai-pack has **no CGO dependency** and no KuzuDB import. The full KuzuDB + CGO
+surface is contained inside the standalone `kg` binary.
+
+### Data flow (high-level)
 
 ```mermaid
 graph TD
-    Agent["Agent / MCP Client"]
-    MCP["mcp_server.go\n(search_knowledge,\nget_preflight_context)"]
-    Hybrid["HybridSearch\n(search.go)"]
-    KW["KeywordSearch\n(Kuzu CONTAINS)"]
-    VS["VectorSearch\n(HNSW index)"]
-    HNSW["vectorIndexCache\n(hnsw_index.go)"]
-    Kuzu[("Kuzu DB\n(.ai/knowledge/)")]
-    Embed["Embedder\n(OpenAI / Ollama)"]
+    Server["agent-server\n(cmd/server — pure Go, no CGO)"]
+    KGClient["internal/kgclient\n(writeback, log_indexer, preflight)"]
+    MCPMgr["internal/mcp/Manager\n(one kg subprocess per project)"]
+    KGProc["kg server --stdio\n(subprocess, CWD = project root)"]
+    DB[(".ai/knowledge.db\nKuzuDB graph")]
+    Hybrid["HybridSearch\n(keyword + HNSW vector)"]
+    Embed["Embedder\n(OpenAI / Ollama — optional)"]
 
-    Agent -->|"MCP call"| MCP
-    MCP -->|"open RO/RW → close"| Kuzu
-    MCP --> Hybrid
-    Hybrid --> KW
-    Hybrid --> VS
-    KW -->|"Cypher CONTAINS"| Kuzu
-    VS --> HNSW
-    HNSW -->|"lazy build"| Kuzu
-    HNSW -->|"HNSW kNN"| VS
-    Embed -->|"BatchEmbed writes vectors"| Kuzu
-    HNSW -.->|"invalidated on SetEmbedding"| HNSW
+    Server -->|"task lifecycle hooks"| KGClient
+    KGClient -->|"CallToolIntoForProject()"| MCPMgr
+    MCPMgr -->|"JSON-RPC stdio"| KGProc
+    KGProc -->|"open RO/RW → close"| DB
+    KGProc --> Hybrid
+    Hybrid --> DB
+    Embed -->|"BatchEmbed writes vectors"| DB
 ```
 
 ---
@@ -507,16 +573,21 @@ knowledge graph as a high-value cache, not as the system of record for agent out
 
 ## Cross-Platform Builds
 
-CGO is required only for `cmd/kg`. `cmd/server` and all other binaries are pure Go.
-`Makefile` targets provide distinct build steps:
+`cmd/server` and `cmd/agent` are pure Go — no CGO, no C++ toolchain required.
 
-```makefile
-build-kg:     # CGO_ENABLED=1, requires kuzu shared library
-build-server: # CGO_ENABLED=0, pure Go
+CGO is required only for the **standalone `kg` binary**, which is built and installed
+separately from `~/Projects/Vibe/mcp/src/kg/`:
+
+```bash
+cd ~/Projects/Vibe/mcp/src/kg
+make install        # CGO_ENABLED=1 — requires a C compiler (Xcode CLT / gcc)
+# or via install.py:
+python3 ~/Projects/Vibe/mcp/install.py --mcp kg
 ```
 
-The Kuzu shared library (`libkuzu`) is vendored in `vendor/kuzu/` and linked
-statically on Linux CI.
+The `kg` binary statically links KuzuDB (`libkuzu.a`) — the result is a single
+self-contained executable (~60–80MB). ai-pack's `Makefile` builds only `cmd/agent`
+and `cmd/server`; there is no `build-kg` target.
 
 ---
 
@@ -533,3 +604,8 @@ statically on Linux CI.
 - Read-only store mode for concurrent search alongside indexing
 - Project root auto-detection (`.ai/` walk → git → marker files)
 - `index_project` MCP tool; kg wired into agent sessions via `agent-server.json`
+- **2026-04-16**: Extracted `cmd/kg/` + `internal/knowledge/` to standalone module
+  `github.com/cortexa-llc/mcp/kg` (`~/Projects/Vibe/mcp/src/kg/`). ai-pack no longer
+  has any in-process KuzuDB access. `internal/kgclient` uses `entityRef{ID string}`
+  as its only KG-typed value; all writes go through `mcpManager.CallToolIntoForProject()`.
+  Fixes KuzuDB write-lock contention that caused `kg stats` to hang.
