@@ -1,158 +1,121 @@
-# kg - Knowledge Graph CLI
+# kg — Knowledge Graph CLI
 
-Command-line interface for the ai-pack knowledge graph system.
+The `kg` binary provides a CLI and MCP server for the ai-pack knowledge graph, backed
+by [KuzuDB](https://kuzudb.com). It runs as a subprocess managed by the ai-pack MCP
+manager, and can also be used directly from the command line.
 
-## Installation
+**Database location:** `.ai/knowledge.db` relative to the detected project root.
+The project root is determined by walking up from the current directory to find a
+`.ai/` directory, a git root, or a common project marker (`go.mod`, `package.json`, etc.).
 
-```bash
-go build -o kg ./cmd/kg
-```
-
-## Usage
-
-### Index Codebase
-
-Scan the codebase and populate the knowledge graph with structural data:
+## Build
 
 ```bash
-./kg index
+make build-kg          # build to bin/kg
+make install-kg        # build + install to /usr/local/bin/kg
 ```
 
-Output:
+Or from the source directory:
+```bash
+CGO_ENABLED=1 go build -o kg ./cmd/kg
 ```
-🔍 Indexing codebase at /path/to/repo...
+
+## First-Time Setup: `kg index`
+
+Run once per project to scan the codebase and populate the graph:
+
+```bash
+kg index
+```
+
+```
+🔍 Indexing codebase at /path/to/your-project...
 ✅ Indexing complete!
    Files scanned:     191
    Entities created:  1113
    Relations created: 1517
-   Duration:          5.156s
+   Duration:          5.2s
 ```
 
-**What gets indexed:**
-- Go packages, files, functions, types, imports
-- File structure and organization
-- Import relationships (IMPORTS relations)
+Re-run after large structural changes or significant refactors. The MCP tool
+`kg__index_project` triggers the same operation from within a Claude session.
 
-**What is NOT indexed:**
-- Files matching .gitignore patterns
-- Files matching .claudeignore patterns
-- Binary files
-- Generated files
+**Skipped automatically:** `.git`, `node_modules`, `vendor`, `dist`, `build`, and any
+path matching `.gitignore` or `.claudeignore` patterns.
 
-### Query the Graph
+## Commands
 
-Execute Cypher queries against the knowledge graph:
-
-```bash
-./kg query "MATCH (f:Entity {type:'file'}) RETURN count(f)"
+```
+kg index                              # scan codebase → .ai/knowledge.db
+kg search <query>                     # keyword search across entities + observations
+kg stats                              # count of entities, relations, observations
+kg show <entity-id>                   # show entity with relations + observations
+kg add entity --name <n> --type <t>   # add an entity manually
+kg add observation <id> <content>     # attach an observation to an entity
+kg link <from> --rel <TYPE> <to>      # create a directed relation
+kg export                             # export to GraphML/JSON
+kg graph                              # write GraphML to stdout
+kg gc                                 # remove orphaned nodes + observations
+kg server --stdio                     # start MCP server (used by ai-pack, not manually)
+kg version                            # print version, commit, build time
 ```
 
-**Sample Queries:**
+## MCP Server Mode
 
-Count all files:
-```bash
-./kg query "MATCH (f:Entity {type:'file'}) RETURN count(f)"
-```
-
-List imports for a specific file:
-```bash
-./kg query "MATCH (f:Entity {name:'cmd/kg/main.go'})-[:IMPORTS]->(p:Entity) RETURN p.name"
-```
-
-Entity type distribution:
-```bash
-./kg query "MATCH (e:Entity) RETURN e.type, count(*) ORDER BY count(*) DESC"
-```
-
-Find all files that import a package:
-```bash
-./kg query "MATCH (f:Entity)-[:IMPORTS]->(p:Entity {name:'fmt'}) RETURN f.name LIMIT 10"
-```
-
-### Help
-
-```bash
-./kg --help
-```
+The MCP manager in `internal/mcp/` spawns `kg server --stdio` as a subprocess per
+project. Tool calls arrive over stdin as JSON-RPC, results are written to stdout.
+The server uses an open-use-close pattern — each tool call opens the database,
+executes, and closes it, so concurrent `kg index` or CLI commands never block.
 
 ## Knowledge Graph Schema
 
 ### Entity Types
 
-- **file** - Source code files (e.g., `cmd/kg/main.go`)
-- **package** - Go packages (e.g., `main`)
-- **module** - Go modules (e.g., `github.com/cortexa-llc/ai-pack`)
-- **function** - Functions and methods (e.g., `main.main`)
-- **type** - Type declarations (e.g., `Store`)
+| Type | Description |
+|------|-------------|
+| `file` | Source file (e.g. `internal/auth/token.go`) |
+| `package` | Go package or language module |
+| `module` | Go module (e.g. `github.com/cortexa-llc/ai-pack`) |
+| `function` | Function or method |
+| `type` | Type declaration (struct, interface, enum, class) |
+| `topic` | Conceptual entity — architecture decision, investigation topic |
+| `import` | Import path |
+| `concept` | Free-form concept (manually added) |
 
 ### Relation Types
 
-- **IMPORTS** - Import relationships between files/packages
-- **CALLS** - Function call relationships (future)
-- **CONTAINS** - Containment relationships (future)
-- **IMPLEMENTS** - Interface implementation (future)
-- **EXTENDS** - Type extension relationships (future)
+| Relation | Direction | Meaning |
+|----------|-----------|---------|
+| `CONTAINS` | file → function/type | File declares this entity |
+| `IMPORTS` | file/package → import | File imports this dependency |
+| `CALLS` | function → function | Function calls another |
+| `IMPLEMENTS` | type → type | Type implements interface |
+| `BELONGS_TO` | entity → package | Entity belongs to package |
+| `DEPENDS_ON` | entity → entity | Architectural dependency |
+| `RELATES_TO` | entity → entity | Free-form association |
 
-### Entity Properties
+### Observation Prefixes (convention)
 
-- `name` - Primary identifier (file path, package name, etc.)
-- `type` - Entity type (file, package, function, type, module)
-- `path` - File system path (for file entities)
-- `project` - Project name (currently "ai-pack")
+| Prefix | Use for |
+|--------|---------|
+| `[INVESTIGATION]` | Findings from debugging or exploration |
+| `[DECISION]` | Architectural choices and rationale |
+| `[CAVEAT]` | Known limitations, edge cases, gotchas |
+| `[PERFORMANCE]` | Measured characteristics or bottlenecks |
 
-## Performance
+## Indexed Languages
 
-Indexing the ai-pack repository (191 files):
-- **Scan time:** ~3 seconds
-- **Load time:** ~2 seconds
-- **Total:** ~5 seconds
-
-The indexer uses CSV bulk loading via Kuzu's COPY FROM for optimal performance.
-
-## Database Location
-
-The knowledge graph database is stored in:
-```
-.kuzu/
-```
-
-This directory is automatically created on first index and should be added to .gitignore.
-
-## Development
-
-To add new entity or relation types:
-
-1. Update `internal/knowledge/store.go` schema
-2. Add extraction logic in `internal/knowledge/indexer.go`
-3. Write CSV rows via `writeEntity()` or `writeRelation()`
-4. Rebuild and test: `go build ./cmd/kg && ./kg index`
+Go, Python, TypeScript, JavaScript, Rust, Java, Kotlin, C, C++, C#, Swift, Ruby,
+Bash, Groovy, CSS, HTML, YAML, Markdown, GraphQL, JSON Schema, PDF, Assembly, Makefile.
 
 ## Troubleshooting
 
-**Error: "database already open"**
-- Another kg process is running
-- Close other instances and retry
+**"database already open"** — another `kg` process has the database locked.
+Close other instances and retry. The MCP server uses open-use-close per call to
+avoid holding the lock between tool calls.
 
-**Error: "permission denied"**
-- Check file permissions on .kuzu/ directory
-- Ensure write access to working directory
+**Empty results after indexing** — check `.gitignore` and `.claudeignore` patterns.
+Verify the files you expect are not excluded.
 
-**Empty results after indexing**
-- Check .gitignore and .claudeignore patterns
-- Verify files are not excluded from indexing
-- Run with verbose logging (future feature)
-
-**Import relations missing**
-- Ensure Go files have valid syntax
-- Check AST parsing errors in logs
-- Verify import statements are standard format
-
-## Future Enhancements
-
-- [ ] Progress bar for large repositories
-- [ ] Verbose logging mode
-- [ ] Incremental indexing (only changed files)
-- [ ] Function call graph extraction
-- [ ] Type relationship extraction
-- [ ] Documentation comment extraction
-- [ ] Test coverage integration
+**Import relations missing** — ensure Go files have valid syntax. The tree-sitter
+parser skips files with parse errors.
