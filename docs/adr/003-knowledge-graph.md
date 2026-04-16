@@ -128,3 +128,57 @@ cmd/agent (pure Go, CGO-free) additionally cross-compiles to `windows/amd64`.
 - CI matrix uses four native runners; goreleaser manages the release pipeline
 - `kg server --stdio` must be on PATH (or configured with full path) for the
   agent-server's mcpManager to spawn it
+
+---
+
+## Amendment 2026-04-16: Extract kg to Standalone Module
+
+**Status:** Accepted
+
+### Decision
+
+`cmd/kg/` and `internal/knowledge/` have been removed from ai-pack and now live in a
+standalone Go module: `github.com/cortexa-llc/mcp/kg`
+(at `~/Projects/Vibe/mcp/src/kg/`).
+
+### Context
+
+Two problems drove this change:
+
+1. **Lock contention**: `internal/kgclient` imported `internal/knowledge` directly,
+   creating an in-process KuzuDB connection inside `agent-server`. KuzuDB allows only
+   one writer at a time. The `kg server --stdio` subprocess already held the write lock
+   for the project; the in-process open caused `kg stats` (and any other direct open)
+   to hang indefinitely.
+
+2. **Standalone distribution**: The `kg` MCP server has value as a general-purpose tool
+   usable by any project, not just ai-pack. Extracting it to an independent module
+   allows it to be installed without pulling in the ai-pack server.
+
+### What changed in ai-pack
+
+- `cmd/kg/` deleted — kg CLI is now `~/Projects/Vibe/mcp/src/kg/`
+- `internal/knowledge/` deleted — KuzuDB access is no longer in-process
+- `internal/kgclient` retains a single local type:
+  ```go
+  type entityRef struct { ID string `json:"id"` }
+  ```
+  This is the only KG-typed value; it is used to capture the entity ID returned by
+  `add_entity` so subsequent `add_observation` calls can reference it.
+- All KG operations go through `mcpManager.CallToolIntoForProject()` — identical to
+  how any other MCP tool is called.
+- `Makefile` no longer has `build-kg` / `install-kg` / `uninstall-kg` targets.
+  Install kg via `cd ~/Projects/Vibe/mcp/src/kg && make install`.
+
+### Per-project isolation (unchanged behaviour)
+
+`internal/mcp/Manager` spawns one `kg server --stdio` subprocess per project root,
+with that project directory as the subprocess CWD. `kg` auto-discovers `.ai/knowledge.db`
+from its CWD. Each project gets an isolated graph with no additional configuration.
+
+### CGO surface
+
+ai-pack (`cmd/server`, `cmd/agent`) now has **zero CGO dependencies**. The full
+KuzuDB + CGO surface is inside the standalone `kg` binary.
+
+See `docs/architecture/knowledge-graph.md` for the full current architecture.
