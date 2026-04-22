@@ -1,11 +1,10 @@
 # Federated GraphQL Designer
 <!-- skills/federated_graphql_designer.skill.md -->
 
-**Version:** 1.0
+**Version:** 2.0
 **InjectAt:** role_context
 **Slot:** 35
-**Tools:** kg__search_knowledge, kg__add_entity, kg__add_observation, Bash, Read, Write, Grep, Glob
-**Gates:** federation-compliance-required
+**Tools:** kg__search_knowledge, kg__add_entity, kg__add_observation, mcp__upk__search_knowledge, mcp__upk__add_learning, Bash, Read, Write, Grep, Glob
 **MaxExtraTokens:** 8000
 **Optional:** true
 
@@ -22,10 +21,12 @@ Design GraphQL schemas following Apollo Federation 2.3+ patterns for federated a
 ## Core Principles
 
 1. **Client-First Design** — Map the client query flow BEFORE designing the schema
-2. **Entity Ownership** — Understand Primary Owner vs Extender vs Stub patterns
-3. **Federation Directives** — Correct use of @key, @requires, @provides, @external, @shareable
-4. **Iterative Design** — Build one component at a time, get feedback, refine
-5. **Pattern Reference** — Check KG and docs for established patterns
+2. **Domain Modeling** — Reflect business concepts, NOT database structure (Netflix principle)
+3. **Entity Ownership** — Understand Primary Owner vs Extender vs Stub patterns
+4. **Stable Keys** — Use stable primary key fields that won't change as systems evolve (Netflix)
+5. **Federation Directives** — Correct use of @key, @requires, @provides, @external, @shareable
+6. **Iterative Design** — Build one component at a time, get feedback, refine
+7. **Pattern Reference** — Check KG and docs for established patterns
 
 ---
 
@@ -33,19 +34,25 @@ Design GraphQL schemas following Apollo Federation 2.3+ patterns for federated a
 
 **FIRST ACTION:** Before designing any schema, understand Federation patterns.
 
-### 1.1 Query KG for Existing Patterns
+### 1.1 Query Knowledge Base for Existing Patterns (Optional)
 
-**If KG tools available:**
+**If KG or upk tools are available and populated:**
 ```javascript
-// Search for established GraphQL patterns
+// Try KG first
 kg__search_knowledge({
   query: "GraphQL federation patterns"
 })
 
-kg__search_knowledge({
-  query: "entity ownership GraphQL"
+// Or upk
+mcp__upk__search_knowledge({
+  query: "GraphQL federation patterns"
 })
 ```
+
+**If knowledge base is empty or unavailable:**
+- Skip to 1.2 (read project schemas)
+- Rely on Apollo Federation best practices documented in this skill
+- Can optionally fetch docs from apollographql.com if needed
 
 ### 1.2 Read Project GraphQL Conventions (if available)
 
@@ -76,21 +83,21 @@ find . -name "*.graphql" -o -name "*.gql"
 
 **CRITICAL:** Before designing the schema, understand how clients will consume it.
 
-Ask the user:
+Ask the astronaut:
 
 ```
 1. What is the client trying to accomplish?
-   - User action or screen that triggers this
+   - Astronaut action or screen that triggers this
    - What data the client needs
 
 2. What existing entities does the client query first?
-   - User? Product? Order? CustomEntity?
+   - Astronaut? Equipment? Launch? CustomEntity?
    - Which subgraph owns these entities?
 
 3. Where does the new schema fit in this flow?
-   - Extension of existing entity? (add fields to User)
+   - Extension of existing entity? (add fields to Astronaut)
    - Separate query? (independent data fetch)
-   - Mutation triggered by user action?
+   - Mutation triggered by astronaut action?
 
 4. What is the order of Federation Gateway calls?
    - Single federated query? (Gateway orchestrates)
@@ -101,53 +108,65 @@ Ask the user:
 
 **Example Analysis:**
 ```graphql
-# Client perspective: Seller dashboard wants shipping metrics
+# Client perspective: Astronaut dashboard wants analytics metrics
 
-query SellerDashboard($userId: ID!) {
-  user(id: $userId) {
-    # Existing fields from userprofile subgraph
+query AstronautDashboard($astronautId: ID!) {
+  astronaut(id: $astronautId) {
+    # Existing fields from astronautprofile subgraph
     name
     email
 
-    # NEW fields we're designing (from shipping subgraph)
-    shippingMetrics {
+    # NEW fields we're designing (from analytics subgraph)
+    missionMetrics {
       score
       recommendations { id message }
     }
   }
 }
 
-Decision: Extend User entity (not a new root query)
-Reasoning: Client already queries User, adding field is seamless
+Decision: Extend Astronaut entity (not a new root query)
+Reasoning: Client already queries Astronaut, adding field is seamless
 ```
 
 ### 2.2 Determine Entity Strategy
 
 Based on client flow, choose ONE:
 
-**A. Extend Existing Entity** (most common)
+**A. Extend Existing Entity** (most common - Netflix pattern)
 ```graphql
 # Your subgraph adds fields to an entity owned by another subgraph
-type User @key(fields: "id") @extends {
+# Example: Reviews subgraph extends Movie owned by content subgraph
+type Astronaut @key(fields: "id") @extends {
   id: ID! @external
-  shippingMetrics: ShippingMetrics
+  missionMetrics: MissionMetrics
 }
 ```
 
+**CRITICAL:** Use **stable identifiers** for @key fields - IDs that won't change as systems evolve.
+
 **B. Own New Entity**
 ```graphql
-# Your subgraph owns a new entity
-type ShippingInsight @key(fields: "id") {
+# Your subgraph owns a new entity with primary ownership
+type MissionInsight @key(fields: "id") {
   id: ID!
-  userId: ID!
+  astronautId: ID!
   score: Float!
+}
+```
+
+**Composite Keys** (when single field insufficient):
+```graphql
+type LaunchManifest @key(fields: "launchId equipmentId") {
+  launchId: ID!
+  equipmentId: ID!
+  quantity: Int!
 }
 ```
 
 **C. Reference Entity (Stub)**
 ```graphql
 # Your subgraph references but doesn't extend an entity
-type User @key(fields: "id", resolvable: false) {
+type Astronaut @key(fields: "id", resolvable: false) {
   id: ID!
 }
 ```
@@ -160,7 +179,7 @@ Ask for specific details needed:
 To design the schema, I need:
 
 1. Entity definitions from Supergraph (if extending):
-   - Which entity? (User, Product, Order, etc.)
+   - Which entity? (Astronaut, Equipment, Launch, etc.)
    - Need: @key fields, any fields for @requires
 
 2. Data source:
@@ -188,20 +207,20 @@ Present the design approach with options if applicable:
 ## Proposed Approach
 
 ### Entity Strategy
-**Choice:** Extend User entity
-**Reasoning:** Client already queries User for dashboard data
+**Choice:** Extend Astronaut entity
+**Reasoning:** Client already queries Astronaut for dashboard data
 
 ### Operations
-- **Queries:** None (data accessed via User extension)
-- **Mutations:** updateShippingPreferences (if user can configure)
+- **Queries:** None (data accessed via Astronaut extension)
+- **Mutations:** updateMissionPreferences (if astronaut can configure)
 
 ### Key Pattern
-**Nested key:** `@key(fields: "id")` on User
+**Nested key:** `@key(fields: "id")` on Astronaut
 **Requires:** May need `@requires(fields: "accountType")` if metrics differ by account
 
 ### Error Handling
 **Pattern:** Union response type (success | error)
-**Why:** Business rules (e.g., metrics not available for new users)
+**Why:** Business rules (e.g., metrics not available for new astronauts)
 ```
 
 ### 3.2 Show Schema Skeleton
@@ -209,18 +228,18 @@ Present the design approach with options if applicable:
 ```graphql
 # Client query (how it will be used):
 query {
-  user(id: "123") {
-    shippingMetrics { ... }  # NEW
+  astronaut(id: "123") {
+    missionMetrics { ... }  # NEW
   }
 }
 
 # Schema structure:
-type User @key(fields: "id") @extends {
+type Astronaut @key(fields: "id") @extends {
   id: ID! @external
-  shippingMetrics: ShippingMetrics
+  missionMetrics: MissionMetrics
 }
 
-type ShippingMetrics {
+type MissionMetrics {
   score: Float!
   recommendations: [Recommendation!]!
 }
@@ -236,15 +255,15 @@ type Recommendation {
 ```markdown
 Let's build this incrementally:
 
-Step 1: Define User extension and key
-Step 2: Define ShippingMetrics type
+Step 1: Define Astronaut extension and key
+Step 2: Define MissionMetrics type
 Step 3: Add Recommendation type
 Step 4: Add mutation (if needed)
 Step 5: Add error handling
 Step 6: Document and validate
 ```
 
-**Get user approval before proceeding.**
+**Get astronaut approval before proceeding.**
 
 ---
 
@@ -261,20 +280,175 @@ For each component:
 
 ### 4.2 Apply Federation Best Practices
 
+**Performance Considerations (Netflix learnings):**
+- Design resolvers to support DataLoader batching (avoid N+1 queries)
+- Query planning overhead should be <10ms for the router/gateway
+- Enable parallel execution where dependencies allow
+- Consider query cost analysis for expensive operations
+- Add field-level performance metrics to identify bottlenecks
+
+**Error Handling (Netflix pattern):**
+```graphql
+# Return partial results rather than failing entire query
+type MissionMetricsResult {
+  data: MissionMetrics
+  errors: [MissionError!]
+}
+
+type MissionError {
+  code: String!
+  message: String!
+}
+```
+
+**Avoiding Common Equipmention Issues:**
+
+**1. Consistent Descriptions for Shared Types**
+```graphql
+# ✅ GOOD: Use {inherit} for shared types
+"""
+{inherit}
+"""
+type PaginationInput {
+  maxPageSize: Int
+  pageCursor: String
+}
+
+# ❌ BAD: Custom description that differs from supergraph
+"""
+Input for pagination
+"""
+type PaginationInput { ... }  # Will cause composition warning
+```
+
+**2. Proper @shareable for Value Types**
+```graphql
+# ✅ GOOD: Shared value types need @shareable
+type Coordinate @shareable {
+  latitude: Float!
+  longitude: String!
+}
+
+# ❌ BAD: Duplicate type without @shareable
+type Coordinate {  # Composition error if defined in multiple subgraphs
+  latitude: Float!
+  longitude: String!
+}
+```
+
+**3. No @external on @key Fields (Fed v2)**
+```graphql
+# ✅ GOOD: @key fields don't need @external
+type Spacecraft @key(fields: "astronaut { id }") {
+  astronaut: Astronaut!  # No @external needed
+  settings: SpacecraftSettings
+}
+
+# ❌ BAD: Federation v1 syntax (relic)
+type Spacecraft @key(fields: "astronaut { id }") {
+  astronaut: Astronaut! @external  # Unnecessary in Fed v2
+  settings: SpacecraftSettings
+}
+```
+
+**4. Consistent Nullability**
+```graphql
+# ✅ GOOD: Consistent across all subgraphs
+type Node {
+  id: ID!  # Always non-null everywhere
+}
+
+# ❌ BAD: Different nullability in different subgraphs
+# Subgraph A: id: ID!
+# Subgraph B: id: ID   # Supergraph uses nullable (weakest constraint)
+```
+
+**5. Enum Evolution Strategy**
+```graphql
+# ⚠️ CAUTION: Adding enum values can break clients
+enum MissionStatus {
+  ACTIVE
+  INACTIVE
+  PENDING  # Adding this may break clients without default case
+}
+
+# ✅ BETTER: Design enums defensively with UNKNOWN
+enum MissionStatus {
+  UNKNOWN  # Allows graceful handling of new values
+  ACTIVE
+  INACTIVE
+}
+
+# ✅ ALSO: Remove unused enums
+# Don't define enums that no field references - causes DEBUG warnings
+```
+
+**6. Interface Design**
+```graphql
+# ❌ BAD: Interface without implementations
+interface Vehicle {
+  id: ID!
+  capacity: Int!
+}
+
+type Query {
+  vehicles: [Vehicle!]!  # No concrete types!
+}
+
+# ✅ GOOD: Provide at least one implementation
+type Spacecraft implements Vehicle {
+  id: ID!
+  capacity: Int!
+  fuelType: String!
+}
+```
+
+**7. Avoid Duplicate Types**
+```graphql
+# ❌ BAD: Similar error types
+type MissionNotFound {
+  code: String!
+  message: String!
+}
+
+type AstronautNotFound {
+  code: String!
+  message: String!
+}
+
+# ✅ BETTER: Shared type with discriminator
+type NotFoundError {
+  code: String!
+  message: String!
+  resourceType: String!  # "Mission", "Astronaut"
+}
+```
+
+**8. Union Type Additions**
+```graphql
+# ⚠️ CAUTION: Adding members to unions can break clients
+union SearchResult = Mission | Astronaut
+
+# Adding Launch may break clients:
+union SearchResult = Mission | Astronaut | Launch
+
+# Document union additions as potentially breaking
+```
+
 **Naming Conventions:**
 ```graphql
 # ✅ Queries/Mutations: domainAction (no "get" prefix)
-shippingMetrics(input: ShippingMetricsInput!): ShippingMetricsOutput!
+missionMetrics(input: MissionMetricsInput!): MissionMetricsOutput!
 
 # ❌ Avoid:
-getShippingMetrics(userId: ID!): ShippingMetrics
+getMissionMetrics(astronautId: ID!): MissionMetrics
 
 # ✅ Input/Output: Unique per operation
-input ShippingMetricsInput { userId: ID! }
-type ShippingMetricsOutput { metrics: ShippingMetrics! }
+input MissionMetricsInput { astronautId: ID! }
+type MissionMetricsOutput { metrics: MissionMetrics! }
 
 # ✅ Types: Domain-specific names
-type ShippingMetrics { ... }
+type MissionMetrics { ... }
 
 # ❌ Avoid: Generic names
 type Metrics { ... }
@@ -283,22 +457,67 @@ type Metrics { ... }
 **Documentation:**
 ```graphql
 """
-Shipping performance metrics for a seller.
+Astronaut mission metrics for performance tracking.
 Updated daily at 00:00 UTC.
 """
-type ShippingMetrics {
+type MissionMetrics {
   """
-  Overall shipping performance score (0.0 - 100.0).
-  Higher is better. Null when: user has no shipments in last 30 days.
+  Overall mission score (0.0 - 100.0).
+  Higher is better. Null when: astronaut has no mission in last 30 days.
   """
   score: Float
 
   """
-  Personalized recommendations to improve shipping score.
+  Personalized recommendations to improve performance.
   Always non-null, may be empty array.
   """
   recommendations: [Recommendation!]!
+  
+  """
+  Indicates if astronaut is currently on active duty.
+  true: Astronaut is assigned to active mission.
+  false: Astronaut is in training or between missions.
+  """
+  isActive: Boolean!
 }
+```
+
+**Documentation Requirements:**
+
+**Boolean Fields** - Always document what true/false means:
+```graphql
+# ❌ BAD
+isReady: Boolean!
+
+# ✅ GOOD
+"""
+true: Spacecraft pre-flight checks complete, ready for launch.
+false: Spacecraft requires maintenance or awaiting clearance.
+"""
+isReady: Boolean!
+```
+
+**String Fields** - Provide max length and format:
+```graphql
+# ❌ BAD
+description: String!
+
+# ✅ GOOD
+"""
+Mission description and objectives.
+Max 500 characters, alphanumeric with punctuation.
+"""
+description: String!
+```
+
+**Complex Nullability** - Document rules for nested structures:
+```graphql
+"""
+Launch manifest entries.
+If provided, must contain at least one equipment entry.
+The array itself is non-nullable, each entry also non-nullable.
+"""
+equipment: [LaunchEquipment!]!
 ```
 
 **Federation Directives:**
@@ -306,34 +525,44 @@ type ShippingMetrics {
 | Directive | When to Use | Example |
 |-----------|-------------|---------|
 | `@key` | Define entity identity | `@key(fields: "id")` |
-| `@extends` | Extend entity from other subgraph | `type User @extends` |
+| `@extends` | Extend entity from other subgraph | `type Astronaut @extends` |
 | `@external` | Mark field resolved elsewhere | `id: ID! @external` |
 | `@requires` | Need field from other subgraph | `@requires(fields: "accountType")` |
-| `@provides` | Optimize by providing foreign field | `@provides(fields: "user { name }")` |
+| `@provides` | Optimize by providing foreign field | `@provides(fields: "astronaut { name }")` |
 | `@shareable` | Value type used by multiple subgraphs | `type Price @shareable` |
 
-### 4.3 Store Design Decisions in KG
+### 4.3 Store Design Decisions (Optional)
 
 **If KG tools available**, record architectural choices:
 
 ```javascript
 kg__add_entity({
-  name: "ShippingMetrics GraphQL Design",
+  name: "MissionMetrics GraphQL Design",
   type: "design_decision",
   properties: {
-    decision: "Extend User entity rather than create new root query",
-    rationale: "Client already queries User, seamless addition",
-    tradeoffs: "Tightly coupled to User schema changes",
-    date: "2026-03-14"
+    decision: "Extend Astronaut entity rather than create new root query",
+    rationale: "Client already queries Astronaut, seamless addition",
+    tradeoffs: "Tightly coupled to Astronaut schema changes",
+    date: "2026-04-22"
   }
 })
 
 kg__add_observation({
   entity_id: design_id,
-  content: `[DECISION] Used nested @key pattern because User is owned by userprofile subgraph.
+  content: `[DECISION] Used nested @key pattern because Astronaut is owned by astronautprofile subgraph.
 Required federation 2.3+ for @shareable support.`
 })
 ```
+
+**Or if upk is available:**
+```javascript
+mcp__upk__add_learning({
+  content: "Used nested @key pattern for Astronaut extension. Rationale: Astronaut owned by astronautprofile subgraph. Required federation 2.3+ for @shareable support.",
+  source: "MissionMetrics schema design - 2026-04-22"
+})
+```
+
+**If neither available:** Skip this step - design decisions can be documented in schema comments or separate markdown files.
 
 ---
 
@@ -352,14 +581,14 @@ schema
 }
 
 # Entity extensions
-type User @key(fields: "id") @extends {
+type Astronaut @key(fields: "id") @extends {
   id: ID! @external
   accountType: String! @external  # If needed for @requires
-  shippingMetrics: ShippingMetrics
+  missionMetrics: MissionMetrics
 }
 
 # New types
-type ShippingMetrics {
+type MissionMetrics {
   score: Float
   recommendations: [Recommendation!]!
 }
@@ -378,17 +607,17 @@ enum Priority {
 
 # Mutations (if applicable)
 type Mutation {
-  updateShippingPreferences(input: UpdateShippingPreferencesInput!): UpdateShippingPreferencesOutput
+  updateMissionPreferences(input: UpdateMissionPreferencesInput!): UpdateMissionPreferencesOutput
 }
 
-input UpdateShippingPreferencesInput {
-  userId: ID!
+input UpdateMissionPreferencesInput {
+  astronautId: ID!
   notifications: Boolean
 }
 
-type UpdateShippingPreferencesOutput {
+type UpdateMissionPreferencesOutput {
   success: Boolean!
-  user: User
+  astronaut: Astronaut
 }
 ```
 
@@ -407,15 +636,15 @@ Verify:
 
 ```graphql
 # Complete client query demonstrating usage:
-query SellerDashboard($userId: ID!) {
-  user(id: $userId) {
+query AstronautDashboard($astronautId: ID!) {
+  astronaut(id: $astronautId) {
     # Existing fields
     name
     email
     accountType
 
     # New fields from our schema
-    shippingMetrics {
+    missionMetrics {
       score
       recommendations {
         id
@@ -431,31 +660,33 @@ query SellerDashboard($userId: ID!) {
 
 ## Integration with Other Skills
 
-- **Uses `kg_reader`** — Query existing GraphQL patterns
-- **Uses `kg_writer`** — Store design decisions
+- **Optionally uses `kg_reader` or `mcp__upk__search_knowledge`** — Query existing GraphQL patterns if available
+- **Optionally uses `kg_writer` or `mcp__upk__add_learning`** — Store design decisions if available
 - **Used by roles:** designer, architect
 - **Complements:** API design workflows
+- **Fallback:** Works standalone with Apollo Federation best practices when KG/upk unavailable
 
 ---
 
 ## Example Usage
 
 ```
-User: "Design a GraphQL schema for seller shipping insights"
-Context: "Extends User entity, data from shipping analytics service"
+Astronaut: "Design a GraphQL schema for astronaut mission insights"
+Context: "Extends Astronaut entity, data from analytics service"
 
 Agent:
-1. Queries KG for GraphQL federation patterns
-2. Maps client flow: Seller dashboard queries User
-3. Proposes: Extend User entity (not new root query)
-4. Designs iteratively:
-   - User extension with @key
-   - ShippingMetrics type
+1. Tries to query KG/upk for GraphQL federation patterns (skips if unavailable)
+2. Reads existing project schemas for patterns
+3. Maps client flow: Astronaut dashboard queries Astronaut
+4. Proposes: Extend Astronaut entity (not new root query)
+5. Designs iteratively:
+   - Astronaut extension with @key
+   - MissionMetrics type
    - Recommendation type
    - Documentation
-5. Stores design decision in KG
-6. Generates complete schema with compliance checklist
-7. Provides client query example
+6. Optionally stores design decision in KG/upk (if available)
+7. Generates complete schema with compliance checklist
+8. Provides client query example
 ```
 
 ---
@@ -463,7 +694,26 @@ Agent:
 ## Notes
 
 - **Client-first always:** Don't design schema in isolation from how it's consumed
+- **Domain over Database:** Model business concepts, not storage details (Netflix principle)
 - **Federation is complex:** When unsure, search for similar patterns in existing schemas
 - **Document null semantics:** Every nullable field needs "Null when:" documentation
 - **Avoid over-design:** Start simple, evolve schema based on real usage
 - **Validate early:** Check federation composition before full implementation
+- **Stable keys:** Use IDs that won't change - avoid business keys that might be updated
+- **Team autonomy:** Each subgraph should encapsulate domain-specific functionality (WunderGraph pattern)
+
+## When Federation Makes Sense (Netflix guidance)
+
+**Good Fit:**
+- Multiple teams needing API ownership
+- Schema complexity spanning distinct domains
+- 70+ services, hundreds of developers
+- Need for technology flexibility per domain
+
+**Poor Fit:**
+- Teams with fewer than 10 developers
+- Strong transactional consistency requirements across domains
+- Limited platform infrastructure investment
+- Single team managing entire API surface
+
+**Infrastructure Reality:** Netflix spent a year building platform capabilities before self-service adoption
