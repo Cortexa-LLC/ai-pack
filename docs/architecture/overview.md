@@ -321,3 +321,5 @@ compilation. Use `make setup-kuzu` or `scripts/download-kuzu.sh`.
 | [`docs/adr/003-knowledge-graph.md`](../adr/003-knowledge-graph.md) | KuzuDB choice, static linking, storage topology |
 | [`docs/adr/004-role-skill-ocp.md`](../adr/004-role-skill-ocp.md) | OCP-based skill composition |
 | [`docs/adr/006-role-extension-ocp.md`](../adr/006-role-extension-ocp.md) | Role extension mechanism |
+| [`docs/adr/008-shared-dolt-service.md`](../adr/008-shared-dolt-service.md) | Shared Dolt server for multi-project task tracking |
+| [`docs/guides/shared-dolt-service.md`](../guides/shared-dolt-service.md) | Setup and adoption guide for the shared Dolt pattern |
