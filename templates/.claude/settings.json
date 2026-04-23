@@ -55,41 +55,5 @@
       "Bash(> /dev/*)"
     ],
     "defaultMode": "acceptEdits"
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "description": "Start ai-pack monitoring timers (coordination + watchdog)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cd $(git rev-parse --show-superproject-working-tree || git rev-parse --show-toplevel 2>/dev/null || pwd) && python3 .claude/hooks/session-start.py"
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "description": "Stop ai-pack monitoring timers",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cd $(git rev-parse --show-superproject-working-tree || git rev-parse --show-toplevel 2>/dev/null || pwd) && python3 .claude/hooks/session-end.py"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "description": "Enforce task packet gate before implementation work",
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cd $(git rev-parse --show-superproject-working-tree || git rev-parse --show-toplevel 2>/dev/null || pwd) && python3 .claude/hooks/check-task-packet.py"
-          }
-        ]
-      }
-    ]
   }
 }
