@@ -314,17 +314,17 @@ See: [.claude/README.md](.claude/README.md) for details
 Before any task, read these foundational documents:
 
 ### Quality Gates (Must Follow)
-1. **[.ai-pack/gates/00-global-gates.md](.ai-pack/gates/00-global-gates.md)** - Universal rules (safety, quality, communication)
-2. **[.ai-pack/gates/05-lean-flow.md](.ai-pack/gates/05-lean-flow.md)** - WIP limits, pull systems, batch sizing
+1. **[.ai-pack/gates/00-global-gates.md](.ai-pack/gates/00-global-gates.md)** - **MANDATORY: Universal rules** (safety, task packets, TDD, quality baseline)
+2. **[.ai-pack/gates/05-lean-flow.md](.ai-pack/gates/05-lean-flow.md)** - **MANDATORY: WIP limits, pull systems, batch sizing**
 3. **[.ai-pack/gates/05-tdd-enforcement.md](.ai-pack/gates/05-tdd-enforcement.md)** - **MANDATORY: RED-GREEN-REFACTOR cycle**
 4. **[.ai-pack/gates/06-beads-enforcement.md](.ai-pack/gates/06-beads-enforcement.md)** - **MANDATORY: Beads task management**
-5. **[.ai-pack/gates/10-persistence.md](.ai-pack/gates/10-persistence.md)** - File operations and state management
+5. **[.ai-pack/gates/10-persistence.md](.ai-pack/gates/10-persistence.md)** - **MANDATORY: Absolute paths, file operations**
 6. **[.ai-pack/gates/15-knowledge-first.md](.ai-pack/gates/15-knowledge-first.md)** - **MANDATORY: Search knowledge before file operations**
-7. **[.ai-pack/gates/20-tool-policy.md](.ai-pack/gates/20-tool-policy.md)** - Tool usage policies
+7. **[.ai-pack/gates/20-tool-policy.md](.ai-pack/gates/20-tool-policy.md)** - Tool usage policies (guidelines)
 8. **[.ai-pack/gates/25-execution-strategy.md](.ai-pack/gates/25-execution-strategy.md)** - **MANDATORY: Parallelization for 3+ subtasks**
-9. **[.ai-pack/gates/30-verification.md](.ai-pack/gates/30-verification.md)** - Verification requirements
-10. **[.ai-pack/gates/35-code-quality-review.md](.ai-pack/gates/35-code-quality-review.md)** - Tester + Reviewer validation
-11. **[.ai-pack/gates/40-architectural-review.md](.ai-pack/gates/40-architectural-review.md)** - Architecture review process
+9. **[.ai-pack/gates/30-verification.md](.ai-pack/gates/30-verification.md)** - Verification requirements (guidelines)
+10. **[.ai-pack/gates/35-code-quality-review.md](.ai-pack/gates/35-code-quality-review.md)** - **MANDATORY: Tester + Reviewer validation**
+11. **[.ai-pack/gates/40-architectural-review.md](.ai-pack/gates/40-architectural-review.md)** - Architecture review (mandatory for major work)
 
 ### Engineering Standards
 - **[.ai-pack/quality/engineering-standards.md](.ai-pack/quality/engineering-standards.md)** - Clean code standards index
