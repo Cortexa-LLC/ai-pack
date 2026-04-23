@@ -250,31 +250,82 @@ This project uses the **ai-pack framework** for structured AI-assisted developme
 
 ```
 project-root/
-├── .ai-pack/           # Git submodule (read-only shared framework)
+├── .ai-pack/           # 🔒 IMMUTABLE: Git submodule (commit hash only)
 │   ├── gates/          # Quality gates (including Beads enforcement)
 │   ├── roles/          # Agent roles
 │   ├── workflows/      # Development workflows
 │   ├── templates/      # Task-packet templates
 │   └── quality/        # Clean code standards
-├── .beads/             # Beads task database (git-backed, persistent state)
+│
+├── .beads/             # ❌ GITIGNORE: Task database (per-workstation state)
 │   ├── beads.db        # Task state database
 │   ├── issues.jsonl    # Task history
 │   └── config.yaml     # Beads configuration
-├── .ai/                # Local workspace (project-specific)
-│   ├── tasks/          # Active task packets (documentation)
-│   └── repo-overrides.md  # Project-specific rules
-├── .claude/            # Claude Code integration (auto-loaded)
-│   ├── commands/ai-pack/  # Slash commands
-│   ├── skills/         # Auto-triggered roles
+│
+├── .ai/                # ❌ GITIGNORE: Local workspace (transient)
+│   ├── tasks/          # Task packets (documentation, work logs)
+│   ├── knowledge.db    # Local knowledge graph database
+│   └── *.md            # Temporary notes and updates
+│
+├── .claude/            # ✅ COMMIT: Project-specific configuration
+│   ├── commands/       # Slash commands
+│   ├── hooks/          # Enforcement scripts  
 │   ├── rules/          # Modular rules
-│   ├── hooks/          # Enforcement scripts
-│   └── settings.json   # Hook configuration
-└── CLAUDE.md           # This file
+│   ├── scripts/        # Utility scripts
+│   ├── skills/         # Auto-triggered skills
+│   ├── agents/         # Agent definitions
+│   ├── settings.json   # Project settings
+│   ├── README.md       # Claude integration docs
+│   ├── PERMISSIONS.md  # Permission documentation
+│   ├── *.log           # ❌ GITIGNORE: Runtime logs
+│   └── *-checkpoint    # ❌ GITIGNORE: Runtime checkpoints
+│
+├── .mcp.json           # ❌ GITIGNORE: Local MCP server config
+└── CLAUDE.md           # ✅ COMMIT: Project bootstrap instructions (this file)
 ```
 
-**Key Distinction:**
-- **`.beads/`** = Source of truth for task STATE (open, closed, blocked, dependencies)
-- **`.ai/tasks/`** = Documentation of task IMPLEMENTATION (contracts, plans, work logs)
+### What to Commit vs Ignore
+
+**✅ COMMIT (project-specific):**
+- `.claude/` directory structure (commands, rules, scripts, skills, agents, settings.json, docs)
+- `CLAUDE.md` bootstrap instructions
+- `.ai-pack/` submodule reference (commit hash only - never edit contents)
+
+**❌ GITIGNORE (transient/local):**
+- `.beads/` - Per-workstation task state (local state, not shared)
+- `.ai/` - Local workspace (task packets, knowledge.db, temporary notes)
+- `.claude/*.log` - Runtime logs (.coordination.log, .watchdog.log)
+- `.claude/*-checkpoint` - Runtime checkpoints
+- `.mcp.json` - Local MCP server configuration
+
+**🔒 IMMUTABLE (never edit):**
+- `.ai-pack/` contents - This is a git submodule; edit the upstream repo instead
+
+**Key Distinctions:**
+- **`.beads/`** = Per-workstation task state (each developer has their own task queue) - GITIGNORE
+- **`.ai/tasks/`** = Documentation of task IMPLEMENTATION (contracts, plans) - GITIGNORE
+- **`.claude/`** = Project configuration (commit), runtime artifacts (ignore)
+
+### Required .gitignore Entries
+
+Add these to your project's `.gitignore`:
+
+```gitignore
+# AI-Pack: Per-workstation state (transient)
+.beads/
+.ai/
+
+# Claude Code: Runtime artifacts (transient)
+.claude/*.log
+.claude/*-checkpoint
+
+# MCP: Local server configuration (transient)
+.mcp.json
+```
+
+**DO NOT gitignore:**
+- `.claude/` directory itself - Project configuration must be committed
+- `.ai-pack/` - Submodule reference must be committed (contents are read-only)
 
 ---
 

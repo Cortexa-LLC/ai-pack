@@ -1,100 +1,40 @@
-## AI-Pack Enforcement Hooks
+# AI-Pack Hook Scripts
 
-This directory contains Python scripts that enforce ai-pack gates through Claude Code hooks.
+This directory contains utility scripts used by ai-pack commands.
 
-## Hook Scripts
+## Scripts
 
 ### `task-init.py`
 Creates new task packets with templates.
 - **Used by:** `/ai-pack task-init` command
 - **Purpose:** Initialize task packet directory structure
+- **Usage:** `python3 .claude/hooks/task-init.py <task-name>`
 
 ### `task-status.py`
 Displays current task packet status and progress.
-- **Used by:** `/ai-pack task-status` command
+- **Used by:** `/ai-pack task-status` command  
 - **Purpose:** Show progress through task lifecycle
-
-### `check-task-packet.py`
-Enforces Task Packet gate before implementation work.
-- **Used by:** `UserPromptSubmit` hook
-- **Purpose:** Block implementation without task packet
-- **Exit codes:**
-  - `0` - Allow (gate passed)
-  - `1` - Error (technical failure)
-  - `2` - Block (gate violation)
+- **Usage:** `python3 .claude/hooks/task-status.py`
 
 ## Setup
 
-These hooks are automatically configured when you run the setup script:
+These scripts are installed when you copy the `.claude/` template directory:
 
 ```bash
-python3 .claude-setup.py
-```
+# Copy from ai-pack template
+cp -r .ai-pack/templates/.claude .claude/
 
-This will:
-1. Make hook scripts executable
-2. Configure Claude Code settings to use hooks
-3. Verify setup
-
-## Manual Setup
-
-If you need to set up manually:
-
-```bash
 # Make scripts executable
 chmod +x .claude/hooks/*.py
-
-# Configure hooks in .claude/settings.json
 ```
 
-See `settings.json` template for hook configuration.
+## Note on Hooks
 
-## Hook Configuration
+**AI-pack no longer uses Claude Code hooks for enforcement.** The agent server framework handles all monitoring and workflow orchestration directly.
 
-Hooks are configured in `.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 .claude/hooks/check-task-packet.py"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-## Exit Codes
-
-Hook scripts use standard exit codes:
-- **0** - Success, allow operation
-- **1** - Technical error
-- **2** - Gate violation, block operation
-
-## Testing Hooks
-
-Test hooks manually:
-
-```bash
-# Test task-init
-python3 .claude/hooks/task-init.py test-task
-
-# Test task-status
-python3 .claude/hooks/task-status.py
-
-# Test gate enforcement
-echo '{"user_input": "implement login"}' | python3 .claude/hooks/check-task-packet.py
-```
+The scripts in this directory are **utility scripts for commands**, not enforcement hooks.
 
 ## References
 
-- Hooks Documentation: https://code.claude.com/docs/en/hooks.md
-- Hooks Guide: https://code.claude.com/docs/en/hooks-guide.md
+- AI-Pack Documentation: `.ai-pack/README.md`
 - AI-Pack Gates: `.ai-pack/gates/`

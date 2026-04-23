@@ -12,6 +12,7 @@ Rules are instructions that Claude follows for specific file patterns. They're a
 - **knowledge-first.md** - **MANDATORY: Search knowledge before file ops** (all paths)
 - **task-packets.md** - Task packet requirements (all paths)
 - **workflows.md** - Workflow selection guide (all paths)
+- **orchestrator-enforcement.md** - **MANDATORY: All task work through Task Orchestrator** (all paths)
 
 ## Rule Structure
 
