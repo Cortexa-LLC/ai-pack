@@ -1,29 +1,53 @@
-# Knowledge Graph Writer
+# Project Knowledge Graph Writer
 <!-- skills/kg_writer.skill.md -->
 
-**Version:** 1.1
+**Version:** 1.2
 **InjectAt:** role_context
 **Slot:** 25
 **Tools:** kg__add_entity, kg__add_observation, kg__link_entities, kg__index_project
-**Gates:** (none)
+**Gates:** knowledge-first
 **MaxExtraTokens:** 10000
 **Optional:** true
 
 ---
 
-## Knowledge Graph — Write Back What You Learn
+## Project Knowledge Graph — Write Back What You Learn
 
-When you discover something meaningful during a task, record it in the knowledge graph. Future agents (and future you) will benefit.
+When you discover something meaningful about **THIS project** during a task, record it in the project knowledge graph. Future agents (and future you) working on THIS project will benefit.
 
-### What to record
+### ⚠️ MANDATORY: Write Back Findings
 
-| Discovery | How to record |
+**REQUIRED operations after learning:**
+- ✅ MUST record project-specific discoveries with `kg__add_entity` or `kg__add_observation`
+- ✅ MUST write incrementally (don't wait until task completes)
+- ✅ MUST link related entities with `kg__link_entities`
+
+This is enforced by the **[Knowledge-First Gate](../gates/15-knowledge-first.md)**.
+
+### Scope: Project-Specific Only
+
+**Record to THIS project's KG:**
+- ✅ Code entities in THIS codebase (functions, types, files)
+- ✅ Architecture decisions for THIS project
+- ✅ Bug investigations in THIS project
+- ✅ Component relationships HERE
+- ✅ Design rationale specific to THIS codebase
+
+**Do NOT record to project KG:**
+- ❌ Cross-project learnings → use UPK (see upk_writer skill)
+- ❌ General design patterns → use UPK (see upk_writer skill)
+- ❌ User conversations → use UPK (see upk_writer skill)
+- ❌ Tool comparisons → use UPK (see upk_writer skill)
+
+### What to Record (Project-Specific)
+
+| Discovery | How to Record |
 |-----------|--------------|
-| New function, type, or file created | `kg__add_entity` (type: function/type/file) |
-| Why a design decision was made | `kg__add_observation` on the relevant entity |
-| A bug's root cause and fix | `kg__add_observation` on the affected component |
-| A new dependency between components | `kg__link_entities` (relation: DEPENDS_ON, CALLS, IMPORTS) |
-| Codebase significantly changed | `kg__index_project` to re-index |
+| New function, type, or file created in THIS project | `kg__add_entity` (type: function/type/file) |
+| Why a design decision was made for THIS codebase | `kg__add_observation` on the relevant entity |
+| A bug's root cause and fix in THIS project | `kg__add_observation` on the affected component |
+| A new dependency between components HERE | `kg__link_entities` (relation: DEPENDS_ON, CALLS, IMPORTS) |
+| THIS codebase significantly changed | `kg__index_project` to re-index |
 
 ### Tools
 
@@ -43,15 +67,53 @@ The task may time out. Every finding written to the KG is preserved across retri
 3. If you created new components, add them as entities and link them to their parents.
 4. If root causes or design decisions became clear during the task, record them as observations — they're the highest-value knowledge for future agents.
 
-### KG after reasoning
+### KG After Reasoning (MANDATORY)
 
-When structured/sequential thinking concludes with a validated finding, decision, or ruled-out hypothesis — **write it back immediately**.
+When structured/sequential thinking concludes with a validated finding, decision, or ruled-out hypothesis about THIS project — **write it back immediately**.
 
 ```
-AFTER reasoning concludes:
+AFTER reasoning concludes about project-specific topic:
   kg__add_entity({name: "<topic>", type: "topic"})  ← get entity ID
   kg__add_observation({entity_id: "<id>", content:
     "[REASONING] <conclusion, what was validated or eliminated, confidence>"})
 ```
 
-Future agents working on the same topic start from your conclusion, not from scratch. Reasoning that lives only in a transient response is lost.
+Future agents working on the same topic in THIS project start from your conclusion, not from scratch. Reasoning that lives only in a transient response is lost.
+
+### Dual Recording (Project + Personal)
+
+Some discoveries have both project-specific AND cross-project value:
+
+```
+EXAMPLE: Implemented circuit breaker pattern in THIS project
+
+STEP 1: Record project-specific (KG)
+  entity_id = kg__add_entity({
+    name: "CircuitBreaker",
+    type: "type"
+  })
+  kg__add_observation({
+    entity_id: entity_id,
+    content: "Circuit breaker for external API calls. Config: \
+    maxRequests=100, timeout=500ms, interval=30s. Located in \
+    pkg/resilience/circuit_breaker.go"
+  })
+
+STEP 2: Record cross-project learning (UPK)
+  upk__add_learning({
+    content: "Circuit breaker in Go: used sony/gobreaker. Config: \
+    maxRequests=100, timeout=500ms, interval=30s. Pairs well with Redis \
+    cache for degraded mode. Pattern applicable to any external dependency.",
+    source: "ai-pack circuit breaker implementation"
+  })
+```
+
+**Result:** Project KG has THIS implementation's location and config. Personal knowledge has the reusable pattern for future projects.
+
+---
+
+## See Also
+
+- **[KG Reader](kg_reader.skill.md)** - Searching project knowledge
+- **[UPK Writer](upk_writer.skill.md)** - Recording cross-project learnings
+- **[Knowledge-First Gate](../gates/15-knowledge-first.md)** - Enforcement policy

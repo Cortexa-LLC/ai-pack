@@ -31,7 +31,38 @@ All work must follow these quality gates from the ai-pack framework.
 
 ---
 
-## Gate 2: Execution Strategy (For 3+ Subtasks)
+## Gate 2: Knowledge-First (BLOCKING)
+
+**BEFORE any file operation (grep, glob, read):**
+
+```javascript
+// Step 1: Determine scope
+Project code/architecture? → kg__search_knowledge
+Cross-project patterns? → upk__search_knowledge
+Org/team info? → org MCP tools
+
+// Step 2: Search knowledge FIRST
+result = search_knowledge({query: "..."})
+
+// Step 3: Only if empty → file search
+IF result empty THEN
+  grep OR glob OR read
+  record_findings_back_to_knowledge()
+END IF
+```
+
+**FORBIDDEN without knowledge check:**
+- ❌ `grep -r "pattern"` → MUST try `kg__search_knowledge` first
+- ❌ `Read(file.go)` → MUST try `kg__get_file_context` first
+- ❌ WebSearch for "how to" → MUST try `upk__search_knowledge` first
+
+**Token savings: 90-97% reduction** (3,500 tokens vs 50,000+ tokens)
+
+**Reference:** `.ai-pack/gates/15-knowledge-first.md`, `.ai-pack/docs/KNOWLEDGE-SYSTEMS.md`
+
+---
+
+## Gate 3: Execution Strategy (For 3+ Subtasks)
 
 **For tasks with 3+ independent subtasks:**
 
@@ -48,7 +79,7 @@ All work must follow these quality gates from the ai-pack framework.
 
 ---
 
-## Gate 3: Code Quality Review (BLOCKING)
+## Gate 4: Code Quality Review (BLOCKING)
 
 **For ALL code changes, MANDATORY validations:**
 
@@ -76,7 +107,7 @@ All work must follow these quality gates from the ai-pack framework.
 
 ---
 
-## Gate 4: Artifact Persistence (For Planning Specialists)
+## Gate 5: Artifact Persistence (For Planning Specialists)
 
 **When specialists used (PM, Architect, Designer, Inspector):**
 
@@ -133,6 +164,8 @@ dotnet test
 Before marking work complete:
 
 - [ ] Task packet created and updated
+- [ ] **Knowledge searched BEFORE file operations**
+- [ ] **Findings recorded BACK to knowledge**
 - [ ] Execution strategy documented (if 3+ subtasks)
 - [ ] TDD process followed (RED-GREEN-REFACTOR)
 - [ ] Tester validated (APPROVED)
