@@ -9,6 +9,7 @@ Rules are instructions that Claude follows for specific file patterns. They're a
 ## Provided Rules
 
 - **gates.md** - Mandatory quality gates (all paths)
+- **knowledge-first.md** - **MANDATORY: Search knowledge before file ops** (all paths)
 - **task-packets.md** - Task packet requirements (all paths)
 - **workflows.md** - Workflow selection guide (all paths)
 

@@ -316,12 +316,22 @@ Before any task, read these foundational documents:
 ### Quality Gates (Must Follow)
 1. **[.ai-pack/gates/00-global-gates.md](.ai-pack/gates/00-global-gates.md)** - Universal rules (safety, quality, communication)
 2. **[.ai-pack/gates/10-persistence.md](.ai-pack/gates/10-persistence.md)** - File operations and state management
-3. **[.ai-pack/gates/20-tool-policy.md](.ai-pack/gates/20-tool-policy.md)** - Tool usage policies
-4. **[.ai-pack/gates/30-verification.md](.ai-pack/gates/30-verification.md)** - Verification requirements
+3. **[.ai-pack/gates/15-knowledge-first.md](.ai-pack/gates/15-knowledge-first.md)** - **MANDATORY: Search knowledge before file operations**
+4. **[.ai-pack/gates/20-tool-policy.md](.ai-pack/gates/20-tool-policy.md)** - Tool usage policies
+5. **[.ai-pack/gates/30-verification.md](.ai-pack/gates/30-verification.md)** - Verification requirements
 
 ### Engineering Standards
 - **[.ai-pack/quality/engineering-standards.md](.ai-pack/quality/engineering-standards.md)** - Clean code standards index
 - **[.ai-pack/quality/clean-code/](.ai-pack/quality/clean-code/)** - Detailed standards by topic
+
+### Knowledge Systems (MANDATORY)
+- **[.ai-pack/docs/KNOWLEDGE-SYSTEMS.md](.ai-pack/docs/KNOWLEDGE-SYSTEMS.md)** - Three-tier knowledge architecture
+- **[.ai-pack/docs/KNOWLEDGE-QUICK-REF.md](.ai-pack/docs/KNOWLEDGE-QUICK-REF.md)** - Quick reference card
+
+**⚠️ CRITICAL:** All agents MUST search knowledge before file operations:
+- **Project code?** → `kg__search_knowledge` (project knowledge graph)
+- **Cross-project patterns?** → `upk__search_knowledge` (personal knowledge)
+- **Org/team info?** → Use org MCP tools
 
 ---
 
