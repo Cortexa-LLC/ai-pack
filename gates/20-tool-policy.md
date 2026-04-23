@@ -1,51 +1,97 @@
 # Tool Policy Gates
 
-**Version:** 1.0.0
-**Last Updated:** 2026-01-07
+**Version:** 2.0.0
+**Last Updated:** 2026-04-23
 
 ## Overview
 
 Tool policy gates define when and how AI agents should use available tools. These policies ensure efficient, safe, and appropriate tool usage throughout workflows.
 
+**CRITICAL:** Knowledge systems are the FIRST tier in tool selection. Always search knowledge before file operations (90-97% token savings).
+
 ## Tool Selection Principles
 
-### 1. Use Specialized Tools Over General Ones
+### 1. Knowledge-First, Then Specialized Tools
 
-**Rule:** Always prefer specialized tools when available.
+**Rule:** Search knowledge systems FIRST, then use specialized tools if needed, avoid bash commands.
 
-**Rationale:**
-- Specialized tools have built-in safety checks
-- Better error messages
-- Optimized for specific operations
-- More reliable results
+**Three-Tier Hierarchy:**
 
-**Tool Preference Hierarchy:**
+**Tier 1: Knowledge Systems (MANDATORY FIRST)**
+```
+🥇 FIRST - Check indexed knowledge:
+  kg__search_knowledge         - Search THIS project's code/architecture
+  kg__get_file_context         - Get file contents summary before reading
+  upk__search_knowledge        - Search cross-project learnings/patterns
+  org MCP tools               - Search organizational data (teams/planning)
+
+Token cost: ~500 tokens
+Savings: 90-97% vs file search
+Reference: gates/15-knowledge-first.md
+```
+
+**Tier 2: Specialized Tools (if knowledge empty)**
+```
+✅ THEN - Use specialized tools:
+  Read tool      - for reading files (after kg__get_file_context)
+  Write tool     - for creating files
+  Edit tool      - for modifying files
+  Grep tool      - for content search (after kg__search_knowledge)
+  Glob tool      - for finding files by pattern
+
+Token cost: ~3,000-5,000 tokens
+```
+
+**Tier 3: Bash Commands (last resort)**
+```
+❌ AVOID - Only when tiers 1-2 unavailable:
+  Bash(cat)      - use Read instead
+  Bash(grep)     - use Grep instead
+  Bash(find)     - use Glob instead
+  Bash(sed/awk)  - use Edit instead
+
+Token cost: ~5,000-50,000+ tokens
+```
 
 #### File Operations
 ```
-✅ PREFERRED:
-  Read tool      - for reading files
-  Write tool     - for creating files
-  Edit tool      - for modifying files
-  Glob tool      - for finding files by pattern
+MANDATORY workflow:
+  1. kg__get_file_context({file: "path/to/file.go"})
+     → Returns: functions, types, imports defined in file
+     → Cost: ~300 tokens
+  
+  2. IF need full content THEN
+       Read(file, offset, limit)  # targeted read
+     END IF
+     → Cost: ~2,000 tokens (vs 10,000+ for full blind read)
 
-❌ AVOID:
-  Bash(cat)      - use Read instead
-  Bash(echo)     - use Write instead
-  Bash(sed/awk)  - use Edit instead
-  Bash(find)     - use Glob instead
+❌ FORBIDDEN: Read without kg__get_file_context
 ```
 
 #### Search Operations
 ```
-✅ PREFERRED:
-  Grep tool      - for content search
-  Glob tool      - for file name search
+MANDATORY workflow:
+  1. kg__search_knowledge({query: "component or pattern"})
+     → Searches indexed code entities, architecture, decisions
+     → Cost: ~500 tokens
+  
+  2. IF not found THEN
+       Grep tool  # fall back to file content search
+       Record findings: kg__add_observation
+     END IF
+     → Cost: ~5,000-50,000 tokens
 
-❌ AVOID:
-  Bash(grep)     - use Grep tool instead
-  Bash(rg)       - use Grep tool instead
-  Bash(find)     - use Glob tool instead
+❌ FORBIDDEN: Grep without kg__search_knowledge
+
+Cross-project patterns:
+  1. upk__search_knowledge({query: "how to implement X"})
+     → Searches past learnings across ALL projects
+     → Cost: ~300 tokens
+  
+  2. IF not found THEN
+       WebSearch  # external research
+       Record: upk__add_learning
+     END IF
 ```
 
 #### Communication
