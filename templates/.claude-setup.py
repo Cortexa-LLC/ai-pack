@@ -122,9 +122,9 @@ def copy_templates():
         return False
 
 
-def fix_hook_paths():
-    """Fix hook paths in settings.json to use absolute paths."""
-    print_header("Configuring Hook Paths for Cross-Platform Compatibility")
+def verify_hook_paths():
+    """Verify that hook paths in settings.json use the cd command pattern."""
+    print_header("Verifying Hook Path Configuration")
 
     settings_file = Path(".claude/settings.json")
 
@@ -134,35 +134,13 @@ def fix_hook_paths():
         return True
 
     try:
-        # Read settings.json
         with open(settings_file, 'r') as f:
             settings = json.load(f)
 
-        # Get absolute path to project root
-        project_root = Path.cwd().resolve()
-
-        # Function to replace relative paths with absolute paths
-        def fix_command(command):
-            if not isinstance(command, str):
-                return command
-
-            # Replace relative .claude/ paths with absolute paths
-            if ".claude/hooks/" in command:
-                # Extract the script path
-                if "python3 .claude/hooks/" in command:
-                    # Simple case: python3 .claude/hooks/script.py
-                    script_name = command.split(".claude/hooks/")[1]
-                    abs_path = project_root / ".claude" / "hooks" / script_name
-                    return f"python3 {abs_path}"
-
-            return command
-
-        # Fix hooks in settings
-        modified = False
+        # Check if hooks use the correct pattern: cd $(git rev-parse...) && python3
+        issues_found = []
         if "hooks" in settings:
             hooks = settings["hooks"]
-
-            # Fix all hook types (SessionStart, SessionEnd, UserPromptSubmit, etc.)
             for hook_type in hooks:
                 if not isinstance(hooks[hook_type], list):
                     continue
@@ -171,30 +149,31 @@ def fix_hook_paths():
                     if not isinstance(hook_group, dict):
                         continue
 
-                    # All hooks should have nested "hooks" array
                     if "hooks" in hook_group and isinstance(hook_group["hooks"], list):
                         for hook in hook_group["hooks"]:
                             if isinstance(hook, dict) and "command" in hook:
-                                original = hook["command"]
-                                hook["command"] = fix_command(original)
-                                if hook["command"] != original:
-                                    modified = True
-                                    print(f"      Fixed: {hook_type} -> {original.split('/')[-1]}")
+                                command = hook["command"]
+                                # Check if it's a Python hook without the cd prefix
+                                if "python3 .claude/hooks/" in command and \
+                                   not command.startswith("cd $(git rev-parse"):
+                                    issues_found.append(f"{hook_type}: {command}")
 
-        # Write back if modified
-        if modified:
-            with open(settings_file, 'w') as f:
-                json.dump(settings, f, indent=2)
-            print("✅ Updated hook paths to use absolute paths")
-            print(f"   Project root: {project_root}")
+        if issues_found:
+            print("⚠️  Hook paths may not work correctly:")
+            for issue in issues_found:
+                print(f"  {issue}")
+            print()
+            print("Run: python3 .ai-pack/templates/.claude-update.py")
+            print("Or see: docs/TROUBLESHOOTING.md")
+            print()
+            return False
         else:
-            print("✅ Hook paths already correct or no hooks found")
-
-        print()
-        return True
+            print("✅ Hook paths configured correctly")
+            print()
+            return True
 
     except Exception as e:
-        print(f"❌ Error fixing hook paths: {e}")
+        print(f"❌ Error verifying hook paths: {e}")
         print()
         return False
 
@@ -747,7 +726,7 @@ def main():
         ("Checking prerequisites", check_prerequisites),
         ("Copying templates", copy_templates),
         ("Copying CLAUDE.md", copy_claude_md),
-        ("Fixing hook paths", fix_hook_paths),
+        ("Verifying hook paths", verify_hook_paths),
         ("Making hooks executable", make_hooks_executable),
         ("Creating .ai/ structure", create_ai_directory),
         ("GitHub integration setup", setup_github_extensions),
