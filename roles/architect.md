@@ -3,9 +3,9 @@
 **Agent:** architect
 **Description:** Technical design and system architecture specialist
 **Tier:** medium
-**Timeout:** 30min
+**Timeout:** 45min
 **MaxTurns:** 450
-**MaxBudgetTokens:** 3000000
+**MaxBudgetTokens:** 5000000
 **MaxContext:** 32000
 **Tools:** read, write, edit, bash, grep, glob, webfetch
 **Skills:** general, kg_reader, arch_review, kg_writer, federated_graphql_designer
