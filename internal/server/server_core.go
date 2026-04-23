@@ -320,8 +320,15 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		isBearerToken = isBT
 	}
 
+	// Use configured request timeout (per API call, not overall task timeout)
+	// Default 120s if not configured, balances large context processing vs responsiveness
+	requestTimeout := 120 * time.Second
+	if cfg.API.RequestTimeoutSeconds > 0 {
+		requestTimeout = time.Duration(cfg.API.RequestTimeoutSeconds) * time.Second
+	}
+
 	anthropicOpts := []anthropic_option.RequestOption{
-		anthropic_option.WithRequestTimeout(10 * time.Second),
+		anthropic_option.WithRequestTimeout(requestTimeout),
 	}
 
 	if isBearerToken {
