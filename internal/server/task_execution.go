@@ -241,6 +241,12 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, roleTimeout time.D
 				stream.Close()
 				retryStream, retryErr := s.streamingService.CreateStream(ctx, role, streamReq)
 				if retryErr != nil {
+					// Check if it's a timeout error
+					if strings.Contains(retryErr.Error(), "context deadline exceeded") ||
+					   strings.Contains(retryErr.Error(), "deadline") ||
+					   strings.Contains(retryErr.Error(), "timeout") {
+						return "", fmt.Errorf("API request timeout on turn %d (retry): %w", turn, retryErr)
+					}
 					return "", fmt.Errorf("API call failed on turn %d (retry): %w", turn, retryErr)
 				}
 				responseText.Reset()
@@ -256,6 +262,12 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, roleTimeout time.D
 				}
 				if retryErr2 := retryStream.Err(); retryErr2 != nil {
 					retryStream.Close()
+					// Check if it's a timeout error
+					if strings.Contains(retryErr2.Error(), "context deadline exceeded") ||
+					   strings.Contains(retryErr2.Error(), "deadline") ||
+					   strings.Contains(retryErr2.Error(), "timeout") {
+						return "", fmt.Errorf("API request timeout on turn %d (retry): %w", turn, retryErr2)
+					}
 					return "", fmt.Errorf("API call failed on turn %d (retry): %w", turn, retryErr2)
 				}
 				if retryFinal := retryStream.GetMessage(); retryFinal != nil {
@@ -276,6 +288,13 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, roleTimeout time.D
 				return "", fmt.Errorf("API token limit exceeded on turn %d. "+
 					"This task is too complex for a single agent execution. "+
 					"Please break it into smaller subtasks: %w", turn, err)
+			}
+
+			// Check if it's a timeout error and provide clearer message
+			if strings.Contains(errMsg, "context deadline exceeded") ||
+			   strings.Contains(errMsg, "deadline") ||
+			   strings.Contains(errMsg, "timeout") {
+				return "", fmt.Errorf("API request timeout on turn %d: %w", turn, err)
 			}
 
 			return "", fmt.Errorf("API call failed on turn %d: %w", turn, err)

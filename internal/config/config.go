@@ -63,7 +63,8 @@ type ServerConfig struct {
 type APIConfig struct {
 	AnthropicModel         string       `json:"anthropic_model"`
 	MaxTokens              int          `json:"max_tokens"`
-	TimeoutSeconds         int          `json:"timeout_seconds"`
+	TimeoutSeconds         int          `json:"timeout_seconds"`           // Overall task timeout (deprecated, use role Timeout field)
+	RequestTimeoutSeconds  int          `json:"request_timeout_seconds"`   // Per-API-call timeout (default: 120s)
 	Mode                   string       `json:"mode"`                      // "direct" or "proxy"
 	AdaptiveModelSelection bool         `json:"adaptive_model_selection"`  // default: true; set false to always use anthropic_model
 	Proxy                  *ProxyConfig `json:"proxy,omitempty"`           // Only used when mode = "proxy"
