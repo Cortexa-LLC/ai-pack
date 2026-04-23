@@ -14,8 +14,8 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	anthropic_option "github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/cortexa-llc/ai-pack/internal/auth"
 	"github.com/cortexa-llc/ai-pack/internal/beads"
-
 	"github.com/cortexa-llc/ai-pack/internal/claude"
 	"github.com/cortexa-llc/ai-pack/internal/config"
 	"github.com/cortexa-llc/ai-pack/internal/constants"
@@ -23,6 +23,7 @@ import (
 	"github.com/cortexa-llc/ai-pack/internal/mcp"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/internal/protocol"
+	"github.com/cortexa-llc/ai-pack/internal/proxy"
 	"github.com/cortexa-llc/ai-pack/internal/streaming"
 )
 
@@ -290,7 +291,6 @@ func (s *AgentServer) getOrCreateProjectMetrics(projectRoot string) (*monitoring
 }
 
 func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model string, cfg *config.Config) (*AgentServer, error) {
-	anthropicKey := os.Getenv(cfg.ProviderAPIKeyEnv("anthropic", "ANTHROPIC_API_KEY"))
 	openaiKey := os.Getenv(cfg.ProviderAPIKeyEnv("openai", "OPENAI_API_KEY"))
 	geminiKey := os.Getenv(cfg.ProviderAPIKeyEnv("gemini", "GEMINI_API_KEY"))
 
@@ -306,12 +306,49 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	}
 	qwenAPIKey := os.Getenv(cfg.ProviderAPIKeyEnv("qwen", "LLAMA_API_KEY")) // LM Studio / llama.cpp compatible key
 
+	// Anthropic client with proxy support
+	// Check for Bearer token (corporate proxy) vs API key
+	anthropicKey := ""
+	isBearerToken := false
+	apiKey, isBT, err := auth.GetAPIKey()
+	if err != nil {
+		// Fall back to env var
+		anthropicKey = os.Getenv(cfg.ProviderAPIKeyEnv("anthropic", "ANTHROPIC_API_KEY"))
+		monitoring.Logger.Warn("api_key_fallback", "error", err.Error(), "using_env", anthropicKey != "")
+	} else {
+		anthropicKey = apiKey
+		isBearerToken = isBT
+	}
+
 	anthropicOpts := []anthropic_option.RequestOption{
 		anthropic_option.WithRequestTimeout(10 * time.Second),
 	}
 
-	if anthropicKey != "" {
-		anthropicOpts = append(anthropicOpts, anthropic_option.WithAPIKey(anthropicKey))
+	if isBearerToken {
+		// Bearer token mode - use custom HTTP client with proxy transport
+		anthropicOpts = append(anthropicOpts, anthropic_option.WithHTTPClient(proxy.NewBearerTokenClient(anthropicKey, &cfg.API)))
+		monitoring.Logger.Info("api_configuration",
+			"auth_type", "bearer_token",
+			"proxy_mode", cfg.API.Mode,
+			"proxy_url", proxy.LogProxyMode(&cfg.API))
+	} else {
+		// API key mode
+		if anthropicKey != "" {
+			anthropicOpts = append(anthropicOpts, anthropic_option.WithAPIKey(anthropicKey))
+		}
+
+		// Add proxy transport for URL rewriting if configured
+		if httpClient := proxy.NewHTTPClient(&cfg.API); httpClient != nil {
+			anthropicOpts = append(anthropicOpts, anthropic_option.WithHTTPClient(httpClient))
+			monitoring.Logger.Info("api_configuration",
+				"auth_type", "api_key",
+				"proxy_mode", cfg.API.Mode,
+				"proxy_url", proxy.LogProxyMode(&cfg.API))
+		} else {
+			monitoring.Logger.Info("api_configuration",
+				"auth_type", "api_key",
+				"proxy_mode", "direct")
+		}
 	}
 
 	anthropicClient := anthropic.NewClient(anthropicOpts...)
