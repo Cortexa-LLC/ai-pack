@@ -506,7 +506,8 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	streamingService := streaming.NewService(streamingSelector, constants.ProviderAnthropic, modelTranslations)
 
 	// Register provider factories
-	streamingService.RegisterProvider(streaming.NewAnthropicFactory(anthropicKey, maxTokens))
+	// Pass the same anthropicOpts to ensure streaming uses proxy configuration
+	streamingService.RegisterProvider(streaming.NewAnthropicFactory(anthropicKey, maxTokens, anthropicOpts...))
 	if openaiKey != "" {
 		streamingService.RegisterProvider(streaming.NewOpenAIFactory(openaiKey))
 	}

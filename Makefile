@@ -72,7 +72,6 @@ bootstrap: ## Install all tool dependencies (Go modules, npm, seeds) — run onc
 
 build: build-agent build-server ## Build all binaries
 	@echo "✅ Binaries built in bin/"
-	@echo "   Note: kg binary is built separately — see ~/Projects/Vibe/mcp/src/kg"
 
 build-agent: ## Build the agent CLI (no CGO)
 	@mkdir -p bin
@@ -114,7 +113,6 @@ install-agent: build-agent build-server ## Install agent binaries to /usr/local/
 	@install -m 755 bin/agent /usr/local/bin/agent
 	@install -m 755 bin/agent-server /usr/local/bin/agent-server
 	@echo "✅ Agent binaries installed to /usr/local/bin"
-	@echo "   To install kg: cd ~/Projects/Vibe/mcp/src/kg && make install"
 
 setup-mcp: ## Register AI-Pack MCP servers globally (~/.claude/settings.json)
 	@python3 scripts/setup-mcp.py
