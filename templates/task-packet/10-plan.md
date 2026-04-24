@@ -1,5 +1,13 @@
 # Implementation Plan
 
+> **⚠️ CRITICAL: DO NOT LEAVE THIS AS A TEMPLATE**
+>
+> You MUST replace ALL bracketed placeholders `[like this]` with actual content.
+> This file documents HOW you will implement the solution.
+> Template placeholders provide ZERO useful information and cause implementation failures.
+>
+> **REQUIRED:** Fill out all sections below with specific implementation details.
+
 **Task ID:** [beads-id-YYYYMMDDHHMMSS-short-desc]
 **Created:** [Date]
 **Author:** [Agent Role]

@@ -822,7 +822,7 @@ git commit -m "Add ai-pack framework with Claude Code integration"
 **What you get:**
 - ✅ `/ai-pack` slash commands for task management and role selection
 - ✅ Auto-triggered Skills for Orchestrator and Engineer roles
-- ✅ Enforcement hooks that block violations (task packet gate)
+- ✅ Quality gates and mandatory standards
 - ✅ Modular rules auto-loaded for all files
 - ✅ Complete framework integration in Claude Code
 

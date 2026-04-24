@@ -49,6 +49,8 @@
 
 ## ⚠️ CRITICAL: Task Packet Requirement
 
+**⚠️ TASK PACKETS MUST BE FULLY POPULATED, NOT JUST TEMPLATE COPIES**
+
 **BEFORE starting ANY non-trivial task, you MUST:**
 
 ```bash
@@ -61,11 +63,39 @@ This will:
 2. Copy ALL templates from `.ai-pack/templates/task-packet/`
 3. Set up contract, plan, work log, review, and acceptance documents
 
-**Then fill out:**
-- `00-contract.md` - Requirements and acceptance criteria
-- `10-plan.md` - Implementation approach
+**Then FILL OUT (DO NOT SKIP THIS STEP):**
+
+### Required: 00-contract.md
+Replace ALL template placeholders with actual content:
+- **Task Description**: What needs to be done (detailed, not just title)
+- **Background and Context**: Why this task exists
+- **Success Criteria**: Measurable outcomes (e.g., "All 142 tests pass")
+- **Acceptance Criteria**: Detailed checklist
+- **Constraints**: Time limits, dependencies, what NOT to change
+- **Resources**: Related files, error messages (for bugs), references
+
+### Required: 10-plan.md
+Replace ALL template placeholders with actual content:
+- **Approach Summary**: How you'll solve it (2-3 paragraphs)
+- **Critical Files**: Which files to modify/create and why
+- **Step-by-Step Plan**: Concrete implementation steps
+- **Testing Strategy**: What tests to add
+- **Risks**: What could go wrong and mitigation
+
+### During Implementation: 20-work-log.md
+Update as you work:
+- Progress updates
+- Decisions made
+- Blockers encountered
+- Next steps
 
 **ONLY THEN begin implementation.**
+
+**Why This Matters:**
+- Context is LOST after conversation compaction
+- Task packet is the ONLY persistent context source
+- Templates with placeholders provide ZERO useful information
+- Agents will FAIL or produce WRONG solutions without proper context
 
 **Non-Trivial = Any task that:**
 - Requires >2 steps
@@ -73,7 +103,27 @@ This will:
 - Takes >30 minutes
 - Needs verification
 
-**This is MANDATORY and enforced by hooks.**
+**This is MANDATORY for all non-trivial work.**
+
+### ❌ WRONG (Template Copy Only)
+```bash
+/ai-pack task-init my-task
+# STOP HERE — files contain "FILL THIS IN" placeholders
+```
+
+### ✅ CORRECT (Fully Populated)
+```bash
+/ai-pack task-init my-task
+
+# Write ACTUAL content to each file
+vim .ai/tasks/*/00-contract.md
+# Replace all [brackets] and "FILL THIS IN" with real information
+# Document the actual requirements, context, constraints
+
+vim .ai/tasks/*/10-plan.md  
+# Replace all [brackets] with actual approach
+# Document specific files, steps, testing strategy
+```
 
 ### Acceptance Criteria Must Be Verifiable Commands
 
@@ -351,8 +401,8 @@ Type `/ai-pack` to see all commands:
 /ai-pack pm                # Product requirements
 ```
 
-**Automatic Enforcement:**
-- Task packet gate enforced via hooks
+**Automatic Capabilities:**
+- Quality gates enforced through rules and skills
 - Rules auto-loaded for all files
 - Skills auto-trigger based on keywords
 

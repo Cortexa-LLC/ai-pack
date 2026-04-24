@@ -235,7 +235,7 @@ func TestResumeUsesPostResume(t *testing.T) {
 	ts := newTestServer(t, captor, string(body), http.StatusOK)
 	defer redirectToTestServer(t, ts.URL)()
 
-	_ = runResumeHTTP("internal-task-id", 0)
+	_ = runResumeHTTP("internal-task-id", 0, "") // extendBudget=0, extendDuration=""
 
 	got, err := captor.first()
 	if err != nil {

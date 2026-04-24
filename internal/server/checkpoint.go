@@ -11,8 +11,8 @@ import (
 )
 
 // AgentCheckpoint captures the full mutable state of the agentic loop
-// at the moment the token budget was exhausted. All fields are required
-// for a successful resume.
+// at the moment the token budget was exhausted or timeout occurred.
+// All fields are required for a successful resume.
 type AgentCheckpoint struct {
 	// Identity
 	TaskID    string    `json:"task_id"`
@@ -36,6 +36,9 @@ type AgentCheckpoint struct {
 
 	// Accumulated result text (finalResult.String() at pause point)
 	PartialResult string `json:"partial_result"`
+
+	// Pause reason: "token_budget" or "timeout"
+	ResumeReason string `json:"resume_reason"`
 
 	// Config snapshot — enough to recreate the agent; the full AgentConfig
 	// is re-loaded from disk on resume, but MaxBudgetTokens is overridden

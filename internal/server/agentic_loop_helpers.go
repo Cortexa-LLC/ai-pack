@@ -76,6 +76,7 @@ func (s *AgentServer) applyTokenBudgetCheck(
 			BudgetUsed:            used,
 			Messages:              messages,
 			PartialResult:         partialResult,
+			ResumeReason:          "token_budget",
 			Role:                  role,
 			ProjectRoot:           projectRoot,
 			Model:                 config.Model,

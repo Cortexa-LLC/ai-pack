@@ -1,5 +1,13 @@
 # Task Contract
 
+> **⚠️ CRITICAL: DO NOT LEAVE THIS AS A TEMPLATE**
+>
+> You MUST replace ALL bracketed placeholders `[like this]` with actual content.
+> This file is the PRIMARY source of context after conversation compaction.
+> Template placeholders provide ZERO useful information and cause task failures.
+>
+> **REQUIRED:** Fill out all sections below with specific, detailed information.
+
 **Task ID:** [beads-id-YYYYMMDDHHMMSS-short-desc]
 **Created:** [Date]
 **Requestor:** [User/Team]
