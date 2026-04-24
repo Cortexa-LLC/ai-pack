@@ -42,7 +42,9 @@ func runWait(beadsTaskID string, timeout time.Duration, stream bool, inactiveTim
 			fmt.Printf("   Tip: Check 'agent list' for active agents\n")
 			os.Exit(1)
 		}
-		streamTaskProgressWithInactivity(internalTaskID, inactiveTimeout)
+		if !streamTaskProgressWithInactivity(internalTaskID, inactiveTimeout) {
+			os.Exit(1)
+		}
 		return nil
 	}
 

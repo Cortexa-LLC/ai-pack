@@ -38,7 +38,9 @@ func runSpawn(role, taskInput string, wait, stream bool, inactiveTimeout time.Du
 	fmt.Println()
 
 	if stream {
-		streamTaskProgressWithInactivity(taskID, inactiveTimeout)
+		if !streamTaskProgressWithInactivity(taskID, inactiveTimeout) {
+			os.Exit(1)
+		}
 		return nil
 	}
 
@@ -198,7 +200,8 @@ func findInternalTaskID(beadsTaskID string) string {
 }
 
 // streamTaskProgressWithInactivity streams SSE events from the server.
-func streamTaskProgressWithInactivity(internalTaskID string, inactiveTimeout time.Duration) {
+// Returns true on successful completion, false on failure or cancellation.
+func streamTaskProgressWithInactivity(internalTaskID string, inactiveTimeout time.Duration) bool {
 	streamURL := fmt.Sprintf("%s/stream/%s", agentclient.ServerURL, internalTaskID)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -253,21 +256,24 @@ func streamTaskProgressWithInactivity(internalTaskID string, inactiveTimeout tim
 				if data, ok := agentclient.ParseSSELine(line); ok {
 					if data == "[DONE]" {
 						fmt.Println("\n✅ Stream complete")
-						return
+						return true
 					}
-					// Try to parse as JSON event
+					// Try to parse as JSON event.
+					// Server sends StreamEvent{Type, TaskID, Timestamp, Data} so the
+					// terminal signal is in the "type" field, not "status".
 					var event map[string]interface{}
 					if jsonErr := json.Unmarshal([]byte(data), &event); jsonErr == nil {
 						if msg, ok := event["message"].(string); ok {
 							fmt.Print(msg)
-						} else if status, ok := event["status"].(string); ok {
-							if status == "completed" {
+						} else if eventType, ok := event["type"].(string); ok {
+							switch eventType {
+							case "completed":
 								fmt.Println("\n✅ Agent completed!")
 								showMetrics()
-								return
-							} else if status == "failed" {
+								return true
+							case "failed":
 								fmt.Println("\n❌ Agent failed!")
-								return
+								return false
 							}
 						}
 					} else {
@@ -280,14 +286,15 @@ func streamTaskProgressWithInactivity(internalTaskID string, inactiveTimeout tim
 		}
 		if err != nil {
 			if ctx.Err() != nil {
-				return // cancelled by inactivity timer
+				// Cancelled by inactivity timer — task may still be running on server.
+				return false
 			}
 			if err.Error() == "EOF" {
 				fmt.Println("\n✅ Stream ended")
-			} else {
-				fmt.Printf("\n⚠️  Stream error: %v\n", err)
+				return true
 			}
-			return
+			fmt.Printf("\n⚠️  Stream error: %v\n", err)
+			return false
 		}
 	}
 }
