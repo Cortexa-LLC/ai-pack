@@ -156,6 +156,21 @@ Sequential (shared auth service):
 .ai-pack/  (Framework is read-only)
 ```
 
+## ⚠️ Task Packet Slug ≠ Beads Task ID
+
+The directory name is the **task packet slug** — it is NOT the Beads task ID.
+
+```
+Task packet slug:  HomeControl-qx7-20260424-072021-short-desc   ← directory name
+Beads task ID:     HomeControl-qx7                               ← use with agent CLI
+```
+
+Always pass the **Beads task ID** (the `bd create` output) to `agent` commands:
+```bash
+agent logs HomeControl-qx7       ✅
+agent logs HomeControl-qx7-20260424-072021-short-desc  ❌
+```
+
 ## Task Packet Commands
 
 ```bash
