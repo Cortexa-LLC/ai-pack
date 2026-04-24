@@ -21,6 +21,14 @@ Coordinate multiple agents to complete complex tasks in parallel.
 - `agent wait <task-id>` — blocks silently until done (no output visibility)
 - `agent status <task-id>` — non-blocking status check
 
+**⚠️ `<task-id>` is ALWAYS the Beads task ID — NEVER the task packet directory slug:**
+```
+✅ agent logs HomeControl-qx7          # Beads task ID — correct
+❌ agent logs HomeControl-qx7-20260424-072021-foo  # task packet slug — WRONG
+```
+The task packet directory name embeds the Beads ID as a prefix, but the full slug
+(with timestamp + short-desc) is NOT a valid argument to any `agent` command.
+
 **For sequential tasks:** use `--stream` at spawn time:
 ```bash
 agent engineer "$task_id" --stream
@@ -2646,7 +2654,7 @@ cd a2a-agent && ./bin/agent-server --server
 curl http://localhost:8080/health
 
 # View server logs
-agent logs <task-id>
+agent logs <beads-task-id>   # e.g. agent logs HomeControl-qx7  (NOT the task packet slug)
 
 # Check agent configuration
 ls .ai-pack/agents/
@@ -2655,10 +2663,10 @@ ls .ai-pack/agents/
 agent list
 
 # Check specific agent status
-agent status <beads-task-id>
+agent status <beads-task-id>   # e.g. HomeControl-qx7
 
-# View agent execution log
-agent logs <beads-task-id>
+# View agent execution log (works for completed agents too)
+agent logs <beads-task-id>     # e.g. HomeControl-qx7
 ```
 
 **DECISION TREE:**

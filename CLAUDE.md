@@ -77,6 +77,16 @@ agent wait ai-pack-task3 --stream
 - ❌ NEVER use Task tool with run_in_background (broken)
 - ❌ NEVER implement code directly as Orchestrator
 
+**⚠️ Beads task ID vs task packet slug — CRITICAL DISTINCTION:**
+```
+Beads task ID:        HomeControl-qx7               ← pass this to agent commands
+Task packet slug:     HomeControl-qx7-20260424-072021-short-desc  ← directory name only
+```
+`agent logs`, `agent status`, `agent results`, `agent wait`, `agent diff`, `agent files`
+all take the **Beads task ID** (e.g. `HomeControl-qx7`), **NOT** the task packet directory
+name. The slug includes the timestamp and short-desc suffix — strip everything after the
+shortid (3-char alphanumeric after the last hyphen of the project prefix).
+
 **After any task completes, IMMEDIATELY continue — do NOT ask for permission.**
 
 ### 3. Beads Task Management
