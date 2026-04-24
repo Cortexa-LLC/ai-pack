@@ -12,9 +12,11 @@
 
 ## Federated GraphQL Schema Review
 
-Review and validate GraphQL schemas for Apollo Federation compliance, performance, best practices, and architectural soundness. Acts as a "GraphQL Champion" or schema reviewer ensuring quality before deployment.
+Review and validate GraphQL schemas for Apollo Federation compliance, performance, best practices, and architectural soundness. Ensures quality before deployment using industry-standard patterns.
 
 **Use when:** Reviewing new schemas, validating schema changes, conducting pre-deployment reviews, or auditing existing federated schemas.
+
+**Reference Documentation:** See `docs/schema-review-best-practices.md` for complete generic best practices.
 
 ---
 
@@ -24,8 +26,14 @@ Review and validate GraphQL schemas for Apollo Federation compliance, performanc
 2. **Performance Impact** — Assess query planning, N+1 risks, and resolver efficiency
 3. **Domain Modeling** — Ensure schema reflects business concepts, not database structure
 4. **Client Experience** — Validate schema serves client needs without over-fetching
-5. **Governance** — Check naming conventions, documentation standards, error handling
+5. **Documentation Standards** — Check naming conventions, descriptions, error handling
 6. **Resilience** — Verify partial failure handling and error boundaries
+
+## Review SLA Expectations
+
+- **Initial feedback**: Within 24 hours of submission (when possible)
+- **Approval timing**: Depends on compliance - schemas violating standards require fixes
+- **Iteration cycles**: Address blocker issues before approval
 
 ---
 
@@ -33,7 +41,7 @@ Review and validate GraphQL schemas for Apollo Federation compliance, performanc
 
 ### 1.1 Understand Context
 
-Ask the astronaut:
+Ask the user:
 
 ```
 1. What is the purpose of this schema?
@@ -52,6 +60,9 @@ Ask the astronaut:
 
 4. Do you have the schema file path?
    - Or should I search for *.graphql files?
+
+5. Are there any organization-specific review requirements?
+   - Sign-off processes, compliance checklists, etc.
 ```
 
 ### 1.2 Locate Schema Files
@@ -488,11 +499,13 @@ npx @apollo/federation compose --config supergraph.yaml
 
 ---
 
-## Phase 6.5: Common Equipmention Issues
+## Phase 6.5: Common Production Issues
 
 ### Real-World Patterns from Schema Reviews
 
-These issues appear frequently in production GraphQL federation schemas:
+**Reference:** See `docs/schema-review-best-practices.md` for complete details on each issue.
+
+These issues appear frequently in GraphQL federation schemas:
 
 **1. Inconsistent Descriptions Across Subgraphs** (Most Common)
 
@@ -878,5 +891,7 @@ Agent:
 - **Explain the "why":** Help teams learn, don't just flag issues
 - **Distinguish severity:** Not every issue blocks deployment
 - **Offer solutions:** Show the correct pattern, don't just point out problems
-- **Consider context:** Early-stage prototypes need less rigor than production schemas
+- **Consider context:** Early-stage prototypes need less rigor than deployment-ready schemas
 - **Build knowledge:** Record common issues in KG/upk for future reviews
+- **Reference best practices:** Point teams to `docs/schema-review-best-practices.md` for generic patterns
+- **Adapt to organization:** If the organization has specific review processes (sign-offs, compliance checklists), incorporate them into the review workflow
