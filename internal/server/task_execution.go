@@ -638,7 +638,27 @@ func (s *AgentServer) executeAgentWorkflow(ctx context.Context, roleTimeout time
 		}
 		if ctx.Err() == context.DeadlineExceeded {
 			logMsg("⏱️ Task timeout exceeded")
-			s.cancelTaskExecution(execution, "Task exceeded deadline")
+
+			// Write a minimal checkpoint so the task can be resumed
+			// We don't have the full loop state here, but we can save what's available
+			cp := &AgentCheckpoint{
+				TaskID:        execution.TaskID,
+				CreatedAt:     time.Now(),
+				Turn:          0, // Unknown - agent will restart from beginning with more time
+				PartialResult: result,
+				ResumeReason:  "timeout",
+				Role:          execution.Role,
+				ProjectRoot:   execution.ProjectRoot,
+				Model:         execution.Config.Model,
+			}
+			if err := writeCheckpoint(execution.ProjectRoot, execution.TaskID, cp); err != nil {
+				logMsg(fmt.Sprintf("⚠️  Failed to write timeout checkpoint: %v", err))
+			} else {
+				logMsg(fmt.Sprintf("   💾 Checkpoint written for resume"))
+			}
+
+			// Mark task as failed with TIMEOUT prefix so resume can identify it
+			s.cancelTaskExecution(execution, "TIMEOUT: Task exceeded time deadline")
 			return "", fmt.Errorf("task timeout")
 		}
 		logMsg(fmt.Sprintf("❌ Agentic loop failed: %v", err))
@@ -651,7 +671,7 @@ func (s *AgentServer) executeAgentWorkflow(ctx context.Context, roleTimeout time
 	return result, nil
 }
 
-func (s *AgentServer) resumeFromCheckpoint(taskID, projectRoot string, cp *AgentCheckpoint, newBudget int64) {
+func (s *AgentServer) resumeFromCheckpoint(taskID, projectRoot string, cp *AgentCheckpoint, extendBudget int64, extendDuration time.Duration) {
 	// Load config for the role (picks up any role-file changes since the pause)
 	config, err := s.loadAgentConfig(cp.Role, projectRoot)
 	if err != nil {
@@ -659,8 +679,15 @@ func (s *AgentServer) resumeFromCheckpoint(taskID, projectRoot string, cp *Agent
 		return
 	}
 
-	// Override budget with the new allocation (0 = unlimited)
-	config.Delegation.MaxBudgetTokens = int(newBudget)
+	// Calculate budget: either full reset or extended by specified amount
+	roleBudget := int64(config.Delegation.MaxBudgetTokens)
+	if extendBudget > 0 {
+		// Extend by adding to existing budget used
+		config.Delegation.MaxBudgetTokens = int(cp.BudgetUsed + extendBudget)
+	} else {
+		// Default behavior (extendBudget == 0): reset to full role budget
+		config.Delegation.MaxBudgetTokens = int(roleBudget)
+	}
 
 	// Rebuild a TaskExecution that mirrors how executeAgentTask works
 	execution := &TaskExecution{
@@ -676,7 +703,14 @@ func (s *AgentServer) resumeFromCheckpoint(taskID, projectRoot string, cp *Agent
 		streamOpen:  true,
 	}
 
+	// Calculate timeout: either full reset or extended by specified duration
 	roleTimeout := parseRoleTimeout(config.Delegation.Timeout)
+	if extendDuration > 0 {
+		// Extend by the specified duration instead of resetting
+		roleTimeout = roleTimeout + extendDuration
+	}
+	// Default behavior (extendDuration == 0): use full roleTimeout (reset)
+
 	// Derive the task context from the server context so that Shutdown()
 	// pre-empts in-flight delegated tasks.
 	ctx, cancel := context.WithTimeout(s.ctx, roleTimeout)
@@ -694,8 +728,23 @@ func (s *AgentServer) resumeFromCheckpoint(taskID, projectRoot string, cp *Agent
 	}()
 
 	logMsg := s.setupExecutionLogger(execution)
-	logMsg(fmt.Sprintf("▶️  Resuming task %s from checkpoint (turn %d, budget %d→%d)",
-		taskID, cp.Turn, cp.BudgetUsed, newBudget))
+
+	// Log resume details
+	var resumeDetails []string
+	if extendDuration > 0 {
+		resumeDetails = append(resumeDetails, fmt.Sprintf("timeout extended by %v (total: %v)", extendDuration, roleTimeout))
+	} else {
+		resumeDetails = append(resumeDetails, fmt.Sprintf("timeout reset to %v", roleTimeout))
+	}
+
+	if extendBudget > 0 {
+		newTotal := cp.BudgetUsed + extendBudget
+		resumeDetails = append(resumeDetails, fmt.Sprintf("budget extended by %d (total: %d)", extendBudget, newTotal))
+	} else {
+		resumeDetails = append(resumeDetails, fmt.Sprintf("budget reset to %d", roleBudget))
+	}
+
+	logMsg(fmt.Sprintf("▶️  Resuming task %s from checkpoint (%s)", taskID, strings.Join(resumeDetails, ", ")))
 
 	// Update disk status to in_progress
 	if err := s.updateTaskStatus(taskID, projectRoot, constants.StatusInProgress, ""); err != nil {
@@ -704,19 +753,77 @@ func (s *AgentServer) resumeFromCheckpoint(taskID, projectRoot string, cp *Agent
 
 	// Build a resume prompt that injects prior partial result as context
 	var resumePrompt string
-	if cp.PartialResult != "" {
-		resumePrompt = fmt.Sprintf(
-			"You are resuming work on task %s after a token-budget pause.\n\n"+
-				"== PRIOR PARTIAL RESULT (from %d completed turns) ==\n%s\n\n"+
-				"== INSTRUCTIONS ==\n"+
-				"Continue from where you left off. Do not repeat work already done.\n"+
-				"Pick up where you left off and complete the remaining work.",
-			taskID, cp.Turn, cp.PartialResult)
+	if cp.ResumeReason == "timeout" {
+		// Resumed from a timeout - inform the agent so it can adjust strategy
+		// Use roleTimeout which reflects any extension applied
+		originalTimeout := parseRoleTimeout(config.Delegation.Timeout)
+		if cp.PartialResult != "" {
+			if extendDuration > 0 {
+				resumePrompt = fmt.Sprintf(
+					"You are resuming work on task %s after a TIMEOUT.\n\n"+
+						"== CONTEXT ==\n"+
+						"Your previous attempt timed out after exceeding the %v time limit.\n"+
+						"The timeout has been EXTENDED by %v (total: %v) to complete this work.\n\n"+
+						"== PRIOR PARTIAL RESULT ==\n%s\n\n"+
+						"== INSTRUCTIONS ==\n"+
+						"Adjust your approach to work within the extended time limit. Consider:\n"+
+						"- Breaking the work into smaller steps\n"+
+						"- Prioritizing the most critical parts first\n"+
+						"- Using more efficient tool calls\n"+
+						"Continue from where you left off and complete the remaining work.",
+					taskID, originalTimeout, extendDuration, roleTimeout, cp.PartialResult)
+			} else {
+				resumePrompt = fmt.Sprintf(
+					"You are resuming work on task %s after a TIMEOUT.\n\n"+
+						"== CONTEXT ==\n"+
+						"Your previous attempt timed out after exceeding the %v time limit.\n"+
+						"You now have a fresh %v time budget to complete this work.\n\n"+
+						"== PRIOR PARTIAL RESULT ==\n%s\n\n"+
+						"== INSTRUCTIONS ==\n"+
+						"Adjust your approach to work within the time limit. Consider:\n"+
+						"- Breaking the work into smaller steps\n"+
+						"- Prioritizing the most critical parts first\n"+
+						"- Using more efficient tool calls\n"+
+						"Continue from where you left off and complete the remaining work.",
+					taskID, originalTimeout, roleTimeout, cp.PartialResult)
+			}
+		} else {
+			if extendDuration > 0 {
+				resumePrompt = fmt.Sprintf(
+					"You are resuming work on task %s after a TIMEOUT.\n\n"+
+						"== CONTEXT ==\n"+
+						"Your previous attempt timed out after exceeding the %v time limit.\n"+
+						"The timeout has been EXTENDED by %v (total: %v) to complete this work.\n\n"+
+						"== INSTRUCTIONS ==\n"+
+						"Adjust your approach to work within the extended time limit. Start fresh and complete the task efficiently.",
+					taskID, originalTimeout, extendDuration, roleTimeout)
+			} else {
+				resumePrompt = fmt.Sprintf(
+					"You are resuming work on task %s after a TIMEOUT.\n\n"+
+						"== CONTEXT ==\n"+
+						"Your previous attempt timed out after exceeding the %v time limit.\n"+
+						"You now have a fresh %v time budget to complete this work.\n\n"+
+						"== INSTRUCTIONS ==\n"+
+						"Adjust your approach to work within the time limit. Start fresh and complete the task efficiently.",
+					taskID, originalTimeout, roleTimeout)
+			}
+		}
 	} else {
-		resumePrompt = fmt.Sprintf(
-			"You are resuming work on task %s after a token-budget pause at turn %d. "+
-				"No partial result was saved. Start fresh and complete the task.",
-			taskID, cp.Turn)
+		// Resumed from token budget pause
+		if cp.PartialResult != "" {
+			resumePrompt = fmt.Sprintf(
+				"You are resuming work on task %s after a token-budget pause.\n\n"+
+					"== PRIOR PARTIAL RESULT (from %d completed turns) ==\n%s\n\n"+
+					"== INSTRUCTIONS ==\n"+
+					"Continue from where you left off. Do not repeat work already done.\n"+
+					"Pick up where you left off and complete the remaining work.",
+				taskID, cp.Turn, cp.PartialResult)
+		} else {
+			resumePrompt = fmt.Sprintf(
+				"You are resuming work on task %s after a token-budget pause at turn %d. "+
+					"No partial result was saved. Start fresh and complete the task.",
+				taskID, cp.Turn)
+		}
 	}
 
 	roleContext, err := s.loadAndLogRoleContext(execution, logMsg)

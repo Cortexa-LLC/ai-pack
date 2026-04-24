@@ -257,7 +257,7 @@ Claude Code integration **extends** the existing ai-pack framework:
 | Framework Component | Claude Code Integration |
 |---------------------|------------------------|
 | `.ai-pack/roles/*.md` | Commands + Skills reference roles |
-| `.ai-pack/gates/*.md` | Rules summarize gates, hooks enforce |
+| `.ai-pack/gates/*.md` | Rules and skills enforce gates |
 | `.ai-pack/workflows/*.md` | Rules guide workflow selection |
 | `.ai-pack/templates/task-packet/` | Commands create from templates |
 | `.ai-pack/quality/` | Rules reference standards |

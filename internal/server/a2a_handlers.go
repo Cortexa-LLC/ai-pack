@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
@@ -728,13 +729,15 @@ func (s *AgentServer) HandleResumeTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse optional body for new budget
+	// Parse optional body for budget and timeout extensions
 	var req struct {
-		NewBudget int64 `json:"new_budget"`
+		ExtendBudget  int64  `json:"extend_budget"`
+		ExtendTimeout string `json:"extend_timeout"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		// Default: no additional budget specified, use 0 (unlimited)
-		req.NewBudget = 0
+		// Default: reset both to role defaults
+		req.ExtendBudget = 0
+		req.ExtendTimeout = ""
 	}
 
 	// Load task info to find project root
@@ -744,9 +747,17 @@ func (s *AgentServer) HandleResumeTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify task is paused
-	if taskInfo.Status != constants.StatusPaused {
-		http.Error(w, fmt.Sprintf("Task is not paused (status: %s)", taskInfo.Status), http.StatusBadRequest)
+	// Verify task is paused or failed due to timeout
+	isTimeoutFailure := false
+	if taskInfo.Status == constants.StatusFailed {
+		// Check if this is a timeout failure (error starts with "TIMEOUT:")
+		if errorMsg, ok := taskInfo.Metadata["error"].(string); ok && strings.HasPrefix(errorMsg, "TIMEOUT:") {
+			isTimeoutFailure = true
+		}
+	}
+
+	if taskInfo.Status != constants.StatusPaused && !isTimeoutFailure {
+		http.Error(w, fmt.Sprintf("Task cannot be resumed (status: %s). Only paused or timed-out tasks can be resumed.", taskInfo.Status), http.StatusBadRequest)
 		return
 	}
 
@@ -767,15 +778,27 @@ func (s *AgentServer) HandleResumeTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Parse extend timeout duration if provided
+	var extendDuration time.Duration
+	if req.ExtendTimeout != "" {
+		parsed, err := time.ParseDuration(req.ExtendTimeout)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Invalid extend_timeout duration: %v", err), http.StatusBadRequest)
+			return
+		}
+		extendDuration = parsed
+	}
+
 	// Launch resume in background
-	go s.resumeFromCheckpoint(taskID, projectRoot, cp, req.NewBudget)
+	go s.resumeFromCheckpoint(taskID, projectRoot, cp, req.ExtendBudget, extendDuration)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":    true,
-		"message":    "Task resuming from checkpoint",
-		"task_id":    taskID,
-		"budget_was": cp.BudgetUsed,
-		"new_budget": req.NewBudget,
+		"success":        true,
+		"message":        "Task resuming from checkpoint",
+		"task_id":        taskID,
+		"budget_was":     cp.BudgetUsed,
+		"extend_budget":  req.ExtendBudget,
+		"extend_timeout": req.ExtendTimeout,
 	})
 }

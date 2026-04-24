@@ -12,37 +12,70 @@ import (
 )
 
 func newResumeCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:          "resume <task-id> [new-budget-tokens]",
-		Short:        "Resume a paused or budget-exhausted task",
-		Args:         cobra.RangeArgs(1, 2),
+	var extendDuration string
+	var extendBudget int64
+
+	cmd := &cobra.Command{
+		Use:          "resume <task-id>",
+		Short:        "Resume a paused or timed-out task",
+		Long: `Resume a task that was paused due to token budget exhaustion or timeout.
+
+By default, resets both timeout and token budget to role defaults.
+Use --extend and --extend-budget to add to existing limits instead.
+
+Examples:
+  agent resume task-123                          # Reset timeout and budget to defaults
+  agent resume task-123 --extend 15m             # Extend timeout by 15 minutes
+  agent resume task-123 --extend-budget 25000    # Add 25k tokens to budget
+  agent resume task-123 --extend 30m --extend-budget 50000  # Extend both`,
+		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var newBudget int64
-			if len(args) >= 2 {
-				fmt.Sscanf(args[1], "%d", &newBudget) //nolint:errcheck
-			}
-			return runResume(args[0], newBudget)
+			return runResume(args[0], extendBudget, extendDuration)
 		},
 	}
+
+	cmd.Flags().StringVar(&extendDuration, "extend", "", "Extend timeout by duration (e.g., 15m, 1h30m)")
+	cmd.Flags().Int64Var(&extendBudget, "extend-budget", 0, "Extend token budget by amount (e.g., 25000)")
+	return cmd
 }
 
-func runResume(taskID string, newBudget int64) error {
-	if err := runResumeHTTP(taskID, newBudget); err != nil {
+func runResume(taskID string, extendBudget int64, extendDuration string) error {
+	if err := runResumeHTTP(taskID, extendBudget, extendDuration); err != nil {
 		return err
 	}
-	fmt.Printf("⏵  Task %s resuming from checkpoint\n", taskID)
+
+	var extensions []string
+	if extendDuration != "" {
+		extensions = append(extensions, fmt.Sprintf("timeout +%s", extendDuration))
+	}
+	if extendBudget > 0 {
+		extensions = append(extensions, fmt.Sprintf("budget +%d tokens", extendBudget))
+	}
+
+	if len(extensions) > 0 {
+		fmt.Printf("⏵  Task %s resuming with %s\n", taskID, strings.Join(extensions, ", "))
+	} else {
+		fmt.Printf("⏵  Task %s resuming (timeout and budget reset to defaults)\n", taskID)
+	}
 	return nil
 }
 
-// runResumeHTTP issues POST /a2a/resume/<taskID> with an optional budget body.
+// runResumeHTTP issues POST /a2a/resume/<taskID> with optional budget and timeout extensions.
 // It is extracted so that contract tests can verify the correct endpoint path.
-func runResumeHTTP(taskID string, newBudget int64) error {
+func runResumeHTTP(taskID string, extendBudget int64, extendDuration string) error {
 	url := fmt.Sprintf("%s/a2a/resume/%s", agentclient.DefaultBaseURL, taskID)
 
 	var body io.Reader
-	if newBudget > 0 {
-		body = strings.NewReader(fmt.Sprintf(`{"new_budget":%d}`, newBudget))
+	if extendBudget > 0 || extendDuration != "" {
+		bodyParts := []string{}
+		if extendBudget > 0 {
+			bodyParts = append(bodyParts, fmt.Sprintf(`"extend_budget":%d`, extendBudget))
+		}
+		if extendDuration != "" {
+			bodyParts = append(bodyParts, fmt.Sprintf(`"extend_timeout":"%s"`, extendDuration))
+		}
+		body = strings.NewReader(fmt.Sprintf(`{%s}`, strings.Join(bodyParts, ",")))
 	}
 
 	resp, err := http.Post(url, "application/json", body) //nolint:gosec,noctx
