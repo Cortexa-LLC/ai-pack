@@ -6,6 +6,11 @@
 
 GraphQL Federation enables multiple GraphQL services (subgraphs) to compose into a unified API (supergraph) that clients can query as a single endpoint. This document provides comprehensive guidance for designing federated schemas that are maintainable, performant, and evolvable.
 
+**Quick Reference:**
+- **Schema Review Checklist**: See [`docs/schema-review-best-practices.md`](../../docs/schema-review-best-practices.md) for production-ready review patterns
+- **Designer Skill**: [`skills/federated_graphql_designer.skill.md`](../../skills/federated_graphql_designer.skill.md) for schema design guidance
+- **Reviewer Skill**: [`skills/federated_graphql_reviewer.skill.md`](../../skills/federated_graphql_reviewer.skill.md) for review workflows
+
 **Core Federation Concepts:**
 - **Subgraph:** Independent GraphQL service owning specific domain data
 - **Supergraph:** Unified schema composed from all subgraphs

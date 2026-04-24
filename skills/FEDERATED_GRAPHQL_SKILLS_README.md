@@ -16,7 +16,7 @@ Helps design Apollo Federation 2.0+ schemas with:
 - Stable key selection
 - Federation directives (@key, @requires, @provides, @shareable)
 - Performance optimization (DataLoader, N+1 prevention)
-- Common production issue prevention
+- Common issue prevention
 
 ### 2. federated_graphql_reviewer.skill.md
 **Purpose:** Review schemas for compliance, performance, and best practices  
@@ -198,13 +198,21 @@ The following learnings are stored in upk:
    - Enum breaking changes
    - Nullability conflicts
 
+## Documentation
+
+### Generic Best Practices (NEW)
+- **[Schema Review Best Practices](../docs/schema-review-best-practices.md)** - Universal patterns for reviewing schemas before deployment
+
+### Project Documentation
+- **[Federated GraphQL Design Principles](../quality/clean-code/12-graphql-federation.md)** - Comprehensive design guide covering entities, directives, performance, and testing
+
 ## Sources
 
 - [Netflix GraphQL Federation at Scale](https://medium.com/@simardeep.oberoi/graphql-federation-at-scale-the-netflix-engineering-blueprint-85358b653e52)
 - [Netflix's Federated Supergraph Journey](https://www.apollographql.com/blog/an-unexpected-journey-how-netflix-transitioned-to-a-federated-supergraph)
 - [WunderGraph Federation Overview](https://wundergraph.com/blog/a-brief-overview-of-open-source-graphql-federation)
 - Apollo Federation Specification: https://www.apollographql.com/docs/federation/
-- Real production PR reviews from enterprise schema registries
+- Enterprise GraphQL federation implementations
 
 ## When to Use Each Skill
 
@@ -255,7 +263,7 @@ type Mission @key(fields: "id") {
   
 - **v1.0 (Reviewer)** - 2026-04-22
   - Initial release
-  - Real production issues from PR reviews
+  - Common schema issues and fixes
   - Apollo mission-themed examples
   - 7-phase review framework
   - Comprehensive validation checklist
