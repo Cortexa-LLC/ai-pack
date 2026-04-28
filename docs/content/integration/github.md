@@ -9,7 +9,7 @@ Optional integration for hosted GitHub.com repositories.
 
 ## Features
 
-- Sync Beads tasks ↔ GitHub Issues bidirectionally
+- Sync tasks ↔ GitHub Issues bidirectionally
 - Create Epics/Stories from Beads hierarchies
 - Monitor CI/CD workflows and auto-create fix tasks
 - Track work in your GitHub Repository

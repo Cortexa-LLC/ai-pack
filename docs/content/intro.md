@@ -105,16 +105,16 @@ python3 .ai-pack/templates/.claude-setup.py
 
 ```bash
 # Create a task in Beads
-bd create "Implement user authentication" --priority high
+agent create "Implement user authentication" --priority high
 
 # View available tasks
-bd ready
+agent list --status queued
 
 # Start working on a task
 bd start bd-a1b2
 
 # Mark task complete
-bd close bd-a1b2
+agent close bd-a1b2
 ```text
 
 ## Documentation Structure

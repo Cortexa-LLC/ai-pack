@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cortexa-llc/ai-pack/internal/beads"
 	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 )
@@ -240,9 +239,11 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// For beads tasks without execution, get status from Beads
-		if beadsTask, err := s.beadsClient.GetTaskFromDir(taskID, projectRoot); err == nil {
-			taskStatus = beadsTask.Status
-		}
+		if s.taskDB != nil {
+				if dbTask, err := s.taskDB.GetTask(taskID); err == nil && dbTask != nil {
+					taskStatus = dbTask.Status
+				}
+			}
 	}
 
 	// For tasks without execution logs, show the task contract instead
@@ -270,22 +271,13 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 
 // serveTaskContract serves the task description/contract for queued tasks
 func (s *AgentServer) serveTaskContract(w http.ResponseWriter, r *http.Request, taskID, projectRoot string) {
-	// Try to get beads task info
-	var beadsTask *beads.Task
-	var err error
-
-	if projectRoot != "" {
-		beadsTask, err = s.beadsClient.GetTaskFromDir(taskID, projectRoot)
-	} else {
-		// Try all project roots
-		for _, root := range s.GetProjectRoots() {
-			beadsTask, err = s.beadsClient.GetTaskFromDir(taskID, root)
-			if err == nil {
-				break
-			}
-		}
+	// Try to get task info from taskDB
+	if s.taskDB == nil {
+		http.Error(w, "Task database not available", http.StatusServiceUnavailable)
+		return
 	}
 
+	dbTask, err := s.taskDB.GetTask(taskID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Task not found: %s", taskID), http.StatusNotFound)
 		return
@@ -293,35 +285,22 @@ func (s *AgentServer) serveTaskContract(w http.ResponseWriter, r *http.Request, 
 
 	// Build markdown contract
 	var contract strings.Builder
-	contract.WriteString(fmt.Sprintf("# %s\n\n", beadsTask.Title))
-	contract.WriteString(fmt.Sprintf("**Task ID:** %s  \n", beadsTask.ID))
-	contract.WriteString(fmt.Sprintf("**Status:** %s  \n\n", beadsTask.Status))
+	contract.WriteString(fmt.Sprintf("# Task %s\n\n", dbTask.BeadsID))
+	contract.WriteString(fmt.Sprintf("**Task ID:** %s  \n", dbTask.ID))
+	contract.WriteString(fmt.Sprintf("**Beads ID:** %s  \n", dbTask.BeadsID))
+	contract.WriteString(fmt.Sprintf("**Status:** %s  \n", dbTask.Status))
+	contract.WriteString(fmt.Sprintf("**Role:** %s  \n\n", dbTask.Role))
 
-	if beadsTask.Description != "" && beadsTask.Description != beadsTask.Title {
+	if dbTask.TaskDescription != "" {
 		contract.WriteString("## Description\n\n")
-		contract.WriteString(beadsTask.Description)
+		contract.WriteString(dbTask.TaskDescription)
 		contract.WriteString("\n\n")
 	}
 
-	if len(beadsTask.Dependencies) > 0 {
-		contract.WriteString("## Dependencies\n\n")
-		for _, dep := range beadsTask.Dependencies {
-			if depID, ok := dep.(string); ok {
-				contract.WriteString(fmt.Sprintf("- %s\n", depID))
-			} else if depMap, ok := dep.(map[string]interface{}); ok {
-				if id, ok := depMap["id"].(string); ok {
-					contract.WriteString(fmt.Sprintf("- %s\n", id))
-				}
-			}
-		}
-		contract.WriteString("\n")
-	}
-
-	if beadsTask.Metadata != nil && len(beadsTask.Metadata) > 0 {
+	if dbTask.Metadata != "" {
 		contract.WriteString("## Metadata\n\n")
-		for k, v := range beadsTask.Metadata {
-			contract.WriteString(fmt.Sprintf("- **%s:** %v\n", k, v))
-		}
+		contract.WriteString(dbTask.Metadata)
+		contract.WriteString("\n\n")
 	}
 
 	// Set CORS headers

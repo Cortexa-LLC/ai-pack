@@ -15,6 +15,7 @@ import (
 	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/internal/protocol"
+	"github.com/cortexa-llc/ai-pack/internal/taskdb"
 )
 
 // Error message constants
@@ -383,7 +384,7 @@ func (s *AgentServer) handleStatusGET(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(status)
 }
 
-// HandleTasksList returns all active tasks machine-wide
+// HandleTasksList returns all tasks from the SQLite task database
 func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
@@ -401,97 +402,32 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 		Error       string `json:"error,omitempty"`
 	}
 
-	tasksMap := make(map[string]TaskInfo)
-
-	// First, get all active tasks from memory, skipping superseded entries.
-	// (markExecutionAsSuperseded now removes from activeTasks, but entries that
-	// were superseded before this fix may still be present until server restart.)
-	s.mu.RLock()
-	for _, execution := range s.activeTasks {
-		// Skip if the on-disk metadata marks this execution as superseded.
-		if execution.ProjectRoot != "" {
-			metaPath := filepath.Join(execution.ProjectRoot, constants.BeadsDir, "tasks", execution.TaskID, constants.MetadataFileName)
-			if data, err := os.ReadFile(metaPath); err == nil {
-				var meta map[string]interface{}
-				if json.Unmarshal(data, &meta) == nil {
-					if sup, _ := meta["superseded"].(bool); sup {
-						continue
-					}
-				}
-			}
-		}
-		task := TaskInfo{
-			TaskID:      execution.TaskID,
-			Status:      execution.Status,
-			Role:        execution.Role,
-			Description: execution.Task,
-			Error:       execution.Error,
-			ProjectRoot: execution.ProjectRoot,
-		}
-		if execution.metadata != nil {
-			task.BeadsTaskID = execution.metadata["beads_task_id"]
-		}
-
-		tasksMap[task.TaskID] = task
-	}
-	s.mu.RUnlock()
-
-	// Get all project roots to scan (server root + registered projects)
-	projectRoots := s.GetProjectRoots()
-
-	// Build set of beads IDs already covered by active in-memory tasks
-	activeBeadsIDs := make(map[string]bool)
-	for _, task := range tasksMap {
-		if task.BeadsTaskID != "" {
-			activeBeadsIDs[task.BeadsTaskID] = true
-		}
-	}
-
-	// Then, get beads tasks from each project using bd list
-	beadsClient := s.beadsClient
-	for _, projectRoot := range projectRoots {
-		beadsTasks, err := beadsClient.ListAllTasksFromDir(projectRoot)
-		if err != nil {
-			continue // Skip if can't list tasks from this project
-		}
-
-		// Convert beads tasks to TaskInfo
-		for _, beadsTask := range beadsTasks {
-			taskID := beadsTask.ID
-			// Skip if already in tasks map by full ID or by beads ID
-			if _, exists := tasksMap[taskID]; exists || activeBeadsIDs[taskID] {
-				continue
-			}
-
-			// Map beads status to agent status
-			status := "queued"
-			switch beadsTask.Status {
-			case "in_progress":
-				status = "in_progress"
-			case "closed", "done":
-				// A task closed in Beads is always completed, regardless of execution outcome
-				status = constants.StatusCompleted
-			case "open":
-				status = "queued"
-			}
-
-			task := TaskInfo{
-				TaskID:      taskID,
-				BeadsTaskID: taskID,
-				Status:      status,
-				Role:        "beads-task",
-				Description: beadsTask.Title,
-				ProjectRoot: projectRoot,
-			}
-
-			tasksMap[taskID] = task
-		}
-	}
-
-	// Convert map to slice
 	var tasks []TaskInfo
-	for _, task := range tasksMap {
-		tasks = append(tasks, task)
+
+	// Get tasks from SQLite database
+	if s.taskDB != nil {
+		dbTasks, err := s.taskDB.ListTasks(taskdb.TaskFilter{
+			Limit: 1000, // Reasonable limit for UI display
+		})
+		if err != nil {
+			monitoring.Logger.Error("taskdb_list_failed", "error", err.Error())
+			http.Error(w, "Failed to list tasks", http.StatusInternalServerError)
+			return
+		}
+
+		// Convert to TaskInfo
+		for _, dbTask := range dbTasks {
+			task := TaskInfo{
+				TaskID:      dbTask.ID,
+				BeadsTaskID: dbTask.BeadsID,
+				Status:      dbTask.Status,
+				Role:        dbTask.Role,
+				Description: dbTask.TaskDescription,
+				ProjectRoot: dbTask.ProjectRoot,
+				Error:       dbTask.Error,
+			}
+			tasks = append(tasks, task)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -660,14 +596,27 @@ func (s *AgentServer) HandleStartTask(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.RUnlock()
 
-	// Check if task packet exists
-	_, taskPacketPath, _, _, err := s.beadsClient.GetTaskDescriptionFromDir(taskID, req.ProjectRoot)
-	if err != nil {
+	// Check if task exists in database
+	var taskPacketPath string
+	if s.taskDB != nil {
+		dbTask, err := s.taskDB.GetTask(taskID)
+		if err != nil || dbTask == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": false,
+				"message": fmt.Sprintf("Task not found: %s", taskID),
+			})
+			return
+		}
+		// Derive task packet path from task ID
+		taskPacketPath = fmt.Sprintf(".ai/tasks/%s", taskID)
+	} else {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
-			"message": fmt.Sprintf("Failed to get task info: %v", err),
+			"message": "Task database not initialized",
 		})
 		return
 	}

@@ -138,7 +138,7 @@ OK
 **Tests:** 10 tests
 
 **Validates:**
-- ✅ Proper naming convention (<beads-id>-<YYYYMMDDHHMMSS>-task-name)
+- ✅ Proper naming convention (<task-id>-<YYYYMMDDHHMMSS>-task-name)
 - ✅ Correct location (.ai/tasks/)
 - ✅ All required files created
 - ✅ Cross-references between files

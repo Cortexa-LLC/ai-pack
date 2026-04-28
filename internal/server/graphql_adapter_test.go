@@ -2,33 +2,15 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/cortexa-llc/ai-pack/internal/beads"
 	"github.com/cortexa-llc/ai-pack/internal/config"
 	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 )
-
-// mockBeadsTaskGetter is a test double for beadsTaskGetter.
-type mockBeadsTaskGetter struct {
-	tasks  map[string]*beads.Task
-	errors map[string]error
-}
-
-func (m *mockBeadsTaskGetter) GetTask(taskID string) (*beads.Task, error) {
-	if err, ok := m.errors[taskID]; ok {
-		return nil, err
-	}
-	if t, ok := m.tasks[taskID]; ok {
-		return t, nil
-	}
-	return nil, fmt.Errorf("task %q not found in mock", taskID)
-}
 
 // TestGetMetrics verifies the GraphQL adapter returns correct metrics
 func TestGetMetrics(t *testing.T) {
@@ -167,13 +149,10 @@ func TestGetActiveTasksWithTask(t *testing.T) {
 	}
 }
 
-// TestGetAllTasks_CancelledBeadsTaskShowsCancelled verifies that when CloseTask
+// TestGetAllTasks_CancelledTaskShowsCancelled verifies that when CloseTask
 // sets execution.Status = "closed" (the actual cancel sequence), the task is
-// reported as "cancelled" even though beads shows "open".
-// It also verifies that a genuinely running task (Status "in_progress") whose
-// beads entry was incorrectly reset to "open" by orphan cleanup continues to
-// show as "in_progress" — not downgraded to "cancelled".
-func TestGetAllTasks_CancelledBeadsTaskShowsCancelled(t *testing.T) {
+// reported as "cancelled" in GetAllTasks.
+func TestGetAllTasks_CancelledTaskShowsCancelled(t *testing.T) {
 	monitoring.InitMetrics()
 
 	cfg := &config.Config{
@@ -201,13 +180,12 @@ func TestGetAllTasks_CancelledBeadsTaskShowsCancelled(t *testing.T) {
 		metadata:  map[string]string{"beads_task_id": beadsID},
 	}
 
-	// Also add a legitimately running task whose beads was incorrectly reset to "open"
-	// by orphan cleanup from a second server instance. It must stay "in_progress".
+	// Add a legitimately running task that should stay "in_progress"
 	beadsIDRunning := "ai-pack-test-running"
 	executionRunning := &TaskExecution{
-		TaskID:    "task-running-beads-open",
+		TaskID:    "task-running",
 		Role:      "engineer",
-		Task:      "running task with orphaned beads",
+		Task:      "running task",
 		Status:    "in_progress",
 		StartTime: time.Now(),
 		metadata:  map[string]string{"beads_task_id": beadsIDRunning},
@@ -215,17 +193,10 @@ func TestGetAllTasks_CancelledBeadsTaskShowsCancelled(t *testing.T) {
 
 	server.mu.Lock()
 	server.activeTasks["task-cancelled-test"] = execution
-	server.activeTasks["task-running-beads-open"] = executionRunning
+	server.activeTasks["task-running"] = executionRunning
 	server.mu.Unlock()
 
 	adapter := NewGraphQLAdapter(server)
-	adapter.taskGetter = &mockBeadsTaskGetter{
-		tasks: map[string]*beads.Task{
-			beadsID:        {ID: beadsID, Status: "open"},
-			beadsIDRunning: {ID: beadsIDRunning, Status: "open"},
-		},
-	}
-
 	tasks := adapter.GetAllTasks()
 
 	got, ok := tasks["task-cancelled-test"]
@@ -236,12 +207,12 @@ func TestGetAllTasks_CancelledBeadsTaskShowsCancelled(t *testing.T) {
 		t.Errorf("Expected status 'cancelled' for closed execution, got %q", got.Status)
 	}
 
-	gotRunning, ok := tasks["task-running-beads-open"]
+	gotRunning, ok := tasks["task-running"]
 	if !ok {
-		t.Fatal("Expected task-running-beads-open in GetAllTasks result, but it was missing")
+		t.Fatal("Expected task-running in GetAllTasks result, but it was missing")
 	}
 	if gotRunning.Status != "in_progress" {
-		t.Errorf("Expected status 'in_progress' for running task with orphaned beads, got %q — must not downgrade running task", gotRunning.Status)
+		t.Errorf("Expected status 'in_progress' for running task, got %q", gotRunning.Status)
 	}
 }
 
@@ -364,11 +335,6 @@ func TestFindMostRecentExecution_UsesNameTimestampNotMtime(t *testing.T) {
 		t.Fatal(err)
 	}
 	adapter := NewGraphQLAdapter(server)
-	adapter.taskGetter = &mockBeadsTaskGetter{
-		tasks: map[string]*beads.Task{
-			beadsID: {ID: beadsID, Status: "in_progress"},
-		},
-	}
 
 	result := adapter.findMostRecentExecution(projectRoot, beadsID)
 	if result == nil {
@@ -418,11 +384,6 @@ func TestGetTaskStatus_FindsActiveTaskByBeadsIDPrefix(t *testing.T) {
 	server.mu.Unlock()
 
 	adapter := NewGraphQLAdapter(server)
-	adapter.taskGetter = &mockBeadsTaskGetter{
-		tasks: map[string]*beads.Task{
-			beadsID: {ID: beadsID, Status: "in_progress"},
-		},
-	}
 
 	// Query with the SHORT beads ID — should find the active execution
 	taskInfo, err := adapter.GetTaskStatus(beadsID)

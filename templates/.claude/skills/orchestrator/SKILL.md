@@ -893,21 +893,21 @@ DELIVERABLES: Use Write tool to create files. Report absolute paths.",
 
 **All Task calls must be in the SAME response to run in parallel.**
 
-**After spawning agents, CREATE Beads tasks for tracking:**
+**After spawning agents, CREATE tasks for tracking:**
 
 ```bash
-# Create Beads task for each agent spawned
-bd create "Agent: Engineer - Implement feature A" \
+# Create task for each agent spawned
+agent create "Agent: Engineer - Implement feature A" \
   --assignee "Engineer-1" \
   --priority high \
   --description "Task packet: .ai/tasks/2026-01-10_feature-a/"
 
-bd create "Agent: Engineer - Implement feature B" \
+agent create "Agent: Engineer - Implement feature B" \
   --assignee "Engineer-2" \
   --priority high \
   --description "Task packet: .ai/tasks/2026-01-10_feature-b/"
 
-bd create "Agent: Engineer - Implement feature C" \
+agent create "Agent: Engineer - Implement feature C" \
   --assignee "Engineer-3" \
   --priority high \
   --description "Task packet: .ai/tasks/2026-01-10_feature-c/"
@@ -929,7 +929,7 @@ bd start bd-c3d4
 
 ```bash
 # Check active agents
-bd list --status in_progress --assignee "Engineer-*"
+agent list --status in_progress --assignee "Engineer-*"
 
 # Or use the /ai-pack agents command for formatted report
 /ai-pack agents
@@ -960,7 +960,7 @@ Available capacity: 4 slots
 **Detailed status with jq:**
 
 ```bash
-bd list --assignee "Engineer-*" --json | jq -r '
+agent list --assignee "Engineer-*" --json | jq -r '
   "Active agents:",
   (.[] | select(.status == "in_progress") | "  \(.assignee): \(.title)"),
   "",
@@ -1003,7 +1003,7 @@ grep -i "tool.*failed\|error executing" /path/to/agent-output.txt
 ⛔ AGENT DID NOT COMPLETE SUCCESSFULLY
 ⛔ This is a FAILURE, not success
 ⛔ DO NOT mark as completed
-⛔ DO NOT close Beads task
+⛔ DO NOT close task
 
 ACTIONS:
 1. Report failure to user with error details
@@ -1016,12 +1016,12 @@ ACTIONS:
 **ONLY if Step 1 passed (no errors found), check file persistence:**
 
 ```bash
-# BEFORE closing Beads task or declaring success:
+# BEFORE closing task or declaring success:
 # 1. Read agent output to see what files it claimed to create
 # 2. Verify EVERY file exists: ls -la <file-path>
 # 3. Check Write() tool calls were made (count should be > 0)
 # 4. If files missing: bd block <task-id> "Files not persisted"
-# 5. If files exist: bd close <task-id>
+# 5. If files exist: agent close <task-id>
 
 # Check if agent made ANY Write() calls
 grep -c '"name":"Write"' /path/to/agent-output.txt
@@ -1038,7 +1038,7 @@ grep -c '"name":"Write"' /path/to/agent-output.txt
 
 **Only then:**
 ```bash
-bd close <task-id>
+agent close <task-id>
 echo "✅ Agent completed successfully with verified file persistence"
 ```
 
@@ -1277,7 +1277,7 @@ END IF
 
 ```bash
 # If verification PASSES - all files exist
-bd close <agent-task-id>
+agent close <agent-task-id>
 
 # If verification FAILS - files missing
 bd block <agent-task-id> "File persistence failed - 5 files missing from repository"

@@ -63,7 +63,7 @@ Create investigation report in `docs/investigations/`:
 
 **Date:** [Date]
 **Investigator:** Inspector
-**Related Task:** [.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/]
+**Related Task:** [.ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/]
 
 ## Symptoms
 

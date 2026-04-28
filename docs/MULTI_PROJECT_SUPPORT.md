@@ -53,7 +53,7 @@ Added working directory support to all operations:
 # Server running from ai-pack/a2a-agent/
 cd /path/to/project
 agent engineer xasm++-asp --stream
-# ❌ Error: Beads task xasm++-asp does not exist or is not accessible
+# ❌ Error: task xasm++-asp does not exist or is not accessible
 ```
 
 ### After Fix
@@ -70,9 +70,9 @@ agent engineer xasm++-asp --stream
 2. CLI detects project root: `/path/to/project`
 3. CLI sends request with `project_root: "/path/to/project"`
 4. Server receives request and uses project root for all Beads commands:
-   - `bd show xasm++-asp` (with working dir = `/path/to/project`)
-   - `bd update --claim xasm++-asp` (with working dir = `/path/to/project`)
-   - `bd close xasm++-asp` (with working dir = `/path/to/project`)
+   - `agent show xasm++-asp` (with working dir = `/path/to/project`)
+   - `agent update --claim xasm++-asp` (with working dir = `/path/to/project`)
+   - `agent close xasm++-asp` (with working dir = `/path/to/project`)
 
 ## Task Storage Fix (Critical Update)
 

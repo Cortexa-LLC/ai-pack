@@ -1,6 +1,6 @@
 # Shared Dolt Service — Multi-Project Setup
 
-AI-Pack uses a single Dolt SQL server to back Beads task tracking for **all projects**
+AI-Pack uses a single Dolt SQL server to back task tracking for **all projects**
 on the developer's machine. Each project gets its own isolated database within that
 server — no separate process or port per project.
 

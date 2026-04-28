@@ -15,7 +15,6 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	anthropic_option "github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/cortexa-llc/ai-pack/internal/auth"
-	"github.com/cortexa-llc/ai-pack/internal/beads"
 	"github.com/cortexa-llc/ai-pack/internal/claude"
 	"github.com/cortexa-llc/ai-pack/internal/config"
 	"github.com/cortexa-llc/ai-pack/internal/constants"
@@ -25,6 +24,7 @@ import (
 	"github.com/cortexa-llc/ai-pack/internal/protocol"
 	"github.com/cortexa-llc/ai-pack/internal/proxy"
 	"github.com/cortexa-llc/ai-pack/internal/streaming"
+	"github.com/cortexa-llc/ai-pack/internal/taskdb"
 )
 
 var Version = "dev"
@@ -87,7 +87,7 @@ type AgentServer struct {
 	rootDir          string
 	anthropicKey     string
 	client           anthropic.Client // SDK v1.19+ returns Client by value, store value to match
-	beadsClient      *beads.Client
+	taskDB           *taskdb.DB
 	claudeSettings   *claude.Settings            // Claude Code settings (deny patterns, etc.)
 	executionLog     *execution_log.ExecutionLog // Persistent agent execution log
 	maxConcurrent    int                         // Maximum concurrent agents (configurable)
@@ -482,9 +482,19 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	server.anthropicKey = anthropicKey
 	server.openaiKey = openaiKey
 	server.geminiKey = geminiKey
-	server.beadsClient = beads.NewClient()
 	server.claudeSettings = claudeSettings
 	server.executionLog = execLog
+
+	// Initialize taskDB
+	homeDir := os.Getenv("HOME")
+	taskDBPath := filepath.Join(homeDir, ".ai-pack", "tasks.db")
+	taskDB, err := taskdb.Open(taskDBPath)
+	if err != nil {
+		monitoring.Logger.Warn("failed_to_open_taskdb", "error", err.Error(), "path", taskDBPath)
+	} else {
+		monitoring.Logger.Info("taskdb_initialized", "path", taskDBPath)
+	}
+	server.taskDB = taskDB
 	server.maxInactiveTurns = maxInactiveTurns
 	server.maxConsecutiveErrorTurns = maxConsecutiveErrorTurns
 	server.providerCosts = costs
@@ -578,7 +588,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	go server.startWorkerPool()
 
 	// Log Beads availability
-	if beads.IsInstalled() {
+	if false {
 		monitoring.Logger.Info("beads_available", "installed", true)
 	} else {
 		monitoring.Logger.Warn("beads_not_installed", "message", "Install Beads for better task tracking: https://github.com/steveyegge/beads")
@@ -593,12 +603,12 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	server.cleanupInactiveProjects()
 
 	// Archive old completed tasks if enabled
-	if cfg != nil && cfg.TaskCleanup.Enabled && beads.IsInstalled() {
+	if cfg != nil && cfg.TaskCleanup.Enabled && false {
 		server.archiveOldTasks()
 	}
 
 	// Handle orphaned in-progress beads tasks from previous server runs
-	if beads.IsInstalled() {
+	if false {
 		go server.handleOrphanedTasks()
 	}
 
@@ -701,189 +711,6 @@ func (s *AgentServer) cleanupInactiveProjects() {
 	}
 }
 
-func (s *AgentServer) handleOrphanedTasks() {
-	// Wait a bit for server to fully initialize
-	time.Sleep(2 * time.Second)
-
-	projectRoots := s.GetProjectRoots()
-	orphanedCount := 0
-	staleCount := 0
-
-	// Build a map of all Beads tasks by ID for quick lookup
-	beadsTasksByID := make(map[string]*beads.Task)
-	for _, projectRoot := range projectRoots {
-		beadsTasks, err := s.beadsClient.ListAllTasksFromDir(projectRoot)
-		if err != nil {
-			continue
-		}
-
-		for _, beadsTask := range beadsTasks {
-			beadsTasksByID[beadsTask.ID] = &beadsTask
-
-			// Check for orphaned tasks (marked in_progress in Beads but not running)
-			if beadsTask.Status == constants.StatusPaused {
-				continue
-			}
-			if beadsTask.Status == constants.StatusInProgress {
-				s.mu.RLock()
-				_, hasActiveTask := s.activeTasks[beadsTask.ID]
-				s.mu.RUnlock()
-
-				if !hasActiveTask {
-					// This is an orphaned task - marked in_progress in beads but no active execution.
-					// Reset to "open" so it shows as queued (not stuck as running) in the GUI.
-					monitoring.Logger.Warn("orphaned_task_detected",
-						"task_id", beadsTask.ID,
-						"title", beadsTask.Title,
-						"project", projectRoot,
-						"action", "resetting_to_open",
-					)
-
-					// "bd update -s open" is the correct reset; "queued" is not a valid beads status.
-					// Reset Beads status first — if this fails, leave checkpoint intact so
-					// the task remains in a recoverable state (checkpoint present, status
-					// still in_progress → next sweep will retry).
-					if beads.IsInstalled() {
-						cmd := exec.Command("bd", "update", "-s", "open", beadsTask.ID)
-						cmd.Dir = projectRoot
-						if err := cmd.Run(); err != nil {
-							monitoring.Logger.Error("failed_to_reset_orphaned_task",
-								"task_id", beadsTask.ID,
-								"error", err.Error())
-							continue // leave checkpoint intact; retry on next sweep
-						}
-						monitoring.Logger.Info("orphaned_task_reset",
-							"task_id", beadsTask.ID,
-							"new_status", "open")
-					}
-
-					// Delete any checkpoint only after a successful Beads reset, so the
-					// task restarts from scratch instead of resuming stale state from the
-					// previous (aborted) run. If we left the checkpoint in place, the next
-					// resume would replay old messages into a freshly-opened task and
-					// produce incorrect behaviour.
-					cpPath := checkpointPath(projectRoot, beadsTask.ID)
-					if removeErr := os.Remove(cpPath); removeErr == nil {
-						monitoring.Logger.Info("orphaned_task_checkpoint_deleted",
-							"task_id", beadsTask.ID,
-							"checkpoint", cpPath)
-					} else if !os.IsNotExist(removeErr) {
-						monitoring.Logger.Warn("failed_to_delete_orphaned_checkpoint",
-							"task_id", beadsTask.ID,
-							"checkpoint", cpPath,
-							"error", removeErr.Error())
-					}
-
-					orphanedCount++
-				}
-			}
-		}
-	}
-
-	// Check for stale entries in activeTasks - tasks that are no longer in_progress in Beads
-	s.mu.Lock()
-	for taskID, execution := range s.activeTasks {
-		beadsTask, exists := beadsTasksByID[taskID]
-
-		// If task doesn't exist in Beads or is no longer in_progress, remove from activeTasks
-		if !exists || (beadsTask.Status != "in_progress") {
-			monitoring.Logger.Warn("stale_active_task_removed",
-				"task_id", taskID,
-				"beads_exists", exists,
-				"beads_status", func() string {
-					if beadsTask != nil {
-						return beadsTask.Status
-					}
-					return "not_found"
-				}(),
-			)
-			delete(s.activeTasks, taskID)
-
-			// Close the stream if it exists
-			if execution.streamChan != nil {
-				s.closeStream(execution)
-			}
-			staleCount++
-		}
-	}
-	s.mu.Unlock()
-
-	// Second pass: scan execution folders for stale in_progress metadata.
-	// This catches tasks that were interrupted mid-run (e.g. server killed) whose
-	// Beads status was already reset to "open" by bd reopen, but whose execution
-	// metadata file still says "in_progress".
-	staleMeta := 0
-	for _, projectRoot := range projectRoots {
-		tasksDir := filepath.Join(projectRoot, constants.BeadsDir, "tasks")
-		entries, err := os.ReadDir(tasksDir)
-		if err != nil {
-			continue
-		}
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
-			}
-			folderName := entry.Name()
-			metadataPath := filepath.Join(tasksDir, folderName, constants.MetadataFileName)
-			data, err := os.ReadFile(metadataPath)
-			if err != nil {
-				continue
-			}
-			var meta map[string]interface{}
-			if json.Unmarshal(data, &meta) != nil {
-				continue
-			}
-			if meta["status"] != "in_progress" {
-				continue
-			}
-			// Skip folders spawned very recently — they may belong to a task that was
-			// running in the previous server process which hasn't fully exited yet.
-			// launchctl starts the new process immediately on restart, so there is a
-			// race window (up to the 5-second graceful-shutdown timeout) where both the
-			// old and new processes are alive simultaneously.  Marking a task failed here
-			// while the old process is still executing it causes the stale-failed UX bug.
-			if spawnedStr, ok := meta["spawned_at"].(string); ok {
-				if spawned, err := time.Parse(time.RFC3339, spawnedStr); err == nil {
-					if time.Since(spawned) < 30*time.Second {
-						monitoring.Logger.Info("skipping_recently_spawned_execution",
-							"folder", folderName,
-							"spawned_at", spawnedStr,
-							"age_seconds", int(time.Since(spawned).Seconds()),
-						)
-						continue
-					}
-				}
-			}
-			// Not active — mark it failed so the GUI doesn't show it as running
-			s.mu.RLock()
-			_, isActive := s.activeTasks[folderName]
-			s.mu.RUnlock()
-			if isActive {
-				continue
-			}
-			meta["status"] = constants.StatusFailed
-			meta["error"] = "interrupted: server restarted while task was running"
-			meta["updated_at"] = time.Now().Format(time.RFC3339)
-			if updated, err := json.MarshalIndent(meta, "", "  "); err == nil {
-				if writeErr := os.WriteFile(metadataPath, updated, 0644); writeErr == nil {
-					monitoring.Logger.Info("stale_execution_marked_failed",
-						"folder", folderName,
-						"project", projectRoot,
-					)
-					staleMeta++
-				}
-			}
-		}
-	}
-
-	if orphanedCount > 0 || staleCount > 0 || staleMeta > 0 {
-		monitoring.Logger.Info("task_cleanup_summary",
-			"orphaned", orphanedCount,
-			"stale_removed", staleCount,
-			"stale_metadata_fixed", staleMeta,
-		)
-	}
-}
 
 func (s *AgentServer) archiveOldTasks() {
 	if !s.config.TaskCleanup.Enabled {
@@ -897,79 +724,60 @@ func (s *AgentServer) archiveOldTasks() {
 	}
 
 	cutoffTime := time.Now().AddDate(0, 0, -archiveDays)
-	projectRoots := s.GetProjectRoots()
 	totalArchived := 0
 
 	monitoring.Logger.Info("starting_task_archival",
 		"archive_after_days", archiveDays,
-		"cutoff_date", cutoffTime.Format("2006-01-02"),
-		"project_count", len(projectRoots))
+		"cutoff_date", cutoffTime.Format("2006-01-02"))
 
-	for _, projectRoot := range projectRoots {
-		// List all tasks from this project
-		beadsTasks, err := s.beadsClient.ListAllTasksFromDir(projectRoot)
-		if err != nil {
-			monitoring.Logger.Warn("failed_to_list_tasks_for_archival",
-				"project", projectRoot,
-				"error", err.Error())
+	if s.taskDB == nil {
+		monitoring.Logger.Warn("task_archival_skipped", "reason", "taskDB not initialized")
+		return
+	}
+
+	// Get all completed and failed tasks from taskDB
+	completedTasks, err := s.taskDB.ListTasks(taskdb.TaskFilter{
+		Status: taskdb.StatusCompleted,
+		Limit:  10000,
+	})
+	if err != nil {
+		monitoring.Logger.Warn("failed_to_list_completed_tasks_for_archival", "error", err.Error())
+		return
+	}
+
+	failedTasks, err := s.taskDB.ListTasks(taskdb.TaskFilter{
+		Status: taskdb.StatusFailed,
+		Limit:  10000,
+	})
+	if err != nil {
+		monitoring.Logger.Warn("failed_to_list_failed_tasks_for_archival", "error", err.Error())
+		return
+	}
+
+	allTasks := append(completedTasks, failedTasks...)
+
+	for _, task := range allTasks {
+		// Check if task is old enough to archive
+		var taskDate time.Time
+		if task.CompletedAt != nil {
+			taskDate = *task.CompletedAt
+		} else {
+			taskDate = task.UpdatedAt
+		}
+
+		// Skip if not old enough
+		if taskDate.After(cutoffTime) {
 			continue
 		}
 
-		archivedInProject := 0
-
-		for _, task := range beadsTasks {
-			// Only archive closed/completed tasks
-			if task.Status != "closed" && task.Status != "done" && task.Status != "completed" {
-				continue
-			}
-
-			// Check if task is old enough to archive
-			var taskDate time.Time
-			if task.ClosedAt != "" {
-				taskDate, err = time.Parse(time.RFC3339, task.ClosedAt)
-				if err != nil {
-					// Try alternate format
-					taskDate, err = time.Parse("2006-01-02T15:04:05", task.ClosedAt)
-					if err != nil {
-						monitoring.Logger.Warn("failed_to_parse_closed_at",
-							"task_id", task.ID,
-							"closed_at", task.ClosedAt)
-						continue
-					}
-				}
-			} else if task.UpdatedAt != "" {
-				taskDate, err = time.Parse(time.RFC3339, task.UpdatedAt)
-				if err != nil {
-					taskDate, err = time.Parse("2006-01-02T15:04:05", task.UpdatedAt)
-					if err != nil {
-						continue
-					}
-				}
-			} else {
-				continue
-			}
-
-			// Skip if not old enough
-			if taskDate.After(cutoffTime) {
-				continue
-			}
-
-			// Archive the task
-			if err := s.archiveTask(projectRoot, &task); err != nil {
-				monitoring.Logger.Warn("failed_to_archive_task",
-					"task_id", task.ID,
-					"project", projectRoot,
-					"error", err.Error())
-			} else {
-				archivedInProject++
-				totalArchived++
-			}
-		}
-
-		if archivedInProject > 0 {
-			monitoring.Logger.Info("archived_tasks_in_project",
-				"project", projectRoot,
-				"count", archivedInProject)
+		// Archive the task execution folder and move it to archive directory
+		if err := s.archiveTaskFromDB(task); err != nil {
+			monitoring.Logger.Warn("failed_to_archive_task",
+				"task_id", task.ID,
+				"project", task.ProjectRoot,
+				"error", err.Error())
+		} else {
+			totalArchived++
 		}
 	}
 
@@ -983,10 +791,10 @@ func (s *AgentServer) archiveOldTasks() {
 	}
 }
 
-// archiveTask moves a task's data to the archive directory
-func (s *AgentServer) archiveTask(projectRoot string, task *beads.Task) error {
+// archiveTaskFromDB moves a task's execution folder to the archive directory
+func (s *AgentServer) archiveTaskFromDB(task *taskdb.Task) error {
 	// Source: .beads/tasks/<task-id>/
-	taskDir := filepath.Join(projectRoot, constants.BeadsDir, "tasks", task.ID)
+	taskDir := filepath.Join(task.ProjectRoot, constants.BeadsDir, "tasks", task.ID)
 
 	// Check if task directory exists
 	if _, err := os.Stat(taskDir); os.IsNotExist(err) {
@@ -997,24 +805,31 @@ func (s *AgentServer) archiveTask(projectRoot string, task *beads.Task) error {
 	}
 
 	// Destination: .beads/archive/<YYYY-MM>/<task-id>/
-	now := time.Now()
-	archiveDir := filepath.Join(projectRoot, constants.BeadsDir, "archive", now.Format("2006-01"))
+	var archiveMonth time.Time
+	if task.CompletedAt != nil {
+		archiveMonth = *task.CompletedAt
+	} else {
+		archiveMonth = task.UpdatedAt
+	}
+	archiveDir := filepath.Join(task.ProjectRoot, constants.BeadsDir, "archive", archiveMonth.Format("2006-01"))
 
 	// Create archive directory if it doesn't exist
 	if err := os.MkdirAll(archiveDir, 0755); err != nil {
 		return fmt.Errorf("failed to create archive directory: %w", err)
 	}
 
-	// Move task directory to archive
+	// Destination path
 	destDir := filepath.Join(archiveDir, task.ID)
+
+	// Move the task directory to archive
 	if err := os.Rename(taskDir, destDir); err != nil {
-		return fmt.Errorf("failed to move task to archive: %w", err)
+		return fmt.Errorf("failed to move task directory to archive: %w", err)
 	}
 
 	monitoring.Logger.Info("task_archived",
 		"task_id", task.ID,
-		"title", task.Title,
-		"archive_path", destDir)
+		"from", taskDir,
+		"to", destDir)
 
 	return nil
 }
@@ -1042,7 +857,7 @@ func (s *AgentServer) ensureKGForProject(projectRoot string) {
 // It is a no-op when the `bd` command is not installed or the project already
 // has a .beads/ directory.  All errors are logged and never surface to callers.
 func (s *AgentServer) ensureBeadsForProject(projectRoot string) {
-	if !beads.IsInstalled() {
+	if !false {
 		return
 	}
 
@@ -1106,6 +921,15 @@ func (s *AgentServer) Shutdown(ctx context.Context) error {
 		}
 
 		return fmt.Errorf("cannot shutdown: %d active task(s) running. Wait for completion or cancel tasks first", activeCount)
+	}
+
+	// Close taskDB
+	if s.taskDB != nil {
+		if err := s.taskDB.Close(); err != nil {
+			monitoring.Logger.Warn("failed_to_close_taskdb", "error", err.Error())
+		} else {
+			monitoring.Logger.Info("taskdb_closed")
+		}
 	}
 
 	// Shutdown MCP servers

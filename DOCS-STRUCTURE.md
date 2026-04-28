@@ -36,7 +36,7 @@ docs/
 **Benefits:**
 - ✅ Chronologically sorted by default (`ls` shows oldest to newest)
 - ✅ Date provides immediate context
-- ✅ Complements task packet naming (`<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>`)
+- ✅ Complements task packet naming (`<task-id>-<YYYYMMDDHHMMSS>-<short-desc>`)
 - ✅ No need to track "next number"
 
 **Examples:**

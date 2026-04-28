@@ -157,7 +157,7 @@ make status-services
 agent --version          # Agent CLI
 agent-server --version   # A2A server
 kg --version             # Knowledge graph CLI
-bd --version             # Beads task tracker
+bd --version             # task tracker
 ```
 
 Start the server and verify it responds:
@@ -203,7 +203,7 @@ git commit -m "Add ai-pack framework"
 > falls back to an embedded Dolt that conflicts with the shared server.
 
 > **Critical:** Fill in `CLAUDE.md` before spawning any agent. The working directory
-> and task packet path in Beads task descriptions are parsed by the agent server — they
+> and task packet path in task descriptions are parsed by the agent server — they
 > must be accurate or agents cannot find their contracts. See `CLAUDE.md` for the exact
 > format.
 
@@ -271,5 +271,5 @@ python3 scripts/seed-grades.py
 **Orphaned tasks after server restart**
 Reset stalled tasks to `open` (not `queued`):
 ```bash
-bd update -s open <task-id>
+agent update -s open <task-id>
 ```

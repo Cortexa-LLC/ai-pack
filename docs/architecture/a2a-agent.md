@@ -59,7 +59,7 @@ the ADRs in `docs/adr/`.
 | `internal/streaming` | `StreamProvider` interface, Anthropic/OpenAI adapters |
 | `internal/protocol` | Shared types (`StreamEvent`, `Message`, tool use/result) |
 | `internal/monitoring` | Metrics, model selection, logging |
-| `internal/beads` | Client for the Beads task-tracking database (`bd`) |
+| `internal/beads` | Client for the task-tracking database (`bd`) |
 | `internal/execution_log` | Persistent SQLite log of all task events |
 | `internal/mcp` | MCP server manager (spawns/tracks MCP processes per project) |
 | `internal/graphql` | GraphQL schema, resolvers, generated types |

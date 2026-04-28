@@ -4,11 +4,11 @@ description: Show active agents, their roles, and task assignments via Beads
 
 # /ai-pack agents - Agent Status
 
-Display information about active agents (spawned workers) by querying the Beads task tracking system.
+Display information about active agents (spawned workers) by querying the task tracking system.
 
 ## What This Shows
 
-When the Orchestrator spawns agents for parallel execution, it creates corresponding Beads tasks. This command queries those tasks to show you:
+When the Orchestrator spawns agents for parallel execution, it creates corresponding tasks. This command queries those tasks to show you:
 
 1. **Active agents** - Workers currently in progress
 2. **Their roles** - Engineer, Tester, Reviewer, etc.
@@ -32,7 +32,7 @@ When the Orchestrator spawns agents for parallel execution, it creates correspon
 ### Agent Tasks (from Beads)
 
 For each agent:
-- **Task ID** - Beads task ID (e.g., `bd-a1b2`)
+- **Task ID** - task ID (e.g., `bd-a1b2`)
 - **Assignee** - Role and ID (e.g., `Engineer-1`)
 - **Task** - What the agent is working on
 - **Status** - `in_progress`, `closed`, or `blocked`
@@ -126,7 +126,7 @@ This command queries Beads for tasks that match the agent naming pattern.
 ### Prerequisites
 
 1. **Beads initialized:** `.beads/issues.jsonl` exists
-2. **Agents registered:** Orchestrator creates Beads tasks when spawning
+2. **Agents registered:** Orchestrator creates tasks when spawning
 3. **Naming convention:** Agent tasks titled `"Agent: {Role} - {Description}"`
 
 ### Query Logic
@@ -136,10 +136,10 @@ This command queries Beads for tasks that match the agent naming pattern.
 test -f .beads/issues.jsonl || echo "Beads not initialized - run 'bd init'"
 
 # Query all agent tasks (filter by naming pattern)
-bd list --json | jq '.[] | select(.title | startswith("Agent:"))'
+agent list --json | jq '.[] | select(.title | startswith("Agent:"))'
 
 # Or filter by assignee pattern
-bd list --json | jq '.[] | select(.assignee | test("Engineer-|Tester-|Reviewer-"))'
+agent list --json | jq '.[] | select(.assignee | test("Engineer-|Tester-|Reviewer-"))'
 ```
 
 ### Status Mapping
@@ -172,13 +172,13 @@ if [ ! -f .beads/issues.jsonl ]; then
 fi
 
 # Get agent tasks
-ACTIVE=$(bd list --status in_progress --json 2>/dev/null | jq '.[] | select(.title | startswith("Agent:"))' 2>/dev/null)
+ACTIVE=$(agent list --status in_progress --json 2>/dev/null | jq '.[] | select(.title | startswith("Agent:"))' 2>/dev/null)
 ACTIVE_COUNT=$(echo "$ACTIVE" | jq -s 'length' 2>/dev/null || echo "0")
 
-COMPLETED=$(bd list --status closed --json 2>/dev/null | jq '.[] | select(.title | startswith("Agent:"))' 2>/dev/null)
+COMPLETED=$(agent list --status closed --json 2>/dev/null | jq '.[] | select(.title | startswith("Agent:"))' 2>/dev/null)
 COMPLETED_COUNT=$(echo "$COMPLETED" | jq -s 'length' 2>/dev/null || echo "0")
 
-BLOCKED=$(bd list --status blocked --json 2>/dev/null | jq '.[] | select(.title | startswith("Agent:"))' 2>/dev/null)
+BLOCKED=$(agent list --status blocked --json 2>/dev/null | jq '.[] | select(.title | startswith("Agent:"))' 2>/dev/null)
 BLOCKED_COUNT=$(echo "$BLOCKED" | jq -s 'length' 2>/dev/null || echo "0")
 
 AVAILABLE=$((5 - ACTIVE_COUNT))
@@ -256,25 +256,25 @@ echo "- See: .ai-pack/gates/25-execution-strategy.md"
 **Show all agent tasks:**
 
 ```bash
-bd list --json | jq '.[] | select(.title | startswith("Agent:"))'
+agent list --json | jq '.[] | select(.title | startswith("Agent:"))'
 ```
 
 **Show active Engineers only:**
 
 ```bash
-bd list --status in_progress --assignee "Engineer-*"
+agent list --status in_progress --assignee "Engineer-*"
 ```
 
 **Quick compact format (status + IDs + title):**
 
 ```bash
-bd list --json | jq -r '.[] | select(.title | startswith("Agent:")) | "\(.status | ascii_upcase)  \(.id)  \(.title)"'
+agent list --json | jq -r '.[] | select(.title | startswith("Agent:")) | "\(.status | ascii_upcase)  \(.id)  \(.title)"'
 ```
 
 **Show with formatted output:**
 
 ```bash
-bd list --assignee "Engineer-*" --json | jq -r '
+agent list --assignee "Engineer-*" --json | jq -r '
   "Active agents:",
   (.[] | select(.status == "in_progress") | "  \(.assignee): \(.title)"),
   "",
@@ -285,7 +285,7 @@ bd list --assignee "Engineer-*" --json | jq -r '
 **Check specific agent:**
 
 ```bash
-bd show bd-a1b2
+agent show bd-a1b2
 ```
 
 ## Related Commands
@@ -293,8 +293,8 @@ bd show bd-a1b2
 - `/ai-pack agents --verbose` - Full details with role and timestamps
 - `/ai-pack task-status` - Overall task progress
 - `/ai-pack orchestrate` - Spawn agents for complex tasks
-- `bd list --assignee "Engineer-*"` - Direct Beads query
-- `bd show <task-id>` - View agent details
+- `agent list --assignee "Engineer-*"` - Direct Beads query
+- `agent show <task-id>` - View agent details
 
 ## Troubleshooting
 
@@ -303,17 +303,17 @@ bd show bd-a1b2
 - No agents spawned yet: Orchestrator hasn't used parallel execution
 
 **"No agent tasks found"**
-- Orchestrator didn't create Beads tasks when spawning
+- Orchestrator didn't create tasks when spawning
 - Check work logs for spawn records: `grep -i "spawned" .ai/tasks/*/20-work-log.md`
 - Agent naming convention not followed
 
 **"Agents showing but not actually running"**
-- Agents completed but Orchestrator didn't close Beads tasks
-- Run `bd close <task-id>` manually
+- Agents completed but Orchestrator didn't close tasks
+- Run `agent close <task-id>` manually
 - Check work logs to verify actual completion status
 
-**Beads task exists but agent never started:**
-- Beads task created but agent spawn failed
+**task exists but agent never started:**
+- task created but agent spawn failed
 - Check Task tool errors in Orchestrator output
 - Verify spawned agent permissions configured
 
@@ -328,8 +328,8 @@ Task(subagent_type="general-purpose",
      prompt="...",
      )
 
-# 2. Create Beads task immediately
-bd create "Agent: Engineer - Implement feature" \
+# 2. Create task immediately
+agent create "Agent: Engineer - Implement feature" \
   --assignee "Engineer-1" \
   --priority high
 
@@ -337,7 +337,7 @@ bd create "Agent: Engineer - Implement feature" \
 bd start bd-a1b2
 
 # 4. Document in work log
-echo "Spawned Engineer-1 (Beads ID: bd-a1b2)" >> .ai/tasks/*/20-work-log.md
+echo "Spawned Engineer-1 (Task ID: bd-a1b2)" >> .ai/tasks/*/20-work-log.md
 ```
 
 See: [Orchestrator Role - Section 2.13](../../.ai-pack/roles/orchestrator.md#213-agent-registration-protocol-mandatory)

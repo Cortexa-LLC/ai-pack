@@ -75,7 +75,7 @@ Show this help message.
 # Create task packet
 /ai-pack task-init my-feature
 
-# Fill out contract and plan (in .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-my-feature/)
+# Fill out contract and plan (in .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-my-feature/)
 # - Edit 00-contract.md (requirements)
 # - Edit 10-plan.md (approach)
 
@@ -136,7 +136,7 @@ project-root/
 │
 ├── .ai/                   # Project workspace
 │   ├── tasks/             # Active task packets
-│   │   └── <beads-id>-<YYYYMMDDHHMMSS>-task-name/
+│   │   └── <task-id>-<YYYYMMDDHHMMSS>-task-name/
 │   │       ├── 00-contract.md
 │   │       ├── 10-plan.md
 │   │       ├── 20-work-log.md

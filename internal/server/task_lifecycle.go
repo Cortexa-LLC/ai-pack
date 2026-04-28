@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cortexa-llc/ai-pack/internal/beads"
-
 	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"github.com/cortexa-llc/ai-pack/internal/kgclient"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
@@ -171,17 +169,12 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 		statusMessage = ""
 	}
 
-	// Update task status
-	beadsTaskID, projectRoot := s.updateTaskCompletion(execution, result)
+	// Update task completion status
+	s.updateTaskCompletion(execution, result)
 
-	// Complete Beads task only if truly completed (not blocked)
+	// Set error message if blocked
 	var errorMsg string
-	if beadsTaskID != "" && !isBlocked {
-		if err := s.completeBeadsTask(beadsTaskID, projectRoot, logMsg); err != nil {
-			errorMsg = fmt.Sprintf("Warning: %v", err)
-			monitoring.Logger.Warn("beads_update_failed_but_task_completed", "task_id", execution.TaskID, "error", err.Error())
-		}
-	} else if isBlocked {
+	if isBlocked {
 		errorMsg = statusMessage
 	}
 
@@ -233,7 +226,7 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 		// Always run out-of-scope file detection on the success path so that
 		// catastrophic writes are surfaced and logged even when no grade manager
 		// is configured.
-		outOfScope, _ := detectOutOfScopeChanges(projectRoot, workingDir)
+		outOfScope, _ := detectOutOfScopeChanges(execution.ProjectRoot, workingDir)
 		isOutOfScope := len(outOfScope) > 0
 
 		if isOutOfScope {
@@ -250,7 +243,7 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 					execution.TaskID,
 					modelID,
 					execution.Role,
-					monitoring.ProjectIDFromPath(projectRoot),
+					monitoring.ProjectIDFromPath(execution.ProjectRoot),
 					reason,
 				); err != nil {
 					monitoring.Logger.Warn("failed_to_record_catastrophic_failure", "error", err.Error())
@@ -270,7 +263,7 @@ func (s *AgentServer) saveAndCompleteTask(ctx context.Context, execution *TaskEx
 				execution.TaskID,
 				modelID,
 				execution.Role,
-				monitoring.ProjectIDFromPath(projectRoot),
+				monitoring.ProjectIDFromPath(execution.ProjectRoot),
 				true, // success
 				execution.RetryCount,
 				tokensUsed,
@@ -350,76 +343,25 @@ func (s *AgentServer) saveTaskResults(execution *TaskExecution, result string, l
 	}
 }
 
-// updateTaskCompletion updates execution status and extracts Beads task ID and project root
-func (s *AgentServer) updateTaskCompletion(execution *TaskExecution, result string) (string, string) {
+// updateTaskCompletion updates execution status
+func (s *AgentServer) updateTaskCompletion(execution *TaskExecution, result string) {
 	s.mu.Lock()
 	execution.Status = constants.StatusCompleted
 	execution.Result = result
-	// Use the short Beads task ID (e.g. "xasm++-qbxv") stored in metadata,
-	// not the full execution TaskID (e.g. "xasm++-qbxv-20260218-084509").
-	beadsTaskID := execution.TaskID // fallback to full ID if metadata missing
-	projectRoot := ""
-	if execution.metadata != nil {
-		if id, ok := execution.metadata["beads_task_id"]; ok && id != "" {
-			beadsTaskID = id
-		}
-		projectRoot = execution.metadata["project_root"]
-	}
 	// Remove from active tasks map since task is now completed
 	delete(s.activeTasks, execution.TaskID)
 	s.mu.Unlock()
 
-	return beadsTaskID, projectRoot
+	// Update taskDB
+	if s.taskDB != nil {
+		if err := s.taskDB.CompleteTask(execution.TaskID, result); err != nil {
+			monitoring.Logger.Warn("failed_to_update_taskdb_completion", "task_id", execution.TaskID, "error", err.Error())
+		}
+	}
 }
 
 // completeBeadsTask marks the corresponding Beads task as complete
 // Returns error if the Beads update failed
-func (s *AgentServer) completeBeadsTask(beadsTaskID string, projectRoot string, logMsg func(string)) error {
-	if !beads.IsInstalled() {
-		return nil
-	}
-
-	logMsg(fmt.Sprintf("🔗 Marking Beads task complete: %s", beadsTaskID))
-	if err := s.beadsClient.CompleteTaskFromDir(beadsTaskID, projectRoot); err != nil {
-		monitoring.Logger.Warn("failed_to_complete_beads_task", "task_id", beadsTaskID, "error", err.Error())
-		logMsg(fmt.Sprintf("⚠️  Failed to complete Beads task: %v", err))
-		return fmt.Errorf("beads update failed: %w", err)
-	}
-
-	monitoring.Logger.Info("beads_task_completed", "task_id", beadsTaskID)
-	logMsg("✅ Beads task marked complete")
-	return nil
-}
-
-// resetBeadsTask resets an in-progress beads task back to "open" when execution
-// fails or is cancelled, so it no longer appears as RUNNING in the GUI after restart.
-func (s *AgentServer) resetBeadsTask(execution *TaskExecution) {
-	if !beads.IsInstalled() {
-		return
-	}
-	beadsTaskID := execution.TaskID
-	projectRoot := execution.ProjectRoot
-	if execution.metadata != nil {
-		if id, ok := execution.metadata["beads_task_id"]; ok && id != "" {
-			beadsTaskID = id
-		}
-		if pr := execution.metadata["project_root"]; pr != "" {
-			projectRoot = pr
-		}
-	}
-	if !beads.IsBeadsTaskID(beadsTaskID) {
-		return
-	}
-	cmd := exec.Command("bd", "update", "-s", "open", beadsTaskID)
-	if projectRoot != "" {
-		cmd.Dir = projectRoot
-	}
-	if err := cmd.Run(); err != nil {
-		monitoring.Logger.Warn("failed_to_reset_beads_task", "task_id", beadsTaskID, "error", err.Error())
-	} else {
-		monitoring.Logger.Info("beads_task_reset_to_open", "task_id", beadsTaskID)
-	}
-}
 
 func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	ctx := context.Background()
@@ -443,11 +385,16 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	delete(s.activeTasks, execution.TaskID)
 	s.mu.Unlock()
 
+	// Update taskDB
+	if s.taskDB != nil {
+		if err := s.taskDB.FailTask(execution.TaskID, errorMsg); err != nil {
+			monitoring.Logger.Warn("failed_to_update_taskdb_failure", "task_id", execution.TaskID, "error", err.Error())
+		}
+	}
+
 	if err := s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, constants.StatusFailed, errorMsg); err != nil {
 		monitoring.Logger.Error("failed_to_update_failed_status", "task_id", execution.TaskID, "error", err)
 	}
-	// Reset beads task to open so it does not appear as RUNNING after a server restart.
-	s.resetBeadsTask(execution)
 	s.sendStreamEvent(execution, constants.StatusFailed, map[string]interface{}{
 		"error": errorMsg,
 	})
@@ -560,11 +507,16 @@ func (s *AgentServer) cancelTaskExecution(execution *TaskExecution, message stri
 	delete(s.activeTasks, execution.TaskID)
 	s.mu.Unlock()
 
+	// Update taskDB
+	if s.taskDB != nil {
+		if err := s.taskDB.CancelTask(execution.TaskID); err != nil {
+			monitoring.Logger.Warn("failed_to_update_taskdb_cancel", "task_id", execution.TaskID, "error", err.Error())
+		}
+	}
+
 	if err := s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, "cancelled", message); err != nil {
 		monitoring.Logger.Error("failed_to_update_cancelled_status", "task_id", execution.TaskID, "error", err)
 	}
-	// Reset beads task to open so it does not appear as RUNNING after a server restart.
-	s.resetBeadsTask(execution)
 	s.sendStreamEvent(execution, "cancelled", map[string]interface{}{
 		"message": message,
 	})

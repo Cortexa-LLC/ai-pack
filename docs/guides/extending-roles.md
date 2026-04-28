@@ -67,7 +67,7 @@ It does not handle generic feature workflows.
 ## Primary Responsibilities
 
 1. Receive task from Acme Jira integration
-2. Assign to Engineer via `bd update --claim`
+2. Assign to Engineer via `agent update --claim`
 3. Monitor SLA using internal tooling
 4. Escalate to `#oncall` Slack channel on breach
 

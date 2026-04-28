@@ -123,7 +123,7 @@ Build and query project knowledge using persistent memory:
 ```
 BEFORE starting work:
   IF task is non-trivial THEN
-    CHECK: Does .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/ exist?
+    CHECK: Does .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/ exist?
     CHECK: Does 00-contract.md exist with requirements?
     CHECK: Does 10-plan.md exist with implementation plan?
 
@@ -145,7 +145,7 @@ END BEFORE
 **What to Do if Missing:**
 ```
 IF orchestrator assigned task without packet THEN
-  "I need a task packet created at .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
+  "I need a task packet created at .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/
    before I can begin implementation. Please create the task packet
    infrastructure first with 00-contract.md and 10-plan.md."
   WAIT for task packet creation
@@ -257,7 +257,7 @@ docs/
 
 **Integration with Task Packet:**
 ```
-Task packet (.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/) contains:
+Task packet (.ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/) contains:
   - 00-contract.md: Immediate task requirements
   - 10-plan.md: Implementation approach for this task
 
@@ -408,12 +408,12 @@ WHY: Future agents investigating related files will find this and skip rediscove
 
 **ENFORCEMENT:** See **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** for full requirements. All task operations MUST use Beads commands.
 
-**CRITICAL:** Task discovery MUST use `bd ready` command, not manual task selection. See Rule 3 of Beads Enforcement Gate.
+**CRITICAL:** Task discovery MUST use `agent list --status queued` command, not manual task selection. See Rule 3 of Beads Enforcement Gate.
 
 **Finding Next Task:**
 ```bash
 # Step 1: MANDATORY - Find tasks ready to work on (no blocking dependencies)
-bd ready
+agent list --status queued
 
 # Output shows available tasks:
 # bd-a1b2  Implement user authentication     [priority: high]
@@ -421,7 +421,7 @@ bd ready
 # bd-e5f6  Fix login bug                     [priority: critical]
 
 # Step 2: Get full task details
-bd show bd-a1b2
+agent show bd-a1b2
 
 # Shows:
 # - Task description
@@ -434,16 +434,16 @@ bd show bd-a1b2
 **Starting Work:**
 ```bash
 # MANDATORY - Mark task as in-progress
-bd update --claim bd-a1b2
+agent update --claim bd-a1b2
 
-# GATE ENFORCEMENT: Work cannot begin without bd update --claim command
+# GATE ENFORCEMENT: Work cannot begin without agent update --claim command
 # This signals to Orchestrator and other engineers that you're working on it
 ```
 
 **During Implementation:**
 ```bash
-# If you discover subtasks - MANDATORY use bd create with full description
-subtask_id=$(bd create "Add password hashing utility
+# If you discover subtasks - MANDATORY use agent create with full description
+subtask_id=$(agent create "Add password hashing utility
 
 Working directory: $(pwd)
 Task packet: .ai/tasks/$(date +%Y-%m-%d)_password-hashing/
@@ -462,31 +462,31 @@ bd unblock bd-a1b2
 echo "UNBLOCKED: API key received" >> .ai/tasks/*/20-work-log.md
 
 # Check what's ready after current task
-bd ready
+agent list --status queued
 ```
 
 **Completing Work:**
 ```bash
 # When task fully implemented and tested
 # MANDATORY - Close in Beads FIRST
-bd close bd-a1b2
+agent close bd-a1b2
 
 # THEN update task packet
 echo "✅ Task complete" >> .ai/tasks/*/40-acceptance.md
 
 # Find next work
-bd ready
+agent list --status queued
 ```
 
 **Beads Workflow Summary:**
 ```
-1. bd ready           → Find next task
-2. bd show <id>       → Review requirements
-3. bd update --claim <id>      → Begin work
+1. agent list --status queued           → Find next task
+2. agent show <id>       → Review requirements
+3. agent update --claim <id>      → Begin work
 4. [Implement code]   → Do the work
 5. [Run tests]        → Verify quality
-6. bd close <id>      → Mark complete
-7. bd ready           → Find next task
+6. agent close <id>      → Mark complete
+7. agent list --status queued           → Find next task
 ```
 
 **Why Use Beads:**
@@ -500,12 +500,12 @@ bd ready
 
 **Special Case: Spawned by Orchestrator**
 
-If you were spawned by the Orchestrator, you'll have a Beads task assigned to you:
+If you were spawned by the Orchestrator, you'll have a task assigned to you:
 
 ```bash
-# Find your assigned Beads task (documented in work log)
-grep "Beads ID:" .ai/tasks/*/20-work-log.md
-# Example output: "Spawned Engineer-1 (Beads ID: bd-a1b2)"
+# Find your assigned task (documented in work log)
+grep "Task ID:" .ai/tasks/*/20-work-log.md
+# Example output: "Spawned Engineer-1 (Task ID: bd-a1b2)"
 
 # Update status when encountering issues
 bd block bd-a1b2 "Waiting for API credentials"
@@ -514,10 +514,10 @@ bd block bd-a1b2 "Waiting for API credentials"
 bd unblock bd-a1b2
 
 # Mark complete when finished
-bd close bd-a1b2
+agent close bd-a1b2
 ```
 
-The Orchestrator monitors these Beads tasks to track your progress, so keeping them updated helps coordination.
+The Orchestrator monitors these tasks to track your progress, so keeping them updated helps coordination.
 
 ---
 
@@ -791,8 +791,8 @@ TDD is a powerful technique that should be applied where it provides the most va
 ```
 1. Understand requirements
 2. Read existing code (establish context)
-3. MANDATORY - Start Beads task
-   bd update --claim <task-id>
+3. MANDATORY - Start task
+   agent update --claim <task-id>
    # Task must be in "in_progress" before implementing
 
 4. Choose Testing Approach:
@@ -1083,7 +1083,7 @@ END WHILE
 ✓ Code formatted per language standards
 ✓ No TODO/FIXME left unaddressed
 ✓ Work log updated with final status
-✓ Beads task closed with bd close <task-id> (MANDATORY - BLOCKING)
+✓ task closed with agent close <task-id> (MANDATORY - BLOCKING)
 ✓ Ready for review
 
 ⚠️ If ANY criteria not met, task is NOT complete - continue working
@@ -1130,19 +1130,19 @@ Do NOT commit. Summarize changed files and write a suggested commit message. The
 # STEP 1: Verify all work complete (checklist above)
 
 # STEP 2: MANDATORY - Close in Beads FIRST
-bd close <task-id>
+agent close <task-id>
 
 # STEP 3: THEN update acceptance document
 echo "✅ Task complete" >> .ai/tasks/*/40-acceptance.md
 echo "Beads Task: <task-id> [CLOSED]" >> .ai/tasks/*/40-acceptance.md
 
 # STEP 4: Find next work
-bd ready
+agent list --status queued
 
 IF task not closed in Beads THEN
   GATE VIOLATION - Work incomplete
   BLOCK acceptance
-  REQUIRE: bd close command
+  REQUIRE: agent close command
 END IF
 ```
 
@@ -1642,11 +1642,11 @@ Use the dedicated tools instead — they apply `.claudeignore` automatically, sk
 
 Reserve `Bash` for: building, testing, running git commands, and shell operations that have no dedicated tool equivalent.
 - Beads (`bd` command) for persistent task tracking
-  - `bd ready` - Find next available task
-  - `bd show` - View task details
-  - `bd update --claim/close` - Update task status
+  - `agent list --status queued` - Find next available task
+  - `agent show` - View task details
+  - `agent update --claim/close` - Update task status
   - `bd block` - Mark task as blocked
-  - `bd create` - Create new subtasks
+  - `agent create` - Create new subtasks
 - AskUserQuestion (when needing clarification)
 
 ### Reference Materials

@@ -168,7 +168,7 @@ your-project/
 │   ├── workflows/               # Development workflows
 │   └── templates/               # Task-packet templates
 │
-├── .beads/                      # Beads task memory (committed)
+├── .beads/                      # task memory (committed)
 │   ├── issues.jsonl             # Git-tracked task database
 │   └── *.db                     # Local cache (git-ignored)
 │
@@ -202,19 +202,19 @@ your-project/
 
 ```bash
 # Create a task
-bd create "Implement user authentication" --priority high
+agent create "Implement user authentication" --priority high
 
 # List available tasks (no blocking dependencies)
-bd ready
+agent list --status queued
 
 # Start working on a task
 bd start bd-a1b2
 
 # View task details
-bd show bd-a1b2
+agent show bd-a1b2
 
 # Mark task complete
-bd close bd-a1b2
+agent close bd-a1b2
 
 # Add dependency (task Y depends on task X)
 bd dep add bd-x bd-y
@@ -251,8 +251,8 @@ Or use the Claude Code command:
 4. **Execute** - Implement while updating `20-work-log.md`
 5. **Review** - Conduct review, document in `30-review.md`
 6. **Accept** - Complete acceptance checklist in `40-acceptance.md`
-7. **Complete** - Mark done: `bd close bd-a1b2`
-8. **Next** - Find next task: `bd ready`
+7. **Complete** - Mark done: `agent close bd-a1b2`
+8. **Next** - Find next task: `agent list --status queued`
 
 ## Available Slash Commands (Claude Code)
 

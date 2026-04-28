@@ -94,17 +94,17 @@ If this happens: note it in your output. The orchestrator will coordinate the sp
 
 ## Beads Task Workflow
 
-All agents that work on Beads tasks follow this lifecycle:
+All agents that work on tasks follow this lifecycle:
 
 | Step | Command | When |
 |------|---------|------|
-| Check task | `bd show <id>` | Before starting |
-| Claim task | `bd update --claim <id>` | When starting work |
+| Check task | `agent show <id>` | Before starting |
+| Claim task | `agent update --claim <id>` | When starting work |
 | Block task | `bd block <id> "reason"` | When blocked on dependency |
 | Unblock task | `bd unblock <id>` | When dependency resolved |
-| Complete task | `bd close <id>` | When work is done |
+| Complete task | `agent close <id>` | When work is done |
 
-**Beads task IDs** follow the format `<prefix>-<hash>` (e.g. `xasm++-qbxv`). Timestamped execution folder names (e.g. `xasm++-qbxv-20260218-084509`) are **not** Beads task IDs — never pass them to `bd` commands.
+**task IDs** follow the format `<prefix>-<hash>` (e.g. `xasm++-qbxv`). Timestamped execution folder names (e.g. `xasm++-qbxv-20260218-084509`) are **not** task IDs — never pass them to `bd` commands.
 
 ---
 

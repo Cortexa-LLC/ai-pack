@@ -41,19 +41,19 @@ Epic (Large initiative, multiple sprints)
 
 ```bash
 # Create epic
-epic_id=$(bd create "User Authentication System" --priority high --json | jq -r '.id')
+epic_id=$(agent create "User Authentication System" --priority high --json | jq -r '.id')
 
 # Create dependent stories
-bd create "Design auth API" --depends-on ${epic_id}
-bd create "Implement JWT tokens" --depends-on ${epic_id}
-bd create "Add session management" --depends-on ${epic_id}
-bd create "Write auth tests" --depends-on ${epic_id}
+agent create "Design auth API" --depends-on ${epic_id}
+agent create "Implement JWT tokens" --depends-on ${epic_id}
+agent create "Add session management" --depends-on ${epic_id}
+agent create "Write auth tests" --depends-on ${epic_id}
 ```
 
 **Beads Representation:**
 - Parent task with `--priority` set
 - Multiple child tasks using `--depends-on`
-- Use `bd show ${epic_id}` to view hierarchy
+- Use `agent show ${epic_id}` to view hierarchy
 
 ### In GitHub
 
@@ -67,12 +67,12 @@ python3 scripts/github-integration.py create-epic ${epic_id}
 **GitHub Representation:** ✅
 - **Epic Issue** with label `epic`
 - Title: "Epic: User Authentication System"
-- Body: Beads ID, description, checklist of Stories
+- Body: Task ID, description, checklist of Stories
 - Story Issues linked to Epic
 - Simple, lightweight, works everywhere
 
 **Story Issues** (automatically created):
-- Each dependent Beads task becomes a Story Issue
+- Each dependent task becomes a Story Issue
 - Label: `story`
 - Links back to Epic
 - Links to Beads: "**Beads Task:** bd-x1y2"
@@ -129,7 +129,7 @@ Epic-level task packet (optional):
 
 ```bash
 # Create story (part of epic)
-story_id=$(bd create "Implement JWT tokens" --depends-on ${epic_id} --priority high --json | jq -r '.id')
+story_id=$(agent create "Implement JWT tokens" --depends-on ${epic_id} --priority high --json | jq -r '.id')
 
 # Start work
 bd start ${story_id}
@@ -139,7 +139,7 @@ bd comment ${story_id} "Implemented token generation"
 bd comment ${story_id} "Added token validation"
 
 # Complete
-bd close ${story_id}
+agent close ${story_id}
 ```
 
 ### In GitHub
@@ -154,7 +154,7 @@ python3 scripts/github-integration.py export
 **GitHub Issue:**
 - Label: `story`
 - Title: Story description
-- Body: Includes epic reference, Beads ID, acceptance criteria
+- Body: Includes epic reference, Task ID, acceptance criteria
 - Linked to Epic issue
 
 ### In Task Packets
@@ -195,25 +195,25 @@ python3 scripts/github-integration.py export
 
 ```bash
 # Create task (part of story)
-task_id=$(bd create "Write token generation function" --depends-on ${story_id} --json | jq -r '.id')
+task_id=$(agent create "Write token generation function" --depends-on ${story_id} --json | jq -r '.id')
 
 # Work on task
 bd start ${task_id}
 # ... implement ...
-bd close ${task_id}
+agent close ${task_id}
 ```
 
 **Pattern for Stories with multiple Tasks:**
 
 ```bash
 # Story
-story_id=$(bd create "Implement JWT tokens" --priority high --json | jq -r '.id')
+story_id=$(agent create "Implement JWT tokens" --priority high --json | jq -r '.id')
 
 # Tasks
-bd create "Write token generation function" --depends-on ${story_id}
-bd create "Add token validation middleware" --depends-on ${story_id}
-bd create "Add token refresh endpoint" --depends-on ${story_id}
-bd create "Write token tests" --depends-on ${story_id}
+agent create "Write token generation function" --depends-on ${story_id}
+agent create "Add token validation middleware" --depends-on ${story_id}
+agent create "Add token refresh endpoint" --depends-on ${story_id}
+agent create "Write token tests" --depends-on ${story_id}
 ```
 
 ### In GitHub
@@ -271,7 +271,7 @@ Tasks typically don't get separate task packets. They're tracked within the Stor
 
 ```bash
 # Create spike
-spike_id=$(bd create "Spike: Evaluate JWT libraries" --priority normal --json | jq -r '.id')
+spike_id=$(agent create "Spike: Evaluate JWT libraries" --priority normal --json | jq -r '.id')
 
 # Add timebox constraint
 bd comment ${spike_id} "Timebox: 4 hours"
@@ -285,7 +285,7 @@ bd comment ${spike_id} "Evaluated: jsonwebtoken, jose, node-jose"
 bd comment ${spike_id} "Recommendation: jsonwebtoken (most popular, well-maintained)"
 
 # Complete
-bd close ${spike_id}
+agent close ${spike_id}
 ```
 
 **Naming convention:** Prefix with "Spike: " to indicate research nature
@@ -339,7 +339,7 @@ docs/investigations/2026-01-18_jwt-library-evaluation.md
 
 ```bash
 # Create bug
-bug_id=$(bd create "Fix: Login fails with special characters in password" --priority critical --json | jq -r '.id')
+bug_id=$(agent create "Fix: Login fails with special characters in password" --priority critical --json | jq -r '.id')
 
 # Start work
 bd start ${bug_id}
@@ -349,7 +349,7 @@ bd comment ${bug_id} "Root cause: Password not properly URL-encoded"
 bd comment ${bug_id} "Fix: Add encodeURIComponent() before sending"
 
 # Complete
-bd close ${bug_id}
+agent close ${bug_id}
 ```
 
 **Naming convention:** Prefix with "Fix: " for clarity
@@ -371,7 +371,7 @@ python3 scripts/github-integration.py export
 **GitHub Issue:**
 - Label: `bug`, priority label
 - Template: Bug report template
-- Links to Beads task
+- Links to task
 
 ### In Task Packets
 
@@ -402,12 +402,12 @@ Use **bugfix workflow**:
 
 ```bash
 # 1. Create Epic in Beads
-epic_id=$(bd create "User Authentication System" --priority high --json | jq -r '.id')
+epic_id=$(agent create "User Authentication System" --priority high --json | jq -r '.id')
 
 # 2. Break down into Stories
-bd create "Design auth API" --depends-on ${epic_id}
-bd create "Implement JWT tokens" --depends-on ${epic_id}
-bd create "Add session management" --depends-on ${epic_id}
+agent create "Design auth API" --depends-on ${epic_id}
+agent create "Implement JWT tokens" --depends-on ${epic_id}
+agent create "Add session management" --depends-on ${epic_id}
 
 # 3. Optionally break Stories into Tasks (done by Engineer)
 
@@ -421,7 +421,7 @@ python3 scripts/github-integration.py create-epic ${epic_id}
 
 ```bash
 # 1. Find ready work
-bd ready
+agent list --status queued
 
 # 2. Start Story
 bd start bd-x1y2
@@ -430,14 +430,14 @@ bd start bd-x1y2
 /ai-pack task-init implement-jwt-tokens
 
 # 4. Optionally break into Tasks in Beads
-bd create "Write token generation" --depends-on bd-x1y2
-bd create "Add validation middleware" --depends-on bd-x1y2
+agent create "Write token generation" --depends-on bd-x1y2
+agent create "Add validation middleware" --depends-on bd-x1y2
 
 # 5. Implement with TDD
 # ... work ...
 
 # 6. Complete
-bd close bd-x1y2
+agent close bd-x1y2
 
 # 7. GitHub automatically updates via sync
 ```
@@ -547,7 +547,7 @@ labels:
 **Pattern:**
 ```bash
 # ✅ Correct
-bd create "Story"
+agent create "Story"
 python3 scripts/github-integration.py export
 
 # ❌ Wrong
@@ -567,9 +567,9 @@ python3 scripts/github-integration.py export
 
 ```bash
 # Epic → Stories → Tasks
-epic_id=$(bd create "Epic")
-story_id=$(bd create "Story" --depends-on ${epic_id})
-task_id=$(bd create "Task" --depends-on ${story_id})
+epic_id=$(agent create "Epic")
+story_id=$(agent create "Story" --depends-on ${epic_id})
+task_id=$(agent create "Task" --depends-on ${story_id})
 ```
 
 ### 4. Meaningful Naming
@@ -602,16 +602,16 @@ bd comment ${spike_id} "Goal: Choose between Library A or B"
 
 ```bash
 # Create epic
-epic_id=$(bd create "User Authentication System" --priority high --json | jq -r '.id')
+epic_id=$(agent create "User Authentication System" --priority high --json | jq -r '.id')
 
 # Break into stories
-bd create "Design auth API" --depends-on ${epic_id} --json
-bd create "Implement JWT tokens" --depends-on ${epic_id} --json
-bd create "Add password hashing" --depends-on ${epic_id} --json
-bd create "Write auth tests" --depends-on ${epic_id} --json
+agent create "Design auth API" --depends-on ${epic_id} --json
+agent create "Implement JWT tokens" --depends-on ${epic_id} --json
+agent create "Add password hashing" --depends-on ${epic_id} --json
+agent create "Write auth tests" --depends-on ${epic_id} --json
 
 # Run spike first if needed
-bd create "Spike: Evaluate JWT libraries (4h)" --depends-on ${epic_id} --json
+agent create "Spike: Evaluate JWT libraries (4h)" --depends-on ${epic_id} --json
 
 # Sync to GitHub
 python3 scripts/github-integration.py create-epic ${epic_id}
@@ -629,7 +629,7 @@ python3 scripts/github-integration.py create-epic ${epic_id}
 
 ```bash
 # Find ready work
-bd ready
+agent list --status queued
 # Shows: bd-x1y2 "Implement JWT tokens"
 
 # Start story
@@ -639,19 +639,19 @@ bd start bd-x1y2
 /ai-pack task-init implement-jwt-tokens
 
 # Break into tasks (optional)
-bd create "Write token generation" --depends-on bd-x1y2
-bd create "Add validation middleware" --depends-on bd-x1y2
-bd create "Write token tests" --depends-on bd-x1y2
+agent create "Write token generation" --depends-on bd-x1y2
+agent create "Add validation middleware" --depends-on bd-x1y2
+agent create "Write token tests" --depends-on bd-x1y2
 
 # Implement with TDD
 bd start bd-a1b2  # "Write token generation"
 # ... RED-GREEN-REFACTOR ...
-bd close bd-a1b2
+agent close bd-a1b2
 
 # Continue with other tasks...
 
 # Complete story
-bd close bd-x1y2
+agent close bd-x1y2
 ```
 
 **GitHub automatically updates:**
@@ -692,7 +692,7 @@ Continue until all stories complete.
 ### 7. Close Epic
 
 ```bash
-bd close ${epic_id}
+agent close ${epic_id}
 ```
 
 **GitHub:**

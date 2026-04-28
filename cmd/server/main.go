@@ -514,9 +514,14 @@ func main() {
 	mux.HandleFunc("/a2a/execute", s.HandleA2AExecute)                   // A2A execute
 	mux.HandleFunc("/a2a/status/", s.HandleA2AStatus)                    // A2A status (trailing slash for subpaths)
 	mux.HandleFunc("/a2a/status", s.HandleA2AStatus)                     // A2A status (POST JSON-RPC)
-	mux.HandleFunc("/a2a/tasks", s.HandleTasksList)                      // List all tasks (machine-wide)
+	mux.HandleFunc("/a2a/tasks", s.HandleTasksList)                        // List all tasks (machine-wide)
+	mux.HandleFunc("POST /a2a/tasks/create", s.HandleTaskCreate)          // Create new task
+	mux.HandleFunc("GET /a2a/tasks/{taskID}", s.HandleTaskGet)            // Get task details
+	mux.HandleFunc("PUT /a2a/tasks/{taskID}", s.HandleTaskUpdate)         // Update task fields
+	mux.HandleFunc("PUT /a2a/tasks/{taskID}/close", s.HandleTaskClose)    // Mark task complete
+	mux.HandleFunc("DELETE /a2a/tasks/{taskID}", s.HandleTaskDelete)      // Delete task
 	mux.HandleFunc("GET /a2a/tasks/{taskID}/results", s.HandleTaskResults) // Task results (30-results.md)
-	mux.HandleFunc("/a2a/tasks/", s.HandleTaskLogs)                      // Task-specific logs (trailing slash for subpaths)
+	mux.HandleFunc("/a2a/tasks/", s.HandleTaskLogs)                       // Task-specific logs (trailing slash for subpaths)
 	mux.HandleFunc("/a2a/cancel/", s.HandleCancelTask)                   // Cancel a running task
 	mux.HandleFunc("/a2a/retry/", s.HandleRetryTask)                     // Retry a failed task
 	mux.HandleFunc("/a2a/resume/", s.HandleResumeTask)                   // Resume a paused task

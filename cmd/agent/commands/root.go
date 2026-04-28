@@ -76,6 +76,11 @@ func init() {
 	rootCmd.Flags().DurationVar(&rootSpawnInactiveTimeout, "inactive-timeout", 2*time.Minute, "Disconnect stream after this much inactivity (e.g. 5m, 30s)")
 
 	rootCmd.AddCommand(
+		newCreateCmd(),
+		newShowCmd(),
+		newUpdateCmd(),
+		newCloseCmd(),
+		newDeleteCmd(),
 		newStatusCmd(),
 		newResultsCmd(),
 		newLogsCmd(),
@@ -89,6 +94,7 @@ func init() {
 		newMetricsCmd(),
 		newPerformanceCmd(),
 		newDiscoveryCmd(),
+		newMigrateCmd(),
 		newVersionCmd(),
 	)
 }

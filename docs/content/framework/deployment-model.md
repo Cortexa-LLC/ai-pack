@@ -18,7 +18,7 @@ your-project/
 │   ├── workflows/                   # Development workflows
 │   └── templates/                   # Task-packet templates
 │
-├── .beads/                          # Beads task memory system (committed)
+├── .beads/                          # task memory system (committed)
 │   ├── issues.jsonl                 # Git-tracked task database
 │   └── *.db                         # Local SQLite cache (git-ignored)
 │
@@ -33,7 +33,7 @@ your-project/
 ## Key Concepts
 
 - **`.ai-pack/`** - Git submodule containing shared standards (READ-ONLY)
-- **`.beads/`** - Beads task memory system (PROJECT-SPECIFIC, COMMITTED)
+- **`.beads/`** - task memory system (PROJECT-SPECIFIC, COMMITTED)
 - **`.ai/`** - Local workspace for task state (PROJECT-SPECIFIC, TEMPORARY)
 - **`docs/`** - Permanent documentation (PROJECT-SPECIFIC, COMMITTED)
 

@@ -77,7 +77,7 @@ Quality gates define rules and constraints that govern what actions are permitte
 
 - **[00-global-gates.md](gates/00-global-gates.md)** - Universal rules (safety, TDD, quality, communication)
 - **[05-tdd-enforcement.md](gates/05-tdd-enforcement.md)** - **MANDATORY, BLOCKING** Test-Driven Development enforcement (RED-GREEN-REFACTOR cycle, test pyramid)
-- **[06-beads-enforcement.md](gates/06-beads-enforcement.md)** - **MANDATORY, BLOCKING** Beads task memory system usage (all task operations must use bd commands)
+- **[06-beads-enforcement.md](gates/06-beads-enforcement.md)** - **MANDATORY, BLOCKING** task memory system usage (all task operations must use bd commands)
 - **[10-persistence.md](gates/10-persistence.md)** - File operations and state management rules
 - **[20-tool-policy.md](gates/20-tool-policy.md)** - Tool usage policies and approvals
 - **[25-execution-strategy.md](gates/25-execution-strategy.md)** - **MANDATORY** execution strategy analysis and parallel engineer enforcement
@@ -210,10 +210,10 @@ AI-Pack uses **[Beads](https://github.com/steveyegge/beads)** for persistent, gi
 
 **Core Workflow:**
 ```bash
-bd ready                          # Find next available task (no blocking dependencies)
-bd show bd-a1b2                   # View task details
-bd close bd-a1b2                  # Mark complete
-bd create "Task" --priority P1    # Create new task (P0–P4, NOT high/medium/low)
+agent list --status queued                          # Find next available task (no blocking dependencies)
+agent show bd-a1b2                   # View task details
+agent close bd-a1b2                  # Mark complete
+agent create "Task" --priority P1    # Create new task (P0–P4, NOT high/medium/low)
 bd dep add bd-x bd-y              # Add dependency
 ```
 
@@ -252,7 +252,7 @@ sequenceDiagram
     A-->>SRV: SSE stream (progress events)
     SRV-->>CLI: SSE proxy
     CLI-->>U: live output
-    A->>BD: bd update (progress / close)
+    A->>BD: agent update (progress / close)
     A-->>SRV: done
     SRV-->>CLI: stream end
 ```
@@ -273,7 +273,7 @@ make build install
 agent-server &
 
 # Invoke an agent
-agent engineer <beads-id> --stream
+agent engineer <task-id> --stream
 ```
 
 **API Endpoints:**
@@ -304,7 +304,7 @@ your-project/
 │   ├── workflows/                   # Development workflows
 │   └── templates/                   # Task-packet templates
 │
-├── .beads/                          # Beads task memory system (committed)
+├── .beads/                          # task memory system (committed)
 │   ├── issues.jsonl                 # Git-tracked task database (source of truth)
 │   └── *.db                         # Local SQLite cache (git-ignored)
 │
@@ -366,12 +366,12 @@ your-project/
 
 **Key Concepts:**
 - **`.ai-pack/`** - Git submodule containing shared standards and framework (this repository) - READ-ONLY
-- **`.beads/`** - Beads task memory system with git-backed task database - PROJECT-SPECIFIC, COMMITTED
+- **`.beads/`** - task memory system with git-backed task database - PROJECT-SPECIFIC, COMMITTED
 - **`.ai/`** - Local workspace in your project for task state and overrides - PROJECT-SPECIFIC, TEMPORARY
 - **`docs/`** - Permanent documentation repository - PROJECT-SPECIFIC, COMMITTED
 - **`CLAUDE.md`** - Bootstrap instructions at project root (copy from `templates/CLAUDE.md`)
 - **Task packets** - Instances of templates created in `.ai/tasks/` for each task
-- **Beads tasks** - Persistent tasks tracked in `.beads/issues.jsonl` for cross-session memory
+- **tasks** - Persistent tasks tracked in `.beads/issues.jsonl` for cross-session memory
 - **Repo overrides** - Project-specific customizations to shared standards
 
 **Critical Invariants:**
@@ -568,8 +568,8 @@ irm https://raw.githubusercontent.com/steveyegge/beads/main/install.ps1 | iex
 #### 2. Create a Task and Spawn an Agent
 
 ```bash
-# Create a Beads task — description MUST include Working directory + Task packet lines
-BID=$(bd create "Implement user authentication
+# Create a task — description MUST include Working directory + Task packet lines
+BID=$(agent create "Implement user authentication
 
 Working directory: /path/to/your-project
 Task packet: .ai/tasks/${BID}-$(date +%Y%m%d%H%M%S)-user-auth/
@@ -588,16 +588,16 @@ cp .ai-pack/templates/task-packet/*.md .ai/tasks/$SLUG/
 agent engineer $BID --stream
 
 # Close when done
-bd close $BID -r "Complete"
-bd ready   # Find next task
+agent close $BID -r "Complete"
+agent list --status queued   # Find next task
 ```
 
 ```mermaid
 flowchart LR
-    A["bd create\nBeads task"] --> B["mkdir .ai/tasks/\nTask packet"]
+    A["agent create\ntask"] --> B["mkdir .ai/tasks/\nTask packet"]
     B --> C["Fill contract\n+ plan"]
     C --> D["agent engineer\n&lt;id&gt; --stream"]
-    D --> E["bd close\n+ bd ready"]
+    D --> E["agent close\n+ agent list --status queued"]
 ```
 
 ### Migrating to v2.0.0
@@ -640,7 +640,7 @@ See **[MIGRATION.md](MIGRATION.md)** for complete migration instructions.
 
 **What's New in v2.0.0:**
 - ✅ **Single source of truth** - Beads only for task and agent tracking
-- ✅ **Agent coordination** - Orchestrator creates Beads tasks for spawned agents
+- ✅ **Agent coordination** - Orchestrator creates tasks for spawned agents
 - ✅ **Cross-session persistence** - Agent tasks survive session boundaries
 - ✅ **Real-time monitoring** - `/ai-pack agents` queries Beads directly
 - ❌ **REMOVED:** `agent-status-tracker.py` (deprecated system eliminated)
@@ -1001,12 +1001,12 @@ The update script:
 
 ## GitHub Integration (Optional)
 
-**Optional** integration for hosted GitHub.com repositories. Provides bidirectional sync between Beads tasks and GitHub Issues, CI/CD monitoring, and Epic/Story management.
+**Optional** integration for hosted GitHub.com repositories. Provides bidirectional sync between tasks and GitHub Issues, CI/CD monitoring, and Epic/Story management.
 
 ### Features
 
-- Sync Beads tasks ↔ GitHub Issues bidirectionally
-- Create Epics/Stories from Beads task hierarchies as Issues with checklists ✅
+- Sync tasks ↔ GitHub Issues bidirectionally
+- Create Epics/Stories from task hierarchies as Issues with checklists ✅
 - Monitor CI/CD workflows and auto-create fix tasks
 - Import GitHub issues into Beads work queue
 - Track work in your GitHub Repository

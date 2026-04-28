@@ -88,11 +88,11 @@ User → agent CLI → agent:// URL → Protocol Handler → A2A Server
 
 ### Agent Spawning
 
-Uses the **agent CLI** with Beads task tracking:
+Uses the **agent CLI** with task tracking:
 
 ```bash
 # Create tracked task
-bd create "Implement feature X"
+agent create "Implement feature X"
 # Output: xasm++-e3w
 
 # Spawn background agent
@@ -119,9 +119,9 @@ agent engineer xasm++-e3w
 
 ```bash
 # Create multiple tracked tasks
-bd create "Implement user auth"        # xasm++-a1b
-bd create "Add integration tests"      # xasm++-a2c
-bd create "Update API documentation"   # xasm++-a3d
+agent create "Implement user auth"        # xasm++-a1b
+agent create "Add integration tests"      # xasm++-a2c
+agent create "Update API documentation"   # xasm++-a3d
 
 # Spawn background agents for each
 agent engineer xasm++-a1b
@@ -139,7 +139,7 @@ bd status
 
 ### Unified Coordination via Beads
 
-Orchestrator coordinates **both systems** through Beads task tracking:
+Orchestrator coordinates **both systems** through task tracking:
 
 ```
 ┌──────────────────────────────────────┐
@@ -170,11 +170,11 @@ Orchestrator coordinates **both systems** through Beads task tracking:
 
 2. **Unified Monitoring via Beads**
    - All agents (Task tool and A2A) are tracked in Beads
-   - Orchestrator uses `bd list` to monitor all agents
+   - Orchestrator uses `agent list` to monitor all agents
    - Status queries work for both agent types
 
 3. **Coordinated Workflow**
-   - Orchestrator creates Beads tasks before spawning either agent type
+   - Orchestrator creates tasks before spawning either agent type
    - Dependencies managed via `bd dep add`
    - Progress tracking unified through Beads commands
 
@@ -222,9 +222,9 @@ claude> "Plan the implementation for user authentication"
 # Orchestrator breaks down into: API changes, UI updates, tests, docs
 
 # Then spawn background A2A agents for execution
-bd create "Implement auth API endpoints"     # xasm++-x1
-bd create "Create login UI components"       # xasm++-x2
-bd create "Add auth test coverage"           # xasm++-x3
+agent create "Implement auth API endpoints"     # xasm++-x1
+agent create "Create login UI components"       # xasm++-x2
+agent create "Add auth test coverage"           # xasm++-x3
 
 agent engineer xasm++-x1
 agent engineer xasm++-x2
@@ -238,7 +238,7 @@ agent tester xasm++-x3
 ### Pattern 1: Manual Delegation
 
 1. Use Orchestrator for planning and task breakdown
-2. Manually create Beads tasks for each subtask
+2. Manually create tasks for each subtask
 3. Spawn A2A agents via `agent` CLI
 4. Monitor via `bd status`
 
@@ -252,7 +252,7 @@ agent tester xasm++-x3
 claude> "Review this PR and suggest improvements"
 
 # Background: Use A2A
-bd create "Run security audit on codebase"
+agent create "Run security audit on codebase"
 agent reviewer bd-sec-audit
 ```
 
@@ -281,8 +281,8 @@ Orchestrator uses agent CLI (via Bash tool) for long-running work:
 
 ```bash
 # In Orchestrator role
-# STEP 1: Create Beads task
-bd create "Implement authentication API" --priority high
+# STEP 1: Create task
+agent create "Implement authentication API" --priority high
 # Returns: xasm++-e3w
 
 # STEP 2: Spawn A2A background agent
@@ -290,7 +290,7 @@ agent engineer xasm++-e3w
 # Returns immediately, agent runs in background
 
 # STEP 3: Continue with other work
-# Check status later: bd show xasm++-e3w
+# Check status later: agent show xasm++-e3w
 ```
 
 ### Pattern 3: Status Monitoring
@@ -299,16 +299,16 @@ Orchestrator queries all agents via Beads:
 
 ```bash
 # Check all active agents (both Task tool and A2A)
-bd list --status in_progress
+agent list --status in_progress
 
 # Check specific agent
-bd show xasm++-e3w
+agent show xasm++-e3w
 
 # Find blockers
-bd list --status blocked
+agent list --status blocked
 
 # Find ready work
-bd ready
+agent list --status queued
 ```
 
 ### Pattern 4: Mixed Workflow Coordination
@@ -320,9 +320,9 @@ Orchestrator combines both agent types:
 Task(..., prompt="Act as Architect, create implementation plan")
 
 # Based on plan, spawn background A2A agents
-bd create "Component A" --priority high  # xasm++-a1
-bd create "Component B" --priority high  # xasm++-a2
-bd create "Tests" --priority normal      # xasm++-a3
+agent create "Component A" --priority high  # xasm++-a1
+agent create "Component B" --priority high  # xasm++-a2
+agent create "Tests" --priority normal      # xasm++-a3
 
 # Set dependencies
 bd dep add xasm++-a3 xasm++-a1
@@ -355,7 +355,7 @@ agent tester xasm++-a3
 1. **Create Descriptive Beads Tasks**: Clear task descriptions in Beads
 2. **Use Appropriate Roles**: Choose engineer/tester/reviewer based on task type
 3. **Monitor Regularly**: Check `bd status` to track progress
-4. **Review Output**: Read Beads task updates to see agent work
+4. **Review Output**: Read task updates to see agent work
 5. **Follow Up in Claude Code**: Discuss results with Claude Code after completion
 
 ### For Mixed Workflows
@@ -365,11 +365,11 @@ agent tester xasm++-a3
 claude> "Break down the authentication feature implementation"
 
 # 2. Create tracked tasks for background work
-bd create "API: Add /login and /logout endpoints"    # xasm++-a1
-bd create "API: Add JWT token management"            # xasm++-a2
-bd create "UI: Create login form component"          # xasm++-a3
-bd create "UI: Add auth state management"            # xasm++-a4
-bd create "Tests: Integration tests for auth flow"   # xasm++-a5
+agent create "API: Add /login and /logout endpoints"    # xasm++-a1
+agent create "API: Add JWT token management"            # xasm++-a2
+agent create "UI: Create login form component"          # xasm++-a3
+agent create "UI: Add auth state management"            # xasm++-a4
+agent create "Tests: Integration tests for auth flow"   # xasm++-a5
 
 # 3. Spawn background agents
 agent engineer xasm++-a1
@@ -416,7 +416,7 @@ claude> "Review the auth implementation from background agents"
 
 ### Q: How do I track what A2A agents did?
 
-**A**: Check the Beads task: `bd show <task-id>`. This shows the full execution log and results.
+**A**: Check the task: `agent show <task-id>`. This shows the full execution log and results.
 
 ---
 
@@ -441,10 +441,10 @@ claude> "Review the auth implementation from background agents"
 claude> "Complex task requiring coordination"
 
 # A2A Agents (explicit CLI)
-bd create "Task description"
+agent create "Task description"
 agent <role> <task-id>
 bd status
-bd show <task-id>
+agent show <task-id>
 ```
 
 ---

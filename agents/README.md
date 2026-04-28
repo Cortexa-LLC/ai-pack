@@ -149,7 +149,7 @@ To add a new agent:
 3. **Use the agent**:
    ```bash
    # With Beads
-   bd create "Task description"
+   agent create "Task description"
    agent newagent bd-xxxx
 
    # Direct (deprecated)

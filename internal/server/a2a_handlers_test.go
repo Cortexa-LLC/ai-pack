@@ -5,10 +5,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/cortexa-llc/ai-pack/internal/config"
+	"github.com/cortexa-llc/ai-pack/internal/taskdb"
 )
 
 // TestHandleTasksList_Empty tests task list with no active tasks
@@ -70,30 +72,44 @@ func TestHandleTasksListWithActiveTasks(t *testing.T) {
 	os.Setenv("ANTHROPIC_API_TOKEN", "test-token")
 	defer os.Unsetenv("ANTHROPIC_API_TOKEN")
 
+	// Open taskDB
+	dbPath := filepath.Join(tmpDir, "tasks.db")
+	db, err := taskdb.Open(dbPath)
+	if err != nil {
+		t.Fatalf("Failed to open taskDB: %v", err)
+	}
+	defer db.Close()
+
 	cfg := config.DefaultConfig()
 	cfg.API.Mode = "direct"
 	server, err := NewAgentServer(tmpDir, 3, 4000, "claude-3-5-sonnet-20241022", cfg)
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
 	}
+	server.taskDB = db
 
-	// Add mock tasks to server's active tasks
-	server.mu.Lock()
-	server.activeTasks["task-1"] = &TaskExecution{
-		TaskID:      "task-1",
-		Role:        "engineer",
-		Task:        "Test task 1",
-		Status:      "in_progress",
-		ProjectRoot: "/test/project",
-		metadata:    map[string]string{},
+	// Add tasks to taskDB
+	task1 := &taskdb.Task{
+		ID:              "task-1",
+		BeadsID:         "test-beads-1",
+		ProjectRoot:     tmpDir,
+		Role:            "engineer",
+		TaskDescription: "Test task 1",
 	}
-	server.activeTasks["task-2"] = &TaskExecution{
-		TaskID: "task-2",
-		Role:   "tester",
-		Task:   "Test task 2",
-		Status: "queued",
+	if err := db.CreateTask(task1); err != nil {
+		t.Fatalf("Failed to create task-1: %v", err)
 	}
-	server.mu.Unlock()
+
+	task2 := &taskdb.Task{
+		ID:              "task-2",
+		BeadsID:         "test-beads-2",
+		ProjectRoot:     tmpDir,
+		Role:            "tester",
+		TaskDescription: "Test task 2",
+	}
+	if err := db.CreateTask(task2); err != nil {
+		t.Fatalf("Failed to create task-2: %v", err)
+	}
 
 	// Create test HTTP request
 	req := httptest.NewRequest(http.MethodGet, "/a2a/tasks", nil)
@@ -127,26 +143,26 @@ func TestHandleTasksListWithActiveTasks(t *testing.T) {
 	}
 
 	// Verify first task structure
-	task1, ok := tasks[0].(map[string]interface{})
+	firstTask, ok := tasks[0].(map[string]interface{})
 	if !ok {
 		t.Fatal("Expected task to be an object")
 	}
 
 	// Check required fields
-	if taskID, ok := task1["task_id"].(string); !ok || (taskID != "task-1" && taskID != "task-2") {
-		t.Errorf("Expected valid task_id, got %v", task1["task_id"])
+	if taskID, ok := firstTask["task_id"].(string); !ok || (taskID != "task-1" && taskID != "task-2") {
+		t.Errorf("Expected valid task_id, got %v", firstTask["task_id"])
 	}
 
-	if _, ok := task1["status"].(string); !ok {
-		t.Errorf("Expected status to be a string, got %T", task1["status"])
+	if _, ok := firstTask["status"].(string); !ok {
+		t.Errorf("Expected status to be a string, got %T", firstTask["status"])
 	}
 
-	if _, ok := task1["role"].(string); !ok {
-		t.Errorf("Expected role to be a string, got %T", task1["role"])
+	if _, ok := firstTask["role"].(string); !ok {
+		t.Errorf("Expected role to be a string, got %T", firstTask["role"])
 	}
 
-	if _, ok := task1["description"].(string); !ok {
-		t.Errorf("Expected description to be a string, got %T", task1["description"])
+	if _, ok := firstTask["description"].(string); !ok {
+		t.Errorf("Expected description to be a string, got %T", firstTask["description"])
 	}
 }
 

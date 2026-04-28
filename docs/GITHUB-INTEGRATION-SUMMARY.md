@@ -6,7 +6,7 @@
 
 ## Overview
 
-Implemented optional, configuration-driven GitHub integration for AI-Pack that enables bidirectional sync between Beads tasks and GitHub Issues, CI/CD monitoring, and Epic/Story management.
+Implemented optional, configuration-driven GitHub integration for AI-Pack that enables bidirectional sync between tasks and GitHub Issues, CI/CD monitoring, and Epic/Story management.
 
 ---
 
@@ -42,7 +42,7 @@ Implemented optional, configuration-driven GitHub integration for AI-Pack that e
 - `export` - Beads → GitHub
 - `monitor` - CI/CD monitoring (continuous)
 - `check-ci` - Check current CI status
-- `create-epic` - Create epic from Beads task
+- `create-epic` - Create epic from task
 - `status` - Show integration status
 
 **Features:**
@@ -139,14 +139,14 @@ Implemented optional, configuration-driven GitHub integration for AI-Pack that e
 ### Feature 1: Bidirectional Issue Sync
 
 **Beads → GitHub:**
-- Creates GitHub issues from Beads tasks
+- Creates GitHub issues from tasks
 - Applies appropriate labels (priority, type)
-- Includes Beads task ID in issue body
+- Includes task ID in issue body
 - Links back to Beads via comments
 
 **GitHub → Beads:**
 - Imports issues with specific labels (e.g., "ai-pack")
-- Creates Beads tasks
+- Creates tasks
 - Creates task packets if configured
 - Links back to GitHub issue
 
@@ -165,7 +165,7 @@ Implemented optional, configuration-driven GitHub integration for AI-Pack that e
 ```
 
 **Process:**
-1. Reads Beads task and its dependencies
+1. Reads task and its dependencies
 2. Creates GitHub Epic issue with checklist
 3. Creates Story issues for each subtask
 4. Links everything properly (epic ↔ stories ↔ Beads)
@@ -187,7 +187,7 @@ Implemented optional, configuration-driven GitHub integration for AI-Pack that e
 **On CI Failure:**
 1. Detects workflow failure
 2. Creates GitHub issue (optional)
-3. Creates Beads task (optional)
+3. Creates task (optional)
 4. Assigns to configured engineer
 5. Sets priority (critical by default)
 
@@ -344,10 +344,10 @@ sync_rules:
 
 ```bash
 # Work in Beads locally
-bd create "New feature" --priority high
+agent create "New feature" --priority high
 bd start bd-a1b2
 # ... implement ...
-bd close bd-a1b2
+agent close bd-a1b2
 
 # Periodically sync to GitHub for visibility
 ./scripts/github-integration.py export
@@ -362,10 +362,10 @@ bd close bd-a1b2
 ./scripts/github-integration.py import
 
 # Work locally with Beads
-bd ready
+agent list --status queued
 bd start bd-x1y2
 # ... implement ...
-bd close bd-x1y2
+agent close bd-x1y2
 
 # Sync status back
 ./scripts/github-integration.py sync
@@ -389,8 +389,8 @@ bd close bd-x1y2
 
 # When CI fails:
 # → GitHub issue created automatically
-# → Beads task created automatically
-# → Engineer finds task via bd ready
+# → task created automatically
+# → Engineer finds task via agent list --status queued
 ```
 
 ---
@@ -470,7 +470,7 @@ bd close bd-x1y2
 - `yq` >= 4.0 (YAML parsing)
 - `jq` >= 1.6 (JSON parsing)
 - `gh` >= 2.0 (GitHub CLI - calls GitHub REST/GraphQL API)
-- `bd` (Beads task system)
+- `bd` (task system)
 
 ### API Usage
 
@@ -511,7 +511,7 @@ Beads Tasks → Script → GitHub Issues
 
 2. **Export:**
    ```bash
-   bd create "Test task" --priority high
+   agent create "Test task" --priority high
    ./scripts/github-integration.py export
    # Verify GitHub issue created
    ```
@@ -520,13 +520,13 @@ Beads Tasks → Script → GitHub Issues
    ```bash
    # Create GitHub issue with "ai-pack" label
    ./scripts/github-integration.py import
-   # Verify Beads task created
+   # Verify task created
    ```
 
 4. **Epic:**
    ```bash
-   epic_id=$(bd create "Epic" --priority high)
-   bd create "Story 1" --depends-on ${epic_id}
+   epic_id=$(agent create "Epic" --priority high)
+   agent create "Story 1" --depends-on ${epic_id}
    ./scripts/github-integration.py create-epic ${epic_id}
    # Verify epic and story issues created
    ```
@@ -563,7 +563,7 @@ advanced:
    - Custom field mapping
 
 3. **PR Management:**
-   - Auto-create PRs from Beads tasks
+   - Auto-create PRs from tasks
    - Link PRs to issues automatically
    - Quality gate checks in PR comments
 
@@ -603,8 +603,8 @@ advanced:
 # 2. Import existing GitHub issues
 ./scripts/github-integration.py import
 
-# 3. Link existing Beads tasks
-# (Manual: add "GitHub Issue: #N" comments to Beads tasks)
+# 3. Link existing tasks
+# (Manual: add "GitHub Issue: #N" comments to tasks)
 
 # 4. Set up automatic sync
 # Add to crontab or systemd timer
@@ -616,8 +616,8 @@ advanced:
 
 **Integration is successful when:**
 
-1. ✅ Beads tasks sync to GitHub issues
-2. ✅ GitHub issues import to Beads tasks
+1. ✅ tasks sync to GitHub issues
+2. ✅ GitHub issues import to tasks
 3. ✅ CI failures create tasks automatically
 4. ✅ Epics generate properly linked issues
 5. ✅ No manual copying between systems

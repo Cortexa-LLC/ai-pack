@@ -7,11 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cortexa-llc/ai-pack/internal/beads"
-
 	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 	"github.com/cortexa-llc/ai-pack/internal/protocol"
+	"github.com/cortexa-llc/ai-pack/internal/taskdb"
 )
 
 func parseRoleTimeout(s string) time.Duration {
@@ -108,16 +107,6 @@ func applyTaskContractOverrides(config *AgentConfig, taskPacketPath, projectRoot
 }
 
 func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string) (*protocol.ExecuteTaskResponse, error) {
-	// Validate Beads is installed
-	if !beads.IsInstalled() {
-		return nil, fmt.Errorf("Beads is not installed. All tasks must be Beads tasks. Install with: brew install beads")
-	}
-
-	// Validate taskInput is a Beads task ID
-	if !beads.IsBeadsTaskID(taskInput) {
-		return nil, fmt.Errorf("invalid task ID format. All tasks must be Beads tasks. Create with: bd create '<description>'")
-	}
-
 	// Sanitize projectRoot: reject relative paths (including traversal attempts).
 	if projectRoot != "" {
 		cleanedRoot := filepath.Clean(projectRoot)
@@ -137,27 +126,14 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		projectRoot = s.rootDir
 	}
 
-	// Validate the task exists in Beads (use project root for bd commands)
-	if err := s.beadsClient.ValidateTaskIDFromDir(taskInput, projectRoot); err != nil {
-		return nil, fmt.Errorf("invalid Beads task: %w", err)
-	}
-
+	// taskInput is the beads task ID (short form like "ai-pack-abc123")
 	beadsTaskID := taskInput
-	monitoring.Logger.Info("spawning_with_beads_task", "task_id", beadsTaskID, "project_root", projectRoot)
+	monitoring.Logger.Info("spawning_task", "beads_id", beadsTaskID, "project_root", projectRoot)
 
-	// Check dependencies
-	depsOK, unmetDeps, err := s.beadsClient.CheckDependenciesFromDir(beadsTaskID, projectRoot)
-	if err != nil {
-		monitoring.Logger.Warn("dependency_check_failed", "error", err.Error())
-	} else if !depsOK {
-		return nil, fmt.Errorf("task %s has unmet dependencies: %v\nPlease complete these tasks first", beadsTaskID, unmetDeps)
-	}
-
-	// Get task description, task packet path, and working directory
-	taskDescription, taskPacketPath, workingDir, _, err := s.beadsClient.GetTaskDescriptionFromDir(taskInput, projectRoot)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get task description: %w", err)
-	}
+	// Task description comes from taskInput for now (can be enhanced to read from task packet)
+	taskDescription := fmt.Sprintf("Task %s", beadsTaskID)
+	taskPacketPath := ""
+	workingDir := projectRoot
 
 	// v2 structural risk assessment (all roles)
 	riskAssessment := s.complexityRiskAnalyzer.ComputeComplexityRisk(role, taskDescription)
@@ -176,14 +152,8 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 	}
 
 	// If working directory not specified in task, use project root
-	if workingDir == "" {
-		workingDir = projectRoot
-	}
-
-	// Use Beads task ID with timestamp as the task ID (single source of truth)
-	// Format: {beads-id}-{YYYYMMDD}-{HHMMSS}
-	timestamp := time.Now().Format("20060102-150405")
-	taskID := fmt.Sprintf("%s-%s", beadsTaskID, timestamp)
+	// Generate unique task ID
+	taskID := taskdb.GenerateTaskID(beadsTaskID)
 
 	// Supersede any previous execution for this beads task so the GUI
 	// shows the new run rather than the old failed one.
@@ -228,13 +198,6 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		metadata["project_root"] = projectRoot
 	}
 
-	// Mark Beads task as started
-	if err := s.beadsClient.StartTaskFromDir(beadsTaskID, projectRoot); err != nil {
-		monitoring.Logger.Warn("failed_to_start_beads_task", "error", err.Error())
-	} else {
-		monitoring.Logger.Info("beads_task_started", "task_id", beadsTaskID)
-	}
-
 	// Create task execution
 	execution := &TaskExecution{
 		TaskID:      taskID,
@@ -247,6 +210,20 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		streamChan:  make(chan *protocol.StreamEvent, 100),
 		streamOpen:  true,
 		metadata:    metadata,
+	}
+
+	// Create task in SQLite database for persistent tracking
+	if s.taskDB != nil {
+		dbTask := &taskdb.Task{
+			ID:              taskID,
+			BeadsID:         beadsTaskID,
+			ProjectRoot:     projectRoot,
+			Role:            role,
+			TaskDescription: taskDescription,
+		}
+		if err := s.taskDB.CreateTask(dbTask); err != nil {
+			monitoring.Logger.Warn("failed_to_create_taskdb_entry", "error", err.Error(), "task_id", taskID)
+		}
 	}
 
 	// Check for legacy folders before registering new project root
@@ -361,12 +338,32 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 }
 
 func (s *AgentServer) getTaskStatus(taskID string) (*protocol.TaskStatusResponse, error) {
+	// First try taskDB (persistent storage)
+	if s.taskDB != nil {
+		dbTask, err := s.taskDB.GetTask(taskID)
+		if err == nil && dbTask != nil {
+			response := &protocol.TaskStatusResponse{
+				TaskID:      dbTask.ID,
+				Role:        dbTask.Role,
+				Task:        dbTask.TaskDescription,
+				Status:      dbTask.Status,
+				CreatedAt:   dbTask.CreatedAt,
+				UpdatedAt:   dbTask.UpdatedAt,
+				Result:      dbTask.Result,
+				Error:       dbTask.Error,
+				CompletedAt: dbTask.CompletedAt,
+			}
+			return response, nil
+		}
+	}
+
+	// Fall back to in-memory activeTasks
 	s.mu.RLock()
 	execution, exists := s.activeTasks[taskID]
 	s.mu.RUnlock()
 
 	if !exists {
-		// Try loading from disk
+		// Try loading from disk (legacy)
 		return s.loadTaskStatusFromDisk(taskID)
 	}
 
@@ -379,16 +376,6 @@ func (s *AgentServer) getTaskStatus(taskID string) (*protocol.TaskStatusResponse
 		UpdatedAt: time.Now(),
 		Result:    execution.Result,
 		Error:     execution.Error,
-	}
-
-	// Override status based on Beads status: a task closed in Beads is always
-	// "completed" regardless of the internal execution outcome.
-	if beadsTaskID, ok := execution.metadata["beads_task_id"]; ok && beadsTaskID != "" {
-		if beadsTask, err := s.beadsClient.GetTask(beadsTaskID); err == nil {
-			if beadsTask.Status == constants.StatusClosed || beadsTask.Status == constants.StatusDone {
-				response.Status = constants.StatusCompleted
-			}
-		}
 	}
 
 	if response.Status == constants.StatusCompleted || response.Status == constants.StatusFailed {
