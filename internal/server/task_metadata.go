@@ -197,75 +197,7 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 		description = d
 	}
 
-	// Reconcile execution metadata with Beads task status to fix stale data
-	// This handles cases where tasks were blocked/failed but later completed
-
-	// Get or infer the Beads task ID
-	beadsTaskID := ""
-	if btid, ok := metadata["beads_task_id"].(string); ok && btid != "" {
-		beadsTaskID = btid
-	} else {
-		// For older executions without beads_task_id, infer from execution folder name
-		// Format: {beads-id}-YYYYMMDD-HHMMSS → extract {beads-id}
-		// Example: xasm++-5tu1-20260214-085757 → xasm++-5tu1
-		// The timestamp is always the last 2 parts: 8-digit date and 6-digit time
-		parts := strings.Split(executionFolder, "-")
-		if len(parts) >= 3 {
-			// Check if last 2 parts look like timestamps (8 digits + 6 digits)
-			lastPart := parts[len(parts)-1]
-			secondLastPart := parts[len(parts)-2]
-			if len(lastPart) == 6 && len(secondLastPart) == 8 {
-				// Last 2 parts are date-time, everything before is the Beads ID
-				beadsTaskID = strings.Join(parts[:len(parts)-2], "-")
-				monitoring.Logger.Debug("inferred_beads_task_id",
-					"execution_folder", executionFolder,
-					"inferred_id", beadsTaskID)
-			}
-		}
-	}
-
-	if beadsTaskID != "" {
-		if beadsTask, err := s.beadsClient.GetTaskFromDir(beadsTaskID, foundProjectRoot); err == nil {
-			beadsStatus := strings.ToLower(beadsTask.Status)
-
-			// A task closed in Beads is always completed, regardless of execution outcome.
-			if beadsStatus == constants.StatusClosed || beadsStatus == constants.StatusDone {
-				if status != constants.StatusCompleted {
-					monitoring.Logger.Info("reconciling_stale_execution_metadata",
-						"task_id", beadsTaskID,
-						"old_status", status,
-						"beads_status", beadsStatus,
-						"execution_folder", executionFolder)
-
-					// Update metadata
-					metadata["status"] = constants.StatusCompleted
-					metadata["error"] = nil
-					metadata["updated_at"] = time.Now().Format(time.RFC3339)
-					metadata["reconciled"] = true
-					metadata["reconciled_at"] = time.Now().Format(time.RFC3339)
-
-					// Store the Beads task ID if it was missing
-					if _, ok := metadata["beads_task_id"]; !ok || metadata["beads_task_id"] == nil {
-						metadata["beads_task_id"] = beadsTaskID
-					}
-
-					// Write back to disk
-					if updatedData, err := json.MarshalIndent(metadata, "", "  "); err == nil {
-						if err := os.WriteFile(metadataPath, updatedData, 0644); err == nil {
-							status = constants.StatusCompleted
-							updatedAt = time.Now()
-							monitoring.Logger.Info("reconciled_execution_metadata",
-								"task_id", beadsTaskID,
-								"execution_folder", executionFolder)
-						}
-					}
-				} else {
-					// Already correct, ensure error field is not set
-					status = constants.StatusCompleted
-				}
-			}
-		}
-	}
+	// Status reconciliation is no longer needed - taskDB is the source of truth
 
 	response := &protocol.TaskStatusResponse{
 		TaskID:    taskID,
@@ -398,6 +330,13 @@ func (s *AgentServer) initializeTaskExecution(execution *TaskExecution, logMsg f
 	s.mu.Lock()
 	execution.Status = constants.StatusInProgress
 	s.mu.Unlock()
+
+	// Update taskDB
+	if s.taskDB != nil {
+		if err := s.taskDB.UpdateTaskStatus(execution.TaskID, constants.StatusInProgress, ""); err != nil {
+			monitoring.Logger.Warn("failed_to_update_taskdb_start", "task_id", execution.TaskID, "error", err.Error())
+		}
+	}
 
 	if err := s.updateTaskStatus(execution.TaskID, execution.ProjectRoot, constants.StatusInProgress, ""); err != nil {
 		logMsg(fmt.Sprintf("❌ Failed to update status: %v", err))

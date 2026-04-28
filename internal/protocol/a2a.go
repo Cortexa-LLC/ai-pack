@@ -101,7 +101,6 @@ type TaskStatusResponse struct {
 	Role        string                 `json:"role"`
 	Task        string                 `json:"task"`
 	Status      string                 `json:"status"`
-	Progress    float64                `json:"progress"`
 	CreatedAt   time.Time              `json:"created_at"`
 	UpdatedAt   time.Time              `json:"updated_at"`
 	CompletedAt *time.Time             `json:"completed_at,omitempty"`

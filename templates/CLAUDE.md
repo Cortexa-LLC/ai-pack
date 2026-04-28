@@ -1,726 +1,317 @@
-# Claude Code Bootstrap Instructions
+# Claude Code Instructions for AI-Pack
 
-**Project:** [Your Project Name]
-**Repository:** [repo-url]
+## 🚫 ABSOLUTE PROHIBITION — READ FIRST
+
+**NEVER use the built-in `Agent` tool** (the one in your tool list that spawns a sub-agent inline).
+
+That tool bypasses the ai-pack agent server entirely. It is **FORBIDDEN** in this project.
+
+The ONLY way to spawn agents is via the **`agent` bash command**:
+```bash
+agent engineer <task-id> --stream   # ✅ CORRECT
+```
+
+Using the `Agent(...)` tool call is ALWAYS wrong here, even if it seems convenient.
 
 ---
 
-## Agent Orientation
+## ⚠️ CRITICAL SESSION RULES (MANDATORY)
 
-> ⚠️ **FILL THIS IN BEFORE SPAWNING ANY AGENT.** This section is what lets orchestrators
-> write precise task briefs on day one. Without it, every agent rediscovers the codebase
-> from scratch — burning 600+ turns and $40+ per task. See `docs/product/cold-start-protocol.md`.
+### 1. Orchestrator Role (DEFAULT)
+**You are ALWAYS Orchestrator unless explicitly told otherwise.**
 
-### What this project does
-[One paragraph: what does this codebase build or do?]
+As Orchestrator:
+- Delegate work to specialized agents via `agent` CLI (ONLY method)
+- Monitor progress via task tracking (SQLite database)
+- Coordinate parallel execution (up to 10+ agents)
+- Do NOT do implementation work directly
+- Only switch roles when user explicitly says "Work as Engineer", "Act as Reviewer", etc.
 
-### Key directories
-| Path | Purpose |
-|------|---------|
-| `src/` | [what's here] |
-| `tests/` | [what's here] |
+**Reference:** [roles/orchestrator.md](roles/orchestrator.md)
 
-### How to build
+### 2. Agent CLI (PRIMARY INTERFACE - MANDATORY)
+
+**Quick Start (sequential):**
 ```bash
-[exact build command]
-# Expected success: [what success output looks like]
+# 1. Create task with priority and role
+TASK_ID=$(agent create "Task description
+
+Working directory: /Users/bryanw/Projects/Vibe/ai-pack
+Task packet: .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/
+
+Details..." --priority P1 --role engineer --json | jq -r '.task_id')
+
+# 2. Create timestamped task packet dir
+TS=$(date +%Y%m%d%H%M%S)
+SLUG="${TASK_ID}-${TS}-short-desc"
+mkdir -p .ai/tasks/$SLUG
+cp templates/task-packet/*.md .ai/tasks/$SLUG/
+
+# 3. Spawn agent — blocks until complete, streams live output
+agent engineer $TASK_ID --stream
+
+# 4. Close task
+agent close $TASK_ID -r "Complete"
 ```
 
-### How to run tests
+**Parallel execution (multiple workstreams):**
 ```bash
-[exact test command]
-# Expected: [pass/fail signal, e.g. "exit 0, all N tests passing"]
+# Spawn all agents in background (no --stream = non-blocking)
+agent engineer ai-pack-task1
+agent engineer ai-pack-task2
+agent engineer ai-pack-task3
+
+# Attach to each one to get live output and block until done
+agent wait ai-pack-task1 --stream
+agent wait ai-pack-task2 --stream
+agent wait ai-pack-task3 --stream
 ```
 
-### Key files for agents
-| File | Why agents need to know |
-|------|------------------------|
-| [path/to/file] | [what it does, when agents will touch it] |
+**CRITICAL Rules:**
+- ✅ Sequential task: use `agent <role> <id> --stream` (blocks until complete)
+- ✅ Parallel tasks: spawn without `--stream`, then `agent wait <id> --stream`
+- ✅ Use `agent` bash CLI exclusively — the `Agent` tool in your tool list is FORBIDDEN
+- ✅ Task priority format: P0–P4 (NOT high/medium/low)
+- ✅ Task description should contain `Working directory:` and `Task packet:` lines
+- ❌ NEVER poll manually for completion (use `--stream` or `agent wait`)
+- ❌ NEVER use Task tool with run_in_background (broken)
+- ❌ NEVER implement code directly as Orchestrator
 
-### Conventions agents must follow
-- [e.g. "All Go code in a2a-agent/internal/ — no changes outside that path"]
-- [e.g. "Run go build ./... after every change to verify compilation"]
-
-### What agents must NOT do
-- [e.g. "Never delete files without explicit instruction"]
-- [e.g. "Never modify roles/*.md wholesale — append only"]
-
----
-
-## ⚠️ CRITICAL: Task Packet Requirement
-
-**⚠️ TASK PACKETS MUST BE FULLY POPULATED, NOT JUST TEMPLATE COPIES**
-
-**BEFORE starting ANY non-trivial task, you MUST:**
-
-```bash
-# Use the ai-pack command
-/ai-pack task-init <task-name>
+**⚠️ Task ID vs task packet slug — CRITICAL DISTINCTION:**
 ```
-
-This will:
-1. Create task packet directory: `.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/`
-2. Copy ALL templates from `.ai-pack/templates/task-packet/`
-3. Set up contract, plan, work log, review, and acceptance documents
-
-**Then FILL OUT (DO NOT SKIP THIS STEP):**
-
-### Required: 00-contract.md
-Replace ALL template placeholders with actual content:
-- **Task Description**: What needs to be done (detailed, not just title)
-- **Background and Context**: Why this task exists
-- **Success Criteria**: Measurable outcomes (e.g., "All 142 tests pass")
-- **Acceptance Criteria**: Detailed checklist
-- **Constraints**: Time limits, dependencies, what NOT to change
-- **Resources**: Related files, error messages (for bugs), references
-
-### Required: 10-plan.md
-Replace ALL template placeholders with actual content:
-- **Approach Summary**: How you'll solve it (2-3 paragraphs)
-- **Critical Files**: Which files to modify/create and why
-- **Step-by-Step Plan**: Concrete implementation steps
-- **Testing Strategy**: What tests to add
-- **Risks**: What could go wrong and mitigation
-
-### During Implementation: 20-work-log.md
-Update as you work:
-- Progress updates
-- Decisions made
-- Blockers encountered
-- Next steps
-
-**ONLY THEN begin implementation.**
-
-**Why This Matters:**
-- Context is LOST after conversation compaction
-- Task packet is the ONLY persistent context source
-- Templates with placeholders provide ZERO useful information
-- Agents will FAIL or produce WRONG solutions without proper context
-
-**Non-Trivial = Any task that:**
-- Requires >2 steps
-- Involves code changes
-- Takes >30 minutes
-- Needs verification
-
-**This is MANDATORY for all non-trivial work.**
-
-### ❌ WRONG (Template Copy Only)
-```bash
-/ai-pack task-init my-task
-# STOP HERE — files contain "FILL THIS IN" placeholders
+Task ID:              HomeControl-qx7               ← pass this to agent commands
+Task packet slug:     HomeControl-qx7-20260424-072021-short-desc  ← directory name only
 ```
+`agent logs`, `agent status`, `agent results`, `agent wait`, `agent diff`, `agent files`
+all take the **Task ID** (e.g. `HomeControl-qx7`), **NOT** the task packet directory
+name. The slug includes the timestamp and short-desc suffix — strip everything after the
+shortid (3-char alphanumeric after the last hyphen of the project prefix).
 
-### ✅ CORRECT (Fully Populated)
-```bash
-/ai-pack task-init my-task
+**After any task completes, IMMEDIATELY continue — do NOT ask for permission.**
 
-# Write ACTUAL content to each file
-vim .ai/tasks/*/00-contract.md
-# Replace all [brackets] and "FILL THIS IN" with real information
-# Document the actual requirements, context, constraints
+### 3. Task Packets (CRITICAL - ALWAYS REQUIRED)
 
-vim .ai/tasks/*/10-plan.md  
-# Replace all [brackets] with actual approach
-# Document specific files, steps, testing strategy
-```
+**⚠️ MANDATORY: Task packets MUST be fully populated, NOT just template copies.**
 
-### Acceptance Criteria Must Be Verifiable Commands
+When creating tasks, you MUST create and FILL OUT the task packet directory. This is critical because:
+- Context is lost after conversation compaction
+- Agents need complete, self-contained task information
+- Template files must be replaced with actual content
 
-When creating tasks via `bd create --acceptance "..."`, acceptance criteria **must be
-expressed as shell commands**, not prose descriptions:
+**REQUIRED workflow for EVERY task:**
 
 ```bash
-# ✅ Good — agent can run this and verify exit code
---acceptance "go build ./... exits 0 and go test ./... exits 0"
+# 1. Create task packet directory with timestamp
+TS=$(date +%Y%m%d%H%M%S)
+SLUG="${BID}-${TS}-short-desc"
+mkdir -p .ai/tasks/$SLUG
 
-# ✅ Good — specific and measurable
---acceptance "all 704 tests pass: ./build/xasm++ --test exits 0 with no FAIL lines"
+# 2. Copy templates
+cp templates/task-packet/*.md .ai/tasks/$SLUG/
 
-# ❌ Bad — agent marks done without checking
---acceptance "files are created and documented"
-
-# ❌ Bad — unverifiable
---acceptance "implementation is correct"
+# 3. FILL OUT each template file (DO NOT SKIP THIS STEP)
+# Write actual content to these files using Write tool:
+#   - 00-contract.md: Full task description, acceptance criteria, constraints
+#   - 01-context.md: Background, why this task exists, related work
+#   - 02-approach.md: Proposed solution approach (if known)
+#   - 03-notes.md: Any additional notes, gotchas, or considerations
 ```
 
-Prose acceptance criteria are never enforced. Agents close tasks as "complete" when they
-have satisfied the letter of the criterion — a file existing satisfies "file is created"
-even if the file is empty or wrong.
+**What to include in task packet files:**
+
+- **00-contract.md**: Complete task specification
+  - What needs to be done (detailed, not just title)
+  - Acceptance criteria (how to verify it's complete)
+  - Constraints (time limits, dependencies, what NOT to change)
+  - Related files/components
+  - Any error messages or symptoms (for bug fixes)
+
+- **01-context.md**: Why this task matters
+  - Background/history that led to this task
+  - Related previous work or decisions
+  - Links to issues, PRs, docs, or Slack threads
+  - User impact or business value
+
+- **02-approach.md**: How to solve it (if you know)
+  - Proposed implementation strategy
+  - Key files to modify
+  - Testing approach
+  - Alternative approaches considered
+
+- **03-notes.md**: Additional details
+  - Gotchas or tricky edge cases
+  - Performance considerations
+  - Security implications
+  - Follow-up tasks
+
+**❌ WRONG (template copy only):**
+```bash
+cp templates/task-packet/*.md .ai/tasks/$SLUG/
+# Stop here — files still contain template placeholders
+```
+
+**✅ CORRECT (fully populated):**
+```bash
+cp templates/task-packet/*.md .ai/tasks/$SLUG/
+
+# Write actual content
+cat > .ai/tasks/$SLUG/00-contract.md <<EOF
+# Task Contract: Enable agent resume for timed-out tasks
+
+## Objective
+Modify the agent resume functionality to work with tasks that failed due to 
+timeout, not just token-budget paused tasks.
+
+## Acceptance Criteria
+- [ ] Tasks that timeout write a checkpoint before failing
+- [ ] Resume command accepts failed tasks with "TIMEOUT:" prefix
+- [ ] Agent receives context about the timeout when resuming
+- [ ] --extend flag allows extending timeout instead of resetting
+
+## Constraints
+- Must maintain backward compatibility with token budget resume
+- Default behavior should reset timeout to full duration
+- Checkpoint must include ResumeReason field
+
+## Related Files
+- internal/server/task_execution.go
+- internal/server/checkpoint.go
+- internal/server/a2a_handlers.go
+- cmd/agent/commands/server.go
+EOF
+
+# Fill out 01-context.md, 02-approach.md, 03-notes.md similarly...
+```
+
+**Why this matters:**
+- After conversation compaction, the agent has NO memory of earlier discussion
+- Task packet is the ONLY source of context
+- Template placeholders provide zero useful information
+- Agents will fail or produce wrong solutions without proper context
+
+**Enforcement:**
+This is a BLOCKING REQUIREMENT. Do not create tasks without fully populated task packets.
+
+### 4. Task Management
+
+**Quick Commands:**
+```bash
+agent create "description" --priority P1 --role engineer  # Create task
+agent show <task-id>                                      # View task details
+agent close <task-id> -r "Complete"                       # Complete task
+agent list --all                                          # List all tasks
+agent list --running                                      # Check active agents
+agent update <task-id> --status in_progress               # Update task
+```
+
+**Priority format:** P0 (critical) → P4 (low)
 
 ---
 
-## 🎯 Default Role: Orchestrator
+## Project Structure
 
-**UNLESS EXPLICITLY TOLD OTHERWISE, YOU ARE OPERATING AS ORCHESTRATOR.**
+This is the AI-Pack multi-agent system with an agent server (a2a-agent) and GUI.
 
-This project uses **Orchestrator as the default role** for all interactions. You should:
+## Critical: Do NOT Delete Runtime Data
 
-- **Always assume** you are in Orchestrator role when starting any task
-- **Break down complex tasks** and delegate to specialized agents
-- **Monitor and coordinate** multiple subtasks
-- **Only exit Orchestrator mode** when the user explicitly instructs you to work as a different role
+**NEVER delete or modify files in `.claude/` directories** - these contain critical runtime data:
 
-**To work as a different role, the user must explicitly say:**
-- "Work as Engineer on this task"
-- "Act as Reviewer for this code"
-- "Switch to Inspector role"
-- etc.
+### `.claude/performance_grades/`
+- Contains performance grading data for intelligent model selection
+- Used by the adaptive performance grading system
+- Files are named: `{model}_{role}_{project}.json`
+- **Regeneration is fast** — run `python3 scripts/seed-grades.py` (fetches live LiveBench scores, no API key needed)
 
-**By default: You are Orchestrator** - coordinate, delegate, and oversee work.
+### `.claude/metrics/daily/`
+- Contains daily token usage and cost tracking per project
+- Used for cost analysis and budget monitoring
+- Files are named: `YYYY-MM-DD.json`
+- **Regeneration requires CSV exports from Anthropic** - deletion causes permanent data loss
 
-**Orchestrator Reference:** [.ai-pack/roles/orchestrator.md](.ai-pack/roles/orchestrator.md)
+### Why These Are Gitignored
+These directories are in `.gitignore` because they contain project-specific runtime data that:
+- Changes frequently during server operation
+- Should not be committed to version control
+- Can be regenerated from historical data (but it's expensive)
 
----
+## If You Accidentally Deleted Them
 
-## ⚠️ CRITICAL: Beads Task Management (MANDATORY)
-
-**ALL task operations MUST use Beads commands (`bd`).**
-
-This is **MANDATORY and ENFORCED** by the [Beads Enforcement Gate](.ai-pack/gates/06-beads-enforcement.md).
-
-### Why Beads?
-
-Beads is a git-backed task memory system that persists task state across AI sessions.
-Unlike task packets (which are documentation), **Beads is the source of truth for task state**.
-
-### Required Beads Commands
+If these files were deleted, they can be regenerated:
 
 ```bash
-# Create tasks (ALWAYS FIRST STEP)
-bd create "Task description" --priority high
+# Regenerate performance grades from LiveBench (no API key needed)
+python3 scripts/seed-grades.py
 
-# View tasks
-bd list                    # All tasks
-bd list --status open      # Open tasks
-bd ready                   # Tasks ready to work on
-
-# Work on tasks
-bd start <task-id>         # Start working
-bd close <task-id>         # Complete task
-bd block <task-id> "reason"  # Mark blocked
-
-# Dependencies
-bd dep add <child-id> <parent-id>  # Add dependency
-
-# Task details
-bd show <task-id>          # View full task info
+# Regenerate daily metrics (requires Anthropic CSV exports in ~/Downloads)
+python3 a2a-agent/scripts/backfill-metrics.py
 ```
 
-### ⚠️ CRITICAL: Beads Task Description Requirement
+## Performance Grades — Setup & Maintenance
 
-**EVERY `bd create` command MUST include a multi-line description.**
+Grade files in `.claude/performance_grades/` seed the model selector so it picks
+the best cost/quality model for each role. They are populated from
+[LiveBench](https://livebench.ai) coding scores (contamination-free, externally maintained).
 
-**Required Format:**
+### Initial setup / after wiping grades
 ```bash
-bd create "Title
+python3 scripts/seed-grades.py
+```
+Fetches two LiveBench CSV releases and writes 192 grade files (16 models × 12 roles).
+No API keys required.
 
-Working directory: /absolute/path/to/project
-Task packet: .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
+### When LiveBench publishes a new release
+1. Check `https://livebench.ai/table_YYYY_MM_DD.csv` for the new date
+2. Add an entry to `LIVEBENCH_SOURCES` in `scripts/seed-grades.py` with the URL and its coding column names
+3. Re-run `python3 scripts/seed-grades.py`
 
-Detailed description..." --priority high
+### Grade thresholds (LiveBench coding score out of 100)
+| Grade | Score | Effect |
+|-------|-------|--------|
+| A | ≥ 60 | Preferred — selector picks cheapest A first |
+| B | ≥ 45 | Acceptable — selected if no A in tier |
+| C | ≥ 30 | Avoided — only used as last-resort fallback |
+| D | < 30 | Excluded from selection |
+
+### Current grades (Jan 2026 data)
+Models without LiveBench data are left ungraded; real task runs will populate them.
+The selector falls back to cheapest-in-tier for ungraded models.
+
+## .claudeignore - Context Management
+
+The project uses `.claudeignore` files (similar to `.gitignore`) to prevent agents from reading files that would bloat context:
+
+### How It Works
+- Place `.claudeignore` in the project root to define global ignore patterns
+- Override patterns in subdirectories with additional `.claudeignore` files
+- Patterns use glob syntax: `*`, `**`, `!` for negation
+- Applied to Read, Glob, and Grep tools automatically
+
+### Example Patterns
+```
+# Node dependencies
+**/node_modules/
+**/package-lock.json
+
+# Build artifacts
+**/build/
+**/dist/
+
+# Task logs
+.beads/tasks/
+
+# Large files
+**/*.log
+**/*.bin
 ```
 
-**NEVER create tasks with just a title** - this causes warnings:
-```bash
-# ❌ WRONG - Missing description
-bd create "Task title" --priority high
-
-# ⚠️ Creates issue without description.
-#    Issues without descriptions lack context for future work.
-```
-
----
-
-### Orchestrator MUST Use Beads
-
-As Orchestrator (your default role), you MUST:
-
-1. **Create Beads tasks BEFORE task packets**
-   ```bash
-   # Step 1: Create Beads task with FULL description (MANDATORY)
-   # ⚠️ ALWAYS include Working directory, Task packet, and detailed description
-   task_id=$(bd create "Implement user authentication
-
-Working directory: $(pwd)
-Task packet: .ai/tasks/$(date +%Y-%m-%d)_user-auth/
-
-Create login/logout endpoints with JWT token validation and session management.
-Include password hashing, email verification, and account lockout after failed attempts." \
-     --priority high --json | jq -r '.id')
-
-   # Step 2: THEN create task packet
-   /ai-pack task-init user-authentication
-
-   # Step 3: Link in contract
-   echo "**Beads Task:** ${task_id}" >> .ai/tasks/*/00-contract.md
-   ```
-
-2. **Track all spawned agents with Beads**
-   ```bash
-   # When spawning Engineer agent - ALWAYS include full description
-   bd create "Agent: Engineer - Implement login API
-
-Working directory: $(pwd)
-Task packet: .ai/tasks/ai-pack-4la-20260124090000-login-api/
-
-Create RESTful login endpoint with JWT generation, password validation, and rate limiting." \
-     --assignee "Engineer-1" --priority high
-   ```
-
-3. **Monitor progress with Beads**
-   ```bash
-   bd list --status in_progress   # See active work
-   bd list --status blocked        # See blockers
-   bd ready                        # Find next available work
-   ```
-
-4. **Manage dependencies with Beads**
-   ```bash
-   bd dep add <child-task> <parent-task>
-   ```
-
-### Enforcement
-
-**BLOCKING GATE:** Cannot proceed without Beads tasks.
-
-- Task packets without Beads tasks → BLOCKED
-- Agent spawns without Beads tasks → BLOCKED
-- Progress monitoring via file inspection → BLOCKED (use `bd list`)
-
-**Reference:** [Beads Enforcement Gate](.ai-pack/gates/06-beads-enforcement.md)
-
----
-
-## Framework Integration
-
-This project uses the **ai-pack framework** for structured AI-assisted development.
-
-### Directory Structure
-
-```
-project-root/
-├── .ai-pack/           # 🔒 IMMUTABLE: Git submodule (commit hash only)
-│   ├── gates/          # Quality gates (including Beads enforcement)
-│   ├── roles/          # Agent roles
-│   ├── workflows/      # Development workflows
-│   ├── templates/      # Task-packet templates
-│   └── quality/        # Clean code standards
-│
-├── .beads/             # ❌ GITIGNORE: Task database (per-workstation state)
-│   ├── beads.db        # Task state database
-│   ├── issues.jsonl    # Task history
-│   └── config.yaml     # Beads configuration
-│
-├── .ai/                # ❌ GITIGNORE: Local workspace (transient)
-│   ├── tasks/          # Task packets (documentation, work logs)
-│   ├── knowledge.db    # Local knowledge graph database
-│   └── *.md            # Temporary notes and updates
-│
-├── .claude/            # ✅ COMMIT: Project-specific configuration
-│   ├── commands/       # Slash commands
-│   ├── hooks/          # Enforcement scripts  
-│   ├── rules/          # Modular rules
-│   ├── scripts/        # Utility scripts
-│   ├── skills/         # Auto-triggered skills
-│   ├── agents/         # Agent definitions
-│   ├── settings.json   # Project settings
-│   ├── README.md       # Claude integration docs
-│   ├── PERMISSIONS.md  # Permission documentation
-│   ├── *.log           # ❌ GITIGNORE: Runtime logs
-│   └── *-checkpoint    # ❌ GITIGNORE: Runtime checkpoints
-│
-├── .mcp.json           # ❌ GITIGNORE: Local MCP server config
-└── CLAUDE.md           # ✅ COMMIT: Project bootstrap instructions (this file)
-```
-
-### What to Commit vs Ignore
-
-**✅ COMMIT (project-specific):**
-- `.claude/` directory structure (commands, rules, scripts, skills, agents, settings.json, docs)
-- `CLAUDE.md` bootstrap instructions
-- `.ai-pack/` submodule reference (commit hash only - never edit contents)
-
-**❌ GITIGNORE (transient/local):**
-- `.beads/` - Per-workstation task state (local state, not shared)
-- `.ai/` - Local workspace (task packets, knowledge.db, temporary notes)
-- `.claude/*.log` - Runtime logs (.coordination.log, .watchdog.log)
-- `.claude/*-checkpoint` - Runtime checkpoints
-- `.mcp.json` - Local MCP server configuration
-
-**🔒 IMMUTABLE (never edit):**
-- `.ai-pack/` contents - This is a git submodule; edit the upstream repo instead
-
-**Key Distinctions:**
-- **`.beads/`** = Per-workstation task state (each developer has their own task queue) - GITIGNORE
-- **`.ai/tasks/`** = Documentation of task IMPLEMENTATION (contracts, plans) - GITIGNORE
-- **`.claude/`** = Project configuration (commit), runtime artifacts (ignore)
-
-### Required .gitignore Entries
-
-Add these to your project's `.gitignore`:
-
-```gitignore
-# AI-Pack: Per-workstation state (transient)
-.beads/
-.ai/
-
-# Claude Code: Runtime artifacts (transient)
-.claude/*.log
-.claude/*-checkpoint
-
-# MCP: Local server configuration (transient)
-.mcp.json
-```
-
-**DO NOT gitignore:**
-- `.claude/` directory itself - Project configuration must be committed
-- `.ai-pack/` - Submodule reference must be committed (contents are read-only)
-
----
-
-## Claude Code Integration
-
-This project includes **Claude Code integration** with commands, skills, and hooks that enforce ai-pack standards.
-
-### Available Commands
-
-Type `/ai-pack` to see all commands:
-
-```bash
-/ai-pack help              # Show all commands
-/ai-pack task-init <name>  # Create task packet
-/ai-pack task-status       # Check progress
-/ai-pack orchestrate       # Complex coordination
-/ai-pack engineer          # Direct implementation
-/ai-pack test              # Validate tests
-/ai-pack review            # Code review
-/ai-pack inspect           # Bug investigation
-/ai-pack architect         # Architecture design
-/ai-pack designer          # UX workflows
-/ai-pack pm                # Product requirements
-```
-
-**Automatic Capabilities:**
-- Quality gates enforced through rules and skills
-- Rules auto-loaded for all files
-- Skills auto-trigger based on keywords
-
-See: [.claude/README.md](.claude/README.md) for details
-
----
-
-## Required Reading: Gates and Standards
-
-Before any task, read these foundational documents:
-
-### Quality Gates (Must Follow)
-1. **[.ai-pack/gates/00-global-gates.md](.ai-pack/gates/00-global-gates.md)** - **MANDATORY: Universal rules** (safety, task packets, TDD, quality baseline)
-2. **[.ai-pack/gates/05-lean-flow.md](.ai-pack/gates/05-lean-flow.md)** - **MANDATORY: WIP limits, pull systems, batch sizing**
-3. **[.ai-pack/gates/05-tdd-enforcement.md](.ai-pack/gates/05-tdd-enforcement.md)** - **MANDATORY: RED-GREEN-REFACTOR cycle**
-4. **[.ai-pack/gates/06-beads-enforcement.md](.ai-pack/gates/06-beads-enforcement.md)** - **MANDATORY: Beads task management**
-5. **[.ai-pack/gates/10-persistence.md](.ai-pack/gates/10-persistence.md)** - **MANDATORY: Absolute paths, file operations**
-6. **[.ai-pack/gates/15-knowledge-first.md](.ai-pack/gates/15-knowledge-first.md)** - **MANDATORY: Search knowledge before file operations**
-7. **[.ai-pack/gates/20-tool-policy.md](.ai-pack/gates/20-tool-policy.md)** - Tool usage policies (guidelines)
-8. **[.ai-pack/gates/25-execution-strategy.md](.ai-pack/gates/25-execution-strategy.md)** - **MANDATORY: Parallelization for 3+ subtasks**
-9. **[.ai-pack/gates/30-verification.md](.ai-pack/gates/30-verification.md)** - Verification requirements (guidelines)
-10. **[.ai-pack/gates/35-code-quality-review.md](.ai-pack/gates/35-code-quality-review.md)** - **MANDATORY: Tester + Reviewer validation**
-11. **[.ai-pack/gates/40-architectural-review.md](.ai-pack/gates/40-architectural-review.md)** - Architecture review (mandatory for major work)
-
-### Engineering Standards
-- **[.ai-pack/quality/engineering-standards.md](.ai-pack/quality/engineering-standards.md)** - Clean code standards index
-- **[.ai-pack/quality/clean-code/](.ai-pack/quality/clean-code/)** - Detailed standards by topic
-
-### Knowledge Systems (MANDATORY)
-- **[.ai-pack/docs/KNOWLEDGE-SYSTEMS.md](.ai-pack/docs/KNOWLEDGE-SYSTEMS.md)** - Three-tier knowledge architecture
-- **[.ai-pack/docs/KNOWLEDGE-QUICK-REF.md](.ai-pack/docs/KNOWLEDGE-QUICK-REF.md)** - Quick reference card
-
-**⚠️ CRITICAL:** All agents MUST search knowledge before file operations:
-- **Project code?** → `kg__search_knowledge` (project knowledge graph)
-- **Cross-project patterns?** → `upk__search_knowledge` (personal knowledge)
-- **Org/team info?** → Use org MCP tools
-
----
-
-## Task Management Protocol
-
-### MANDATORY: Task Packet Creation
-
-**CRITICAL REQUIREMENT:** Every non-trivial task MUST have a task packet in `.ai/tasks/` created BEFORE implementation begins.
-
-```bash
-# Create task directory
-TASK_ID=$(date +%Y-%m-%d)_task-name
-mkdir -p .ai/tasks/$TASK_ID
-
-# Copy templates from .ai-pack
-cp .ai-pack/templates/task-packet/00-contract.md .ai/tasks/$TASK_ID/
-cp .ai-pack/templates/task-packet/10-plan.md .ai/tasks/$TASK_ID/
-cp .ai-pack/templates/task-packet/20-work-log.md .ai/tasks/$TASK_ID/
-cp .ai-pack/templates/task-packet/30-review.md .ai/tasks/$TASK_ID/
-cp .ai-pack/templates/task-packet/40-acceptance.md .ai/tasks/$TASK_ID/
-```
-
-**2. Follow Task Lifecycle**
-
-All task packets go through these phases:
-
-1. **Contract** (`00-contract.md`) - Define requirements and acceptance criteria
-2. **Plan** (`10-plan.md`) - Document implementation approach
-3. **Work Log** (`20-work-log.md`) - Track execution progress
-4. **Review** (`30-review.md`) - Quality assurance
-5. **Acceptance** (`40-acceptance.md`) - Sign-off and completion
-
-**3. CRITICAL: Task Packet Location**
-
-✅ **Correct:** `.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/`
-❌ **NEVER:** `.ai-pack/` (this is shared framework, not for task state)
-
----
-
-## Role Enforcement
-
-**Default Role: Orchestrator** (unless user explicitly specifies otherwise)
-
-### Orchestrator Role (DEFAULT)
-**Use when:** All tasks by default, especially complex multi-step work requiring coordination
-
-**Responsibilities:**
-- Break down work into subtasks
-- Delegate to specialized agents (Engineer, Tester, Reviewer, etc.)
-- Monitor progress via Beads
-- Coordinate reviews
-- Ensure quality gates passed
-
-**You are ALWAYS in this role unless user says otherwise.**
-
-**Reference:** [.ai-pack/roles/orchestrator.md](.ai-pack/roles/orchestrator.md)
-
----
-
-### Engineer Role
-**Use when:** User explicitly requests "Work as Engineer" or "/ai-pack engineer"
-
-**Responsibilities:**
-- Direct implementation of specific, well-defined tasks
-- Write code and tests
-- Follow established patterns
-- Update work log
-
-**Reference:** [.ai-pack/roles/engineer.md](.ai-pack/roles/engineer.md)
-
----
-
-### Reviewer Role
-**Use when:** User explicitly requests "Work as Reviewer" or "/ai-pack review"
-
-**Responsibilities:**
-- Review code against standards
-- Verify test coverage
-- Check architecture consistency
-- Document findings
-
-**Reference:** [.ai-pack/roles/reviewer.md](.ai-pack/roles/reviewer.md)
-
----
-
-### Other Specialized Roles
-
-Available via explicit commands:
-- `/ai-pack test` - Tester role
-- `/ai-pack inspect` - Inspector role (bug investigation)
-- `/ai-pack architect` - Architect role (architecture design)
-- `/ai-pack designer` - Designer role (UX workflows)
-- `/ai-pack product-manager` - Product Manager role (product requirements)
-
-**Unless instructed otherwise: Stay in Orchestrator role.**
-
----
-
-## Workflow Selection
-
-Choose appropriate workflow for the task type:
-
-| Task Type | Workflow | When to Use |
-|-----------|----------|-------------|
-| General | [standard.md](.ai-pack/workflows/standard.md) | Any task not fitting specialized workflows |
-| New Feature | [feature.md](.ai-pack/workflows/feature.md) | Adding new functionality |
-| Bug Fix | [bugfix.md](.ai-pack/workflows/bugfix.md) | Fixing defects |
-| Refactoring | [refactor.md](.ai-pack/workflows/refactor.md) | Improving code structure |
-| Investigation | [research.md](.ai-pack/workflows/research.md) | Understanding code/architecture |
-
----
-
-## Project-Specific Rules
-
-### Override Location
-If this project has specific rules beyond the shared standards:
-- **[.ai/repo-overrides.md](.ai/repo-overrides.md)** - Project-specific deltas
-
-### Important Project Context
-
-[Add project-specific information here:]
-
-**Technology Stack:**
-- [Language]: [Version]
-- [Framework]: [Version]
-- [Build Tool]: [Version]
-
-**Key Architectural Patterns:**
-- [Pattern 1]
-- [Pattern 2]
-
-**Critical Files:**
-- [File 1] - [Purpose]
-- [File 2] - [Purpose]
-
-**Testing Strategy:**
-- Test Framework: [Name]
-- Coverage Target: [X]%
-- Test Commands: `[command]`
-
-**Build and Deploy:**
-- Build: `[command]`
-- Test: `[command]`
-- Deploy: `[command]`
-
----
-
-## Common Operations
-
-### Starting a New Task
-
-1. Read gates and standards (see above)
-2. Create task packet in `.ai/tasks/`
-3. Fill out `00-contract.md`
-4. Select appropriate workflow
-5. Assume appropriate role
-6. Execute workflow phases
-
-### Working on Existing Task
-
-1. Read task packet in `.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/`
-2. Review current phase
-3. Continue from where left off
-4. Update work log regularly
-
-### Updating Framework
-
-```bash
-# Update shared framework (preserves .ai/tasks/)
-git submodule update --remote .ai-pack
-git add .ai-pack
-git commit -m "Update ai-pack framework"
-```
-
----
-
-## Invariants (Critical)
-
-### 🔒 Immutability Rule (CRITICAL)
-
-**`.ai-pack/` is IMMUTABLE:**
-```
-❌ NEVER edit files in .ai-pack/
-   - It's a git submodule managed externally
-   - Changes will be lost on submodule update
-   - Breaks other projects using ai-pack
-   - Violates framework contract
-
-❌ NEVER add files to .ai-pack/
-   - Not your territory
-   - Will cause merge conflicts
-   - Breaks submodule integrity
-
-✅ DO read and reference .ai-pack/
-   - Use as documentation
-   - Follow its patterns
-   - Reference in your code
-
-✅ DO update via git submodule:
-   git submodule update --remote .ai-pack
-```
-
-### 📝 Extension Pattern
-
-**To extend a role or add project-specific behavior:**
-
-1. **Create extension in `.ai/roles/`:**
-   ```bash
-   mkdir -p .ai/roles/
-   vim .ai/roles/<role-name>-extension.md
-   ```
-
-2. **Reference base role from `.ai-pack/roles/`:**
-   ```markdown
-   # <Role Name> Extension - [Project Name]
-
-   **Base Role:** `.ai-pack/roles/<role-name>.md` (immutable, managed by ai-pack)
-   **Extension Type:** Project-specific additions
-   ```
-
-3. **Document extension in `.ai/repo-overrides.md`:**
-   ```markdown
-   ## Role Extensions
-
-   ### <Role Name> Extension
-   **Extension Location:** `.ai/roles/<role-name>-extension.md`
-   **Base Role:** `.ai-pack/roles/<role-name>.md`
-   **Extension Summary:** [Brief description]
-   ```
-
-4. **Reference in CLAUDE.md** (if commonly used):
-   ```markdown
-   ## Role Extensions
-
-   This project extends the following ai-pack roles:
-   - **<Role Name>**: See [.ai/roles/<role-name>-extension.md](.ai/roles/<role-name>-extension.md)
-   ```
-
-**See:** [.ai-pack/ROLE-EXTENSION-GUIDE.md](.ai-pack/ROLE-EXTENSION-GUIDE.md) for complete guide
-
-### ✅ DO
-- Create task packets in `.ai/tasks/`
-- Create role extensions in `.ai/roles/`
-- Follow gates and workflows
-- Update work logs regularly
-- Reference standards when making decisions
-- Document extensions in `.ai/repo-overrides.md`
-- Ask questions when uncertain
-
-### ❌ NEVER
-- Edit files in `.ai-pack/` (immutable!)
-- Add files to `.ai-pack/` (use `.ai/` instead)
-- Put task packets in `.ai-pack/`
-- Put role extensions in `.claude/` (use `.ai/roles/`)
-- Overwrite `.ai/tasks/` during updates
-- Skip gate checkpoints
-- Proceed with failing tests
-- Leave extensions undocumented
-
----
-
-## Quick Reference
-
-**Gates:** `.ai-pack/gates/`
-**Roles:** `.ai-pack/roles/`
-**Workflows:** `.ai-pack/workflows/`
-**Templates:** `.ai-pack/templates/`
-**Standards:** `.ai-pack/quality/`
-
-**Task Packets:** `.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/`
-**Overrides:** `.ai/repo-overrides.md` (optional)
-
----
-
-## Getting Help
-
-- **Framework Documentation:** See `.ai-pack/README.md`
-- **Standards Index:** See `.ai-pack/quality/engineering-standards.md`
-- **Workflow Guides:** See `.ai-pack/workflows/*.md`
-- **Role Definitions:** See `.ai-pack/roles/*.md`
-
----
-
-**Last Updated:** [Date]
-**Framework Version:** [Version from .ai-pack/VERSION]
+### Why This Matters
+Agents have limited context windows. Reading large files like `package-lock.json` (737KB) or `node_modules` can quickly exhaust context, causing agents to run out of memory and fail tasks.
+
+## General Guidelines
+
+- ✅ DO: Read these files to understand system state
+- ✅ DO: Let the server create/update them during normal operation
+- ✅ DO: Use `.claudeignore` to exclude large/irrelevant files from agent context
+- ❌ DON'T: Delete `.claude/` directories
+- ❌ DON'T: Mark them as "transient" or "temporary" for cleanup
+- ❌ DON'T: Remove them when "cleaning up the project"

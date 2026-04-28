@@ -85,7 +85,7 @@ kg__add_observation({entity_id: "<id>", content:
 **Finding Next Task:**
 ```bash
 # Step 1: Find validation tasks ready to work on
-bd ready
+agent list --status queued
 
 # Output shows available tasks:
 # bd-a1b2  Validate login feature TDD     [priority: high]
@@ -93,7 +93,7 @@ bd ready
 # bd-e5f6  Validate bug fix coverage      [priority: critical]
 
 # Step 2: Get full task details
-bd show bd-a1b2
+agent show bd-a1b2
 
 # Shows:
 # - Task description
@@ -106,7 +106,7 @@ bd show bd-a1b2
 **Starting Work:**
 ```bash
 # Mark validation task as in-progress
-bd update --claim bd-a1b2
+agent update --claim bd-a1b2
 
 # This signals to Orchestrator and other agents that you're validating this task
 ```
@@ -117,7 +117,7 @@ bd update --claim bd-a1b2
 bd block bd-a1b2 "TDD violations found - Engineer must fix"
 
 # If you need to create follow-up validation tasks - ALWAYS include full description
-follow_up=$(bd create "Verify regression tests for login timeout
+follow_up=$(agent create "Verify regression tests for login timeout
 
 Working directory: $(pwd)
 Task packet: .ai/tasks/$(date +%Y-%m-%d)_regression-tests/
@@ -127,28 +127,28 @@ Check edge cases, error handling, and test coverage metrics." \
   --depends-on bd-a1b2 --json | jq -r '.id')
 
 # Check what's ready after current validation
-bd ready
+agent list --status queued
 ```
 
 **Completing Work:**
 ```bash
 # When validation complete and work approved
-bd close bd-a1b2
+agent close bd-a1b2
 
 # Find next validation task
-bd ready
+agent list --status queued
 ```
 
 **Beads Workflow Summary:**
 ```
-1. bd ready           → Find next validation task
-2. bd show <id>       → Review what needs validation
-3. bd update --claim <id>      → Begin validation
+1. agent list --status queued           → Find next validation task
+2. agent show <id>       → Review what needs validation
+3. agent update --claim <id>      → Begin validation
 4. [Check TDD]        → Verify test-first approach
 5. [Check coverage]   → Verify test sufficiency
 6. [Check quality]    → Verify test quality
-7. bd close <id>      → Mark validation complete (or bd block if issues found)
-8. bd ready           → Find next task
+7. agent close <id>      → Mark validation complete (or bd block if issues found)
+8. agent list --status queued           → Find next task
 ```
 
 **Why Use Beads:**
@@ -162,12 +162,12 @@ bd ready
 
 **Special Case: Spawned by Orchestrator**
 
-If you were spawned by the Orchestrator, you'll have a Beads task assigned to you:
+If you were spawned by the Orchestrator, you'll have a task assigned to you:
 
 ```bash
-# Find your assigned Beads task (documented in work log)
-grep "Beads ID:" .ai/tasks/*/20-work-log.md
-# Example output: "Spawned Tester-1 (Beads ID: bd-a1b2)"
+# Find your assigned task (documented in work log)
+grep "Task ID:" .ai/tasks/*/20-work-log.md
+# Example output: "Spawned Tester-1 (Task ID: bd-a1b2)"
 
 # Update status when encountering issues
 bd block bd-a1b2 "Engineer TDD violations - cannot proceed"
@@ -176,10 +176,10 @@ bd block bd-a1b2 "Engineer TDD violations - cannot proceed"
 bd unblock bd-a1b2
 
 # Mark complete when finished
-bd close bd-a1b2
+agent close bd-a1b2
 ```
 
-The Orchestrator monitors these Beads tasks to track validation progress, so keeping them updated helps coordination.
+The Orchestrator monitors these tasks to track validation progress, so keeping them updated helps coordination.
 
 ---
 
@@ -378,11 +378,11 @@ When running as a spawned agent, update work log regularly with progress:
 
 **Beads Task Updates (When Spawned by Orchestrator):**
 
-If spawned by Orchestrator, update your assigned Beads task:
+If spawned by Orchestrator, update your assigned task:
 
 ```bash
-# Find your Beads task ID (documented in work log)
-grep "Beads ID:" .ai/tasks/*/20-work-log.md
+# Find your task ID (documented in work log)
+grep "Task ID:" .ai/tasks/*/20-work-log.md
 
 # If blocked on issues
 bd block <task-id> "Engineer TDD violations - cannot proceed"
@@ -391,7 +391,7 @@ bd block <task-id> "Engineer TDD violations - cannot proceed"
 bd unblock <task-id>
 
 # When validation complete
-bd close <task-id>
+agent close <task-id>
 ```
 
 This helps Orchestrator track validation progress.
@@ -981,12 +981,12 @@ These don't block approval - excellent test discipline!"
 - Glob (to find test files)
 - Bash (to run tests and generate coverage reports)
 - Beads (`bd` command) for task tracking and coordination
-  - `bd ready` - Find next validation task
-  - `bd show <id>` - View task details
-  - `bd update --claim <id>` - Begin validation
+  - `agent list --status queued` - Find next validation task
+  - `agent show <id>` - View task details
+  - `agent update --claim <id>` - Begin validation
   - `bd block <id> "reason"` - Report blocking issues
   - `bd unblock <id>` - Clear blocking status
-  - `bd close <id>` - Mark validation complete
+  - `agent close <id>` - Mark validation complete
 
 ### Test Execution Commands
 ```bash

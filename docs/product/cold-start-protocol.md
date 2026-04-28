@@ -46,7 +46,7 @@ the default outcome.
 **Current state:** `templates/CLAUDE.md` says "create a task packet before non-trivial tasks"
 but gives no checklist for what must exist *before the first task ever runs*.
 
-**Failure evidence:** Our architect agent was spawned with only a Beads task (`bd create`) —
+**Failure evidence:** Our architect agent was spawned with only a task (`agent create`) —
 no `.ai/tasks/` directory, no `00-contract.md`, no `10-plan.md`. The engineer role's mandatory
 pre-implementation check (section 0) had nothing to find. The agent skipped straight to
 writing files with no plan.
@@ -56,7 +56,7 @@ writing files with no plan.
 
 ### Gap 2: Acceptance criteria are prose, not verifiable commands
 
-**Current state:** `bd create --acceptance "..."` stores prose that is never machine-verified.
+**Current state:** `agent create --acceptance "..."` stores prose that is never machine-verified.
 Agents mark tasks closed without running the acceptance check.
 
 **Failure evidence:** Architect task acceptance was: *"Proposed changes to engineer.md
@@ -204,7 +204,7 @@ test -d .ai-pack || echo "FAIL: No ai-pack submodule"
 ```
 
 ### Step 4: Acceptance criteria format
-Every task created with `bd create` must have `--acceptance` expressed as a shell command:
+Every task created with `agent create` must have `--acceptance` expressed as a shell command:
 ```bash
 # Good — verifiable
 --acceptance "go build ./... exits 0; go test ./... exits 0"

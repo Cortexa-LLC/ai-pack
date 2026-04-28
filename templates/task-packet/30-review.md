@@ -1,6 +1,6 @@
 # Review Report
 
-**Task ID:** [beads-id-YYYYMMDDHHMMSS-short-desc]
+**Task ID:** [task-id-YYYYMMDDHHMMSS-short-desc]
 **Review Date:** [Date]
 **Reviewer:** [Name/Role]
 **Review Type:** [Code Review | Quality Review | Security Review | Performance Review]
@@ -364,7 +364,7 @@ Tools used: [Linters, coverage tools, etc.]
 
 ## Usage Instructions
 
-This template should be instantiated at: `.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/30-review.md`
+This template should be instantiated at: `.ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/30-review.md`
 
 **When to create:**
 - After implementation complete

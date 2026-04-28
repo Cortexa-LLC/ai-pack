@@ -196,18 +196,18 @@ Coordination:
 
 ```bash
 # Check active agents
-bd list --status in_progress --assignee "Engineer-*"
-bd list --status in_progress --assignee "Tester-*"
-bd list --status in_progress --assignee "Reviewer-*"
+agent list --status in_progress --assignee "Engineer-*"
+agent list --status in_progress --assignee "Tester-*"
+agent list --status in_progress --assignee "Reviewer-*"
 
 # Or use formatted command
 /ai-pack agents
 
 # Check specific agent details
-bd show bd-a1b2
+agent show bd-a1b2
 
 # If agent completed (should already be closed by agent)
-bd close bd-a1b2
+agent close bd-a1b2
 
 # If agent blocked (agent should do this, but Coordinator can too)
 bd block bd-a1b2 "Permission denied - needs user intervention"

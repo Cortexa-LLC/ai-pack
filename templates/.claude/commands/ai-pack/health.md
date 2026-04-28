@@ -49,7 +49,7 @@ stat .claude/.coordination-checkpoint
 # Agent status (via Beads)
 /ai-pack agents
 # OR
-bd list --json | jq '.[] | select(.title | startswith("Agent:"))'
+agent list --json | jq '.[] | select(.title | startswith("Agent:"))'
 ```
 
 **Status:**
@@ -129,7 +129,7 @@ grep -r "Orchestrator\|Coordinator\|Engineer" .ai/tasks/*/20-work-log.md
 **Verifies:**
 ```bash
 # Agent status (via Beads)
-bd list --assignee "Engineer-*" --json
+agent list --assignee "Engineer-*" --json
 # OR
 /ai-pack agents
 
@@ -140,7 +140,7 @@ git log --since="30 minutes ago" --oneline | wc -l
 find .ai/tasks -name "20-work-log.md" -mmin -10
 
 # Blocked agents
-bd list --status blocked --json | jq '.[] | select(.title | startswith("Agent:"))'
+agent list --status blocked --json | jq '.[] | select(.title | startswith("Agent:"))'
 ```
 
 **Status:**

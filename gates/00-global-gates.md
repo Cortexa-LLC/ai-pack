@@ -17,7 +17,7 @@ Global gates define universal rules and constraints that apply to all AI agent w
 ```
 BEFORE starting implementation:
   IF task is non-trivial THEN
-    REQUIRE: .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/ exists
+    REQUIRE: .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/ exists
     REQUIRE: 00-contract.md filled out
     REQUIRE: 10-plan.md created
 

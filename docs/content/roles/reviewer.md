@@ -18,7 +18,7 @@ The Reviewer is a quality assurance specialist responsible for evaluating comple
 **Finding Next Task:**
 ```bash
 # Step 1: Find review tasks ready to work on
-bd ready
+agent list --status queued
 
 # Output shows available tasks:
 # bd-a1b2  Review login feature code      [priority: high]
@@ -26,7 +26,7 @@ bd ready
 # bd-e5f6  Review security bug fix        [priority: critical]
 
 # Step 2: Get full task details
-bd show bd-a1b2
+agent show bd-a1b2
 
 # Shows:
 # - Task description
@@ -39,7 +39,7 @@ bd show bd-a1b2
 **Starting Work:**
 ```bash
 # Mark review task as in-progress
-bd update --claim bd-a1b2
+agent update --claim bd-a1b2
 
 # This signals to Orchestrator and other agents that you're reviewing this task
 ```
@@ -50,7 +50,7 @@ bd update --claim bd-a1b2
 bd block bd-a1b2 "Security vulnerabilities found - Engineer must fix"
 
 # If you need to create follow-up review tasks - ALWAYS include full description
-follow_up=$(bd create "Review security fix for login timeout
+follow_up=$(agent create "Review security fix for login timeout
 
 Working directory: $(pwd)
 Task packet: .ai/tasks/$(date +%Y-%m-%d)_security-fix-review/
@@ -60,28 +60,28 @@ Verify XSS prevention, CSRF tokens, and rate limiting implementation." \
   --depends-on bd-a1b2 --json | jq -r '.id')
 
 # Check what's ready after current review
-bd ready
+agent list --status queued
 ```
 
 **Completing Work:**
 ```bash
 # When review complete and work approved
-bd close bd-a1b2
+agent close bd-a1b2
 
 # Find next review task
-bd ready
+agent list --status queued
 ```
 
 **Beads Workflow Summary:**
 ```text
-1. bd ready           → Find next review task
-2. bd show <id>       → Review what needs reviewing
-3. bd update --claim <id>      → Begin review
+1. agent list --status queued           → Find next review task
+2. agent show <id>       → Review what needs reviewing
+3. agent update --claim <id>      → Begin review
 4. [Check standards]  → Verify code quality
 5. [Check tests]      → Verify test coverage
 6. [Check security]   → Verify no vulnerabilities
-7. bd close <id>      → Mark review complete (or bd block if issues found)
-8. bd ready           → Find next task
+7. agent close <id>      → Mark review complete (or bd block if issues found)
+8. agent list --status queued           → Find next task
 ```
 
 **Why Use Beads:**
@@ -95,12 +95,12 @@ bd ready
 
 **Special Case: Spawned by Orchestrator**
 
-If you were spawned by the Orchestrator, you'll have a Beads task assigned to you:
+If you were spawned by the Orchestrator, you'll have a task assigned to you:
 
 ```bash
-# Find your assigned Beads task (documented in work log)
-grep "Beads ID:" .ai/tasks/*/20-work-log.md
-# Example output: "Spawned Reviewer-1 (Beads ID: bd-a1b2)"
+# Find your assigned task (documented in work log)
+grep "Task ID:" .ai/tasks/*/20-work-log.md
+# Example output: "Spawned Reviewer-1 (Task ID: bd-a1b2)"
 
 # Update status when encountering issues
 bd block bd-a1b2 "Critical security issues - requires immediate fixes"
@@ -109,10 +109,10 @@ bd block bd-a1b2 "Critical security issues - requires immediate fixes"
 bd unblock bd-a1b2
 
 # Mark complete when finished
-bd close bd-a1b2
+agent close bd-a1b2
 ```
 
-The Orchestrator monitors these Beads tasks to track review progress, so keeping them updated helps coordination.
+The Orchestrator monitors these tasks to track review progress, so keeping them updated helps coordination.
 
 ---
 
@@ -994,11 +994,11 @@ Edit(
 
 **Beads Task Updates (When Spawned by Orchestrator):**
 
-If spawned by Orchestrator, update your assigned Beads task:
+If spawned by Orchestrator, update your assigned task:
 
 ```bash
-# Find your Beads task ID (documented in work log)
-grep "Beads ID:" .ai/tasks/*/20-work-log.md
+# Find your task ID (documented in work log)
+grep "Task ID:" .ai/tasks/*/20-work-log.md
 
 # If blocked on critical issues
 bd block <task-id> "Security vulnerabilities found - requires immediate fixes"
@@ -1007,7 +1007,7 @@ bd block <task-id> "Security vulnerabilities found - requires immediate fixes"
 bd unblock <task-id>
 
 # When review complete
-bd close <task-id>
+agent close <task-id>
 ```
 
 This helps Orchestrator monitor review progress and coordinate next steps.
@@ -1078,12 +1078,12 @@ These are blocking issues. Please address and request re-review."
 - Glob (to find files)
 - Bash (to run tests, check coverage)
 - Beads (`bd` command) for task tracking and coordination
-  - `bd ready` - Find next review task
-  - `bd show <id>` - View task details
-  - `bd update --claim <id>` - Begin review
+  - `agent list --status queued` - Find next review task
+  - `agent show <id>` - View task details
+  - `agent update --claim <id>` - Begin review
   - `bd block <id> "reason"` - Report blocking issues
   - `bd unblock <id>` - Clear blocking status
-  - `bd close <id>` - Mark review complete
+  - `agent close <id>` - Mark review complete
 
 ### Reference Materials
 - [Engineering Standards](../quality/clean-code/00-general-rules.md)

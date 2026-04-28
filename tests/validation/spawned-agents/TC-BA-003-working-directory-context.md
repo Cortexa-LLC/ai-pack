@@ -404,7 +404,7 @@ Task(
    - Extract file content from agent output
    - Manually create in repository
    - Verify correctness
-   - Update Beads task status
+   - Update task status
 
 ## Metrics
 

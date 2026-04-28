@@ -290,7 +290,7 @@ FAILED (failures=1, skipped=9)
 **Coverage:** All delegation patterns tested
 
 ### ⏳ Beads Integration - NOT YET
-- ❌ bd create, bd start, bd complete not tested
+- ❌ agent create, bd start, bd complete not tested
 - ❌ Cross-session persistence not tested
 - ❌ Dependency tracking not tested
 
@@ -343,7 +343,7 @@ FAILED (failures=1, skipped=9)
 ### Priority 3: Beads Integration (0% complete)
 **Need:**
 - `test_beads_integration.py`
-- Test bd create, bd start, bd complete, bd status
+- Test agent create, bd start, bd complete, bd status
 - Test cross-session persistence
 - Test dependency tracking
 
@@ -451,7 +451,7 @@ python3 run_tests.py --quick
 
 ### Immediate (1-2 hours)
 1. Create `test_beads_integration.py`
-2. Test bd create, bd start, bd complete
+2. Test agent create, bd start, bd complete
 3. Test cross-session persistence
 
 ### Short Term (3-5 hours)

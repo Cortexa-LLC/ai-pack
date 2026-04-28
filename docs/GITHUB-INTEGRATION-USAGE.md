@@ -9,8 +9,8 @@
 This guide explains how to integrate AI-Pack with hosted GitHub.com projects. The integration is **completely optional** and configured via YAML.
 
 **What This Enables:**
-- Sync Beads tasks ↔ GitHub Issues bidirectionally
-- Create Epics/Stories from Beads task hierarchies
+- Sync tasks ↔ GitHub Issues bidirectionally
+- Create Epics/Stories from task hierarchies
 - Monitor CI/CD workflows and auto-create fix tasks
 - Import GitHub issues into Beads work queue
 - Track work across GitHub Projects and Beads
@@ -42,8 +42,8 @@ Before setting up integration, it's helpful to understand how GitHub organizes w
 **GitHub URL:** `https://github.com/your-org/your-app/issues/42`
 
 **How AI-Pack uses Issues:**
-- Each Beads task can sync to a GitHub Issue
-- Issues can be imported from GitHub to create Beads tasks
+- Each task can sync to a GitHub Issue
+- Issues can be imported from GitHub to create tasks
 - Epics are Issues with a checklist of Stories
 - Stories are Issues linked to an Epic
 
@@ -115,7 +115,7 @@ Project: Q1 2026 Features
 ```
 
 **How it works:**
-1. Beads tasks sync to Issues in the Repository
+1. tasks sync to Issues in the Repository
 2. Epics (issues with checklists) organize related Stories
 3. Optionally, Issues can be added to Projects for visual tracking
 4. Full bidirectional sync keeps Beads and GitHub in sync
@@ -209,7 +209,7 @@ features:
     enabled: true
     watch_failures: true              # Watch for failures
     auto_create_failure_issues: true  # Create GitHub issues
-    auto_create_failure_tasks: true   # Create Beads tasks
+    auto_create_failure_tasks: true   # Create tasks
     check_interval: 60                # Check every minute
 
   # Pull Request Management
@@ -305,8 +305,8 @@ task_packets:
 
 ```bash
 # 1. Create tasks in Beads as usual
-bd create "Implement user authentication" --priority high
-bd create "Add dark mode toggle" --priority normal
+agent create "Implement user authentication" --priority high
+agent create "Add dark mode toggle" --priority normal
 
 # 2. Export to GitHub for team visibility
 .ai-pack/scripts/github-integration.py export
@@ -314,7 +314,7 @@ bd create "Add dark mode toggle" --priority normal
 # 3. Work on tasks locally
 bd start bd-a1b2
 # ... implement ...
-bd close bd-a1b2
+agent close bd-a1b2
 
 # 4. Sync status back to GitHub
 .ai-pack/scripts/github-integration.py sync
@@ -333,12 +333,12 @@ bd close bd-a1b2
 .ai-pack/scripts/github-integration.py import
 
 # 3. Find imported work
-bd ready
+agent list --status queued
 
 # 4. Work on tasks
 bd start bd-x1y2
 # ... implement ...
-bd close bd-x1y2
+agent close bd-x1y2
 
 # 5. Sync status back to GitHub
 .ai-pack/scripts/github-integration.py sync
@@ -377,7 +377,7 @@ bd close bd-x1y2
 ```yaml
 ci_config:
   on_failure:
-    action: "both"          # Create both GitHub issue and Beads task
+    action: "both"          # Create both GitHub issue and task
     assignee: "Engineer-CI"
     priority: "critical"
 ```
@@ -392,12 +392,12 @@ ci_config:
 
 ```bash
 # 1. Create epic task in Beads with subtasks
-epic_id=$(bd create "User Authentication System" --priority high)
+epic_id=$(agent create "User Authentication System" --priority high)
 
-bd create "Design auth API" --depends-on ${epic_id}
-bd create "Implement JWT tokens" --depends-on ${epic_id}
-bd create "Add password hashing" --depends-on ${epic_id}
-bd create "Write auth tests" --depends-on ${epic_id}
+agent create "Design auth API" --depends-on ${epic_id}
+agent create "Implement JWT tokens" --depends-on ${epic_id}
+agent create "Add password hashing" --depends-on ${epic_id}
+agent create "Write auth tests" --depends-on ${epic_id}
 
 # 2. Create GitHub epic with stories
 .ai-pack/scripts/github-integration.py create-epic ${epic_id}
@@ -406,7 +406,7 @@ bd create "Write auth tests" --depends-on ${epic_id}
 **GitHub Result:**
 - Epic issue created with checklist of subtasks
 - Each subtask becomes a story issue
-- All linked properly (epic ↔ stories ↔ Beads tasks)
+- All linked properly (epic ↔ stories ↔ tasks)
 
 ### Epic Representation
 
@@ -433,7 +433,7 @@ epics:
 **Example:**
 
 ```bash
-# Create epic from Beads task hierarchy
+# Create epic from task hierarchy
 python3 scripts/github-integration.py create-epic bd-epic1
 # Creates: Epic Issue #42 with checklist, Story Issues #43-46
 ```
@@ -607,7 +607,7 @@ Orchestrator can trigger GitHub operations:
 
 ```bash
 # In orchestrator role
-# After creating Beads tasks:
+# After creating tasks:
 .ai-pack/scripts/github-integration.py export
 
 # After epic planning:
@@ -620,12 +620,12 @@ Engineer sees imported GitHub issues:
 
 ```bash
 # Find work (includes imported GitHub issues)
-bd ready
+agent list --status queued
 
 # Work on task
 bd start bd-x1y2
 # ... implement ...
-bd close bd-x1y2
+agent close bd-x1y2
 
 # Status automatically syncs to GitHub
 ```
@@ -742,7 +742,7 @@ curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/insta
 
 **Check:**
 1. Is issue_sync enabled in config?
-2. Do Beads tasks match sync rules?
+2. Do tasks match sync rules?
 3. Are exclusion patterns too broad?
 4. Check logs: `tail -f .github-integration.log`
 
@@ -774,19 +774,19 @@ curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/insta
 
 ```bash
 # 1. Create sprint epic in Beads
-sprint_id=$(bd create "Sprint 23 - User Features" --priority high)
+sprint_id=$(agent create "Sprint 23 - User Features" --priority high)
 
 # 2. Add user stories
-bd create "User profile page" --depends-on ${sprint_id}
-bd create "Settings page" --depends-on ${sprint_id}
-bd create "Notifications" --depends-on ${sprint_id}
+agent create "User profile page" --depends-on ${sprint_id}
+agent create "Settings page" --depends-on ${sprint_id}
+agent create "Notifications" --depends-on ${sprint_id}
 
 # 3. Create GitHub epic with project
 .ai-pack/scripts/github-integration.py create-epic ${sprint_id}
 
 # 4. Team sees epic in GitHub Projects
 # 5. Engineers pull work from Beads
-bd ready
+agent list --status queued
 
 # 6. Work syncs bidirectionally
 ```
@@ -800,7 +800,7 @@ bd ready
 .ai-pack/scripts/github-integration.py import
 
 # 3. Triage in Beads
-bd list --json | jq '.[] | select(.title | contains("bug"))'
+agent list --json | jq '.[] | select(.title | contains("bug"))'
 
 # 4. Prioritize
 bd comment bd-x1y2 "Priority: critical"
@@ -823,19 +823,19 @@ bd start bd-x1y2
 .ai-pack/scripts/github-integration.py monitor
 
 # 3. When CI fails:
-#    - Beads task auto-created with priority: critical
+#    - task auto-created with priority: critical
 #    - GitHub issue auto-created with link to workflow
 #    - Engineer gets automatic work item
 
 # 4. Engineer finds task
-bd ready
+agent list --status queued
 # Shows: "Fix CI failure: Tests" [priority: critical]
 
 # 5. Fix and push
 bd start bd-fail123
 # ... fix ...
 git push
-bd close bd-fail123
+agent close bd-fail123
 
 # 6. CI passes, issue closed automatically
 ```

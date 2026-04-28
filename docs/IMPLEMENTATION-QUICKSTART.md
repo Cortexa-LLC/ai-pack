@@ -9,7 +9,7 @@
 - Claude Code CLI installed and configured
 - Anthropic API key set in environment
 - Git repository access
-- Beads task management system (existing)
+- task management system (existing)
 
 ### Phase 2 Additional Requirements
 - Go 1.21+ (for A2A server development)
@@ -59,7 +59,7 @@
 - [ ] Timeout limits defined
 
 #### Day 3-4: Beads Integration
-**Goal**: Enhance Beads task packet tracking for agents
+**Goal**: Enhance task packet tracking for agents
 
 **Tasks**:
 1. Update task packet template to include agent metadata
@@ -274,4 +274,4 @@ See `docs/A2A-IMPLEMENTATION-PLAN.md` for:
 
 **Questions?** Review `docs/A2A-IMPLEMENTATION-PLAN.md` for comprehensive details.
 
-**Tracking**: Use Beads task packets to track implementation progress.
+**Tracking**: Use task packets to track implementation progress.

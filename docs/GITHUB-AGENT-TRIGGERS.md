@@ -9,7 +9,7 @@ GitHub integration can be triggered automatically when AI agents perform actions
 ### Detection
 
 The integration detects agent/role context from:
-1. **Beads task metadata** - Role assignee (e.g., `assignee: "Orchestrator"`)
+1. **task metadata** - Role assignee (e.g., `assignee: "Orchestrator"`)
 2. **Task naming patterns** - Prefix patterns (e.g., `"SEC:"`, `"Epic:"`)
 3. **Command context** - Which role is executing the command
 4. **Work-log entries** - Role signatures in work-logs
@@ -25,7 +25,7 @@ When enabled, the following agent actions automatically trigger GitHub operation
 **Epic Creation** (`orchestrator.epic_creation: true`)
 ```bash
 # When Orchestrator creates epic in Beads:
-bd create "Epic: User Authentication System" --assignee Orchestrator
+agent create "Epic: User Authentication System" --assignee Orchestrator
 
 # Automatically triggers:
 ${AI_PACK_ROOT}/scripts/github-integration.py create-epic <task-id>
@@ -34,7 +34,7 @@ ${AI_PACK_ROOT}/scripts/github-integration.py create-epic <task-id>
 **Work Breakdown** (`orchestrator.work_breakdown: true`)
 ```bash
 # When Orchestrator breaks down epic into stories:
-bd create "Story: Implement JWT" --depends-on bd-epic-123
+agent create "Story: Implement JWT" --depends-on bd-epic-123
 
 # Automatically syncs to GitHub as story issues
 ```
@@ -52,7 +52,7 @@ bd create "Story: Implement JWT" --depends-on bd-epic-123
 **Issue Creation** (`program_manager.issue_creation: true`)
 ```bash
 # When PM creates tracking tasks:
-bd create "Track Q1 OKRs" --assignee "Program-Manager"
+agent create "Track Q1 OKRs" --assignee "Program-Manager"
 
 # Automatically creates GitHub issue
 ```
@@ -60,7 +60,7 @@ bd create "Track Q1 OKRs" --assignee "Program-Manager"
 **Milestone Updates** (`program_manager.milestone_updates: true`)
 ```bash
 # When PM updates task with milestone info:
-bd update bd-task-123 --metadata milestone="Q1-2026"
+agent update bd-task-123 --metadata milestone="Q1-2026"
 
 # Automatically syncs milestone to GitHub
 ```
@@ -72,7 +72,7 @@ bd update bd-task-123 --metadata milestone="Q1-2026"
 **SEC Issue Creation** (`security.sec_issue_creation: true`)
 ```bash
 # When Security role creates SEC tasks:
-bd create "SEC: Investigation - SQL injection in auth" --assignee Security
+agent create "SEC: Investigation - SQL injection in auth" --assignee Security
 
 # Automatically triggers:
 # - Creates GitHub issue with labels: security, needs-review
@@ -98,7 +98,7 @@ agent_triggers:
 - Issue created with security labels
 - Private visibility if supported
 - Assigned to security team
-- Links back to Beads task
+- Links back to task
 
 ---
 
@@ -149,7 +149,7 @@ bd complete bd-story-123
 # - TDD compliance: PASS
 #
 # Approved by: Reviewer
-# Beads task: bd-review-456
+# task: bd-review-456
 ```
 
 **Auto Approve** (`reviewer.auto_approve: false`)
@@ -165,7 +165,7 @@ bd complete bd-story-123
 **Bug Creation** (`tester.bug_creation: true`)
 ```bash
 # When Tester creates bug report:
-bd create "Fix: Login fails with special characters" --assignee Tester
+agent create "Fix: Login fails with special characters" --assignee Tester
 
 # Automatically creates GitHub issue:
 # - Label: bug
@@ -258,8 +258,8 @@ Agent triggers use Beads hooks to detect actions:
 # Triggered after task creation
 
 TASK_ID="$1"
-TITLE=$(bd show "$TASK_ID" --format=json | jq -r '.title')
-ASSIGNEE=$(bd show "$TASK_ID" --format=json | jq -r '.assignee')
+TITLE=$(agent show "$TASK_ID" --format=json | jq -r '.title')
+ASSIGNEE=$(agent show "$TASK_ID" --format=json | jq -r '.assignee')
 
 # Check if agent triggers enabled
 if ! grep -q "agent_triggers.enabled: true" ${AI_PACK_ROOT}/.github-integration.yml; then
@@ -313,9 +313,9 @@ ${AI_PACK_ROOT}/scripts/github-integration.py export
 
 ```bash
 # Orchestrator: Break down Q1 feature
-bd create "Epic: User Authentication System" --assignee Orchestrator
-bd create "Story: JWT implementation" --depends-on bd-epic-123 --assignee Engineer
-bd create "Story: Password reset flow" --depends-on bd-epic-123 --assignee Engineer
+agent create "Epic: User Authentication System" --assignee Orchestrator
+agent create "Story: JWT implementation" --depends-on bd-epic-123 --assignee Engineer
+agent create "Story: Password reset flow" --depends-on bd-epic-123 --assignee Engineer
 
 # With agent_triggers.orchestrator.epic_creation: true
 # Automatically creates:
@@ -329,14 +329,14 @@ bd create "Story: Password reset flow" --depends-on bd-epic-123 --assignee Engin
 
 ```bash
 # Security: Found vulnerability
-bd create "SEC: SQL injection in user search" --assignee Security --priority critical
+agent create "SEC: SQL injection in user search" --assignee Security --priority critical
 
 # With agent_triggers.security.sec_issue_creation: true
 # Automatically creates:
 # - GitHub Issue #103 [security, needs-review, critical]
 # - Private visibility (if org repo)
 # - Assigned to @security-team
-# - Comments: "Created from Beads task bd-sec-456"
+# - Comments: "Created from task bd-sec-456"
 ```
 
 ### 3. Engineer Workflow
@@ -366,7 +366,7 @@ bd complete bd-story-101
 
 ```bash
 # Tester: Test failure
-bd create "Fix: Login button not responsive on mobile" --assignee Tester --priority high
+agent create "Fix: Login button not responsive on mobile" --assignee Tester --priority high
 
 # With agent_triggers.tester.bug_creation: true
 # Automatically creates:

@@ -73,9 +73,9 @@ bootstrap: ## Install all tool dependencies (Go modules, npm, seeds) — run onc
 build: build-agent build-server ## Build all binaries
 	@echo "✅ Binaries built in bin/"
 
-build-agent: ## Build the agent CLI (no CGO)
+build-agent: ## Build the agent CLI (requires CGO for SQLite)
 	@mkdir -p bin
-	CGO_ENABLED=0 go build $(LDFLAGS_AGENT) -o bin/agent ./cmd/agent
+	$(CGO) go build $(LDFLAGS_AGENT) -o bin/agent ./cmd/agent
 
 build-server: ## Build the agent-server (CGO, go-kuzu bundled)
 	@mkdir -p bin

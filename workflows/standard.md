@@ -38,7 +38,7 @@ Phase 1: Understanding → Phase 2: Planning → Phase 3: Implementation → Pha
 
 **Tools:**
 - AskUserQuestion - for clarifications
-- Beads (`bd create`, `bd start`, `bd close`) - to track understanding tasks
+- Beads (`agent create`, `bd start`, `agent close`) - to track understanding tasks
 
 **Deliverables:**
 - Clear task description
@@ -875,7 +875,7 @@ For all work packages with code changes:
 
 ### Throughout Workflow
 
-**Initialize (.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/):**
+**Initialize (.ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/):**
 ```
 00-contract.md    - Define at Phase 1 start
 10-plan.md        - Create at Phase 2

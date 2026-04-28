@@ -5,10 +5,10 @@ This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get sta
 ## Quick Reference
 
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --status in_progress  # Claim work
-bd close <id>         # Complete work
+agent list --status queued              # Find available work
+agent show <id>          # View issue details
+agent update <id> --status in_progress  # Claim work
+agent close <id>         # Complete work
 bd sync               # Sync with git
 ```
 

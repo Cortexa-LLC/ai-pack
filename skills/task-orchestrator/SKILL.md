@@ -1,5 +1,5 @@
 ---
-description: Create and orchestrate tasks via AI-Pack framework. Automatically creates Beads tasks, task packets, spawns agents, and monitors progress. MANDATORY for all non-trivial work.
+description: Create and orchestrate tasks via AI-Pack framework. Automatically creates tasks, task packets, spawns agents, and monitors progress. MANDATORY for all non-trivial work.
 ---
 
 # Task Orchestrator - Automated Task Management
@@ -9,7 +9,7 @@ You are using the **Task Orchestrator** workflow from the ai-pack framework.
 ## Purpose
 
 Automate the complete task lifecycle:
-1. Create Beads task for persistence
+1. Create task for persistence
 2. Create task packet for documentation
 3. Spawn appropriate agent role
 4. Monitor progress via Beads
@@ -35,8 +35,8 @@ Automate the complete task lifecycle:
 ### Step 1: Create Beads Task (MANDATORY FIRST)
 
 ```bash
-# Create Beads task with proper metadata
-bd create \
+# Create task with proper metadata
+agent create \
   --title="<concise-title>" \
   --description="<detailed-description>" \
   --type=<task|bug|feature|epic> \
@@ -81,7 +81,7 @@ ls -la "$TASK_DIR"
 
 **Task packet format:**
 ```
-.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
+.ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/
 ├── 00-contract.md    # Requirements and acceptance criteria
 ├── 10-plan.md        # Implementation approach
 ├── 20-work-log.md    # Progress tracking
@@ -94,8 +94,8 @@ ls -la "$TASK_DIR"
 **Minimum required fields:**
 
 ```markdown
-**Task ID:** <beads-id>-<YYYYMMDDHHMMSS>-<short-desc>
-**Beads Task:** <beads-id>
+**Task ID:** <task-id>-<YYYYMMDDHHMMSS>-<short-desc>
+**Beads Task:** <task-id>
 **Created:** <YYYY-MM-DD>
 **Requestor:** <User Name>
 **Assigned Role:** <Architect|Engineer|Tester|Reviewer|Inspector>
@@ -164,7 +164,7 @@ Read the contract at 00-contract.md for complete requirements, acceptance criter
 DELIVERABLES:
 - Update 20-work-log.md with progress
 - Create all artifacts specified in contract
-- Update Beads task status as you progress
+- Update task status as you progress
 - Report absolute paths of all files created
 
 START: Read contract, fill out plan in 10-plan.md, then execute per your role.""",
@@ -177,7 +177,7 @@ START: Read contract, fill out plan in 10-plan.md, then execute per your role.""
 2. Fill out plan (10-plan.md)
 3. Execute work per role definition
 4. Update work log (20-work-log.md)
-5. Update Beads task status
+5. Update task status
 6. Report completion
 
 ### Step 6: Monitor Progress
@@ -185,14 +185,14 @@ START: Read contract, fill out plan in 10-plan.md, then execute per your role.""
 **Via Beads:**
 
 ```bash
-# Check agent's Beads task status
-bd show <beads-task-id>
+# Check agent's task status
+agent show <beads-task-id>
 
 # List all active agent work
-bd list --status=in_progress
+agent list --status=in_progress
 
 # Check for blocked work
-bd list --status=blocked
+agent list --status=blocked
 ```
 
 **Via Work Log:**
@@ -258,7 +258,7 @@ tail -f <agent-output-file>
    )
    ```
 
-**Both must approve before closing Beads task.**
+**Both must approve before closing task.**
 
 ### Step 8: Completion
 
@@ -267,11 +267,11 @@ tail -f <agent-output-file>
 # Verify quality gates passed (read 30-review.md)
 # Update acceptance document (40-acceptance.md)
 
-# Close Beads task
-bd close <beads-task-id>
+# Close task
+agent close <beads-task-id>
 
 # Verify closure
-bd show <beads-task-id>
+agent show <beads-task-id>
 # Status should be: closed
 ```
 
@@ -287,23 +287,23 @@ bd show <beads-task-id>
 - ❌ Working directly without creating task first
 
 **REQUIRED:**
-- ✅ Create Beads task BEFORE task packet
+- ✅ Create task BEFORE task packet
 - ✅ Create task packet BEFORE implementation
 - ✅ Fill contract BEFORE spawning agent
 - ✅ Spawn agent with proper role definition
-- ✅ Monitor via Beads task status
+- ✅ Monitor via task status
 - ✅ Quality gates for all code changes
-- ✅ Close Beads task when complete
+- ✅ Close task when complete
 
 ## Parallel Execution (Multiple Tasks)
 
 **When creating 2+ independent tasks:**
 
 ```bash
-# Create multiple Beads tasks
-task1=$(bd create --title="Task 1" --description="..." --priority=2 --json | jq -r '.id')
-task2=$(bd create --title="Task 2" --description="..." --priority=2 --json | jq -r '.id')
-task3=$(bd create --title="Task 3" --description="..." --priority=2 --json | jq -r '.id')
+# Create multiple tasks
+task1=$(agent create --title="Task 1" --description="..." --priority=2 --json | jq -r '.id')
+task2=$(agent create --title="Task 2" --description="..." --priority=2 --json | jq -r '.id')
+task3=$(agent create --title="Task 3" --description="..." --priority=2 --json | jq -r '.id')
 
 # Create multiple task packets
 # (Create task packet for each task ID)
@@ -314,7 +314,7 @@ Agent(...)  # Task 2
 Agent(...)  # Task 3
 
 # All agents run in parallel
-# Monitor all via: bd list --status=in_progress
+# Monitor all via: agent list --status=in_progress
 ```
 
 **Benefits:**
@@ -326,10 +326,10 @@ Agent(...)  # Task 3
 
 ```bash
 # Create parent task
-parent_id=$(bd create --title="Parent task" --json | jq -r '.id')
+parent_id=$(agent create --title="Parent task" --json | jq -r '.id')
 
 # Create child task
-child_id=$(bd create --title="Child task" --json | jq -r '.id')
+child_id=$(agent create --title="Child task" --json | jq -r '.id')
 
 # Add dependency: child depends on parent
 bd dep add $child_id $parent_id
@@ -339,8 +339,8 @@ bd blocked
 # Will show child task blocked by parent
 
 # When parent closes, child becomes ready
-bd close $parent_id
-bd ready  # Shows child task now available
+agent close $parent_id
+agent list --status queued  # Shows child task now available
 ```
 
 ## Task Recovery (Session Continuity)
@@ -349,11 +349,11 @@ bd ready  # Shows child task now available
 
 ```bash
 # Next session - find ready work
-bd ready
+agent list --status queued
 
 # Continue task
-bd show <task-id>  # Read details
-bd update <task-id> --claim  # Claim it
+agent show <task-id>  # Read details
+agent update <task-id> --claim  # Claim it
 
 # Spawn agent to continue
 Agent(
@@ -373,8 +373,8 @@ Update work log with your progress."""
 
 **Complete workflow:**
 ```bash
-# 1. Create Beads task
-task_id=$(bd create --title="..." --description="..." --type=task --priority=2 --json | jq -r '.id')
+# 1. Create task
+task_id=$(agent create --title="..." --description="..." --type=task --priority=2 --json | jq -r '.id')
 
 # 2. Create task packet
 timestamp=$(date +%Y%m%d%H%M%S)
@@ -387,13 +387,13 @@ cp .ai-pack/templates/task-packet/*.md "$task_dir/"
 # 4. Spawn agent (use Agent tool with proper prompt)
 
 # 5. Monitor
-bd show $task_id
-bd list --status=in_progress
+agent show $task_id
+agent list --status=in_progress
 
 # 6. Quality gates (spawn Tester + Reviewer if code changed)
 
 # 7. Close
-bd close $task_id
+agent close $task_id
 ```
 
 ## Integration with CLAUDE.md

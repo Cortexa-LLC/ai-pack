@@ -11,7 +11,7 @@ paths: **/*
 **Before starting any non-trivial work, you MUST:**
 
 1. Use the `task-orchestrator` skill to create and delegate work
-2. Create Beads task first (`bd create`)
+2. Create task first (`agent create`)
 3. Create task packet (`.ai/tasks/`)
 4. Fill contract (`00-contract.md`)
 5. Spawn agent with appropriate role
@@ -45,11 +45,11 @@ I'll create a task for this and delegate to Architect.
 
 [Use task-orchestrator skill or manually follow workflow]:
 
-1. bd create --title="Architecture review: DGS migration" --description="..." --type=task --priority=2
-2. Create task packet: .ai/tasks/<beads-id>-<timestamp>-<desc>/
+1. agent create "Architecture review: DGS migration" --priority P1 --role architect
+2. Create task packet: .ai/tasks/<task-id>-<timestamp>-<desc>/
 3. Fill contract with requirements
 4. Spawn Architect agent with contract
-5. Monitor via Beads
+5. Monitor via task database
 ```
 
 ## Forbidden Patterns
@@ -65,7 +65,7 @@ You: [Immediately reads code and starts implementing]
 User: "Fix the authentication bug"
 You: Creating task and delegating to Inspector + Engineer...
 
-1. bd create --title="Fix auth bug" --type=bug --priority=1
+1. agent create "Fix auth bug" --priority P0 --role engineer
 2. Create task packet
 3. Spawn Inspector for investigation
 4. Spawn Engineer for fix (after Inspector completes)
@@ -76,22 +76,22 @@ You: Creating task and delegating to Inspector + Engineer...
 You: TaskCreate(subject="Implement feature X", ...)
 ```
 
-**✅ CORRECT - Using Beads:**
+**✅ CORRECT - Using agent CLI:**
 ```
-You: bd create --title="Implement feature X" --type=feature --priority=2
+You: agent create "Implement feature X" --priority P1 --role engineer
 ```
 
 ## Enforcement
 
 **BLOCKING GATE: Cannot proceed with implementation without:**
-- ✅ Beads task created
+- ✅ Task created in database
 - ✅ Task packet created and contract filled
 - ✅ Agent spawned with proper role
 
 **If you catch yourself:**
 - Reading code to implement directly → STOP, create task
 - Writing code without task packet → STOP, create task
-- Using TodoWrite/TaskCreate → STOP, use `bd create`
+- Using TodoWrite/TaskCreate → STOP, use `agent create`
 
 **Report to user:**
 ```
@@ -108,36 +108,36 @@ Creating task and delegating to appropriate agent...
 
 **MUST create all tasks in parallel:**
 ```bash
-# Create multiple Beads tasks
-task1=$(bd create --title="Task 1" --json | jq -r '.id')
-task2=$(bd create --title="Task 2" --json | jq -r '.id')
-task3=$(bd create --title="Task 3" --json | jq -r '.id')
+# Create multiple tasks
+task1=$(agent create "Task 1" --priority P1 --json | jq -r '.task_id')
+task2=$(agent create "Task 2" --priority P1 --json | jq -r '.task_id')
+task3=$(agent create "Task 3" --priority P1 --json | jq -r '.task_id')
 
 # Create task packets for each
 
-# Spawn agents in parallel (single response)
-Agent(...)  # Task 1
-Agent(...)  # Task 2
-Agent(...)  # Task 3
+# Spawn agents in background
+agent engineer $task1
+agent engineer $task2
+agent engineer $task3
 ```
 
 **Benefits:**
 - 3× speedup (20 min vs 60 min)
-- All work tracked in Beads
+- All work tracked in database
 - Survives session restart
 
 ## Integration
 
 **This rule enforces:**
 - ✅ Gate 1: Task Packet Requirement
-- ✅ Gate 4: Beads Enforcement (NO TodoWrite/TaskCreate)
+- ✅ Gate 4: Task Enforcement (NO TodoWrite/TaskCreate)
 - ✅ Gate 3: Execution Strategy (parallel for 3+)
 - ✅ Gate 5: Code Quality Review (delegated to Tester + Reviewer)
 
 **References:**
 - `.claude/skills/task-orchestrator/SKILL.md` - Complete workflow
 - `.ai-pack/gates/00-global-gates.md` - Task packet requirement
-- `.ai-pack/gates/06-beads-enforcement.md` - Beads mandatory
+- `.ai-pack/gates/06-task-enforcement.md` - Task management mandatory
 - `.ai-pack/roles/orchestrator.md` - Orchestrator role definition
 
 ---

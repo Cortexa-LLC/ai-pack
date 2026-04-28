@@ -81,7 +81,7 @@ The reset procedure:
 
 ### What Will Change
 
-Agent commands will require Beads task IDs instead of arbitrary descriptions.
+Agent commands will require task IDs instead of arbitrary descriptions.
 
 **Current (v2.0.0):**
 ```bash
@@ -91,17 +91,17 @@ agent engineer "implement user authentication"  # Free-form description
 **Future (v2.1.0):**
 ```bash
 # Create task in Beads first
-bd create "Implement user authentication"
+agent create "Implement user authentication"
 # Returns: bd-a1b2
 
-# Use Beads task ID
+# Use task ID
 agent engineer bd-a1b2  # Task ID required
 ```
 
 ### Why This Change
 
-The current implementation doesn't integrate with Beads task tracking, which means:
-- ❌ No connection between Beads tasks and agent execution
+The current implementation doesn't integrate with task tracking, which means:
+- ❌ No connection between tasks and agent execution
 - ❌ Agent doesn't update task status
 - ❌ No access to task context from Beads
 - ❌ Duplicate task descriptions

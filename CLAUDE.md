@@ -8,7 +8,7 @@ That tool bypasses the ai-pack agent server entirely. It is **FORBIDDEN** in thi
 
 The ONLY way to spawn agents is via the **`agent` bash command**:
 ```bash
-agent engineer <beads-id> --stream   # ✅ CORRECT
+agent engineer <task-id> --stream   # ✅ CORRECT
 ```
 
 Using the `Agent(...)` tool call is ALWAYS wrong here, even if it seems convenient.
@@ -22,7 +22,7 @@ Using the `Agent(...)` tool call is ALWAYS wrong here, even if it seems convenie
 
 As Orchestrator:
 - Delegate work to specialized agents via `agent` CLI (ONLY method)
-- Monitor progress via Beads task tracking
+- Monitor progress via task tracking (SQLite database)
 - Coordinate parallel execution (up to 10+ agents)
 - Do NOT do implementation work directly
 - Only switch roles when user explicitly says "Work as Engineer", "Act as Reviewer", etc.
@@ -33,25 +33,25 @@ As Orchestrator:
 
 **Quick Start (sequential):**
 ```bash
-# 1. Create Beads task with working directory and task packet
-BID=$(bd create "Task description
+# 1. Create task with priority and role
+TASK_ID=$(agent create "Task description
 
 Working directory: /Users/bryanw/Projects/Vibe/ai-pack
-Task packet: .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
+Task packet: .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/
 
-Details..." --priority P1 --json | jq -r '.id')
+Details..." --priority P1 --role engineer --json | jq -r '.task_id')
 
 # 2. Create timestamped task packet dir
 TS=$(date +%Y%m%d%H%M%S)
-SLUG="${BID}-${TS}-short-desc"
+SLUG="${TASK_ID}-${TS}-short-desc"
 mkdir -p .ai/tasks/$SLUG
 cp templates/task-packet/*.md .ai/tasks/$SLUG/
 
 # 3. Spawn agent — blocks until complete, streams live output
-agent engineer $BID --stream
+agent engineer $TASK_ID --stream
 
 # 4. Close task
-bd close $BID -r "Complete"
+agent close $TASK_ID -r "Complete"
 ```
 
 **Parallel execution (multiple workstreams):**
@@ -71,19 +71,19 @@ agent wait ai-pack-task3 --stream
 - ✅ Sequential task: use `agent <role> <id> --stream` (blocks until complete)
 - ✅ Parallel tasks: spawn without `--stream`, then `agent wait <id> --stream`
 - ✅ Use `agent` bash CLI exclusively — the `Agent` tool in your tool list is FORBIDDEN
-- ✅ Beads priority format: P0–P4 (NOT high/medium/low)
-- ✅ Beads description MUST contain `Working directory:` and `Task packet:` lines
+- ✅ Task priority format: P0–P4 (NOT high/medium/low)
+- ✅ Task description should contain `Working directory:` and `Task packet:` lines
 - ❌ NEVER poll manually for completion (use `--stream` or `agent wait`)
 - ❌ NEVER use Task tool with run_in_background (broken)
 - ❌ NEVER implement code directly as Orchestrator
 
-**⚠️ Beads task ID vs task packet slug — CRITICAL DISTINCTION:**
+**⚠️ Task ID vs task packet slug — CRITICAL DISTINCTION:**
 ```
-Beads task ID:        HomeControl-qx7               ← pass this to agent commands
+Task ID:              HomeControl-qx7               ← pass this to agent commands
 Task packet slug:     HomeControl-qx7-20260424-072021-short-desc  ← directory name only
 ```
 `agent logs`, `agent status`, `agent results`, `agent wait`, `agent diff`, `agent files`
-all take the **Beads task ID** (e.g. `HomeControl-qx7`), **NOT** the task packet directory
+all take the **Task ID** (e.g. `HomeControl-qx7`), **NOT** the task packet directory
 name. The slug includes the timestamp and short-desc suffix — strip everything after the
 shortid (3-char alphanumeric after the last hyphen of the project prefix).
 
@@ -93,7 +93,7 @@ shortid (3-char alphanumeric after the last hyphen of the project prefix).
 
 **⚠️ MANDATORY: Task packets MUST be fully populated, NOT just template copies.**
 
-When creating Beads tasks, you MUST create and FILL OUT the task packet directory. This is critical because:
+When creating tasks, you MUST create and FILL OUT the task packet directory. This is critical because:
 - Context is lost after conversation compaction
 - Agents need complete, self-contained task information
 - Template files must be replaced with actual content
@@ -190,16 +190,18 @@ EOF
 - Agents will fail or produce wrong solutions without proper context
 
 **Enforcement:**
-This is a BLOCKING REQUIREMENT. Do not create Beads tasks without fully populated task packets.
+This is a BLOCKING REQUIREMENT. Do not create tasks without fully populated task packets.
 
-### 4. Beads Task Management
+### 4. Task Management
 
 **Quick Commands:**
 ```bash
-bd ready              # Find next available task
-bd show <task-id>     # View task details
-bd close <task-id>    # Complete task
-bd list --running     # Check active agents
+agent create "description" --priority P1 --role engineer  # Create task
+agent show <task-id>                                      # View task details
+agent close <task-id> -r "Complete"                       # Complete task
+agent list --all                                          # List all tasks
+agent list --running                                      # Check active agents
+agent update <task-id> --status in_progress               # Update task
 ```
 
 **Priority format:** P0 (critical) → P4 (low)

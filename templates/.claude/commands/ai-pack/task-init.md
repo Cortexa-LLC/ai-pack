@@ -19,7 +19,7 @@ Creates a new task packet directory with all required templates from the ai-pack
 
 ## What This Does
 
-1. Creates `.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<task-name>/` directory
+1. Creates `.ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<task-name>/` directory
 2. Copies all templates from `.ai-pack/templates/task-packet/`:
    - `00-contract.md` - Requirements and acceptance criteria
    - `10-plan.md` - Implementation approach

@@ -9,8 +9,8 @@ This directory contains automation scripts for AI-Pack workflows.
 **Optional** GitHub integration for hosted GitHub.com repositories.
 
 **Features:**
-- Sync Beads tasks ↔ GitHub Issues bidirectionally
-- Create Epics/Stories from Beads task hierarchies
+- Sync tasks ↔ GitHub Issues bidirectionally
+- Create Epics/Stories from task hierarchies
 - Monitor CI/CD workflows and auto-create fix tasks
 - Import GitHub issues into Beads work queue
 - Track work across GitHub Projects and Beads
@@ -50,12 +50,12 @@ ${AI_PACK_ROOT}/scripts/github-integration.py sync
 **Commands:**
 ```bash
 init              Initialize GitHub integration
-sync              Sync Beads tasks with GitHub issues
+sync              Sync tasks with GitHub issues
 import            Import GitHub issues to Beads
-export            Export Beads tasks to GitHub
+export            Export tasks to GitHub
 monitor           Monitor CI/CD workflows
 check-ci          Check current CI status
-create-epic       Create epic from Beads task
+create-epic       Create epic from task
 status            Show integration status
 help              Show help message
 ```

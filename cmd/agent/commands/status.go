@@ -69,13 +69,6 @@ func runStatus(beadsTaskID string, jsonOutput, quiet bool) error {
 	} else {
 		fmt.Printf("Task: %s\n", beadsTaskID)
 		fmt.Printf("Status: %v\n", status["status"])
-		if status["progress"] != nil {
-			if progress, ok := status["progress"].(float64); ok {
-				fmt.Printf("Progress: %.0f%%\n", progress*100)
-			} else {
-				fmt.Printf("Progress: %v\n", status["progress"])
-			}
-		}
 		if status["error"] != nil {
 			fmt.Printf("Error: %v\n", status["error"])
 		}

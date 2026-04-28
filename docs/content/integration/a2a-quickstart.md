@@ -105,7 +105,7 @@ In a **new terminal**:
 bd init
 
 # Create a task
-bd create "Implement user authentication with JWT tokens"
+agent create "Implement user authentication with JWT tokens"
 # Returns: bd-a1b2
 ```
 
@@ -121,7 +121,7 @@ The agent will:
 2. ✅ Check dependencies are met
 3. ✅ Mark task as started (`bd start bd-a1b2`)
 4. ✅ Execute the work
-5. ✅ Mark task as complete (`bd close bd-a1b2`)
+5. ✅ Mark task as complete (`agent close bd-a1b2`)
 
 ---
 
@@ -226,23 +226,23 @@ go run cmd/agent-server/main.go --server --config configs/my-config.json
 
 ```bash
 # Implementation
-bd create "Add password reset endpoint"
+agent create "Add password reset endpoint"
 agent engineer bd-a1b2
 
 # Testing
-bd create "Create tests for password reset"
+agent create "Create tests for password reset"
 agent tester bd-x7z9
 
 # Code review
-bd create "Review authentication module"
+agent create "Review authentication module"
 agent reviewer bd-k3m4
 
 # Architecture
-bd create "Design microservices architecture"
+agent create "Design microservices architecture"
 agent architect bd-p5q6
 
 # Requirements
-bd create "Write user stories for checkout flow"
+agent create "Write user stories for checkout flow"
 agent product-manager bd-r8s9
 ```
 
@@ -254,23 +254,23 @@ Complete feature development workflow:
 
 ```bash
 # 1. Plan the work
-bd create "Implement user profile API"
-bd create "Create tests for user profile API"
-bd create "Review user profile implementation"
+agent create "Implement user profile API"
+agent create "Create tests for user profile API"
+agent create "Review user profile implementation"
 
 # Set dependencies
 bd dep add bd-b2 bd-a1  # Tests depend on implementation
 bd dep add bd-c3 bd-a1  # Review depends on implementation
 
 # 2. Check what's ready
-bd ready
+agent list --status queued
 # Shows: bd-a1 (no dependencies)
 
 # 3. Implement
 agent engineer bd-a1
 
 # 4. Check what's ready now
-bd ready
+agent list --status queued
 # Shows: bd-b2, bd-c3 (dependencies met)
 
 # 5. Run in parallel (both are ready)
@@ -279,9 +279,9 @@ agent reviewer bd-c3 &
 wait
 
 # 6. View results
-bd show bd-a1
-bd show bd-b2
-bd show bd-c3
+agent show bd-a1
+agent show bd-b2
+agent show bd-c3
 ```
 
 ---
@@ -330,23 +330,23 @@ export PATH="$PATH:$(pwd)/../bin"
 ../bin/agent engineer bd-a1b2
 ```
 
-**Problem:** `Beads task bd-xxxx does not exist`
+**Problem:** `task bd-xxxx does not exist`
 ```bash
 # Verify task exists
-bd show bd-xxxx
+agent show bd-xxxx
 
 # List all tasks
-bd list
+agent list
 
 # Create the task if missing
-bd create "Task description"
+agent create "Task description"
 ```
 
 **Problem:** `task has unmet dependencies: [bd-x, bd-y]`
 ```bash
 # Check which tasks are blocking
-bd show bd-x
-bd show bd-y
+agent show bd-x
+agent show bd-y
 
 # Complete dependencies first
 agent engineer bd-x
@@ -377,9 +377,9 @@ Run independent tasks in parallel:
 
 ```bash
 # Create multiple independent tasks
-bd create "Implement feature A"  # bd-a1
-bd create "Implement feature B"  # bd-b2
-bd create "Implement feature C"  # bd-c3
+agent create "Implement feature A"  # bd-a1
+agent create "Implement feature B"  # bd-b2
+agent create "Implement feature C"  # bd-c3
 
 # Run all in parallel
 agent engineer bd-a1 &
@@ -403,7 +403,7 @@ agent --async engineer bd-a1b2
 
 # Returns immediately, task runs in background
 # Check results later:
-bd show bd-a1b2
+agent show bd-a1b2
 cat .beads/tasks/task-*/30-results.md
 ```
 
@@ -465,12 +465,12 @@ go run cmd/agent-server/main.go --server --port 3000
 
 # Beads
 bd init                                    # Initialize project
-bd create "Task description"               # Create task
-bd show bd-xxxx                           # View task
+agent create "Task description"               # Create task
+agent show bd-xxxx                           # View task
 bd start bd-xxxx                          # Mark started
-bd close bd-xxxx                          # Mark complete
-bd ready                                  # Show ready tasks
-bd list                                   # List all tasks
+agent close bd-xxxx                          # Mark complete
+agent list --status queued                                  # Show ready tasks
+agent list                                   # List all tasks
 bd dep add bd-child bd-parent             # Add dependency
 
 # Agents

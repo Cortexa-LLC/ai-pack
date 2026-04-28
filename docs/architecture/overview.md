@@ -93,7 +93,7 @@ The central HTTP server that creates and manages agent tasks. It exposes:
 | `GET  /health` | Liveness check |
 
 The server owns the **agentic loop** — the turn-by-turn conversation with an LLM
-(Anthropic / OpenAI), tool dispatch, streaming to clients, and Beads task-state updates.
+(Anthropic / OpenAI), tool dispatch, streaming to clients, and task-state updates.
 Before each task starts, the **Preflight Injector** calls the KG MCP server to load
 relevant prior knowledge into the agent's system prompt.
 
@@ -130,7 +130,7 @@ Each project's graph lives in `.kuzu/kg.db` relative to the project root.
 
 ---
 
-### `bd` CLI — Beads task tracker
+### `bd` CLI — task tracker
 
 Beads is a separate task-management system (not built inside ai-pack). It tracks:
 - Human-authored tasks and epics
@@ -294,7 +294,7 @@ See [`docs/architecture/skill-schema.md`](skill-schema.md) and
 | `a2a-agent` | `cmd/server/main.go` | HTTP server, agentic loop, MCP management |
 | `agent` | `cmd/agent/main.go` | CLI client for the server |
 | `kg` | `cmd/kg/main.go` | KuzuDB MCP server + admin CLI |
-| `bd` | (external) | Beads task tracker CLI |
+| `bd` | (external) | task tracker CLI |
 
 ### Build
 

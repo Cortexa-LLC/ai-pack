@@ -86,7 +86,7 @@
   - Coordinates workflows ✓
 
 **Beads Integration (0 tests):**
-- No tests for `bd create` task creation
+- No tests for `agent create` task creation
 - No tests for `bd dep add` dependency management
 - No tests for `bd start` task activation
 - No tests for `bd complete` task completion
@@ -354,7 +354,7 @@ def test_orchestrator_delegates_to_product-manager():
 **What to Test:**
 ```python
 ✅ test_bd_create_task()
-   - Run `bd create "Task title"`
+   - Run `agent create "Task title"`
    - Verify task created in .beads/issues.jsonl
    - Task has unique ID
    - Status = todo
@@ -398,7 +398,7 @@ def test_orchestrator_uses_beads_for_decomposition():
 
     Scenario:
     - User requests feature with 5 subtasks
-    - Orchestrator creates Beads tasks
+    - Orchestrator creates tasks
     - Sets up dependencies
     - Assigns to roles
     - Tracks completion
@@ -416,7 +416,7 @@ def test_orchestrator_uses_beads_for_decomposition():
 **What to Test:**
 ```python
 ✅ test_create_task_packet()
-   - Create directory .ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
+   - Create directory .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/
    - Copy all templates
    - All 5 files present (00-40)
 
@@ -603,7 +603,7 @@ def test_complete_feature_development():
       2. Login endpoint
       3. Session management
       4. Tests
-    - Creates Beads tasks with dependencies
+    - Creates tasks with dependencies
 
     Phase 3: Implementation
     - Engineer implements each subtask

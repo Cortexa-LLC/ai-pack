@@ -1,6 +1,6 @@
 # Acceptance Report
 
-**Task ID:** [beads-id-YYYYMMDDHHMMSS-short-desc]
+**Task ID:** [task-id-YYYYMMDDHHMMSS-short-desc]
 **Acceptance Date:** [Date]
 **Accepted By:** [Name/Role]
 
@@ -387,7 +387,7 @@ Acceptance: ✓ Accepted
 
 ### Documentation Location
 ```
-Task Packet: .ai/tasks/[beads-id-YYYYMMDDHHMMSS-short-desc]/
+Task Packet: .ai/tasks/[task-id-YYYYMMDDHHMMSS-short-desc]/
 Code: [Repository/branch]
 Tests: [Location]
 Documentation: [Location]
@@ -407,7 +407,7 @@ Documentation: [Location]
 
 ## Usage Instructions
 
-This template should be instantiated at: `.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/40-acceptance.md`
+This template should be instantiated at: `.ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/40-acceptance.md`
 
 **When to create:**
 - After review complete

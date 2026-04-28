@@ -26,7 +26,7 @@ Task packets are the fundamental unit of work tracking in the ai-pack framework.
 /ai-pack task-init <task-name>
 
 # Creates:
-.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
+.ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/
 ├── 00-contract.md    # Requirements, acceptance criteria
 ├── 10-plan.md        # Implementation approach
 ├── 20-work-log.md    # Progress tracking
@@ -148,7 +148,7 @@ Sequential (shared auth service):
 
 **✅ CORRECT:**
 ```
-.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/
+.ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/
 ```
 
 **❌ NEVER:**
@@ -156,16 +156,16 @@ Sequential (shared auth service):
 .ai-pack/  (Framework is read-only)
 ```
 
-## ⚠️ Task Packet Slug ≠ Beads Task ID
+## ⚠️ Task Packet Slug ≠ Task ID
 
-The directory name is the **task packet slug** — it is NOT the Beads task ID.
+The directory name is the **task packet slug** — it is NOT the Task ID.
 
 ```
 Task packet slug:  HomeControl-qx7-20260424-072021-short-desc   ← directory name
-Beads task ID:     HomeControl-qx7                               ← use with agent CLI
+Task ID:           HomeControl-qx7                               ← use with agent CLI
 ```
 
-Always pass the **Beads task ID** (the `bd create` output) to `agent` commands:
+Always pass the **Task ID** (the `agent create` output) to `agent` commands:
 ```bash
 agent logs HomeControl-qx7       ✅
 agent logs HomeControl-qx7-20260424-072021-short-desc  ❌

@@ -10,28 +10,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cortexa-llc/ai-pack/internal/beads"
 	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"github.com/cortexa-llc/ai-pack/internal/graphql"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
+	"github.com/cortexa-llc/ai-pack/internal/taskdb"
 )
-
-// beadsTaskGetter is a narrow interface used by applyBeadsStatusOverride so that
-// tests can supply a fake without spawning a real `bd` process.
-type beadsTaskGetter interface {
-	GetTask(taskID string) (*beads.Task, error)
-}
 
 // GraphQLAdapter adapts AgentServer to implement graphql.ServerInterface
 // This allows GraphQL resolvers to access server functionality without circular dependencies
 type GraphQLAdapter struct {
-	server     *AgentServer
-	taskGetter beadsTaskGetter // defaults to server.beadsClient; overridable in tests
+	server *AgentServer
 }
 
 // NewGraphQLAdapter creates a new GraphQL adapter for the agent server
 func NewGraphQLAdapter(server *AgentServer) *GraphQLAdapter {
-	return &GraphQLAdapter{server: server, taskGetter: server.beadsClient}
+	return &GraphQLAdapter{server: server}
 }
 
 // GetActiveTasks returns all currently active tasks
@@ -71,7 +64,7 @@ func resolveBeadsRoot(dir string) string {
 	return dir
 }
 
-// GetAllTasks returns all tasks (active from memory + beads tasks from all project roots)
+// GetAllTasks returns all tasks (active from memory + taskDB + disk scan for orphans)
 func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 	tasks := make(map[string]*graphql.TaskInfo)
 
@@ -79,10 +72,83 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 	a.server.mu.RLock()
 	for id, execution := range a.server.activeTasks {
 		info := convertToTaskInfo(execution)
-		a.applyBeadsStatusOverride(info, execution)
 		tasks[id] = info
 	}
 	a.server.mu.RUnlock()
+
+	// Second, get all tasks from taskDB
+	if a.server.taskDB != nil {
+		dbTasks, err := a.server.taskDB.ListTasks(taskdb.TaskFilter{
+			Limit: 10000, // Get all tasks
+		})
+		if err != nil {
+			monitoring.Logger.Warn("failed_to_list_tasks_from_taskdb", "error", err.Error())
+		} else {
+			monitoring.Logger.Info("loaded_tasks_from_taskdb", "count", len(dbTasks))
+			for _, dbTask := range dbTasks {
+				// Use BeadsID as the key (short ID like "ai-pack-abc123")
+				taskKey := dbTask.BeadsID
+				if taskKey == "" {
+					taskKey = dbTask.ID
+				}
+
+				// Skip if already present from activeTasks (use most recent status)
+				if _, exists := tasks[taskKey]; exists {
+					continue
+				}
+
+				// Also check for timestamped variants
+				alreadyActive := false
+				for activeID := range tasks {
+					if strings.HasPrefix(activeID, taskKey+"-") {
+						alreadyActive = true
+						break
+					}
+				}
+				if alreadyActive {
+					continue
+				}
+
+				// Convert taskDB task to TaskInfo
+				taskInfo := &graphql.TaskInfo{
+					TaskID:    taskKey,
+					Role:      dbTask.Role,
+					Task:      dbTask.TaskDescription,
+					Status:    dbTask.Status,
+					CreatedAt: dbTask.CreatedAt.Format(time.RFC3339),
+					UpdatedAt: dbTask.UpdatedAt.Format(time.RFC3339),
+					Metadata:  make(map[string]string),
+				}
+
+				if dbTask.ProjectRoot != "" {
+					taskInfo.ProjectRoot = &dbTask.ProjectRoot
+				}
+
+				if dbTask.CompletedAt != nil && !dbTask.CompletedAt.IsZero() {
+					completedAt := dbTask.CompletedAt.Format(time.RFC3339)
+					taskInfo.CompletedAt = &completedAt
+				}
+
+				if dbTask.Result != "" {
+					taskInfo.Result = &dbTask.Result
+				}
+
+				if dbTask.Error != "" {
+					taskInfo.Error = &dbTask.Error
+				}
+
+				// Parse metadata JSON into map
+				if dbTask.Metadata != "" {
+					var metaMap map[string]string
+					if json.Unmarshal([]byte(dbTask.Metadata), &metaMap) == nil {
+						taskInfo.Metadata = metaMap
+					}
+				}
+
+				tasks[taskKey] = taskInfo
+			}
+		}
+	}
 
 	// Get all project roots to scan (server root + registered projects).
 	// Resolve each to its canonical beads root (walk up to find .beads/tasks)
@@ -99,58 +165,11 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 		}
 	}
 
-	// Then, get beads tasks from each project using bd list
-	a.server.mu.RLock()
-	beadsClient := a.server.beadsClient
-	a.server.mu.RUnlock()
-	monitoring.Logger.Info("fetching_tasks_from_projects", "project_count", len(projectRoots))
+	// Finally, scan project directories for execution artifacts not in taskDB
+	// This catches orphaned executions or tasks from before migration
+	monitoring.Logger.Info("scanning_project_tasks", "project_count", len(projectRoots))
 	for _, projectRoot := range projectRoots {
-		beadsTasks, err := beadsClient.ListAllTasksFromDir(projectRoot)
-		if err != nil {
-			monitoring.Logger.Warn("failed_to_list_tasks_from_project_falling_back_to_disk_scan", "project_root", projectRoot, "error", err.Error())
-			// Fall back to disk scan when bd is unavailable (e.g. Dolt server not serving this project)
-			a.scanProjectTasks(projectRoot, tasks)
-			continue
-		}
-		monitoring.Logger.Info("listed_tasks_from_project", "project_root", projectRoot, "task_count", len(beadsTasks))
-
-		// Convert beads tasks to TaskInfo
-		convertedCount := 0
-		skippedDuplicate := 0
-		for _, beadsTask := range beadsTasks {
-			beadsID := beadsTask.ID
-
-			// Skip if an active task with this Beads ID exists
-			// Check for both exact match and timestamped format: {beads-id}-{timestamp}
-			alreadyActive := false
-			for activeTaskID := range tasks {
-				// Check if active task matches this Beads ID exactly or starts with it
-				if activeTaskID == beadsID || strings.HasPrefix(activeTaskID, beadsID+"-") {
-					alreadyActive = true
-					break
-				}
-			}
-			if alreadyActive {
-				skippedDuplicate++
-				continue
-			}
-
-			// Check if there's a recent execution on disk (failed or completed)
-			// If so, show that execution instead of the Beads task
-			recentExecution := a.findMostRecentExecution(projectRoot, beadsID)
-			if recentExecution != nil {
-				// Use the execution's actual status (could be "failed", "completed", etc.)
-				tasks[recentExecution.TaskID] = recentExecution
-				convertedCount++
-				continue
-			}
-
-			// No recent execution found, show the Beads task as-is
-			taskInfo := convertBeadsTaskToTaskInfo(beadsTask, projectRoot)
-			tasks[beadsID] = taskInfo
-			convertedCount++
-		}
-		monitoring.Logger.Info("converted_tasks_from_project", "project_root", projectRoot, "converted", convertedCount, "skipped", skippedDuplicate)
+		a.scanProjectTasks(projectRoot, tasks)
 	}
 
 	monitoring.Logger.Info("get_all_tasks_complete", "total_tasks", len(tasks))
@@ -441,77 +460,10 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 				}
 			}
 		}
-		if beadsTaskID != "" {
-			if beadsTask, err := a.server.beadsClient.GetTaskFromDir(beadsTaskID, projectRoot); err == nil {
-				beadsStatus := strings.ToLower(beadsTask.Status)
-				if beadsStatus == constants.StatusClosed || beadsStatus == constants.StatusDone {
-					monitoring.Logger.Info("reconciling_stale_execution_metadata",
-						"task_id", beadsTaskID,
-						"old_status", taskInfo.Status,
-						"beads_status", beadsStatus,
-						"execution_folder", taskID)
-					taskInfo.Status = constants.StatusCompleted
-					taskInfo.Error = nil
-					// Write back to disk to avoid repeating this lookup on every render
-					var rawMetadata map[string]interface{}
-					if json.Unmarshal(data, &rawMetadata) == nil {
-						rawMetadata["status"] = constants.StatusCompleted
-						rawMetadata["error"] = nil
-						rawMetadata["updated_at"] = time.Now().Format(time.RFC3339)
-						rawMetadata["reconciled"] = true
-						rawMetadata["reconciled_at"] = time.Now().Format(time.RFC3339)
-						if updatedData, merr := json.MarshalIndent(rawMetadata, "", "  "); merr == nil {
-							_ = os.WriteFile(metadataPath, updatedData, 0644)
-						}
-					}
-				} else if beadsStatus == "in_progress" {
-					// A new run is already executing — show it as in_progress, not failed.
-					monitoring.Logger.Info("reconciling_stale_execution_metadata",
-						"task_id", beadsTaskID,
-						"old_status", taskInfo.Status,
-						"beads_status", beadsStatus,
-						"execution_folder", taskID)
-					taskInfo.Status = constants.StatusInProgress
-					taskInfo.Error = nil
-				} else if beadsStatus == "open" {
-					// Beads was auto-reset after failure; a new run is imminent — show as queued.
-					monitoring.Logger.Info("reconciling_stale_execution_metadata",
-						"task_id", beadsTaskID,
-						"old_status", taskInfo.Status,
-						"beads_status", beadsStatus,
-						"execution_folder", taskID)
-					taskInfo.Status = constants.StatusQueued
-					taskInfo.Error = nil
-				}
-			}
-		}
+		// Status reconciliation is no longer needed - taskDB is the source of truth
 	}
 
 	return taskInfo, nil
-}
-
-// applyBeadsStatusOverride updates taskInfo.Status based on the live Beads task status.
-// Only applies overrides for terminal states. Tasks that are still in activeTasks are
-// live executions; we trust the in-memory status and do not downgrade it based on
-// Beads "open" state (which can occur when orphan cleanup resets beads while the task
-// is still running, or when StartTaskFromDir fails silently).
-//
-// Mapping:
-//   - Beads "closed" / "done" → constants.StatusCompleted
-//   - anything else           → leave taskInfo.Status unchanged
-func (a *GraphQLAdapter) applyBeadsStatusOverride(taskInfo *graphql.TaskInfo, execution *TaskExecution) {
-	beadsTaskID, ok := execution.metadata["beads_task_id"]
-	if !ok || beadsTaskID == "" {
-		return
-	}
-	beadsTask, err := a.taskGetter.GetTask(beadsTaskID)
-	if err != nil {
-		return
-	}
-	switch beadsTask.Status {
-	case constants.StatusClosed, constants.StatusDone:
-		taskInfo.Status = constants.StatusCompleted
-	}
 }
 
 // GetTaskStatus returns status for a specific task
@@ -537,7 +489,6 @@ func (a *GraphQLAdapter) GetTaskStatus(taskID string) (*graphql.TaskInfo, error)
 
 	if exists {
 		taskInfo := convertToTaskInfo(execution)
-		a.applyBeadsStatusOverride(taskInfo, execution)
 		return taskInfo, nil
 	}
 
@@ -711,48 +662,6 @@ func convertToTaskInfo(execution *TaskExecution) *graphql.TaskInfo {
 	return taskInfo
 }
 
-// convertBeadsTaskToTaskInfo converts beads.Task to graphql.TaskInfo
-func convertBeadsTaskToTaskInfo(beadsTask beads.Task, projectRoot string) *graphql.TaskInfo {
-	// Map beads status to agent status
-	// Beads statuses: "open", "in_progress", "closed", "done"
-	// Agent statuses: "open", "queued", "in_progress", "completed", "failed"
-	status := "open"
-	switch beadsTask.Status {
-	case "in_progress":
-		status = "in_progress"
-	case "closed", "done":
-		// A task closed in Beads is always completed, regardless of execution outcome
-		status = constants.StatusCompleted
-	case "open":
-		status = "open" // Keep as "open" to distinguish from queued agents
-	}
-
-	taskInfo := &graphql.TaskInfo{
-		TaskID:      beadsTask.ID,
-		Role:        "beads-task",
-		Task:        beadsTask.Title,
-		Status:      status,
-		CreatedAt:   beadsTask.CreatedAt,
-		UpdatedAt:   beadsTask.UpdatedAt,
-		Metadata:    make(map[string]string),
-		ProjectRoot: &projectRoot,
-	}
-
-	// Add Beads status to metadata so GUI can filter closed tasks
-	taskInfo.Metadata["beads_status"] = beadsTask.Status
-
-	// Add completion timestamp if available
-	if beadsTask.ClosedAt != "" {
-		taskInfo.CompletedAt = &beadsTask.ClosedAt
-	}
-
-	// Add description as result if available
-	if beadsTask.Description != "" && beadsTask.Description != beadsTask.Title {
-		taskInfo.Result = &beadsTask.Description
-	}
-
-	return taskInfo
-}
 
 // CloseTask marks a task as closed so it won't appear in the GUI
 // Tasks are stored in each project's .beads/tasks/<taskID>/metadata.json
