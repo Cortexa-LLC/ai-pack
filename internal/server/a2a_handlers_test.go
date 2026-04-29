@@ -23,12 +23,22 @@ func TestHandleTasksListEmpty(t *testing.T) {
 	os.Setenv("ANTHROPIC_API_TOKEN", "test-token")
 	defer os.Unsetenv("ANTHROPIC_API_TOKEN")
 
+	// Create test-isolated task DB
+	dbPath := filepath.Join(tmpDir, "tasks.db")
+	db, err := taskdb.Open(dbPath)
+	if err != nil {
+		t.Fatalf("Failed to open taskDB: %v", err)
+	}
+	defer db.Close()
+
 	cfg := config.DefaultConfig()
 	cfg.API.Mode = "direct"
 	server, err := NewAgentServer(tmpDir, 3, 4000, "claude-3-5-sonnet-20241022", cfg)
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
 	}
+	// Override with test-isolated DB
+	server.taskDB = db
 
 	// Create test HTTP request
 	req := httptest.NewRequest(http.MethodGet, "/a2a/tasks", nil)

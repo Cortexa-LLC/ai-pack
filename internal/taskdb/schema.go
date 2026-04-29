@@ -5,7 +5,7 @@ package taskdb
 const Schema = `
 CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY,
-    beads_id TEXT,
+    beads_id TEXT,  -- Deprecated: legacy field for backward compatibility with old task format
     project_root TEXT NOT NULL,
     role TEXT NOT NULL,
     task_description TEXT NOT NULL,

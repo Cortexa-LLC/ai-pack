@@ -245,7 +245,6 @@ func TestTaskStatusResponseStructure(t *testing.T) {
 		Role:      "engineer",
 		Task:      "Test task",
 		Status:    "completed",
-		Progress:  1.0,
 		CreatedAt: now,
 		UpdatedAt: now,
 		Result:    "Task completed successfully",
@@ -256,9 +255,6 @@ func TestTaskStatusResponseStructure(t *testing.T) {
 	}
 	if resp.Status != "completed" {
 		t.Errorf("Expected status 'completed', got '%s'", resp.Status)
-	}
-	if resp.Progress != 1.0 {
-		t.Errorf("Expected progress 1.0, got %f", resp.Progress)
 	}
 }
 
