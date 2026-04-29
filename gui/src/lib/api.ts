@@ -26,18 +26,6 @@ export const api = {
     return res.json();
   },
 
-  // Beads tasks (mock for now - would need server endpoint)
-  async getBeadsTasks(): Promise<any[]> {
-    // This would need a server endpoint to parse .beads/issues.jsonl
-    // For now, return mock data
-    return [
-      { id: 'xasm++-e4v', title: 'Implement Merlin Data Directives', status: 'in_progress', priority: 'high' },
-      { id: 'xasm++-85l', title: 'Fix Merlin Macro System', status: 'in_progress', priority: 'high' },
-      { id: 'xasm++-3wr', title: 'Implement Merlin END Directive', status: 'closed', priority: 'medium' },
-      { id: 'ai-pack-abc', title: 'Add GUI monitoring', status: 'open', priority: 'high' },
-      { id: 'ai-pack-def', title: 'Review code quality', status: 'open', priority: 'medium', blockedBy: ['ai-pack-abc'] },
-    ];
-  },
 
   // Spawn agent
   async spawnAgent(role: string, taskId: string): Promise<{ task_id: string }> {

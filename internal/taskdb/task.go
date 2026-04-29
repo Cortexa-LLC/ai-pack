@@ -5,7 +5,7 @@ import "time"
 // Task represents a task in the database.
 type Task struct {
 	ID              string     `json:"id"`
-	BeadsID         string     `json:"beads_id,omitempty"`
+	BeadsID         string     `json:"beads_id,omitempty"` // Deprecated: legacy field for backward compatibility
 	ProjectRoot     string     `json:"project_root"`
 	Role            string     `json:"role"`
 	TaskDescription string     `json:"task_description"`

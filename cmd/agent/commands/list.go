@@ -120,18 +120,19 @@ func runList(running, completed, failed, all, jsonOutput, verbose bool) error {
 	}
 
 	fmt.Println("Tasks:")
-	fmt.Printf("%-25s %-12s %-12s %-45s\n", "BEADS ID", "ROLE", "STATUS", "DESCRIPTION")
+	fmt.Printf("%-25s %-12s %-12s %-45s\n", "TASK ID", "ROLE", "STATUS", "DESCRIPTION")
 	fmt.Println("────────────────────────────────────────────────────────────────────────────────────────────────")
 
 	for _, t := range tasks {
 		statusEmoji := statusIcon(t.Status)
 		desc := truncateDescription(t.Description, 44)
-		beadsID := t.BeadsTaskID
-		if beadsID == "" {
-			beadsID = t.TaskID[:minInt(12, len(t.TaskID))]
+		// Display short task ID (backward compatible with old BeadsTaskID field)
+		displayID := t.BeadsTaskID
+		if displayID == "" {
+			displayID = t.TaskID[:minInt(12, len(t.TaskID))]
 		}
 		fmt.Printf("%-25s %-12s %s %-10s %-45s\n",
-			beadsID,
+			displayID,
 			t.Role,
 			statusEmoji,
 			t.Status,

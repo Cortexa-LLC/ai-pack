@@ -17,8 +17,13 @@ func GenerateTaskID(beadsID string) string {
 	return fmt.Sprintf("%s-%s-%s", beadsID, timestamp, randomSuffix)
 }
 
-// ExtractBeadsID extracts the beads ID from a full task ID
+// ExtractShortID extracts the short task ID from a full task ID (backward compatible with old Beads IDs)
 // Example: "ai-pack-abc123-20260427-153045-a1b2c3" -> "ai-pack-abc123"
-func ExtractBeadsID(taskID string) string {
+func ExtractShortID(taskID string) string {
 	return extractBeadsID(taskID) // reuse existing helper
+}
+
+// ExtractBeadsID is deprecated, use ExtractShortID instead
+func ExtractBeadsID(taskID string) string {
+	return ExtractShortID(taskID)
 }

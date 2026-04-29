@@ -1,6 +1,6 @@
 export interface AgentTask {
   task_id: string;
-  beads_task_id: string;
+  beads_task_id: string; // Deprecated: legacy field for backward compatibility
   status: 'in_progress' | 'completed' | 'failed';
   role: string;
   description: string;
@@ -8,18 +8,6 @@ export interface AgentTask {
   error?: string;
   current_turn?: number;
   tokens_used?: number;
-}
-
-export interface BeadsTask {
-  id: string;
-  title: string;
-  status: 'open' | 'in_progress' | 'closed';
-  priority?: 'low' | 'medium' | 'high';
-  blockedBy?: string[];
-  blocks?: string[];
-  assignee?: string;
-  created?: string;
-  updated?: string;
 }
 
 export interface Metrics {
