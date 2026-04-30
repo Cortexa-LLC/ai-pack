@@ -158,9 +158,9 @@ func TestHandleTasksListWithActiveTasks(t *testing.T) {
 		t.Fatal("Expected task to be an object")
 	}
 
-	// Check required fields
-	if taskID, ok := firstTask["task_id"].(string); !ok || (taskID != "task-1" && taskID != "task-2") {
-		t.Errorf("Expected valid task_id, got %v", firstTask["task_id"])
+	// Check required fields (camelCase JSON)
+	if taskID, ok := firstTask["taskId"].(string); !ok || (taskID != "task-1" && taskID != "task-2") {
+		t.Errorf("Expected valid taskId, got %v", firstTask["taskId"])
 	}
 
 	if _, ok := firstTask["status"].(string); !ok {
