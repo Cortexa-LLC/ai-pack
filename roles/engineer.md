@@ -47,21 +47,17 @@
 **Version:** 1.4.0
 **Last Updated:** 2026-02-15
 **Complexity:** Medium
-**Recommended Model (Default):** gpt-4o-mini
-**Cost Tier:** Minimal (scales to High if needed)
-**Monthly Cost Estimate:** $0.15-0.60 per 1M tokens (default), scales up based on performance
-**Escalation Path:** gpt-4o-mini → gpt-4o → claude-sonnet-4-5 → claude-opus-4-6
 **Best For:** Feature implementation, bug fixes, code refactoring, test creation
 **Avoid For:** Project planning, multi-agent orchestration, strategic decisions
 
-## Cost Optimization Strategy
+## Model Selection
 
-This role **defaults to the most cost-effective model** (gpt-4o-mini) and automatically escalates based on:
-- Task complexity indicators
-- Performance grading (success/failure rate)
+This role uses the **Tier:** medium configuration from the frontmatter, which automatically selects the best cost-effective model based on:
+- Task complexity analysis
+- Performance grading (success/failure rate per model)
 - Project-specific learning
 
-Most engineering tasks (80%+) can be handled by Tier 1 models, saving 90-95% vs. always using premium models.
+The tier starts at "medium" and may escalate or downgrade based on real-time performance data.
 
 ## Role Overview
 
