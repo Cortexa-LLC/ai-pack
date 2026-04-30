@@ -15,6 +15,7 @@ import (
 
 	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
+	"github.com/cortexa-llc/ai-pack/internal/taskdb"
 )
 
 // HandleLogsStream streams logs via SSE
@@ -285,9 +286,10 @@ func (s *AgentServer) serveTaskContract(w http.ResponseWriter, r *http.Request, 
 
 	// Build markdown contract
 	var contract strings.Builder
-	contract.WriteString(fmt.Sprintf("# Task %s\n\n", dbTask.BeadsID))
+	shortID := taskdb.ExtractShortID(dbTask.ID)
+	contract.WriteString(fmt.Sprintf("# Task %s\n\n", shortID))
 	contract.WriteString(fmt.Sprintf("**Task ID:** %s  \n", dbTask.ID))
-	contract.WriteString(fmt.Sprintf("**Beads ID:** %s  \n", dbTask.BeadsID))
+	contract.WriteString(fmt.Sprintf("**Short ID:** %s  \n", shortID))
 	contract.WriteString(fmt.Sprintf("**Status:** %s  \n", dbTask.Status))
 	contract.WriteString(fmt.Sprintf("**Role:** %s  \n\n", dbTask.Role))
 

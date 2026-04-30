@@ -8,6 +8,3 @@ export function useTasks() {
     refetchInterval: 3000, // Poll every 3 seconds
   });
 }
-
-// Backward compatibility alias
-export const useBeadsTasks = useTasks;

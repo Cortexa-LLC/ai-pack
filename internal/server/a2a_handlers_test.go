@@ -101,7 +101,7 @@ func TestHandleTasksListWithActiveTasks(t *testing.T) {
 	// Add tasks to taskDB
 	task1 := &taskdb.Task{
 		ID:              "task-1",
-		BeadsID:         "test-beads-1",
+		
 		ProjectRoot:     tmpDir,
 		Role:            "engineer",
 		TaskDescription: "Test task 1",
@@ -112,7 +112,7 @@ func TestHandleTasksListWithActiveTasks(t *testing.T) {
 
 	task2 := &taskdb.Task{
 		ID:              "task-2",
-		BeadsID:         "test-beads-2",
+		
 		ProjectRoot:     tmpDir,
 		Role:            "tester",
 		TaskDescription: "Test task 2",

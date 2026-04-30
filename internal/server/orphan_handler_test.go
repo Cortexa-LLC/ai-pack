@@ -42,7 +42,6 @@ func TestOrphanDetection_TaskDBInProgress(t *testing.T) {
 	// Create a task marked as in_progress in taskDB
 	orphanTask := &taskdb.Task{
 		ID:              "orphan-task-1",
-		BeadsID:         "orphan-1",
 		ProjectRoot:     tmpDir,
 		Role:            "engineer",
 		TaskDescription: "orphaned task",
@@ -113,7 +112,6 @@ func TestOrphanDetection_ActiveTaskNotMarkedOrphaned(t *testing.T) {
 	// Create a task in taskDB
 	activeTask := &taskdb.Task{
 		ID:              "active-task-1",
-		BeadsID:         "active-1",
 		ProjectRoot:     tmpDir,
 		Role:            "engineer",
 		TaskDescription: "active task",
@@ -327,7 +325,6 @@ func TestOrphanDetection_CheckpointDeletion(t *testing.T) {
 	// Create an orphaned task
 	orphanTask := &taskdb.Task{
 		ID:              "orphan-with-checkpoint",
-		BeadsID:         "orphan-cp",
 		ProjectRoot:     tmpDir,
 		Role:            "engineer",
 		TaskDescription: "orphaned task with checkpoint",

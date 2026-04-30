@@ -86,11 +86,8 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 		} else {
 			monitoring.Logger.Info("loaded_tasks_from_taskdb", "count", len(dbTasks))
 			for _, dbTask := range dbTasks {
-				// Use BeadsID as the key (short ID like "ai-pack-abc123")
-				taskKey := dbTask.BeadsID
-				if taskKey == "" {
-					taskKey = dbTask.ID
-				}
+				// Use short task ID as the key (like "ai-pack-abc123")
+				taskKey := taskdb.ExtractShortID(dbTask.ID)
 
 				// Skip if already present from activeTasks (use most recent status)
 				if _, exists := tasks[taskKey]; exists {

@@ -5,7 +5,6 @@ package taskdb
 const Schema = `
 CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY,
-    beads_id TEXT,  -- Deprecated: legacy field for backward compatibility with old task format
     project_root TEXT NOT NULL,
     role TEXT NOT NULL,
     task_description TEXT NOT NULL,
@@ -31,7 +30,6 @@ CREATE TABLE IF NOT EXISTS tasks (
 
 CREATE INDEX IF NOT EXISTS idx_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_project ON tasks(project_root);
-CREATE INDEX IF NOT EXISTS idx_beads_id ON tasks(beads_id);
 CREATE INDEX IF NOT EXISTS idx_owner ON tasks(owner_agent_id);
 CREATE INDEX IF NOT EXISTS idx_created ON tasks(created_at);
 CREATE INDEX IF NOT EXISTS idx_role ON tasks(role);

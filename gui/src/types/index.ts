@@ -1,6 +1,6 @@
 export interface AgentTask {
   task_id: string;
-  beads_task_id: string; // Deprecated: legacy field for backward compatibility
+  beads_task_id: string; // Short task ID extracted from full task_id
   status: 'in_progress' | 'completed' | 'failed';
   role: string;
   description: string;
