@@ -23,10 +23,11 @@ export const api = {
       updatedAt: task.updatedAt || new Date().toISOString(),
     }));
 
-    // Deduplicate tasks - keep only latest run per beadsTaskId
+    // Deduplicate tasks - keep only latest run per taskId
+    // taskId is now the short ID (e.g., "listingsgql-ddf"), not the full timestamped slug
     const taskMap = new Map<string, AgentTask>();
     for (const task of tasks) {
-      const key = task.beadsTaskId || task.taskId;
+      const key = task.taskId;
       const existing = taskMap.get(key);
 
       if (!existing) {

@@ -394,7 +394,6 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 	// Build list of all tasks
 	type TaskInfo struct {
 		TaskID      string     `json:"taskId"`
-		BeadsTaskID string     `json:"beadsTaskId,omitempty"`
 		Status      string     `json:"status"`
 		Role        string     `json:"role"`
 		Description string     `json:"description"`
@@ -421,8 +420,7 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 		// Convert to TaskInfo
 		for _, dbTask := range dbTasks {
 			task := TaskInfo{
-				TaskID:      dbTask.ID,
-				BeadsTaskID: taskdb.ExtractShortID(dbTask.ID),
+				TaskID:      taskdb.ExtractShortID(dbTask.ID), // Use short ID as the canonical task ID
 				Status:      dbTask.Status,
 				Role:        dbTask.Role,
 				Description: dbTask.TaskDescription,
