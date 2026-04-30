@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
+export type { AgentTask } from '../types';
+
 export function useTasks() {
   return useQuery({
     queryKey: ['tasks'],

@@ -12,7 +12,16 @@ export const api = {
   // Agent tasks
   async getTasks(): Promise<{ tasks: AgentTask[]; count: number }> {
     const res = await fetch(`${API_BASE}/a2a/tasks`);
-    return res.json();
+    const data = await res.json();
+    // Transform response to add GraphQL-compatible aliases
+    const tasks = (data.tasks || []).map((task: any) => ({
+      ...task,
+      taskID: task.taskId,
+      task: task.description,
+      createdAt: task.createdAt || new Date().toISOString(),
+      updatedAt: task.updatedAt || new Date().toISOString(),
+    }));
+    return { tasks, count: data.count || tasks.length };
   },
 
   async getTaskStatus(taskId: string): Promise<AgentTask> {

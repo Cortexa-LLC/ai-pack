@@ -1,13 +1,20 @@
 export interface AgentTask {
-  task_id: string;
-  beads_task_id: string; // Short task ID extracted from full task_id
-  status: 'in_progress' | 'completed' | 'failed';
+  taskId: string;
+  taskID: string; // Alias for taskId (GraphQL compatibility)
+  beadsTaskId?: string; // Short task ID extracted from full taskId
+  status: 'in_progress' | 'completed' | 'failed' | 'queued' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'QUEUED' | 'OPEN' | 'BLOCKED' | 'open' | 'blocked';
   role: string;
   description: string;
-  project_root?: string;
+  task: string; // Alias for description (GraphQL compatibility)
+  projectRoot: string;
   error?: string;
-  current_turn?: number;
-  tokens_used?: number;
+  result?: string;
+  currentTurn?: number;
+  tokensUsed?: number;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
 }
 
 export interface Metrics {

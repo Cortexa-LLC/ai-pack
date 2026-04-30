@@ -393,12 +393,12 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 
 	// Build list of all tasks
 	type TaskInfo struct {
-		TaskID      string `json:"task_id"`
-		BeadsTaskID string `json:"beads_task_id,omitempty"`
+		TaskID      string `json:"taskId"`
+		BeadsTaskID string `json:"beadsTaskId,omitempty"`
 		Status      string `json:"status"`
 		Role        string `json:"role"`
 		Description string `json:"description"`
-		ProjectRoot string `json:"project_root,omitempty"`
+		ProjectRoot string `json:"projectRoot,omitempty"`
 		Error       string `json:"error,omitempty"`
 	}
 
