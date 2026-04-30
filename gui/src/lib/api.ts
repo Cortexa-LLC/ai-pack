@@ -13,15 +13,37 @@ export const api = {
   async getTasks(): Promise<{ tasks: AgentTask[]; count: number }> {
     const res = await fetch(`${API_BASE}/a2a/tasks`);
     const data = await res.json();
+
     // Transform response to add GraphQL-compatible aliases
-    const tasks = (data.tasks || []).map((task: any) => ({
+    let tasks = (data.tasks || []).map((task: any) => ({
       ...task,
       taskID: task.taskId,
       task: task.description,
       createdAt: task.createdAt || new Date().toISOString(),
       updatedAt: task.updatedAt || new Date().toISOString(),
     }));
-    return { tasks, count: data.count || tasks.length };
+
+    // Deduplicate tasks - keep only latest run per beadsTaskId
+    const taskMap = new Map<string, AgentTask>();
+    for (const task of tasks) {
+      const key = task.beadsTaskId || task.taskId;
+      const existing = taskMap.get(key);
+
+      if (!existing) {
+        taskMap.set(key, task);
+      } else {
+        // Keep the task with the most recent updatedAt timestamp
+        const existingTime = new Date(existing.updatedAt).getTime();
+        const currentTime = new Date(task.updatedAt).getTime();
+
+        if (currentTime > existingTime) {
+          taskMap.set(key, task);
+        }
+      }
+    }
+
+    tasks = Array.from(taskMap.values());
+    return { tasks, count: tasks.length };
   },
 
   async getTaskStatus(taskId: string): Promise<AgentTask> {
