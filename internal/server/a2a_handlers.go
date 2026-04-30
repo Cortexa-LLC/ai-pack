@@ -393,13 +393,16 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 
 	// Build list of all tasks
 	type TaskInfo struct {
-		TaskID      string `json:"taskId"`
-		BeadsTaskID string `json:"beadsTaskId,omitempty"`
-		Status      string `json:"status"`
-		Role        string `json:"role"`
-		Description string `json:"description"`
-		ProjectRoot string `json:"projectRoot,omitempty"`
-		Error       string `json:"error,omitempty"`
+		TaskID      string     `json:"taskId"`
+		BeadsTaskID string     `json:"beadsTaskId,omitempty"`
+		Status      string     `json:"status"`
+		Role        string     `json:"role"`
+		Description string     `json:"description"`
+		ProjectRoot string     `json:"projectRoot,omitempty"`
+		Error       string     `json:"error,omitempty"`
+		CreatedAt   *time.Time `json:"createdAt,omitempty"`
+		UpdatedAt   *time.Time `json:"updatedAt,omitempty"`
+		CompletedAt *time.Time `json:"completedAt,omitempty"`
 	}
 
 	var tasks []TaskInfo
@@ -425,6 +428,9 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 				Description: dbTask.TaskDescription,
 				ProjectRoot: dbTask.ProjectRoot,
 				Error:       dbTask.Error,
+				CreatedAt:   &dbTask.CreatedAt,
+				UpdatedAt:   &dbTask.UpdatedAt,
+				CompletedAt: dbTask.CompletedAt,
 			}
 			tasks = append(tasks, task)
 		}
