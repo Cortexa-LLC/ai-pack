@@ -6,8 +6,8 @@ import { AgentTask } from '../hooks/useTasks';
 describe('TaskList', () => {
   const mockTasks: AgentTask[] = [
     {
-      taskID: 'task-1',
-      taskId: 'task-1',
+      taskID: 'proj-abc',
+      taskId: 'proj-abc',
       role: 'engineer',
       description: 'Fix bug in authentication',
       task: 'Fix bug in authentication',
@@ -17,8 +17,8 @@ describe('TaskList', () => {
       projectRoot: '/test/project',
     },
     {
-      taskID: 'task-2',
-      taskId: 'task-2',
+      taskID: 'proj-def',
+      taskId: 'proj-def',
       role: 'tester',
       description: 'Write integration tests',
       task: 'Write integration tests',

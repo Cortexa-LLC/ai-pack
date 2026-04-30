@@ -1,7 +1,6 @@
 export interface AgentTask {
-  taskId: string;
+  taskId: string; // Short task ID (e.g., "listingsgql-ddf")
   taskID: string; // Alias for taskId (GraphQL compatibility)
-  beadsTaskId?: string; // Short task ID extracted from full taskId
   status: 'in_progress' | 'completed' | 'failed' | 'queued' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'QUEUED' | 'OPEN' | 'BLOCKED' | 'open' | 'blocked';
   role: string;
   description: string;
