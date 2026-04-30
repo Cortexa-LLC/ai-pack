@@ -43,6 +43,12 @@ func Open(path string) (*DB, error) {
 		return nil, fmt.Errorf("failed to initialize schema: %w", err)
 	}
 
+	// Run migrations
+	if err := RunMigrations(taskDB); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
+
 	return taskDB, nil
 }
 
