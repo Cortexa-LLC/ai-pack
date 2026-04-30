@@ -49,7 +49,7 @@ Examples:
 			return cmd.Help()
 		}
 		if len(args) < 2 {
-			return fmt.Errorf("usage: agent <role> <beads-task-id> [flags]\n\nExample: agent engineer xasm++-vp5 --stream")
+			return fmt.Errorf("usage: agent <role> <task-id> [flags]\n\nExample: agent engineer xasm++-vp5 --stream")
 		}
 		role := args[0]
 		taskInput := args[1]

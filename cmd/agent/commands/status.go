@@ -9,14 +9,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const errNoAgentForBeadsTask = "❌ No agent found for Beads task: %s\n"
+const errNoAgentForBeadsTask = "❌ No agent found for task: %s\n"
 
 func newStatusCmd() *cobra.Command {
 	var jsonOutput bool
 	var quiet bool
 
 	cmd := &cobra.Command{
-		Use:          "status <beads-task-id>",
+		Use:          "status <task-id>",
 		Short:        "Show agent task status",
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
@@ -30,17 +30,17 @@ func newStatusCmd() *cobra.Command {
 	return cmd
 }
 
-func runStatus(beadsTaskID string, jsonOutput, quiet bool) error {
-	internalTaskID := findInternalTaskIDFromServer(beadsTaskID)
+func runStatus(taskID string, jsonOutput, quiet bool) error {
+	internalTaskID := findInternalTaskIDFromServer(taskID)
 	if internalTaskID == "" {
-		internalTaskID = findInternalTaskID(beadsTaskID)
+		internalTaskID = findInternalTaskID(taskID)
 	}
 
 	if internalTaskID == "" {
 		if jsonOutput {
 			fmt.Println(`{"error":"not_found"}`)
 		} else if !quiet {
-			fmt.Printf(errNoAgentForBeadsTask, beadsTaskID)
+			fmt.Printf(errNoAgentForBeadsTask, taskID)
 		}
 		os.Exit(3) //nolint:gocritic // intentional semantic exit code
 	}
@@ -63,11 +63,11 @@ func runStatus(beadsTaskID string, jsonOutput, quiet bool) error {
 	if quiet {
 		fmt.Println(statusStr)
 	} else if jsonOutput {
-		status["task_id"] = beadsTaskID
+		status["task_id"] = taskID
 		jsonData, _ := json.MarshalIndent(status, "", "  ")
 		fmt.Println(string(jsonData))
 	} else {
-		fmt.Printf("Task: %s\n", beadsTaskID)
+		fmt.Printf("Task: %s\n", taskID)
 		fmt.Printf("Status: %v\n", status["status"])
 		if status["error"] != nil {
 			fmt.Printf("Error: %v\n", status["error"])
@@ -89,7 +89,7 @@ func runStatus(beadsTaskID string, jsonOutput, quiet bool) error {
 
 // runStatusByInternalID issues GET /a2a/status/<internalTaskID> and returns the
 // raw response body. It is extracted so that contract tests can verify the
-// correct endpoint path without requiring a Beads task lookup or calling os.Exit.
+// correct endpoint path without requiring a task lookup or calling os.Exit.
 func runStatusByInternalID(internalTaskID string) ([]byte, error) {
 	c := agentclient.Default()
 	resp, err := c.Get(fmt.Sprintf("/a2a/status/%s", internalTaskID))

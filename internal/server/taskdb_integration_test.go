@@ -59,7 +59,7 @@ func TestGetAllTasks_WithTaskDB(t *testing.T) {
 		Task:      "active task",
 		Status:    constants.StatusInProgress,
 		StartTime: time.Now(),
-		metadata:  map[string]string{"beads_task_id": "ai-pack-active"},
+		metadata:  map[string]string{"task_id": "ai-pack-active"},
 	}
 	server.mu.Lock()
 	server.activeTasks["task-active-456"] = activeExec

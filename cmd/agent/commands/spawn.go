@@ -16,11 +16,11 @@ import (
 )
 
 func runSpawn(role, taskInput string, wait, stream bool, inactiveTimeout time.Duration) error {
-	// Validate Beads task
-	validateBeadsTaskOrExit(taskInput, role)
+	// Validate task
+	validateTaskOrExit(taskInput, role)
 
 	fmt.Printf("🚀 Spawning %s agent...\n", role)
-	fmt.Printf("🎯 Beads task: %s\n", taskInput)
+	fmt.Printf("🎯 task: %s\n", taskInput)
 
 	projectRoot := detectProjectRoot()
 	if projectRoot == "" {
@@ -108,12 +108,12 @@ func runSpawnHTTP(role, task, projectRoot string) (string, error) {
 	return taskID, nil
 }
 
-// validateBeadsTaskOrExit checks the task input looks like a Beads ID or a proper task string.
-func validateBeadsTaskOrExit(taskInput, role string) {
+// validateTaskOrExit checks the task input looks like a task ID or a proper task string.
+func validateTaskOrExit(taskInput, role string) {
 	// If it looks like a common mistake (e.g. using a flag as the task)
 	if strings.HasPrefix(taskInput, "-") {
 		fmt.Printf("❌ Invalid task ID: %s\n", taskInput)
-		fmt.Printf("   Usage: agent %s <beads-task-id>\n", role)
+		fmt.Printf("   Usage: agent %s <task-id>\n", role)
 		os.Exit(1)
 	}
 }
@@ -151,21 +151,21 @@ func mustGetWorkingDir() string {
 }
 
 // findInternalTaskIDFromServer asks the server for the internal task ID matching
-// the given Beads task ID.
-func findInternalTaskIDFromServer(beadsTaskID string) string {
+// the given task ID.
+func findInternalTaskIDFromServer(taskID string) string {
 	c := agentclient.Default()
-	id, _ := c.FindTaskByBeadsID(beadsTaskID)
+	id, _ := c.FindTaskByShortID(taskID)
 	return id
 }
 
 // findTaskIDAndProjectFromServer returns (internalTaskID, projectRoot) from server.
-func findTaskIDAndProjectFromServer(beadsTaskID string) (string, string) {
+func findTaskIDAndProjectFromServer(taskID string) (string, string) {
 	c := agentclient.Default()
-	return c.FindTaskByBeadsID(beadsTaskID)
+	return c.FindTaskByShortID(taskID)
 }
 
 // findInternalTaskID looks up the internal task ID from the local .beads directory.
-func findInternalTaskID(beadsTaskID string) string {
+func findInternalTaskID(taskID string) string {
 	projectRoot := detectProjectRoot()
 	if projectRoot == "" {
 		projectRoot, _ = os.Getwd()
@@ -187,12 +187,12 @@ func findInternalTaskID(beadsTaskID string) string {
 			continue
 		}
 		var meta struct {
-			BeadsTaskID string `json:"beads_task_id"`
+			BeadsTaskID string `json:"task_id"`
 		}
 		if err := json.Unmarshal(data, &meta); err != nil {
 			continue
 		}
-		if meta.BeadsTaskID == beadsTaskID {
+		if meta.BeadsTaskID == taskID {
 			return entry.Name()
 		}
 	}
@@ -300,14 +300,14 @@ func streamTaskProgressWithInactivity(internalTaskID string, inactiveTimeout tim
 }
 
 // waitForTaskCompletion polls the server until the task is done or timeout expires.
-func waitForTaskCompletion(beadsTaskID string, timeout time.Duration) {
+func waitForTaskCompletion(taskID string, timeout time.Duration) {
 	deadline := time.Now().Add(timeout)
-	fmt.Printf("⏳ Waiting for task %s to complete (timeout: %v)...\n", beadsTaskID, timeout)
+	fmt.Printf("⏳ Waiting for task %s to complete (timeout: %v)...\n", taskID, timeout)
 
 	for time.Now().Before(deadline) {
-		internalTaskID := findInternalTaskIDFromServer(beadsTaskID)
+		internalTaskID := findInternalTaskIDFromServer(taskID)
 		if internalTaskID == "" {
-			internalTaskID = findInternalTaskID(beadsTaskID)
+			internalTaskID = findInternalTaskID(taskID)
 		}
 		if internalTaskID == "" {
 			fmt.Printf("⚠️  Task not found yet, retrying...\n")
@@ -354,7 +354,7 @@ func waitForTaskCompletion(beadsTaskID string, timeout time.Duration) {
 			time.Sleep(10 * time.Second)
 		}
 	}
-	fmt.Printf("⏰ Timeout waiting for task %s\n", beadsTaskID)
+	fmt.Printf("⏰ Timeout waiting for task %s\n", taskID)
 	os.Exit(1)
 }
 

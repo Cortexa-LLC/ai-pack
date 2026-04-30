@@ -50,7 +50,7 @@ func GetOrchestratorTools() []anthropic.ToolUnionParam {
 					},
 					"task_id": map[string]interface{}{
 						"type":        "string",
-						"description": "The Beads task ID to work on (e.g. xasm++-abc123)",
+						"description": "The task ID to work on (e.g. xasm++-abc123)",
 					},
 					"project_root": map[string]interface{}{
 						"type":        "string",
@@ -146,12 +146,12 @@ func (s *AgentServer) executeCreateTask(input map[string]interface{}) (string, e
 		priority = "P2"
 	}
 
-	// Create Beads task using bd create command
+	// Create task using bd create command
 	cmd := exec.Command("bd", "create", description, "--priority", priority, "--json")
 	cmd.Dir = projectRoot
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("failed to create Beads task: %v (output: %s)", err, string(output))
+		return "", fmt.Errorf("failed to create task: %v (output: %s)", err, string(output))
 	}
 
 	// Parse task ID from JSON output
@@ -159,14 +159,14 @@ func (s *AgentServer) executeCreateTask(input map[string]interface{}) (string, e
 		ID string `json:"id"`
 	}
 	if err := json.Unmarshal(output, &createResult); err != nil {
-		return "", fmt.Errorf("failed to parse Beads task creation output: %w", err)
+		return "", fmt.Errorf("failed to parse task creation output: %w", err)
 	}
 
 	if createResult.ID == "" {
-		return "", fmt.Errorf("Beads task created but no ID returned")
+		return "", fmt.Errorf("task created but no ID returned")
 	}
 
-	// Build task packet directory slug: <beadsID>-<timestamp>-<short-desc>
+	// Build task packet directory slug: <shortTaskID>-<timestamp>-<short-desc>
 	timestamp := time.Now().Format("20060102150405")
 	firstLine := description
 	if idx := strings.Index(description, "\n"); idx != -1 {
@@ -452,7 +452,7 @@ func (s *AgentServer) executeUpdateTaskStatus(input map[string]interface{}) (str
 	}
 
 	// Find the task execution metadata and update it
-	// The taskID could be either a Beads task ID or a timestamped execution folder
+	// The taskID could be either a task ID or a timestamped execution folder
 	projectRoot, executionFolder, err := s.findTaskExecutionMetadata(taskID)
 	if err != nil {
 		return "", fmt.Errorf("task not found: %w", err)
@@ -485,7 +485,7 @@ func (s *AgentServer) executeUpdateTaskStatus(input map[string]interface{}) (str
 
 // findTaskExecutionMetadata finds the project root and execution folder for a task ID
 // The taskID can be either:
-// - A Beads task ID (e.g., "xasm++-8hyz")
+// - A task ID (e.g., "xasm++-8hyz")
 // - A timestamped execution folder (e.g., "xasm++-8hyz-20260211-111548")
 func (s *AgentServer) findTaskExecutionMetadata(taskID string) (projectRoot, executionFolder string, err error) {
 	// Get all registered project roots
@@ -500,7 +500,7 @@ func (s *AgentServer) findTaskExecutionMetadata(taskID string) (projectRoot, exe
 		}
 
 		// If direct path doesn't exist, try finding most recent execution
-		// This handles the case where taskID is just the Beads task ID
+		// This handles the case where taskID is just the task ID
 		execFolder := s.findMostRecentExecutionInProject(pr, taskID)
 		if execFolder != "" {
 			metadataPath = filepath.Join(pr, ".beads", "tasks", execFolder, "00-metadata.json")
@@ -513,8 +513,8 @@ func (s *AgentServer) findTaskExecutionMetadata(taskID string) (projectRoot, exe
 	return "", "", fmt.Errorf("no execution metadata found for task %s in any project", taskID)
 }
 
-// findMostRecentExecutionInProject finds the most recent timestamped execution folder for a Beads task ID
-func (s *AgentServer) findMostRecentExecutionInProject(projectRoot, beadsTaskID string) string {
+// findMostRecentExecutionInProject finds the most recent timestamped execution folder for a task ID
+func (s *AgentServer) findMostRecentExecutionInProject(projectRoot, taskID string) string {
 	tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
 	entries, err := os.ReadDir(tasksDir)
 	if err != nil {
@@ -524,15 +524,15 @@ func (s *AgentServer) findMostRecentExecutionInProject(projectRoot, beadsTaskID 
 	var mostRecentFolder string
 	var mostRecentFolderTime time.Time
 
-	// Find all folders matching {beads-id}-{timestamp} pattern
-	prefix := beadsTaskID + "-"
+	// Find all folders matching {short-task-id}-{timestamp} pattern
+	prefix := taskID + "-"
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
 
 		folderName := entry.Name()
-		// Check if folder matches pattern: {beads-id}-{timestamp}
+		// Check if folder matches pattern: {short-task-id}-{timestamp}
 		if strings.HasPrefix(folderName, prefix) {
 			// Sort by the timestamp embedded in the folder name, not by filesystem
 			// mtime. mtime is unreliable: marking an old execution as superseded

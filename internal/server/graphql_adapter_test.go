@@ -167,7 +167,7 @@ func TestGetAllTasks_CancelledTaskShowsCancelled(t *testing.T) {
 		t.Fatalf("Failed to create server: %v", err)
 	}
 
-	beadsID := "ai-pack-test-cancelled"
+	shortTaskID := "ai-pack-test-cancelled"
 
 	// CloseTask sets execution.Status = "closed" before removing from activeTasks.
 	// This is the in-flight window a GetAllTasks call would observe for a cancelled task.
@@ -177,18 +177,18 @@ func TestGetAllTasks_CancelledTaskShowsCancelled(t *testing.T) {
 		Task:      "some cancelled task",
 		Status:    "closed",
 		StartTime: time.Now(),
-		metadata:  map[string]string{"beads_task_id": beadsID},
+		metadata:  map[string]string{"task_id": shortTaskID},
 	}
 
 	// Add a legitimately running task that should stay "in_progress"
-	beadsIDRunning := "ai-pack-test-running"
+	shortTaskIDRunning := "ai-pack-test-running"
 	executionRunning := &TaskExecution{
 		TaskID:    "task-running",
 		Role:      "engineer",
 		Task:      "running task",
 		Status:    "in_progress",
 		StartTime: time.Now(),
-		metadata:  map[string]string{"beads_task_id": beadsIDRunning},
+		metadata:  map[string]string{"task_id": shortTaskIDRunning},
 	}
 
 	server.mu.Lock()
@@ -280,11 +280,11 @@ func TestFindMostRecentExecution_UsesNameTimestampNotMtime(t *testing.T) {
 	monitoring.InitMetrics()
 
 	projectRoot := t.TempDir()
-	beadsID := "ai-pack-x008"
-	tasksDir := filepath.Join(projectRoot, constants.BeadsDir, "tasks")
+	shortTaskID := "ai-pack-x008"
+	tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
 
-	newFolderName := beadsID + "-20260228-130000"
-	oldFolderName := beadsID + "-20260228-120000"
+	newFolderName := shortTaskID + "-20260228-130000"
+	oldFolderName := shortTaskID + "-20260228-120000"
 
 	// Write metadata for old (failed, superseded) execution
 	oldDir := filepath.Join(tasksDir, oldFolderName)
@@ -297,7 +297,7 @@ func TestFindMostRecentExecution_UsesNameTimestampNotMtime(t *testing.T) {
 		"role":       "engineer",
 		"task":       "old task",
 		"superseded": true,
-		"metadata":   map[string]string{"beads_task_id": beadsID},
+		"metadata":   map[string]string{"task_id": shortTaskID},
 	}
 	writeMetaJSON(t, oldDir, oldMeta)
 
@@ -311,7 +311,7 @@ func TestFindMostRecentExecution_UsesNameTimestampNotMtime(t *testing.T) {
 		"status":   "in_progress",
 		"role":     "engineer",
 		"task":     "new task",
-		"metadata": map[string]string{"beads_task_id": beadsID},
+		"metadata": map[string]string{"task_id": shortTaskID},
 	}
 	writeMetaJSON(t, newDir, newMeta)
 
@@ -336,12 +336,12 @@ func TestFindMostRecentExecution_UsesNameTimestampNotMtime(t *testing.T) {
 	}
 	adapter := NewGraphQLAdapter(server)
 
-	result := adapter.findMostRecentExecution(projectRoot, beadsID)
+	result := adapter.findMostRecentExecution(projectRoot, shortTaskID)
 	if result == nil {
 		t.Fatal("findMostRecentExecution returned nil")
 	}
 
-	if result.TaskID != newFolderName && result.TaskID != beadsID {
+	if result.TaskID != newFolderName && result.TaskID != shortTaskID {
 		t.Errorf("expected task from new execution folder, got TaskID=%q", result.TaskID)
 	}
 
@@ -368,8 +368,8 @@ func TestGetTaskStatus_FindsActiveTaskByBeadsIDPrefix(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	beadsID := "ai-pack-x008"
-	execID := beadsID + "-20260228-130000"
+	shortTaskID := "ai-pack-x008"
+	execID := shortTaskID + "-20260228-130000"
 
 	execution := &TaskExecution{
 		TaskID:    execID,
@@ -377,7 +377,7 @@ func TestGetTaskStatus_FindsActiveTaskByBeadsIDPrefix(t *testing.T) {
 		Task:      "running task",
 		Status:    "in_progress",
 		StartTime: time.Now(),
-		metadata:  map[string]string{"beads_task_id": beadsID},
+		metadata:  map[string]string{"task_id": shortTaskID},
 	}
 	server.mu.Lock()
 	server.activeTasks[execID] = execution
@@ -385,10 +385,10 @@ func TestGetTaskStatus_FindsActiveTaskByBeadsIDPrefix(t *testing.T) {
 
 	adapter := NewGraphQLAdapter(server)
 
-	// Query with the SHORT beads ID — should find the active execution
-	taskInfo, err := adapter.GetTaskStatus(beadsID)
+	// Query with the SHORT task ID — should find the active execution
+	taskInfo, err := adapter.GetTaskStatus(shortTaskID)
 	if err != nil {
-		t.Fatalf("GetTaskStatus(%q) returned error: %v", beadsID, err)
+		t.Fatalf("GetTaskStatus(%q) returned error: %v", shortTaskID, err)
 	}
 	if taskInfo == nil {
 		t.Fatal("GetTaskStatus returned nil")

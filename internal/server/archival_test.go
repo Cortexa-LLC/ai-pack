@@ -60,7 +60,7 @@ func TestArchiveOldTasks_CompletedTasks(t *testing.T) {
 
 	// Manually set CompletedAt to 15 days ago (can't use SQL UPDATE in test without direct DB access)
 	// Instead, create the execution folder and run archival
-	taskDir := filepath.Join(tmpDir, constants.BeadsDir, "tasks", "old-task-1")
+	taskDir := filepath.Join(tmpDir, constants.TaskRootDir, "tasks", "old-task-1")
 	if err := os.MkdirAll(taskDir, 0755); err != nil {
 		t.Fatalf("Failed to create task dir: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestArchiveOldTasks_CompletedTasks(t *testing.T) {
 
 	// Verify task directory was moved to archive
 	archiveMonth := oldTime.Format("2006-01")
-	archivedDir := filepath.Join(tmpDir, constants.BeadsDir, "archive", archiveMonth, "old-task-1")
+	archivedDir := filepath.Join(tmpDir, constants.TaskRootDir, "archive", archiveMonth, "old-task-1")
 
 	if _, err := os.Stat(archivedDir); os.IsNotExist(err) {
 		t.Errorf("Task directory should be archived at %s", archivedDir)
@@ -149,7 +149,7 @@ func TestArchiveOldTasks_RecentTasksNotArchived(t *testing.T) {
 	}
 
 	// Create execution folder
-	taskDir := filepath.Join(tmpDir, constants.BeadsDir, "tasks", "recent-task-1")
+	taskDir := filepath.Join(tmpDir, constants.TaskRootDir, "tasks", "recent-task-1")
 	if err := os.MkdirAll(taskDir, 0755); err != nil {
 		t.Fatalf("Failed to create task dir: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestArchiveOldTasks_RecentTasksNotArchived(t *testing.T) {
 
 	// Verify it's not in archive
 	archiveMonth := recentTime.Format("2006-01")
-	archivedDir := filepath.Join(tmpDir, constants.BeadsDir, "archive", archiveMonth, "recent-task-1")
+	archivedDir := filepath.Join(tmpDir, constants.TaskRootDir, "archive", archiveMonth, "recent-task-1")
 	if _, err := os.Stat(archivedDir); !os.IsNotExist(err) {
 		t.Error("Recent task should NOT be in archive")
 	}
@@ -229,7 +229,7 @@ func TestArchiveOldTasks_FailedTasks(t *testing.T) {
 	}
 
 	// Create execution folder
-	taskDir := filepath.Join(tmpDir, constants.BeadsDir, "tasks", "failed-task-1")
+	taskDir := filepath.Join(tmpDir, constants.TaskRootDir, "tasks", "failed-task-1")
 	if err := os.MkdirAll(taskDir, 0755); err != nil {
 		t.Fatalf("Failed to create task dir: %v", err)
 	}
@@ -247,7 +247,7 @@ func TestArchiveOldTasks_FailedTasks(t *testing.T) {
 
 	// Verify failed task was archived
 	archiveMonth := oldTime.Format("2006-01")
-	archivedDir := filepath.Join(tmpDir, constants.BeadsDir, "archive", archiveMonth, "failed-task-1")
+	archivedDir := filepath.Join(tmpDir, constants.TaskRootDir, "archive", archiveMonth, "failed-task-1")
 
 	if _, err := os.Stat(archivedDir); os.IsNotExist(err) {
 		t.Error("Failed task should be archived")
@@ -299,7 +299,7 @@ func TestArchiveOldTasks_DisabledNoArchival(t *testing.T) {
 		t.Fatalf("Failed to complete task: %v", err)
 	}
 
-	taskDir := filepath.Join(tmpDir, constants.BeadsDir, "tasks", "old-disabled-1")
+	taskDir := filepath.Join(tmpDir, constants.TaskRootDir, "tasks", "old-disabled-1")
 	if err := os.MkdirAll(taskDir, 0755); err != nil {
 		t.Fatalf("Failed to create task dir: %v", err)
 	}
@@ -377,7 +377,7 @@ func TestArchiveOldTasks_NoExecutionFolderSkipped(t *testing.T) {
 
 	// Verify archive directory was not created
 	archiveMonth := oldTime.Format("2006-01")
-	archivedDir := filepath.Join(tmpDir, constants.BeadsDir, "archive", archiveMonth, "no-folder-1")
+	archivedDir := filepath.Join(tmpDir, constants.TaskRootDir, "archive", archiveMonth, "no-folder-1")
 	if _, err := os.Stat(archivedDir); !os.IsNotExist(err) {
 		t.Error("Should not create archive for non-existent execution folder")
 	}

@@ -61,7 +61,7 @@ func migrateSingleProject(db *taskdb.DB, projectRoot string) error {
 
 	fmt.Printf("Migrating tasks from: %s\n", absPath)
 
-	count, err := db.MigrateFromBeads(absPath)
+	count, err := db.MigrateFromLegacy(absPath)
 	if err != nil {
 		return fmt.Errorf("migration failed: %w", err)
 	}
@@ -106,7 +106,7 @@ func migrateAllProjects(db *taskdb.DB) error {
 
 				if _, err := os.Stat(tasksDir); err == nil {
 					fmt.Printf("Found project: %s\n", projectRoot)
-					count, err := db.MigrateFromBeads(projectRoot)
+					count, err := db.MigrateFromLegacy(projectRoot)
 					if err != nil {
 						fmt.Printf("  ⚠️  Migration error: %v\n", err)
 					} else if count > 0 {

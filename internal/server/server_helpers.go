@@ -126,12 +126,12 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		projectRoot = s.rootDir
 	}
 
-	// taskInput is the beads task ID (short form like "ai-pack-abc123")
-	beadsTaskID := taskInput
-	monitoring.Logger.Info("spawning_task", "beads_id", beadsTaskID, "project_root", projectRoot)
+	// taskInput is the task ID (short form like "ai-pack-abc123")
+	taskID := taskInput
+	monitoring.Logger.Info("spawning_task", "beads_id", taskID, "project_root", projectRoot)
 
 	// Task description comes from taskInput for now (can be enhanced to read from task packet)
-	taskDescription := fmt.Sprintf("Task %s", beadsTaskID)
+	taskDescription := fmt.Sprintf("Task %s", taskID)
 	taskPacketPath := ""
 	workingDir := projectRoot
 
@@ -153,13 +153,13 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 
 	// If working directory not specified in task, use project root
 	// Generate unique task ID
-	taskID := taskdb.GenerateTaskID(beadsTaskID)
+	taskID = taskdb.GenerateTaskID(taskID)
 
-	// Supersede any previous execution for this beads task so the GUI
+	// Supersede any previous execution for this task so the GUI
 	// shows the new run rather than the old failed one.
-	if prevFolder := s.findMostRecentExecutionInProject(projectRoot, beadsTaskID); prevFolder != "" {
+	if prevFolder := s.findMostRecentExecutionInProject(projectRoot, taskID); prevFolder != "" {
 		monitoring.Logger.Info("superseding_previous_execution",
-			"beads_task_id", beadsTaskID,
+			"task_id", taskID,
 			"previous_execution", prevFolder,
 			"new_task_id", taskID)
 		if err := s.markExecutionAsSuperseded(prevFolder, projectRoot, "rerun"); err != nil {
@@ -186,8 +186,8 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 
 	// Store task packet path, working directory, and project root in metadata if available
 	metadata := map[string]string{}
-	// CRITICAL: Store the Beads task ID so retry/logs can reference it
-	metadata["beads_task_id"] = beadsTaskID
+	// CRITICAL: Store the task ID so retry/logs can reference it
+	metadata["task_id"] = taskID
 	if taskPacketPath != "" {
 		metadata["task_packet_path"] = taskPacketPath
 	}
@@ -269,7 +269,7 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 	// immediately usable for task tracking.
 	if isNewProject {
 		go s.ensureKGForProject(projectRoot)
-		go s.ensureBeadsForProject(projectRoot)
+		go s.ensureTaskDirForProject(projectRoot)
 	}
 
 	// Write metadata to disk after the task is in activeTasks so that
@@ -814,8 +814,8 @@ func (s *AgentServer) loadRoleContext(roleFile string, projectRoot string) (stri
 	return string(data), nil
 }
 
-func (s *AgentServer) findMostRecentExecutionFolderInRoot(beadsTaskID string) string {
-	return s.findMostRecentExecutionInProject(s.rootDir, beadsTaskID)
+func (s *AgentServer) findMostRecentExecutionFolderInRoot(taskID string) string {
+	return s.findMostRecentExecutionInProject(s.rootDir, taskID)
 }
 
 func extractContractSections(content string) string {

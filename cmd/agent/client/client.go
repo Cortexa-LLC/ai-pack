@@ -97,7 +97,7 @@ func RequireOK(resp *http.Response, action string) []byte {
 // TaskInfo is the minimal shape returned by /a2a/tasks.
 type TaskInfo struct {
 	TaskID      string `json:"task_id"`
-	BeadsTaskID string `json:"beads_task_id"`
+	BeadsTaskID string `json:"task_id"`
 	ProjectRoot string `json:"project_root"`
 }
 
@@ -130,9 +130,9 @@ func (c *Client) FetchTaskResults(internalTaskID string) (result string, ok bool
 	return r.Result, true
 }
 
-// FindTaskByBeadsID queries the server for a task matching beadsTaskID and returns
+// FindTaskByShortID queries the server for a task matching taskID and returns
 // (internalTaskID, projectRoot). Both are empty strings when not found.
-func (c *Client) FindTaskByBeadsID(beadsTaskID string) (taskID, projectRoot string) {
+func (c *Client) FindTaskByShortID(taskID string) (internalTaskID, projectRoot string) {
 	resp, err := c.Get("/a2a/tasks")
 	if err != nil {
 		return "", ""
@@ -147,7 +147,7 @@ func (c *Client) FindTaskByBeadsID(beadsTaskID string) (taskID, projectRoot stri
 		return "", ""
 	}
 	for _, t := range result.Tasks {
-		if t.BeadsTaskID == beadsTaskID {
+		if t.BeadsTaskID == taskID {
 			return t.TaskID, t.ProjectRoot
 		}
 	}

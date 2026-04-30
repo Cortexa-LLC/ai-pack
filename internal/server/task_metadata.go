@@ -19,7 +19,7 @@ func (s *AgentServer) createTaskPacket(taskID, role, task string, config *AgentC
 }
 
 func (s *AgentServer) createTaskPacketInProject(taskID, role, task string, config *AgentConfig, projectRoot string) error {
-	taskDir := filepath.Join(projectRoot, constants.BeadsDir, "tasks", taskID)
+	taskDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID)
 
 	if err := os.MkdirAll(taskDir, 0755); err != nil {
 		return fmt.Errorf("failed to create task directory: %w", err)
@@ -59,14 +59,14 @@ func (s *AgentServer) createTaskPacketInProject(taskID, role, task string, confi
 	return nil
 }
 
-// updateTaskPacketMetadata updates the task metadata with Beads task ID and other runtime metadata
+// updateTaskPacketMetadata updates the task metadata with task ID and other runtime metadata
 func (s *AgentServer) updateTaskPacketMetadata(taskID string, runtimeMetadata map[string]string) error {
 	return s.updateTaskPacketMetadataInProject(taskID, runtimeMetadata, s.rootDir)
 }
 
 // updateTaskPacketMetadataInProject updates the task metadata in the project's directory
 func (s *AgentServer) updateTaskPacketMetadataInProject(taskID string, runtimeMetadata map[string]string, projectRoot string) error {
-	metadataPath := filepath.Join(projectRoot, constants.BeadsDir, "tasks", taskID, constants.MetadataFileName)
+	metadataPath := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID, constants.MetadataFileName)
 
 	// Read existing metadata
 	data, err := os.ReadFile(metadataPath)
@@ -103,7 +103,7 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 	seen := make(map[string]bool)
 	var projectRoots []string
 	for _, r := range rawRoots {
-		canonical := resolveBeadsRoot(r)
+		canonical := resolveTaskRoot(r)
 		if !seen[canonical] {
 			seen[canonical] = true
 			projectRoots = append(projectRoots, canonical)
@@ -117,15 +117,15 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 
 	for _, projectRoot := range projectRoots {
 		// Try direct path first
-		metadataPath = filepath.Join(projectRoot, constants.BeadsDir, "tasks", taskID, constants.MetadataFileName)
+		metadataPath = filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID, constants.MetadataFileName)
 		data, err = os.ReadFile(metadataPath)
 
 		if err != nil {
 			// If direct path doesn't exist, try finding most recent execution folder
-			// This handles the case where taskID is just the Beads ID without timestamp
+			// This handles the case where taskID is just the task ID without timestamp
 			executionFolder := s.findMostRecentExecutionInProject(projectRoot, taskID)
 			if executionFolder != "" {
-				metadataPath = filepath.Join(projectRoot, constants.BeadsDir, "tasks", executionFolder, constants.MetadataFileName)
+				metadataPath = filepath.Join(projectRoot, constants.TaskRootDir, "tasks", executionFolder, constants.MetadataFileName)
 				data, err = os.ReadFile(metadataPath)
 			}
 		}
@@ -149,7 +149,7 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 	var result string
 	// Extract the execution folder from the metadataPath we found
 	executionFolder := filepath.Base(filepath.Dir(metadataPath))
-	resultsPath := filepath.Join(foundProjectRoot, constants.BeadsDir, "tasks", executionFolder, "30-results.md")
+	resultsPath := filepath.Join(foundProjectRoot, constants.TaskRootDir, "tasks", executionFolder, "30-results.md")
 	if resultData, err := os.ReadFile(resultsPath); err == nil {
 		result = string(resultData)
 	}
@@ -160,7 +160,7 @@ func (s *AgentServer) loadTaskStatusFromDisk(taskID string) (*protocol.TaskStatu
 	}
 	if createdAt.IsZero() {
 		// Fall back to parsing the timestamp from the execution folder name.
-		// Format: {beads-id}-YYYYMMDD-HHMMSS  e.g. xasm++-qbxv-20260218-084509
+		// Format: {short-task-id}-YYYYMMDD-HHMMSS  e.g. xasm++-qbxv-20260218-084509
 		parts := strings.Split(executionFolder, "-")
 		if len(parts) >= 2 {
 			lastPart := parts[len(parts)-1]
@@ -299,7 +299,7 @@ func (s *AgentServer) buildSystemPromptForProject(roleContext string, projectRoo
 }
 
 func (s *AgentServer) setupExecutionLogger(execution *TaskExecution) func(string) {
-	logPath := filepath.Join(execution.ProjectRoot, constants.BeadsDir, "tasks", execution.TaskID, "execution.log")
+	logPath := filepath.Join(execution.ProjectRoot, constants.TaskRootDir, "tasks", execution.TaskID, "execution.log")
 	logFile, err := os.Create(logPath)
 	if err != nil {
 		monitoring.Logger.Error("log_create_error", "task_id", execution.TaskID, "error", err)
@@ -415,7 +415,7 @@ func (s *AgentServer) buildAndSavePrompt(execution *TaskExecution, roleContext, 
 	prompt := s.buildPrompt(execution.Role, execution.Task, roleContext, execution.Config, taskPacketPath, workingDir)
 	logMsg(fmt.Sprintf("✅ Prompt built (%d chars)", len(prompt)))
 
-	promptPath := filepath.Join(execution.ProjectRoot, constants.BeadsDir, "tasks", execution.TaskID, "agent-prompt.txt")
+	promptPath := filepath.Join(execution.ProjectRoot, constants.TaskRootDir, "tasks", execution.TaskID, "agent-prompt.txt")
 	if err := os.WriteFile(promptPath, []byte(prompt), 0644); err != nil {
 		monitoring.Logger.Warn("prompt_save_error", "task_id", execution.TaskID, "error", err)
 	} else {

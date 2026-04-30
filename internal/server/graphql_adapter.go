@@ -39,20 +39,20 @@ func (a *GraphQLAdapter) GetActiveTasks() map[string]*graphql.TaskInfo {
 	return tasks
 }
 
-// resolveBeadsRoot walks up from dir until it finds a .beads/ directory
-// containing an actual beads database (beads.db or issues.jsonl).
+// resolveTaskRoot walks up from dir until it finds a .beads/ directory
+// containing an actual task database (beads.db or issues.jsonl).
 // A .beads/ with only a tasks/ subdirectory (agent execution scratch space)
 // is not a real database root and is skipped.
 // Falls back to the original dir if no database is found.
-func resolveBeadsRoot(dir string) string {
+func resolveTaskRoot(dir string) string {
 	current := dir
 	for {
-		beadsDir := filepath.Join(current, constants.BeadsDir)
-		// Check for a real beads database file
-		if _, err := os.Stat(filepath.Join(beadsDir, "beads.db")); err == nil {
+		taskRootDir := filepath.Join(current, constants.TaskRootDir)
+		// Check for a real task database file
+		if _, err := os.Stat(filepath.Join(taskRootDir, "beads.db")); err == nil {
 			return current
 		}
-		if _, err := os.Stat(filepath.Join(beadsDir, "issues.jsonl")); err == nil {
+		if _, err := os.Stat(filepath.Join(taskRootDir, "issues.jsonl")); err == nil {
 			return current
 		}
 		parent := filepath.Dir(current)
@@ -155,7 +155,7 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 	seen := make(map[string]bool)
 	var projectRoots []string
 	for _, r := range rawRoots {
-		canonical := resolveBeadsRoot(r)
+		canonical := resolveTaskRoot(r)
 		if !seen[canonical] {
 			seen[canonical] = true
 			projectRoots = append(projectRoots, canonical)
@@ -174,7 +174,7 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 }
 
 // parseFolderTimestamp extracts and parses the timestamp suffix from an execution folder name.
-// Folder format: {beads-id}-YYYYMMDD-HHMMSS (e.g. "ai-pack-x008-20260228-130230").
+// Folder format: {short-task-id}-YYYYMMDD-HHMMSS (e.g. "ai-pack-x008-20260228-130230").
 // The prefix (e.g. "ai-pack-x008-") must be supplied so we know where the timestamp starts.
 // Returns the zero time if parsing fails so callers can fall back to other sorting strategies.
 func parseFolderTimestamp(folderName, prefix string) time.Time {
@@ -187,11 +187,11 @@ func parseFolderTimestamp(folderName, prefix string) time.Time {
 	return t
 }
 
-// findMostRecentExecution finds the most recent execution for a Beads task ID in a project root
+// findMostRecentExecution finds the most recent execution for a task ID in a project root
 // Returns nil if no execution found, otherwise returns the TaskInfo for the most recent execution
 // Skips executions marked as superseded (from retries)
-func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, beadsID string) *graphql.TaskInfo {
-	tasksDir := filepath.Join(projectRoot, constants.BeadsDir, "tasks")
+func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, shortTaskID string) *graphql.TaskInfo {
+	tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
 	entries, err := os.ReadDir(tasksDir)
 	if err != nil {
 		return nil
@@ -204,15 +204,15 @@ func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, beadsID string) *g
 	}
 	var executions []executionEntry
 
-	// Find all folders matching {beads-id}-{timestamp} pattern
-	prefix := beadsID + "-"
+	// Find all folders matching {short-task-id}-{timestamp} pattern
+	prefix := shortTaskID + "-"
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
 
 		folderName := entry.Name()
-		// Check if folder matches pattern: {beads-id}-{timestamp}
+		// Check if folder matches pattern: {short-task-id}-{timestamp}
 		if strings.HasPrefix(folderName, prefix) {
 			executions = append(executions, executionEntry{
 				folderName: folderName,
@@ -237,14 +237,14 @@ func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, beadsID string) *g
 	// Find first non-superseded execution
 	for _, exec := range executions {
 		// Check if this execution is marked as superseded
-		metadataPath := filepath.Join(projectRoot, constants.BeadsDir, "tasks", exec.folderName, constants.MetadataFileName)
+		metadataPath := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", exec.folderName, constants.MetadataFileName)
 		if data, err := os.ReadFile(metadataPath); err == nil {
 			var metadata map[string]interface{}
 			if json.Unmarshal(data, &metadata) == nil {
 				if superseded, ok := metadata["superseded"].(bool); ok && superseded {
 					monitoring.Logger.Debug("skipping_superseded_execution",
 						"folder", exec.folderName,
-						"beads_id", beadsID)
+						"beads_id", shortTaskID)
 					continue // Skip superseded executions
 				}
 			}
@@ -262,10 +262,10 @@ func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, beadsID string) *g
 	return nil // All executions were superseded or failed to load
 }
 
-// inferBeadsID extracts the beads task ID from an execution folder name.
-// Folder format: {beads-id}-YYYYMMDD-HHMMSS (e.g. "xasm++-01qi-20260210-120445").
+// inferShortTaskID extracts the task ID from an execution folder name.
+// Folder format: {short-task-id}-YYYYMMDD-HHMMSS (e.g. "xasm++-01qi-20260210-120445").
 // Returns the folder name unchanged when it doesn't match the expected format.
-func inferBeadsID(folderName string) string {
+func inferShortTaskID(folderName string) string {
 	parts := strings.Split(folderName, "-")
 	if len(parts) >= 3 && len(parts[len(parts)-1]) == 6 && len(parts[len(parts)-2]) == 8 {
 		return strings.Join(parts[:len(parts)-2], "-")
@@ -274,10 +274,10 @@ func inferBeadsID(folderName string) string {
 }
 
 // scanProjectTasks scans a single project root for tasks.
-// Groups execution folders by inferred beads ID and picks the most recent
+// Groups execution folders by inferred task ID and picks the most recent
 // non-superseded execution for each task, mirroring findMostRecentExecution logic.
 func (a *GraphQLAdapter) scanProjectTasks(projectRoot string, tasks map[string]*graphql.TaskInfo) {
-	tasksDir := filepath.Join(projectRoot, constants.BeadsDir, "tasks")
+	tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
 	entries, err := os.ReadDir(tasksDir)
 	if err != nil {
 		return // Skip if can't read directory
@@ -288,24 +288,24 @@ func (a *GraphQLAdapter) scanProjectTasks(projectRoot string, tasks map[string]*
 		folderTime time.Time
 	}
 
-	// Group execution folders by inferred beads ID
-	byBeadsID := make(map[string][]execEntry)
+	// Group execution folders by inferred task ID
+	byShortTaskID := make(map[string][]execEntry)
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
 		folderName := entry.Name()
-		beadsID := inferBeadsID(folderName)
-		prefix := beadsID + "-"
-		byBeadsID[beadsID] = append(byBeadsID[beadsID], execEntry{
+		shortTaskID := inferShortTaskID(folderName)
+		prefix := shortTaskID + "-"
+		byShortTaskID[shortTaskID] = append(byShortTaskID[shortTaskID], execEntry{
 			folderName: folderName,
 			folderTime: parseFolderTimestamp(folderName, prefix),
 		})
 	}
 
-	for beadsID, executions := range byBeadsID {
+	for shortTaskID, executions := range byShortTaskID {
 		// Skip if already present (active task or main-project bd list result)
-		if _, exists := tasks[beadsID]; exists {
+		if _, exists := tasks[shortTaskID]; exists {
 			continue
 		}
 
@@ -316,7 +316,7 @@ func (a *GraphQLAdapter) scanProjectTasks(projectRoot string, tasks map[string]*
 
 		// Pick the most recent non-superseded execution
 		for _, exec := range executions {
-			metadataPath := filepath.Join(projectRoot, constants.BeadsDir, "tasks", exec.folderName, constants.MetadataFileName)
+			metadataPath := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", exec.folderName, constants.MetadataFileName)
 			if data, readErr := os.ReadFile(metadataPath); readErr == nil {
 				var meta map[string]interface{}
 				if json.Unmarshal(data, &meta) == nil {
@@ -330,9 +330,9 @@ func (a *GraphQLAdapter) scanProjectTasks(projectRoot string, tasks map[string]*
 			if loadErr != nil {
 				continue
 			}
-			// Ensure the task is keyed by beads ID, not folder name
+			// Ensure the task is keyed by task ID, not folder name
 			if taskInfo.TaskID == "" {
-				taskInfo.TaskID = beadsID
+				taskInfo.TaskID = shortTaskID
 			}
 			tasks[taskInfo.TaskID] = taskInfo
 			break
@@ -342,7 +342,7 @@ func (a *GraphQLAdapter) scanProjectTasks(projectRoot string, tasks map[string]*
 
 // loadTaskFromProject loads a task from a specific project root
 func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graphql.TaskInfo, error) {
-	metadataPath := filepath.Join(projectRoot, constants.BeadsDir, "tasks", taskID, constants.MetadataFileName)
+	metadataPath := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID, constants.MetadataFileName)
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {
 		return nil, err
@@ -369,7 +369,7 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 	}
 
 	// Fall back to parsing timestamp from execution folder name when spawned_at is missing.
-	// Folder format: {beads-id}-YYYYMMDD-HHMMSS  e.g. xasm++-qbxv-20260218-084509
+	// Folder format: {short-task-id}-YYYYMMDD-HHMMSS  e.g. xasm++-qbxv-20260218-084509
 	if status.CreatedAt.IsZero() {
 		parts := strings.Split(taskID, "-")
 		if len(parts) >= 2 {
@@ -391,11 +391,11 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 		taskDescription = status.Description
 	}
 
-	// Use Beads task ID as the primary identifier if available
+	// Use task ID as the primary identifier if available
 	// This ensures retry/logs use the task ID rather than timestamped execution folder
 	primaryTaskID := status.TaskID
-	if beadsID, ok := status.Metadata["beads_task_id"]; ok && beadsID != "" {
-		primaryTaskID = beadsID
+	if shortTaskID, ok := status.Metadata["task_id"]; ok && shortTaskID != "" {
+		primaryTaskID = shortTaskID
 	}
 
 	taskInfo := &graphql.TaskInfo{
@@ -440,20 +440,20 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 		taskInfo.Error = &status.Error
 	}
 
-	// Reconcile stale terminal statuses against live Beads task status.
+	// Reconcile stale terminal statuses against live task status.
 	// A task closed in Beads is always completed regardless of how the execution ended.
 	if taskInfo.Status == constants.StatusCancelled ||
 		taskInfo.Status == constants.StatusFailed ||
 		taskInfo.Status == "blocked" {
-		beadsTaskID := taskInfo.Metadata["beads_task_id"]
-		if beadsTaskID == "" {
-			// Infer from execution folder name: {beads-id}-YYYYMMDD-HHMMSS
+		taskID := taskInfo.Metadata["task_id"]
+		if taskID == "" {
+			// Infer from execution folder name: {short-task-id}-YYYYMMDD-HHMMSS
 			parts := strings.Split(taskID, "-")
 			if len(parts) >= 3 {
 				lastPart := parts[len(parts)-1]
 				secondLastPart := parts[len(parts)-2]
 				if len(lastPart) == 6 && len(secondLastPart) == 8 {
-					beadsTaskID = strings.Join(parts[:len(parts)-2], "-")
+					taskID = strings.Join(parts[:len(parts)-2], "-")
 				}
 			}
 		}
@@ -465,14 +465,14 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 
 // GetTaskStatus returns status for a specific task
 func (a *GraphQLAdapter) GetTaskStatus(taskID string) (*graphql.TaskInfo, error) {
-	// Search active tasks: match by exact execution ID OR by beads ID prefix.
-	// convertToTaskInfo rewrites TaskID to the short beads ID, so the UI often
+	// Search active tasks: match by exact execution ID OR by task ID prefix.
+	// convertToTaskInfo rewrites TaskID to the short task ID, so the UI often
 	// calls back with the short ID (e.g. "ai-pack-x008") while activeTasks is
 	// keyed by the full timestamped ID (e.g. "ai-pack-x008-20260228-130230").
 	a.server.mu.RLock()
 	execution, exists := a.server.activeTasks[taskID]
 	if !exists {
-		// Try prefix match: active key starts with "<beadsID>-"
+		// Try prefix match: active key starts with "<shortTaskID>-"
 		prefix := taskID + "-"
 		for activeID, exec := range a.server.activeTasks {
 			if strings.HasPrefix(activeID, prefix) {
@@ -616,11 +616,11 @@ func formatUptime(d time.Duration) string {
 
 // convertToTaskInfo converts TaskExecution to graphql.TaskInfo
 func convertToTaskInfo(execution *TaskExecution) *graphql.TaskInfo {
-	// Use Beads task ID as the primary identifier if available
+	// Use task ID as the primary identifier if available
 	// This ensures retry/logs use the task ID rather than timestamped execution folder
 	taskID := execution.TaskID
-	if beadsID, ok := execution.metadata["beads_task_id"]; ok && beadsID != "" {
-		taskID = beadsID
+	if shortTaskID, ok := execution.metadata["task_id"]; ok && shortTaskID != "" {
+		taskID = shortTaskID
 	}
 
 	status := execution.Status
@@ -683,7 +683,7 @@ func (a *GraphQLAdapter) CloseTask(taskID string) error {
 	// If not in active tasks, search through known project roots
 	monitoring.Logger.Info("searching_for_task_to_close", "task_id", taskID, "known_projects", len(a.server.projectRoots))
 
-	// First try direct lookup (for new tasks using Beads ID as primary ID)
+	// First try direct lookup (for new tasks using task ID as primary ID)
 	for projectRoot := range a.server.projectRoots {
 		metadataPath := filepath.Join(projectRoot, ".beads", "tasks", taskID, "metadata.json")
 		if _, err := os.Stat(metadataPath); err == nil {
@@ -694,7 +694,7 @@ func (a *GraphQLAdapter) CloseTask(taskID string) error {
 	}
 
 	// If not found, search all task directories for one with matching beads_task_id
-	// This handles legacy tasks created before standardizing on Beads IDs
+	// This handles legacy tasks created before standardizing on task IDs
 	monitoring.Logger.Info("searching_task_directories_for_beads_id", "task_id", taskID)
 	for projectRoot := range a.server.projectRoots {
 		tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
@@ -710,7 +710,7 @@ func (a *GraphQLAdapter) CloseTask(taskID string) error {
 				continue
 			}
 
-			// Check if directory name matches the task ID (taskID is Beads ID)
+			// Check if directory name matches the task ID (taskID is task ID)
 			if entry.Name() == taskID {
 				return a.updateTaskMetadataOnDisk(projectRoot, entry.Name(), "closed")
 			}
@@ -741,7 +741,7 @@ func (a *GraphQLAdapter) DeleteTask(taskID string) error {
 	projectRoot := a.findProjectRootForTask(taskID)
 
 	// Run bd delete — this removes the task from the Beads database entirely.
-	// Ignore failure: the Beads task may already be deleted while execution
+	// Ignore failure: the task may already be deleted while execution
 	// artifacts remain on disk (orphaned folders after a server crash, etc.).
 	cmd := exec.Command("bd", "delete", taskID)
 	if projectRoot != "" {
@@ -756,7 +756,7 @@ func (a *GraphQLAdapter) DeleteTask(taskID string) error {
 		monitoring.Logger.Info("bd_delete_succeeded", "task_id", taskID)
 	}
 
-	// Remove from in-memory active tasks (both short Beads ID and any timestamped executions)
+	// Remove from in-memory active tasks (both short task ID and any timestamped executions)
 	a.server.mu.Lock()
 	delete(a.server.activeTasks, taskID)
 	for id := range a.server.activeTasks {
