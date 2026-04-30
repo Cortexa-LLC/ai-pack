@@ -419,7 +419,7 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 		for _, dbTask := range dbTasks {
 			task := TaskInfo{
 				TaskID:      dbTask.ID,
-				BeadsTaskID: dbTask.BeadsID,
+				BeadsTaskID: taskdb.ExtractShortID(dbTask.ID),
 				Status:      dbTask.Status,
 				Role:        dbTask.Role,
 				Description: dbTask.TaskDescription,

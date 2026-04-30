@@ -42,7 +42,7 @@ func TestGetAllTasks_WithTaskDB(t *testing.T) {
 	// Add a task to taskDB
 	dbTask := &taskdb.Task{
 		ID:              "task-from-db-123",
-		BeadsID:         "ai-pack-db-test",
+		
 		ProjectRoot:     tmpDir,
 		Role:            "engineer",
 		TaskDescription: "task from database",
@@ -73,10 +73,11 @@ func TestGetAllTasks_WithTaskDB(t *testing.T) {
 		t.Errorf("Expected at least 2 tasks, got %d", len(tasks))
 	}
 
-	// Check DB task is present (keyed by BeadsID)
-	dbTaskInfo, hasDB := tasks["ai-pack-db-test"]
+	// Check DB task is present (keyed by short task ID)
+	shortID := taskdb.ExtractShortID("task-from-db-123")
+	dbTaskInfo, hasDB := tasks[shortID]
 	if !hasDB {
-		t.Error("Task from taskDB not found in GetAllTasks result")
+		t.Errorf("Task from taskDB not found in GetAllTasks result (looking for %q)", shortID)
 	} else {
 		if dbTaskInfo.Status != taskdb.StatusQueued {
 			t.Errorf("Expected DB task status 'queued', got %q", dbTaskInfo.Status)
@@ -111,7 +112,7 @@ func TestTaskDBIntegration_CreateAndQuery(t *testing.T) {
 	// Create a task
 	task := &taskdb.Task{
 		ID:              "test-task-001",
-		BeadsID:         "ai-pack-test",
+		
 		ProjectRoot:     "/tmp/project",
 		Role:            "engineer",
 		TaskDescription: "test task description",
@@ -133,9 +134,6 @@ func TestTaskDBIntegration_CreateAndQuery(t *testing.T) {
 	if retrieved.Status != taskdb.StatusQueued {
 		t.Errorf("Expected status 'queued', got %q", retrieved.Status)
 	}
-	if retrieved.BeadsID != "ai-pack-test" {
-		t.Errorf("Expected BeadsID 'ai-pack-test', got %q", retrieved.BeadsID)
-	}
 }
 
 // TestTaskDBIntegration_StatusTransitions verifies task status updates
@@ -152,7 +150,7 @@ func TestTaskDBIntegration_StatusTransitions(t *testing.T) {
 	// Create a task
 	task := &taskdb.Task{
 		ID:              "test-task-002",
-		BeadsID:         "ai-pack-test-002",
+		
 		ProjectRoot:     "/tmp/project",
 		Role:            "engineer",
 		TaskDescription: "status transition test",
@@ -208,7 +206,7 @@ func TestTaskDBIntegration_FailTask(t *testing.T) {
 
 	task := &taskdb.Task{
 		ID:              "test-task-003",
-		BeadsID:         "ai-pack-test-003",
+		
 		ProjectRoot:     "/tmp/project",
 		Role:            "engineer",
 		TaskDescription: "fail test",
@@ -248,9 +246,9 @@ func TestTaskDBIntegration_ListTasks(t *testing.T) {
 
 	// Create multiple tasks with different statuses
 	tasks := []*taskdb.Task{
-		{ID: "task-1", BeadsID: "test-1", ProjectRoot: "/tmp", Role: "engineer", TaskDescription: "task 1"},
-		{ID: "task-2", BeadsID: "test-2", ProjectRoot: "/tmp", Role: "engineer", TaskDescription: "task 2"},
-		{ID: "task-3", BeadsID: "test-3", ProjectRoot: "/tmp", Role: "reviewer", TaskDescription: "task 3"},
+		{ID: "task-1", ProjectRoot: tmpDir, Role: "engineer", TaskDescription: "Task 1"},
+		{ID: "task-2", ProjectRoot: tmpDir, Role: "tester", TaskDescription: "Task 2"},
+		{ID: "task-3", ProjectRoot: tmpDir, Role: "reviewer", TaskDescription: "Task 3"},
 	}
 
 	for _, task := range tasks {
@@ -326,7 +324,7 @@ func TestHandleTasksList_WithTaskDB(t *testing.T) {
 	// Create some tasks in taskDB
 	task1 := &taskdb.Task{
 		ID:              "handler-test-1",
-		BeadsID:         "handler-1",
+		
 		ProjectRoot:     tmpDir,
 		Role:            "engineer",
 		TaskDescription: "handler test 1",
@@ -337,7 +335,7 @@ func TestHandleTasksList_WithTaskDB(t *testing.T) {
 
 	task2 := &taskdb.Task{
 		ID:              "handler-test-2",
-		BeadsID:         "handler-2",
+		
 		ProjectRoot:     tmpDir,
 		Role:            "reviewer",
 		TaskDescription: "handler test 2",
@@ -399,7 +397,7 @@ func TestServeTaskContract_WithTaskDB(t *testing.T) {
 
 	task := &taskdb.Task{
 		ID:              "contract-test-1",
-		BeadsID:         "contract-beads-1",
+		
 		ProjectRoot:     tmpDir,
 		Role:            "engineer",
 		TaskDescription: "This is a detailed task description\nwith multiple lines",

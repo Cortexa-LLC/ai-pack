@@ -216,7 +216,6 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 	if s.taskDB != nil {
 		dbTask := &taskdb.Task{
 			ID:              taskID,
-			BeadsID:         beadsTaskID,
 			ProjectRoot:     projectRoot,
 			Role:            role,
 			TaskDescription: taskDescription,

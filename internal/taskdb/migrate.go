@@ -45,9 +45,6 @@ func (db *DB) MigrateFromBeads(projectRoot string) (int, error) {
 			continue
 		}
 
-		// Extract Beads task ID (short form like "listingsgql-5b6")
-		beadsID := extractBeadsID(taskID)
-
 		// Check if task already exists in database
 		existing, _ := db.GetTask(taskID)
 		if existing != nil {
@@ -57,7 +54,6 @@ func (db *DB) MigrateFromBeads(projectRoot string) (int, error) {
 		// Map metadata to Task struct
 		task := &Task{
 			ID:              taskID,
-			BeadsID:         beadsID,
 			ProjectRoot:     projectRoot,
 			Role:            getString(metadata, "role"),
 			TaskDescription: getString(metadata, "task"),
@@ -102,13 +98,13 @@ func (db *DB) MigrateFromBeads(projectRoot string) (int, error) {
 		// Insert task (bypass CreateTask to preserve original timestamps)
 		query := `
 			INSERT INTO tasks (
-				id, beads_id, project_root, role, task_description, status,
+				id, project_root, role, task_description, status,
 				created_at, updated_at, completed_at, result, error
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`
 
 		_, err = db.db.Exec(query,
-			task.ID, task.BeadsID, task.ProjectRoot, task.Role,
+			task.ID, task.ProjectRoot, task.Role,
 			task.TaskDescription, task.Status,
 			task.CreatedAt, task.UpdatedAt, task.CompletedAt,
 			task.Result, task.Error,

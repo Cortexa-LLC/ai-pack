@@ -40,7 +40,7 @@ func (s *AgentServer) handleOrphanedTasks() {
 				// Orphaned task detected - reset to failed
 				monitoring.Logger.Warn("orphaned_task_detected",
 					"task_id", dbTask.ID,
-					"beads_id", dbTask.BeadsID,
+					"short_id", taskdb.ExtractShortID(dbTask.ID),
 					"role", dbTask.Role,
 					"project", dbTask.ProjectRoot,
 					"action", "marking_failed",

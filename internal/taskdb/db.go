@@ -60,9 +60,9 @@ func (db *DB) Close() error {
 func (db *DB) CreateTask(task *Task) error {
 	query := `
 		INSERT INTO tasks (
-			id, beads_id, project_root, role, task_description, status,
+			id, project_root, role, task_description, status,
 			created_at, updated_at, metadata
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	now := time.Now()
@@ -71,7 +71,7 @@ func (db *DB) CreateTask(task *Task) error {
 	task.Status = StatusQueued
 
 	_, err := db.db.Exec(query,
-		task.ID, task.BeadsID, task.ProjectRoot, task.Role,
+		task.ID, task.ProjectRoot, task.Role,
 		task.TaskDescription, task.Status,
 		task.CreatedAt, task.UpdatedAt, task.Metadata,
 	)
@@ -82,18 +82,18 @@ func (db *DB) CreateTask(task *Task) error {
 // GetTask retrieves a task by ID.
 func (db *DB) GetTask(id string) (*Task, error) {
 	query := `
-		SELECT id, beads_id, project_root, role, task_description, status,
+		SELECT id, project_root, role, task_description, status,
 		       owner_agent_id, claimed_at, created_at, started_at, completed_at,
 		       updated_at, result, error, metadata
 		FROM tasks WHERE id = ?
 	`
 
 	task := &Task{}
-	var beadsID, ownerAgentID, result, errorMsg, metadata sql.NullString
+	var ownerAgentID, result, errorMsg, metadata sql.NullString
 	var claimedAt, startedAt, completedAt sql.NullTime
 
 	err := db.db.QueryRow(query, id).Scan(
-		&task.ID, &beadsID, &task.ProjectRoot, &task.Role,
+		&task.ID, &task.ProjectRoot, &task.Role,
 		&task.TaskDescription, &task.Status,
 		&ownerAgentID, &claimedAt, &task.CreatedAt, &startedAt, &completedAt,
 		&task.UpdatedAt, &result, &errorMsg, &metadata,
@@ -107,9 +107,6 @@ func (db *DB) GetTask(id string) (*Task, error) {
 	}
 
 	// Handle nullable fields
-	if beadsID.Valid {
-		task.BeadsID = beadsID.String
-	}
 	if ownerAgentID.Valid {
 		task.OwnerAgentID = ownerAgentID.String
 	}
@@ -135,24 +132,6 @@ func (db *DB) GetTask(id string) (*Task, error) {
 	return task, nil
 }
 
-// GetTaskByBeadsID retrieves a task by its Beads ID.
-func (db *DB) GetTaskByBeadsID(beadsID string) (*Task, error) {
-	query := `
-		SELECT id FROM tasks WHERE beads_id = ?
-		ORDER BY created_at DESC LIMIT 1
-	`
-
-	var taskID string
-	err := db.db.QueryRow(query, beadsID).Scan(&taskID)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return db.GetTask(taskID)
-}
 
 // UpdateTaskStatus updates the status of a task.
 func (db *DB) UpdateTaskStatus(id, status, errorMsg string) error {
@@ -216,7 +195,7 @@ func (db *DB) CancelTask(id string) error {
 
 // ListTasks returns all tasks matching the given filter.
 func (db *DB) ListTasks(filter TaskFilter) ([]*Task, error) {
-	query := "SELECT id, beads_id, project_root, role, task_description, status, " +
+	query := "SELECT id, project_root, role, task_description, status, " +
 		"owner_agent_id, claimed_at, created_at, started_at, completed_at, " +
 		"updated_at, result, error, metadata FROM tasks WHERE 1=1"
 
@@ -255,11 +234,11 @@ func (db *DB) ListTasks(filter TaskFilter) ([]*Task, error) {
 	var tasks []*Task
 	for rows.Next() {
 		task := &Task{}
-		var beadsID, ownerAgentID, result, errorMsg, metadata sql.NullString
+		var ownerAgentID, result, errorMsg, metadata sql.NullString
 		var claimedAt, startedAt, completedAt sql.NullTime
 
 		err := rows.Scan(
-			&task.ID, &beadsID, &task.ProjectRoot, &task.Role,
+			&task.ID, &task.ProjectRoot, &task.Role,
 			&task.TaskDescription, &task.Status,
 			&ownerAgentID, &claimedAt, &task.CreatedAt, &startedAt, &completedAt,
 			&task.UpdatedAt, &result, &errorMsg, &metadata,
@@ -269,9 +248,6 @@ func (db *DB) ListTasks(filter TaskFilter) ([]*Task, error) {
 		}
 
 		// Handle nullable fields
-		if beadsID.Valid {
-			task.BeadsID = beadsID.String
-		}
 		if ownerAgentID.Valid {
 			task.OwnerAgentID = ownerAgentID.String
 		}

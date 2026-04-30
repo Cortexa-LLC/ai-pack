@@ -45,7 +45,6 @@ func TestArchiveOldTasks_CompletedTasks(t *testing.T) {
 	// Create an old completed task (15 days ago)
 	oldTask := &taskdb.Task{
 		ID:              "old-task-1",
-		BeadsID:         "old-1",
 		ProjectRoot:     tmpDir,
 		Role:            "engineer",
 		TaskDescription: "old completed task",
@@ -137,7 +136,6 @@ func TestArchiveOldTasks_RecentTasksNotArchived(t *testing.T) {
 	// Create a recent completed task (2 days ago)
 	recentTask := &taskdb.Task{
 		ID:              "recent-task-1",
-		BeadsID:         "recent-1",
 		ProjectRoot:     tmpDir,
 		Role:            "engineer",
 		TaskDescription: "recent completed task",
@@ -218,7 +216,6 @@ func TestArchiveOldTasks_FailedTasks(t *testing.T) {
 	// Create an old failed task
 	failedTask := &taskdb.Task{
 		ID:              "failed-task-1",
-		BeadsID:         "failed-1",
 		ProjectRoot:     tmpDir,
 		Role:            "engineer",
 		TaskDescription: "old failed task",
@@ -290,7 +287,6 @@ func TestArchiveOldTasks_DisabledNoArchival(t *testing.T) {
 	// Create an old task
 	oldTask := &taskdb.Task{
 		ID:              "old-disabled-1",
-		BeadsID:         "old-disabled",
 		ProjectRoot:     tmpDir,
 		Role:            "engineer",
 		TaskDescription: "old task with archival disabled",
@@ -357,7 +353,6 @@ func TestArchiveOldTasks_NoExecutionFolderSkipped(t *testing.T) {
 	// Create an old completed task WITHOUT execution folder
 	oldTask := &taskdb.Task{
 		ID:              "no-folder-1",
-		BeadsID:         "no-folder",
 		ProjectRoot:     tmpDir,
 		Role:            "engineer",
 		TaskDescription: "task without execution folder",
