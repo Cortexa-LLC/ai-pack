@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -100,7 +101,7 @@ func migrateAllProjects(db *taskdb.DB) error {
 			}
 
 			// Look for .beads/tasks directories
-			if info.IsDir() && info.Name() == ".beads" {
+			if info.IsDir() && info.Name() == constants.TaskRootDir {
 				projectRoot := filepath.Dir(path)
 				tasksDir := filepath.Join(path, "tasks")
 

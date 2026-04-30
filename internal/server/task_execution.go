@@ -145,7 +145,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, roleTimeout time.D
 			// Extract project root from working directory
 			projectRoot := workingDir
 			for projectRoot != "" && projectRoot != "/" {
-				if _, err := os.Stat(filepath.Join(projectRoot, ".beads")); err == nil {
+				if _, err := os.Stat(filepath.Join(projectRoot, constants.TaskRootDir)); err == nil {
 					break
 				}
 				projectRoot = filepath.Dir(projectRoot)

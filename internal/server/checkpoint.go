@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -52,7 +53,7 @@ const checkpointFileName = "checkpoint.json"
 
 // writeCheckpoint serialises cp to {projectRoot}/.beads/tasks/{taskID}/checkpoint.json.
 func writeCheckpoint(projectRoot, taskID string, cp *AgentCheckpoint) error {
-	dir := filepath.Join(projectRoot, ".beads", "tasks", taskID)
+	dir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("checkpoint mkdir: %w", err)
 	}
@@ -71,7 +72,7 @@ func writeCheckpoint(projectRoot, taskID string, cp *AgentCheckpoint) error {
 
 // loadCheckpoint reads and deserialises the checkpoint for taskID.
 func loadCheckpoint(projectRoot, taskID string) (*AgentCheckpoint, error) {
-	path := filepath.Join(projectRoot, ".beads", "tasks", taskID, checkpointFileName)
+	path := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID, checkpointFileName)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("checkpoint read: %w", err)
@@ -88,5 +89,5 @@ func loadCheckpoint(projectRoot, taskID string) (*AgentCheckpoint, error) {
 // in an SSE event payload or to delete the file); use loadCheckpoint when
 // the checkpoint data itself is required.
 func checkpointPath(projectRoot, taskID string) string {
-	return filepath.Join(projectRoot, ".beads", "tasks", taskID, checkpointFileName)
+	return filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID, checkpointFileName)
 }

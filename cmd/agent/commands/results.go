@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -51,7 +52,7 @@ func runResults(taskID string) error {
 		}
 	}
 
-	resultsFile := filepath.Join(projectRoot, ".beads", "tasks", internalTaskID, "30-results.md")
+	resultsFile := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", internalTaskID, "30-results.md")
 	data, err := os.ReadFile(resultsFile)
 	if err != nil {
 		return fmt.Errorf("no results found for task %s: %w", taskID, err)

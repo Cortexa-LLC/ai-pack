@@ -685,7 +685,7 @@ func (a *GraphQLAdapter) CloseTask(taskID string) error {
 
 	// First try direct lookup (for new tasks using task ID as primary ID)
 	for projectRoot := range a.server.projectRoots {
-		metadataPath := filepath.Join(projectRoot, ".beads", "tasks", taskID, "metadata.json")
+		metadataPath := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID, "metadata.json")
 		if _, err := os.Stat(metadataPath); err == nil {
 			// Found the task, update it
 			monitoring.Logger.Info("found_task_direct", "project_root", projectRoot, "task_id", taskID)
@@ -697,7 +697,7 @@ func (a *GraphQLAdapter) CloseTask(taskID string) error {
 	// This handles legacy tasks created before standardizing on task IDs
 	monitoring.Logger.Info("searching_task_directories_for_beads_id", "task_id", taskID)
 	for projectRoot := range a.server.projectRoots {
-		tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
+		tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
 		entries, err := os.ReadDir(tasksDir)
 		if err != nil {
 			monitoring.Logger.Info("skipping_project", "project_root", projectRoot, "error", err.Error())
@@ -769,7 +769,7 @@ func (a *GraphQLAdapter) DeleteTask(taskID string) error {
 	// Remove all execution folders on disk: both exact match and timestamped variants
 	// (e.g. "xasm++-sduc" and "xasm++-sduc-20260218-170420")
 	if projectRoot != "" {
-		tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
+		tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
 		prefix := taskID + "-"
 		entries, err := os.ReadDir(tasksDir)
 		if err == nil {
@@ -816,7 +816,7 @@ func (a *GraphQLAdapter) findProjectRootForTask(taskID string) string {
 	// Scan registered project roots for execution artifacts on disk.
 	// (bd show is global and cannot be used to determine the correct project root.)
 	for projectRoot := range a.server.projectRoots {
-		tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
+		tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
 		entries, err := os.ReadDir(tasksDir)
 		if err != nil {
 			continue
@@ -846,7 +846,7 @@ func (a *GraphQLAdapter) GetProjectRoots() []string {
 
 // updateTaskMetadataOnDisk updates a task's status in its project's .beads directory
 func (a *GraphQLAdapter) updateTaskMetadataOnDisk(projectRoot, taskID, status string) error {
-	metadataPath := filepath.Join(projectRoot, ".beads", "tasks", taskID, "metadata.json")
+	metadataPath := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID, "metadata.json")
 
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {

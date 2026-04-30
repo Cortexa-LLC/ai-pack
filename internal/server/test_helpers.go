@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -25,7 +26,7 @@ func setupTestDir(t *testing.T) string {
 	}
 
 	// Create .beads/tasks directory
-	tasksDir := filepath.Join(tmpDir, ".beads", "tasks")
+	tasksDir := filepath.Join(tmpDir, constants.TaskRootDir, "tasks")
 	if err := os.MkdirAll(tasksDir, 0755); err != nil {
 		t.Fatalf("Failed to create tasks dir: %v", err)
 	}

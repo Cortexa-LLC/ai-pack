@@ -7,12 +7,14 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/cortexa-llc/ai-pack/internal/constants"
 )
 
 // MigrateFromLegacy imports tasks from .beads/tasks directories into the SQLite database.
 // It scans all task directories and creates corresponding database entries.
 func (db *DB) MigrateFromLegacy(projectRoot string) (int, error) {
-	tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
+	tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
 
 	// Check if tasks directory exists
 	if _, err := os.Stat(tasksDir); os.IsNotExist(err) {

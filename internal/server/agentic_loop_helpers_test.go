@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"context"
 	"errors"
 	"fmt"
@@ -88,7 +89,7 @@ func TestApplyTokenBudgetCheck_BudgetExhausted(t *testing.T) {
 	projectRoot := t.TempDir()
 	// writeCheckpoint needs the .beads/tasks/<taskID>/ directory.
 	taskID := "task-budget-test"
-	if err := os.MkdirAll(filepath.Join(projectRoot, ".beads", "tasks", taskID), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID), 0755); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
 
@@ -134,7 +135,7 @@ func TestApplyTokenBudgetCheck_BudgetExhausted(t *testing.T) {
 func TestApplyTokenBudgetCheck_ExactlyAtLimit(t *testing.T) {
 	projectRoot := t.TempDir()
 	taskID := "task-exact"
-	if err := os.MkdirAll(filepath.Join(projectRoot, ".beads", "tasks", taskID), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID), 0755); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
 
@@ -391,7 +392,7 @@ func TestCheckStallConditions_MixedErrors_ResetsCounter(t *testing.T) {
 func TestFlushCheckpoint_WritesFile(t *testing.T) {
 	projectRoot := t.TempDir()
 	taskID := "task-flush"
-	if err := os.MkdirAll(filepath.Join(projectRoot, ".beads", "tasks", taskID), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID), 0755); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
 
