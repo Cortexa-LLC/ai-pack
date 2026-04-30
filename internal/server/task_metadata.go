@@ -430,7 +430,7 @@ func (s *AgentServer) buildAndSavePrompt(execution *TaskExecution, roleContext, 
 
 func (s *AgentServer) updateTaskMetadata(projectRoot, taskID, model, provider string, tier int) error {
 	// Find task directory
-	taskDir := filepath.Join(projectRoot, ".beads", "tasks", taskID)
+	taskDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID)
 	metadataPath := filepath.Join(taskDir, constants.MetadataFileName)
 
 	// Read existing metadata

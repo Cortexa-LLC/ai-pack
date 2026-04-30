@@ -861,7 +861,7 @@ func (s *AgentServer) ensureTaskDirForProject(projectRoot string) {
 		return
 	}
 
-	taskRootDir := filepath.Join(projectRoot, ".beads")
+	taskRootDir := filepath.Join(projectRoot, constants.TaskRootDir)
 	if _, err := os.Stat(taskRootDir); err == nil {
 		// .beads/ already exists — skip init.
 		return

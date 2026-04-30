@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -382,7 +383,7 @@ func (s *AgentServer) executeGetTaskDetails(input map[string]interface{}) (strin
 // getLastExecutionStatus reads the most recent execution metadata for a task and
 // returns a summary suitable for the orchestrator model.
 func (s *AgentServer) getLastExecutionStatus(taskID, projectRoot string) map[string]interface{} {
-	tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
+	tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
 	entries, err := os.ReadDir(tasksDir)
 	if err != nil {
 		return nil
@@ -494,7 +495,7 @@ func (s *AgentServer) findTaskExecutionMetadata(taskID string) (projectRoot, exe
 	// Try each project root
 	for _, pr := range projectRoots {
 		// Try direct path first (in case taskID is the execution folder)
-		metadataPath := filepath.Join(pr, ".beads", "tasks", taskID, "00-metadata.json")
+		metadataPath := filepath.Join(pr, constants.TaskRootDir, "tasks", taskID, "00-metadata.json")
 		if _, statErr := os.Stat(metadataPath); statErr == nil {
 			return pr, taskID, nil
 		}
@@ -503,7 +504,7 @@ func (s *AgentServer) findTaskExecutionMetadata(taskID string) (projectRoot, exe
 		// This handles the case where taskID is just the task ID
 		execFolder := s.findMostRecentExecutionInProject(pr, taskID)
 		if execFolder != "" {
-			metadataPath = filepath.Join(pr, ".beads", "tasks", execFolder, "00-metadata.json")
+			metadataPath = filepath.Join(pr, constants.TaskRootDir, "tasks", execFolder, "00-metadata.json")
 			if _, statErr := os.Stat(metadataPath); statErr == nil {
 				return pr, execFolder, nil
 			}
@@ -515,7 +516,7 @@ func (s *AgentServer) findTaskExecutionMetadata(taskID string) (projectRoot, exe
 
 // findMostRecentExecutionInProject finds the most recent timestamped execution folder for a task ID
 func (s *AgentServer) findMostRecentExecutionInProject(projectRoot, taskID string) string {
-	tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
+	tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
 	entries, err := os.ReadDir(tasksDir)
 	if err != nil {
 		return ""
@@ -555,7 +556,7 @@ func (s *AgentServer) findMostRecentExecutionInProject(projectRoot, taskID strin
 
 // updateTaskExecutionStatus updates the status field in a task execution metadata file
 func (s *AgentServer) updateTaskExecutionStatus(projectRoot, executionFolder, status, reason string) error {
-	metadataPath := filepath.Join(projectRoot, ".beads", "tasks", executionFolder, "00-metadata.json")
+	metadataPath := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", executionFolder, "00-metadata.json")
 
 	// Read current metadata
 	data, err := os.ReadFile(metadataPath)

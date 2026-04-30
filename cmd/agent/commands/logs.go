@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -83,7 +84,7 @@ func runLogs(args []string, tailLines int, follow, serverLogs, allLogs, jsonOutp
 		os.Exit(1)
 	}
 
-	logFile := filepath.Join(projectRoot, ".beads", "tasks", internalTaskID, "execution.log")
+	logFile := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", internalTaskID, "execution.log")
 	if follow {
 		followLogFile(logFile, jsonOutput)
 	} else {

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -61,7 +62,7 @@ func extractShortTaskIDFromPrompt(taskDir string) (string, error) {
 // DetectLegacyTaskFoldersInProject checks if legacy task-* folders exist in a specific project
 func DetectLegacyTaskFoldersInProject(projectRoot string) (bool, []string) {
 	var legacyFolders []string
-	tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
+	tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
 
 	entries, err := os.ReadDir(tasksDir)
 	if err != nil {
@@ -98,7 +99,7 @@ func (s *AgentServer) MigrateTaskFolders() (renamed, archived, skipped int, err 
 	projectRoots := s.GetProjectRoots()
 
 	for _, projectRoot := range projectRoots {
-		tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
+		tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
 		archiveDir := filepath.Join(tasksDir, ".archive", "legacy")
 
 		// Create archive directory

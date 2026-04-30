@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"github.com/cortexa-llc/ai-pack/internal/constants"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -171,7 +172,7 @@ func findInternalTaskID(taskID string) string {
 		projectRoot, _ = os.Getwd()
 	}
 
-	tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
+	tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
 	entries, err := os.ReadDir(tasksDir)
 	if err != nil {
 		return ""
