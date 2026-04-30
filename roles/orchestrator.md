@@ -58,10 +58,12 @@ Wait for completion before proceeding to next steps.
 **Version:** 1.3.0
 **Last Updated:** 2026-02-15
 **Complexity:** High to Very High
-**Cost Tier:** Low (scales to Premium if needed)
-**Escalation Path:** grade-selected low-tier → claude-sonnet-4-6 → claude-opus-4-6
 **Best For:** Task breakdown, multi-agent coordination, project planning, architectural decisions
 **Avoid For:** Simple code edits, straightforward implementations, basic bug fixes
+
+## Model Selection
+
+This role uses the **Tier:** low configuration, which selects cost-effective models for orchestration. The system automatically escalates to higher tiers when needed based on performance grading.
 
 ## Cost Optimization Strategy
 
@@ -395,8 +397,8 @@ Review the code changes from <original-task-id>. Check for:
     agent reviewer "$review_id" --stream
 
     # ⚠️ The reviewer role selects its own model via grade-based selection.
-    # If the engineer used gpt-4o-mini, the reviewer will typically use a
-    # higher-grade model — this cross-model validation is intentional.
+    # Each role uses its tier configuration to pick the appropriate model,
+    # ensuring cross-model validation for better quality assurance.
 
   STEP 4: Act on reviewer verdict
     IF verdict = APPROVE THEN
