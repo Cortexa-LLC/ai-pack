@@ -11,10 +11,10 @@ import (
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 )
 
-// isBeadsTaskID checks if a string matches the Beads task ID format
+// isShortTaskID checks if a string matches the task ID format
 // Valid formats: project-id, project-id.subtask, project++-id, project++-id.subtask
-func isBeadsTaskID(id string) bool {
-	// Beads ID pattern: starts with letter, contains letters/numbers/+/_, has a dash, then alphanumeric, optional .subtask
+func isShortTaskID(id string) bool {
+	// task ID pattern: starts with letter, contains letters/numbers/+/_, has a dash, then alphanumeric, optional .subtask
 	pattern := `^[a-zA-Z][a-zA-Z0-9+_-]*-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)?$`
 	matched, _ := regexp.MatchString(pattern, id)
 	return matched
@@ -31,8 +31,8 @@ func extractTimestampFromFolderName(folderName string) (string, error) {
 	return matches[1] + "-" + matches[2], nil
 }
 
-// extractBeadsIDFromPrompt reads agent-prompt.txt and extracts the Beads task ID
-func extractBeadsIDFromPrompt(taskDir string) (string, error) {
+// extractShortTaskIDFromPrompt reads agent-prompt.txt and extracts the task ID
+func extractShortTaskIDFromPrompt(taskDir string) (string, error) {
 	promptPath := filepath.Join(taskDir, "agent-prompt.txt")
 	data, err := os.ReadFile(promptPath)
 	if err != nil {
@@ -47,7 +47,7 @@ func extractBeadsIDFromPrompt(taskDir string) (string, error) {
 			continue
 		}
 		if foundTaskLine && strings.TrimSpace(line) != "" {
-			// Extract first word as potential Beads ID
+			// Extract first word as potential task ID
 			words := strings.Fields(line)
 			if len(words) > 0 {
 				return words[0], nil
@@ -112,20 +112,20 @@ func (s *AgentServer) MigrateTaskFolders() (renamed, archived, skipped int, err 
 			readme := `# Legacy Task Archive
 
 ## Overview
-This directory contains agent tasks that were created before the system standardized on Beads task IDs.
+This directory contains agent tasks that were created before the system standardized on task IDs.
 
 ## What's Archived
 Tasks with the naming format: ` + "`task-{role}-{timestamp}`" + `
 
 These tasks were created using either:
-- Free-form descriptions (not Beads tasks)
-- Beads tasks but with old folder naming (duplicates after migration)
+- Free-form descriptions (not tasks)
+- tasks but with old folder naming (duplicates after migration)
 
 ## Why Archived
 As of February 2026, the agent-server system was refactored to:
 - Require all tasks to be created in Beads first (` + "`bd create '<description>'`" + `)
-- Use Beads task IDs as the single source of truth
-- Use consistent timestamped folder names: ` + "`{beads-id}-{YYYYMMDD}-{HHMMSS}`" + `
+- Use task IDs as the single source of truth
+- Use consistent timestamped folder names: ` + "`{short-task-id}-{YYYYMMDD}-{HHMMSS}`" + `
 
 Legacy tasks have been archived to:
 1. Prevent confusion between old and new task formats
@@ -142,8 +142,8 @@ Each archived task folder contains:
 
 ## Accessing Archived Tasks
 These tasks are read-only archives. If you need to perform similar work:
-1. Create a new Beads task: ` + "`bd create '<description>'`" + `
-2. Spawn an agent with the Beads task ID: ` + "`agent {role} {beads-task-id}`" + `
+1. Create a new task: ` + "`bd create '<description>'`" + `
+2. Spawn an agent with the task ID: ` + "`agent {role} {beads-task-id}`" + `
 
 ## Migration Date
 Migrated on: ` + time.Now().Format("2006-01-02") + `
@@ -176,9 +176,9 @@ Migrated on: ` + time.Now().Format("2006-01-02") + `
 				continue
 			}
 
-			// Try to extract Beads ID from prompt
-			beadsID, err := extractBeadsIDFromPrompt(folderPath)
-			if err != nil || beadsID == "" {
+			// Try to extract task ID from prompt
+			shortTaskID, err := extractShortTaskIDFromPrompt(folderPath)
+			if err != nil || shortTaskID == "" {
 				// No prompt or no task - archive
 				monitoring.Logger.Info("migration_archive_no_prompt",
 					"folder", folderName,
@@ -192,12 +192,12 @@ Migrated on: ` + time.Now().Format("2006-01-02") + `
 				continue
 			}
 
-			// Validate it's actually a Beads ID
-			if !isBeadsTaskID(beadsID) {
+			// Validate it's actually a task ID
+			if !isShortTaskID(shortTaskID) {
 				// Free-form description - archive
 				monitoring.Logger.Info("migration_archive_freeform",
 					"folder", folderName,
-					"task", beadsID,
+					"task", shortTaskID,
 					"reason", "not_beads_id_format")
 				if err := os.Rename(folderPath, filepath.Join(archiveDir, folderName)); err != nil {
 					monitoring.Logger.Error("migration_archive_failed", "folder", folderName, "error", err.Error())
@@ -209,7 +209,7 @@ Migrated on: ` + time.Now().Format("2006-01-02") + `
 			}
 
 			// Rename to beads-id-timestamp format
-			newName := fmt.Sprintf("%s-%s", beadsID, timestamp)
+			newName := fmt.Sprintf("%s-%s", shortTaskID, timestamp)
 			newPath := filepath.Join(tasksDir, newName)
 
 			// Check if destination already exists
@@ -217,7 +217,7 @@ Migrated on: ` + time.Now().Format("2006-01-02") + `
 				// Destination exists - archive the duplicate
 				monitoring.Logger.Info("migration_archive_duplicate",
 					"folder", folderName,
-					"beads_id", beadsID,
+					"beads_id", shortTaskID,
 					"reason", "destination_exists")
 				if err := os.Rename(folderPath, filepath.Join(archiveDir, folderName)); err != nil {
 					monitoring.Logger.Error("migration_archive_failed", "folder", folderName, "error", err.Error())
@@ -232,7 +232,7 @@ Migrated on: ` + time.Now().Format("2006-01-02") + `
 			monitoring.Logger.Info("migration_rename",
 				"from", folderName,
 				"to", newName,
-				"beads_id", beadsID)
+				"beads_id", shortTaskID)
 			if err := os.Rename(folderPath, newPath); err != nil {
 				monitoring.Logger.Error("migration_rename_failed",
 					"folder", folderName,

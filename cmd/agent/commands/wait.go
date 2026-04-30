@@ -16,7 +16,7 @@ func newWaitCmd() *cobra.Command {
 	var inactiveTimeout time.Duration
 
 	cmd := &cobra.Command{
-		Use:          "wait <beads-task-id>",
+		Use:          "wait <task-id>",
 		Short:        "Wait for a task to complete",
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
@@ -31,14 +31,14 @@ func newWaitCmd() *cobra.Command {
 	return cmd
 }
 
-func runWait(beadsTaskID string, timeout time.Duration, stream bool, inactiveTimeout time.Duration) error {
+func runWait(taskID string, timeout time.Duration, stream bool, inactiveTimeout time.Duration) error {
 	if stream {
-		internalTaskID := findInternalTaskIDFromServer(beadsTaskID)
+		internalTaskID := findInternalTaskIDFromServer(taskID)
 		if internalTaskID == "" {
-			internalTaskID = findInternalTaskID(beadsTaskID)
+			internalTaskID = findInternalTaskID(taskID)
 		}
 		if internalTaskID == "" {
-			fmt.Printf("❌ No agent found for Beads task: %s\n", beadsTaskID)
+			fmt.Printf("❌ No agent found for task: %s\n", taskID)
 			fmt.Printf("   Tip: Check 'agent list' for active agents\n")
 			os.Exit(1)
 		}
@@ -48,13 +48,13 @@ func runWait(beadsTaskID string, timeout time.Duration, stream bool, inactiveTim
 		return nil
 	}
 
-	fmt.Printf("⏳ Waiting for task %s (timeout: %v)...\n", beadsTaskID, timeout)
+	fmt.Printf("⏳ Waiting for task %s (timeout: %v)...\n", taskID, timeout)
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Before(deadline) {
-		internalTaskID := findInternalTaskIDFromServer(beadsTaskID)
+		internalTaskID := findInternalTaskIDFromServer(taskID)
 		if internalTaskID == "" {
-			internalTaskID = findInternalTaskID(beadsTaskID)
+			internalTaskID = findInternalTaskID(taskID)
 		}
 		if internalTaskID == "" {
 			fmt.Printf("⚠️  Task not found yet, retrying...\n")
@@ -66,14 +66,14 @@ func runWait(beadsTaskID string, timeout time.Duration, stream bool, inactiveTim
 			return nil
 		}
 	}
-	fmt.Printf("⏰ Timeout waiting for task %s\n", beadsTaskID)
+	fmt.Printf("⏰ Timeout waiting for task %s\n", taskID)
 	os.Exit(1)
 	return nil
 }
 
 // runWaitHTTP polls GET /a2a/tasks/<internalTaskID> until the task reaches a
 // terminal state or the timeout elapses. It is extracted so that contract tests
-// can verify the correct endpoint path without a Beads task lookup.
+// can verify the correct endpoint path without a task lookup.
 func runWaitHTTP(internalTaskID string, timeout, _ time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {

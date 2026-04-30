@@ -23,14 +23,14 @@ func (s *AgentServer) markExecutionAsSuperseded(taskID, projectRoot, reason stri
 	if projectRoot == "" {
 		// Search all project roots
 		for _, root := range s.GetProjectRoots() {
-			path := filepath.Join(root, constants.BeadsDir, "tasks", taskID, constants.MetadataFileName)
+			path := filepath.Join(root, constants.TaskRootDir, "tasks", taskID, constants.MetadataFileName)
 			if _, err := os.Stat(path); err == nil {
 				metadataPath = path
 				break
 			}
 		}
 	} else {
-		metadataPath = filepath.Join(projectRoot, constants.BeadsDir, "tasks", taskID, constants.MetadataFileName)
+		metadataPath = filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID, constants.MetadataFileName)
 	}
 
 	if metadataPath == "" {
@@ -77,10 +77,10 @@ func (s *AgentServer) markExecutionAsSuperseded(taskID, projectRoot, reason stri
 	return nil
 }
 
-// findMostRecentExecutionFolderInRoot finds the most recent timestamped execution folder for a Beads task ID in the server root
+// findMostRecentExecutionFolderInRoot finds the most recent timestamped execution folder for a task ID in the server root
 
 func (s *AgentServer) updateTaskStatus(taskID, projectRoot, status, errorMsg string) error {
-	metadataPath := filepath.Join(projectRoot, constants.BeadsDir, "tasks", taskID, constants.MetadataFileName)
+	metadataPath := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID, constants.MetadataFileName)
 	monitoring.Logger.Info("updating_task_status", "task_id", taskID, "status", status, "path", metadataPath)
 
 	data, err := os.ReadFile(metadataPath)
@@ -330,7 +330,7 @@ func (s *AgentServer) writeExecutionMetrics(execution *TaskExecution, startTime 
 // saveTaskResults saves the task results to disk
 func (s *AgentServer) saveTaskResults(execution *TaskExecution, result string, logMsg func(string)) {
 	logMsg("💾 Saving results...")
-	resultsPath := filepath.Join(execution.ProjectRoot, constants.BeadsDir, "tasks", execution.TaskID, "30-results.md")
+	resultsPath := filepath.Join(execution.ProjectRoot, constants.TaskRootDir, "tasks", execution.TaskID, "30-results.md")
 	resultsContent := fmt.Sprintf("# Task Results: %s\n\n**Role**: %s\n**Task**: %s\n**Completed**: %s\n\n## Agent Output\n\n%s\n",
 		execution.TaskID, execution.Role, execution.Task, time.Now().Format(time.RFC3339), result)
 
@@ -360,7 +360,7 @@ func (s *AgentServer) updateTaskCompletion(execution *TaskExecution, result stri
 	}
 }
 
-// completeBeadsTask marks the corresponding Beads task as complete
+// completeBeadsTask marks the corresponding task as complete
 // Returns error if the Beads update failed
 
 func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
@@ -368,7 +368,7 @@ func (s *AgentServer) failTask(execution *TaskExecution, errorMsg string) {
 	durationMs := time.Since(execution.StartTime).Milliseconds()
 
 	// Log failure to execution log
-	logPath := filepath.Join(execution.ProjectRoot, constants.BeadsDir, "tasks", execution.TaskID, "execution.log")
+	logPath := filepath.Join(execution.ProjectRoot, constants.TaskRootDir, "tasks", execution.TaskID, "execution.log")
 	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {
 		timestamp := time.Now().Format("15:04:05")
@@ -449,7 +449,7 @@ func (s *AgentServer) CancelTask(taskID string) error {
 	s.mu.Lock()
 	execution, exists := s.activeTasks[taskID]
 	if !exists {
-		// Try prefix match for short Beads IDs (e.g. "xasm++-qbxv" → "xasm++-qbxv-20260218-101958")
+		// Try prefix match for short task IDs (e.g. "xasm++-qbxv" → "xasm++-qbxv-20260218-101958")
 		prefix := taskID + "-"
 		for _, exec := range s.activeTasks {
 			if strings.HasPrefix(exec.TaskID, prefix) {
@@ -458,7 +458,7 @@ func (s *AgentServer) CancelTask(taskID string) error {
 				break
 			}
 			if exec.metadata != nil {
-				if btid, ok := exec.metadata["beads_task_id"]; ok && btid == taskID {
+				if btid, ok := exec.metadata["task_id"]; ok && btid == taskID {
 					execution = exec
 					exists = true
 					break
@@ -478,7 +478,7 @@ func (s *AgentServer) CancelTask(taskID string) error {
 		execution.cancel()
 
 		// Log cancellation to execution log
-		logPath := filepath.Join(execution.ProjectRoot, constants.BeadsDir, "tasks", execution.TaskID, "execution.log")
+		logPath := filepath.Join(execution.ProjectRoot, constants.TaskRootDir, "tasks", execution.TaskID, "execution.log")
 		logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err == nil {
 			timestamp := time.Now().Format("15:04:05")
@@ -559,7 +559,7 @@ func (s *AgentServer) sendStreamEvent(execution *TaskExecution, eventType string
 // writeStreamEventToFile appends a stream event to the per-task log file
 func (s *AgentServer) writeStreamEventToFile(execution *TaskExecution, event *protocol.StreamEvent) {
 	// Build path to task log directory
-	logDir := filepath.Join(execution.ProjectRoot, constants.BeadsDir, "tasks", execution.TaskID)
+	logDir := filepath.Join(execution.ProjectRoot, constants.TaskRootDir, "tasks", execution.TaskID)
 	logPath := filepath.Join(logDir, "execution.log")
 
 	// Ensure directory exists

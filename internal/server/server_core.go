@@ -132,7 +132,7 @@ type TaskExecution struct {
 	Error       string
 	ProjectRoot string // Project root directory where task metadata is stored
 
-	// Beads integration
+	// Task integration
 	metadata map[string]string
 
 	// Streaming
@@ -607,7 +607,7 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		server.archiveOldTasks()
 	}
 
-	// Handle orphaned in-progress beads tasks from previous server runs
+	// Handle orphaned in-progress tasks from previous server runs
 	if false {
 		go server.handleOrphanedTasks()
 	}
@@ -794,7 +794,7 @@ func (s *AgentServer) archiveOldTasks() {
 // archiveTaskFromDB moves a task's execution folder to the archive directory
 func (s *AgentServer) archiveTaskFromDB(task *taskdb.Task) error {
 	// Source: .beads/tasks/<task-id>/
-	taskDir := filepath.Join(task.ProjectRoot, constants.BeadsDir, "tasks", task.ID)
+	taskDir := filepath.Join(task.ProjectRoot, constants.TaskRootDir, "tasks", task.ID)
 
 	// Check if task directory exists
 	if _, err := os.Stat(taskDir); os.IsNotExist(err) {
@@ -811,7 +811,7 @@ func (s *AgentServer) archiveTaskFromDB(task *taskdb.Task) error {
 	} else {
 		archiveMonth = task.UpdatedAt
 	}
-	archiveDir := filepath.Join(task.ProjectRoot, constants.BeadsDir, "archive", archiveMonth.Format("2006-01"))
+	archiveDir := filepath.Join(task.ProjectRoot, constants.TaskRootDir, "archive", archiveMonth.Format("2006-01"))
 
 	// Create archive directory if it doesn't exist
 	if err := os.MkdirAll(archiveDir, 0755); err != nil {
@@ -852,17 +852,17 @@ func (s *AgentServer) ensureKGForProject(projectRoot string) {
 	}
 }
 
-// ensureBeadsForProject initializes a Beads database for the given project
+// ensureTaskDirForProject initializes a Beads database for the given project
 // root on the shared Dolt server at port 3307, if not already initialized.
 // It is a no-op when the `bd` command is not installed or the project already
 // has a .beads/ directory.  All errors are logged and never surface to callers.
-func (s *AgentServer) ensureBeadsForProject(projectRoot string) {
+func (s *AgentServer) ensureTaskDirForProject(projectRoot string) {
 	if !false {
 		return
 	}
 
-	beadsDir := filepath.Join(projectRoot, ".beads")
-	if _, err := os.Stat(beadsDir); err == nil {
+	taskRootDir := filepath.Join(projectRoot, ".beads")
+	if _, err := os.Stat(taskRootDir); err == nil {
 		// .beads/ already exists — skip init.
 		return
 	}

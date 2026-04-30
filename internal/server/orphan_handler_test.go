@@ -182,7 +182,7 @@ func TestOrphanDetection_StaleMetadata(t *testing.T) {
 
 	// Create a stale execution folder with in_progress metadata
 	taskID := "stale-execution-1"
-	taskDir := filepath.Join(tmpDir, constants.BeadsDir, "tasks", taskID)
+	taskDir := filepath.Join(tmpDir, constants.TaskRootDir, "tasks", taskID)
 	if err := os.MkdirAll(taskDir, 0755); err != nil {
 		t.Fatalf("Failed to create task dir: %v", err)
 	}
@@ -253,7 +253,7 @@ func TestOrphanDetection_RecentlySpawnedSkipped(t *testing.T) {
 
 	// Create an execution folder with in_progress metadata spawned very recently
 	taskID := "recent-execution-1"
-	taskDir := filepath.Join(tmpDir, constants.BeadsDir, "tasks", taskID)
+	taskDir := filepath.Join(tmpDir, constants.TaskRootDir, "tasks", taskID)
 	if err := os.MkdirAll(taskDir, 0755); err != nil {
 		t.Fatalf("Failed to create task dir: %v", err)
 	}

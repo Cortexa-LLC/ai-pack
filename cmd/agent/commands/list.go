@@ -53,7 +53,7 @@ func runList(running, completed, failed, all, jsonOutput, verbose bool) error {
 	var response struct {
 		Tasks []struct {
 			TaskID      string   `json:"task_id"`
-			BeadsTaskID string   `json:"beads_task_id"`
+			BeadsTaskID string   `json:"task_id"`
 			Status      string   `json:"status"`
 			Role        string   `json:"role"`
 			Description string   `json:"description"`
@@ -77,7 +77,7 @@ func runList(running, completed, failed, all, jsonOutput, verbose bool) error {
 	// Filter tasks
 	var tasks []struct {
 		TaskID      string   `json:"task_id"`
-		BeadsTaskID string   `json:"beads_task_id"`
+		BeadsTaskID string   `json:"task_id"`
 		Status      string   `json:"status"`
 		Role        string   `json:"role"`
 		Description string   `json:"description"`

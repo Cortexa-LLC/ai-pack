@@ -11,7 +11,7 @@ import (
 
 func newResultsCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:          "results <beads-task-id>",
+		Use:          "results <task-id>",
 		Short:        "Show the results for a completed task",
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
@@ -21,17 +21,17 @@ func newResultsCmd() *cobra.Command {
 	}
 }
 
-func runResults(beadsTaskID string) error {
+func runResults(taskID string) error {
 	// Resolve the internal task ID (execution folder name) via the server or
 	// local .beads directory scan.
-	internalTaskID, projectRoot := findTaskIDAndProjectFromServer(beadsTaskID)
+	internalTaskID, projectRoot := findTaskIDAndProjectFromServer(taskID)
 	if internalTaskID == "" {
-		internalTaskID = findInternalTaskID(beadsTaskID)
+		internalTaskID = findInternalTaskID(taskID)
 		projectRoot = ""
 	}
 
 	if internalTaskID == "" {
-		return fmt.Errorf("no task found for beads ID %s – check 'agent list' or 'bd show %s'", beadsTaskID, beadsTaskID)
+		return fmt.Errorf("no task found for task ID %s – check 'agent list' or 'bd show %s'", taskID, taskID)
 	}
 
 	// 1. Try the server API – works whether or not the task files are present
@@ -54,7 +54,7 @@ func runResults(beadsTaskID string) error {
 	resultsFile := filepath.Join(projectRoot, ".beads", "tasks", internalTaskID, "30-results.md")
 	data, err := os.ReadFile(resultsFile)
 	if err != nil {
-		return fmt.Errorf("no results found for task %s: %w", beadsTaskID, err)
+		return fmt.Errorf("no results found for task %s: %w", taskID, err)
 	}
 
 	fmt.Print(string(data))

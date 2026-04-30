@@ -297,7 +297,7 @@ The project uses `.claudeignore` files (similar to `.gitignore`) to prevent agen
 **/dist/
 
 # Task logs
-.beads/tasks/
+\.ai/tasks/
 
 # Large files
 **/*.log

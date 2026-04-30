@@ -491,17 +491,17 @@ func (s *AgentServer) HandleRetryTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract Beads task ID from metadata (this is the correct ID to use for retry)
-	// The taskID parameter might be a timestamped execution folder, but we need the Beads ID
-	beadsTaskID := taskID
-	if btid, ok := taskInfo.Metadata["beads_task_id"].(string); ok && btid != "" {
-		beadsTaskID = btid
+	// Extract task ID from metadata (this is the correct ID to use for retry)
+	// The taskID parameter might be a timestamped execution folder, but we need the task ID
+	shortTaskID := taskID
+	if btid, ok := taskInfo.Metadata["task_id"].(string); ok && btid != "" {
+		shortTaskID = btid
 	}
 	// Also check nested "metadata" object (written by updateTaskPacketMetadataInProject)
-	if beadsTaskID == taskID {
+	if shortTaskID == taskID {
 		if nested, ok := taskInfo.Metadata["metadata"].(map[string]interface{}); ok {
-			if btid, ok := nested["beads_task_id"].(string); ok && btid != "" {
-				beadsTaskID = btid
+			if btid, ok := nested["task_id"].(string); ok && btid != "" {
+				taskID = btid
 			}
 		}
 	}
@@ -528,8 +528,8 @@ func (s *AgentServer) HandleRetryTask(w http.ResponseWriter, r *http.Request) {
 		// Don't fail the retry - this is just metadata cleanup
 	}
 
-	// Spawn a new agent task with the Beads task ID (not the timestamped execution folder)
-	newTaskResponse, err := s.spawnAgentTask(taskInfo.Role, beadsTaskID, projectRoot)
+	// Spawn a new agent task with the task ID (not the timestamped execution folder)
+	newTaskResponse, err := s.spawnAgentTask(taskInfo.Role, taskID, projectRoot)
 	if err != nil {
 		if errors.Is(err, ErrTaskQueueFull) {
 			w.Header().Set("Retry-After", "5")
@@ -549,7 +549,7 @@ func (s *AgentServer) HandleRetryTask(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// HandleStartTask starts an agent for a Beads task
+// HandleStartTask starts an agent for a task
 func (s *AgentServer) HandleStartTask(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
@@ -639,7 +639,7 @@ func (s *AgentServer) HandleStartTask(w http.ResponseWriter, r *http.Request) {
 	roleToSpawn := req.Role
 	monitoring.Logger.Info("start_task_with_packet", "task_id", taskID, "spawning", roleToSpawn, "packet_path", taskPacketPath)
 
-	// Spawn agent for this Beads task
+	// Spawn agent for this task
 	response, err := s.spawnAgentTask(roleToSpawn, taskID, req.ProjectRoot)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")

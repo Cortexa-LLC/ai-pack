@@ -50,7 +50,7 @@ type Endpoint struct {
 type ExecuteTaskRequest struct {
 	Role        string                 `json:"role"`
 	Task        string                 `json:"task"`
-	ProjectRoot string                 `json:"project_root,omitempty"` // Project root directory for Beads integration
+	ProjectRoot string                 `json:"project_root,omitempty"` // Project root directory for Task integration
 	Options     map[string]interface{} `json:"options,omitempty"`
 }
 

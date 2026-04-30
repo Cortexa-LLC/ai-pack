@@ -54,13 +54,13 @@ func (s *AgentServer) handleStream(w http.ResponseWriter, r *http.Request) {
 		s.streamActiveTaskFromChannel(ctx, w, flusher, execution)
 	} else {
 		// Completed task - stream from log file
-		projectRoot, status, err := s.findTaskProjectRoot(taskID)
+		projectRoot, status, err := s.findTaskProjectRootWithStatus(taskID)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Task not found: %s - %v", taskID, err), http.StatusNotFound)
 			return
 		}
 
-		logPath := filepath.Join(projectRoot, constants.BeadsDir, "tasks", taskID, "execution.log")
+		logPath := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID, "execution.log")
 
 		// Send initial connection event
 		s.sendSSEEvent(w, flusher, "connected", map[string]interface{}{
@@ -138,7 +138,7 @@ func (s *AgentServer) streamActiveTaskFromChannel(ctx context.Context, w http.Re
 }
 
 // findTaskProjectRoot finds a task's project root by checking activeTasks or global execution log
-func (s *AgentServer) findTaskProjectRoot(taskID string) (string, string, error) {
+func (s *AgentServer) findTaskProjectRootWithStatus(taskID string) (string, string, error) {
 	// First check active tasks (fastest)
 	s.mu.RLock()
 	if execution, exists := s.activeTasks[taskID]; exists {

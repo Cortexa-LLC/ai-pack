@@ -236,7 +236,7 @@ func IndexExecutionLog(
 		return // no KG client configured — silently skip
 	}
 
-	logPath := filepath.Join(projectRoot, constants.BeadsDir, "tasks", taskID, "execution.log")
+	logPath := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID, "execution.log")
 	parsed, err := parseExecutionLog(logPath)
 	if err != nil {
 		monitoring.Logger.Warn("kg_log_indexer_parse_failed",

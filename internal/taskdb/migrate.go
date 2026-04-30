@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-// MigrateFromBeads imports tasks from .beads/tasks directories into the SQLite database.
+// MigrateFromLegacy imports tasks from .beads/tasks directories into the SQLite database.
 // It scans all task directories and creates corresponding database entries.
-func (db *DB) MigrateFromBeads(projectRoot string) (int, error) {
+func (db *DB) MigrateFromLegacy(projectRoot string) (int, error) {
 	tasksDir := filepath.Join(projectRoot, ".beads", "tasks")
 
 	// Check if tasks directory exists
@@ -120,9 +120,9 @@ func (db *DB) MigrateFromBeads(projectRoot string) (int, error) {
 	return migrated, nil
 }
 
-// extractBeadsID extracts the short Beads ID from a full task ID.
+// extractShortTaskID extracts the short task ID from a full task ID.
 // Example: "listingsgql-5b6-20260424-162611" -> "listingsgql-5b6"
-func extractBeadsID(taskID string) string {
+func extractShortTaskID(taskID string) string {
 	// Split by hyphen and take everything before the timestamp
 	parts := strings.Split(taskID, "-")
 	if len(parts) < 3 {
@@ -132,7 +132,7 @@ func extractBeadsID(taskID string) string {
 	// Find the first part that looks like a timestamp (YYYYMMDD)
 	for i := 2; i < len(parts); i++ {
 		if len(parts[i]) == 8 && isNumeric(parts[i]) {
-			// Everything before this is the Beads ID
+			// Everything before this is the task ID
 			return strings.Join(parts[:i], "-")
 		}
 	}

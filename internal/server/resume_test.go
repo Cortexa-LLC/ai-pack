@@ -21,7 +21,7 @@ func createTaskWithCheckpoint(t *testing.T, tmpDir, taskID string, cp *AgentChec
 	t.Helper()
 
 	// Create task directory
-	taskDir := filepath.Join(tmpDir, constants.BeadsDir, "tasks", taskID)
+	taskDir := filepath.Join(tmpDir, constants.TaskRootDir, "tasks", taskID)
 	if err := os.MkdirAll(taskDir, 0755); err != nil {
 		t.Fatalf("Failed to create task dir: %v", err)
 	}

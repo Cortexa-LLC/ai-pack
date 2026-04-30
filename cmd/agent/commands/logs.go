@@ -24,7 +24,7 @@ func newLogsCmd() *cobra.Command {
 	var jsonOutput bool
 
 	cmd := &cobra.Command{
-		Use:   "logs [beads-task-id]",
+		Use:   "logs [task-id]",
 		Short: "Show or stream task / server logs",
 		Long: `Show logs for a task, stream the server log, or show all logs.
 
@@ -67,19 +67,19 @@ func runLogs(args []string, tailLines int, follow, serverLogs, allLogs, jsonOutp
 	}
 
 	if len(args) < 1 {
-		return fmt.Errorf("usage: agent logs <beads-task-id> [options]\n       agent logs --server")
+		return fmt.Errorf("usage: agent logs <task-id> [options]\n       agent logs --server")
 	}
 
-	beadsTaskID := args[0]
-	internalTaskID, projectRoot := findTaskIDAndProjectFromServer(beadsTaskID)
+	taskID := args[0]
+	internalTaskID, projectRoot := findTaskIDAndProjectFromServer(taskID)
 	if internalTaskID == "" {
-		internalTaskID = findInternalTaskID(beadsTaskID)
+		internalTaskID = findInternalTaskID(taskID)
 		projectRoot = "."
 	}
 
 	if internalTaskID == "" {
-		fmt.Printf(errNoAgentForBeadsTask, beadsTaskID)
-		fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", beadsTaskID)
+		fmt.Printf(errNoAgentForBeadsTask, taskID)
+		fmt.Printf("   Tip: Check 'agent list' for active agents or 'bd show %s' for task status\n", taskID)
 		os.Exit(1)
 	}
 

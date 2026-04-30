@@ -389,7 +389,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, roleTimeout time.D
 				logMsg(fmt.Sprintf("⚠️  Text-only response (turn %d, %d consecutive) — nudging to use tools:", turn, consecutiveTextOnlyTurns))
 				logMsg(responseTextStr)
 				// Capture the reasoning to the KG so retries inherit the agent's findings.
-				kgclient.WriteAgentReasoning(ctx, s.mcpManager, projectRoot, beadsIDFromTaskID(taskID), turn, responseTextStr)
+				kgclient.WriteAgentReasoning(ctx, s.mcpManager, projectRoot, shortTaskIDFromFullID(taskID), turn, responseTextStr)
 				const maxTextOnlyTurns = 5
 				if consecutiveTextOnlyTurns >= maxTextOnlyTurns {
 					return "", fmt.Errorf("agent produced %d consecutive text-only responses without making a tool call", maxTextOnlyTurns)
@@ -851,10 +851,10 @@ func (s *AgentServer) resumeFromCheckpoint(taskID, projectRoot string, cp *Agent
 	s.saveAndCompleteTask(ctx, execution, result, execution.StartTime, logMsg)
 }
 
-// beadsIDFromTaskID strips the YYYYMMDD-HHMMSS timestamp suffix from a task ID
-// to recover the bare Beads ID. E.g. "xasm++-fz5t-20260306-074606" → "xasm++-fz5t".
+// shortTaskIDFromFullID strips the YYYYMMDD-HHMMSS timestamp suffix from a task ID
+// to recover the bare task ID. E.g. "xasm++-fz5t-20260306-074606" → "xasm++-fz5t".
 // If the ID has no timestamp suffix it is returned unchanged.
-func beadsIDFromTaskID(taskID string) string {
+func shortTaskIDFromFullID(taskID string) string {
 	parts := strings.Split(taskID, "-")
 	n := len(parts)
 	if n >= 2 {

@@ -77,7 +77,7 @@ func (s *AgentServer) handleOrphanedTasks() {
 	// metadata file still says "in_progress" but aren't in activeTasks or taskDB.
 	projectRoots := s.GetProjectRoots()
 	for _, projectRoot := range projectRoots {
-		tasksDir := filepath.Join(projectRoot, constants.BeadsDir, "tasks")
+		tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
 		entries, err := os.ReadDir(tasksDir)
 		if err != nil {
 			continue

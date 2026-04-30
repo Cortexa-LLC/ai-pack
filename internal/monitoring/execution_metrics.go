@@ -11,7 +11,7 @@ import (
 // It is written as metrics.json inside the task packet directory so that
 // analysis tools can compute aggregate statistics without re-parsing logs.
 type ExecutionMetrics struct {
-	// TaskID is the Beads task identifier (e.g. "ai-pack-abc1").
+	// TaskID is the task identifier (e.g. "ai-pack-abc1").
 	TaskID string `json:"task_id"`
 
 	// Role is the agent role that ran (e.g. "engineer", "architect").

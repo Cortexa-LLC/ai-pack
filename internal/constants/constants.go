@@ -130,15 +130,6 @@ const (
 	MethodA2ADiscovery = "a2a.discovery"
 )
 
-// Beads Actions
-const (
-	BeadsActionCreate = "create"
-	BeadsActionUpdate = "update"
-	BeadsActionList   = "list"
-	BeadsActionGet    = "get"
-	BeadsActionDelete = "delete"
-)
-
 // Tool Names
 const (
 	ToolBash   = "bash"
@@ -160,7 +151,7 @@ const (
 
 // Directory Names
 const (
-	BeadsDir     = ".beads"
+	TaskRootDir  = ".ai"      // Root directory for task execution data
 	ClaudeDir    = ".claude"
 	AIDir        = ".ai"
 	AIPackDir    = ".ai-pack"
