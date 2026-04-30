@@ -368,11 +368,11 @@ function App() {
   }, [activeTab]);
 
   // Helper function to select a task and switch to task logs tab
-  const selectTask = (taskId: string) => {
-    setSelectedTask(taskId);
+  const selectTask = (beadsTaskId: string) => {
+    setSelectedTask(beadsTaskId);
     setActiveTab('task-logs');
     // Push to browser history so back button works
-    window.history.pushState({ taskId, tab: 'task-logs' }, '', `#task/${taskId}`);
+    window.history.pushState({ taskId: beadsTaskId, tab: 'task-logs' }, '', `#task/${beadsTaskId}`);
   };
 
   const cancelTask = async (taskID: string, event?: React.MouseEvent, skipConfirm = false) => {
@@ -981,7 +981,7 @@ function App() {
                                 >
                                   <div
                                     className="cursor-pointer pb-8"
-                                    onClick={() => selectTask(task.taskID)}
+                                    onClick={() => selectTask(task.beadsTaskId || task.taskID)}
                                   >
                                     <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
                                       {task.task.split('\n')[0]}
@@ -1053,7 +1053,7 @@ function App() {
                               <div
                                 key={task.taskID}
                                 className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-yellow-500 cursor-pointer transition-colors relative"
-                                onClick={() => selectTask(task.taskID)}
+                                onClick={() => selectTask(task.beadsTaskId || task.taskID)}
                               >
                                 <div className="pb-8">
                                   <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
@@ -1114,7 +1114,7 @@ function App() {
                               <div
                                 key={task.taskID}
                                 className="bg-gray-800 border border-gray-700 rounded-lg p-2 hover:border-orange-500 cursor-pointer transition-colors relative"
-                                onClick={() => selectTask(task.taskID)}
+                                onClick={() => selectTask(task.beadsTaskId || task.taskID)}
                               >
                                 <div className="pb-8">
                                   <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
@@ -1196,7 +1196,7 @@ function App() {
                               >
                                 <div
                                   className="cursor-pointer pb-8"
-                                  onClick={() => selectTask(task.taskID)}
+                                  onClick={() => selectTask(task.beadsTaskId || task.taskID)}
                                 >
                                   <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
                                     {task.task.split('\n')[0]}
@@ -1262,7 +1262,7 @@ function App() {
                               >
                                 <div
                                   className="cursor-pointer pb-8"
-                                  onClick={() => selectTask(task.taskID)}
+                                  onClick={() => selectTask(task.beadsTaskId || task.taskID)}
                                 >
                                   <div className="text-xs font-medium text-white mb-1 line-clamp-2" title={task.task}>
                                     {task.task.split('\n')[0]}
