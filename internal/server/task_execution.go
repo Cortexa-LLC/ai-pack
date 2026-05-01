@@ -105,13 +105,22 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, roleTimeout time.D
 		// in the role config file. When no model is pinned, pass "" so the
 		// performance-grade model selector picks the most cost-effective option.
 		// (requestModel was already set above for the token-budget computation.)
+
+		// Calculate actual prompt size for rate limit checking
+		promptTokens := len(systemPrompt) / 4 // rough estimate for system prompt
+		for _, msg := range truncatedMessages {
+			promptTokens += estimateMessageTokens(msg)
+		}
+		// Add buffer for tool definitions (rough estimate)
+		promptTokens += len(toolDefs) * 100
+
 		streamReq := streaming.StreamRequest{
 			Messages:         truncatedMessages,
 			SystemPrompt:     systemPrompt,
 			MaxTokens:        s.maxTokens,
 			Model:            requestModel,
 			Tools:            toolDefs,
-			MinContextTokens: config.Delegation.MaxContext,
+			MinContextTokens: promptTokens, // Use actual prompt size for rate limit filtering
 		}
 
 		// Note: Extended thinking support requires newer SDK version
