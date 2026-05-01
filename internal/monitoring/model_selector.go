@@ -60,35 +60,36 @@ type ModelInfo struct {
 	CostPerMIn    float64 // Input cost per 1M tokens
 	CostPerMOut   float64 // Output cost per 1M tokens
 	ContextWindow int     // Max context in tokens (0 = unknown, no filtering applied)
+	RateLimitTPM  int     // Rate limit in tokens per minute (0 = unknown/unlimited)
 }
 
 // ModelsByTier maps tiers to available models (ordered by preference)
 var ModelsByTier = map[ModelTier][]ModelInfo{
 	TierMinimal: {
-		{ID: "gpt-4o-mini", Tier: TierMinimal, Class: ClassAgentic, Provider: constants.ProviderOpenAI, CostPerMIn: 0.15, CostPerMOut: 0.60, ContextWindow: 128_000},
-		{ID: "gpt-4.1-nano", Tier: TierMinimal, Class: ClassAgentic, Provider: constants.ProviderOpenAI, CostPerMIn: 0.10, CostPerMOut: 0.40, ContextWindow: 1_047_576},
-		{ID: "claude-haiku-4-5", Tier: TierMinimal, Class: ClassAgentic, Provider: constants.ProviderAnthropic, CostPerMIn: 1.00, CostPerMOut: 5.00, ContextWindow: 200_000},
-		{ID: "gemini-2.5-flash-lite", Tier: TierMinimal, Class: ClassAgentic, Provider: constants.ProviderGemini, CostPerMIn: 0.10, CostPerMOut: 0.40, ContextWindow: 1_048_576},
+		{ID: "gpt-4o-mini", Tier: TierMinimal, Class: ClassAgentic, Provider: constants.ProviderOpenAI, CostPerMIn: 0.15, CostPerMOut: 0.60, ContextWindow: 128_000, RateLimitTPM: 200_000},
+		{ID: "gpt-4.1-nano", Tier: TierMinimal, Class: ClassAgentic, Provider: constants.ProviderOpenAI, CostPerMIn: 0.10, CostPerMOut: 0.40, ContextWindow: 1_047_576, RateLimitTPM: 150_000},
+		{ID: "claude-haiku-4-5", Tier: TierMinimal, Class: ClassAgentic, Provider: constants.ProviderAnthropic, CostPerMIn: 1.00, CostPerMOut: 5.00, ContextWindow: 200_000, RateLimitTPM: 0},
+		{ID: "gemini-2.5-flash-lite", Tier: TierMinimal, Class: ClassAgentic, Provider: constants.ProviderGemini, CostPerMIn: 0.10, CostPerMOut: 0.40, ContextWindow: 1_048_576, RateLimitTPM: 0},
 	},
 	TierLow: {
-		{ID: "gpt-4.1-mini", Tier: TierLow, Class: ClassAgentic, Provider: constants.ProviderOpenAI, CostPerMIn: 0.40, CostPerMOut: 1.60, ContextWindow: 1_047_576},
-		{ID: "o4-mini", Tier: TierLow, Class: ClassReasoning, Provider: constants.ProviderOpenAI, CostPerMIn: 1.10, CostPerMOut: 4.40, ContextWindow: 200_000},
-		{ID: "gemini-2.5-flash", Tier: TierLow, Class: ClassAgentic, Provider: constants.ProviderGemini, CostPerMIn: 0.30, CostPerMOut: 2.50, ContextWindow: 1_048_576},
+		{ID: "gpt-4.1-mini", Tier: TierLow, Class: ClassAgentic, Provider: constants.ProviderOpenAI, CostPerMIn: 0.40, CostPerMOut: 1.60, ContextWindow: 1_047_576, RateLimitTPM: 100_000},
+		{ID: "o4-mini", Tier: TierLow, Class: ClassReasoning, Provider: constants.ProviderOpenAI, CostPerMIn: 1.10, CostPerMOut: 4.40, ContextWindow: 200_000, RateLimitTPM: 80_000},
+		{ID: "gemini-2.5-flash", Tier: TierLow, Class: ClassAgentic, Provider: constants.ProviderGemini, CostPerMIn: 0.30, CostPerMOut: 2.50, ContextWindow: 1_048_576, RateLimitTPM: 0},
 	},
 	TierMedium: {
-		{ID: "gpt-5.1-codex-mini", Tier: TierMedium, Class: ClassCompletion, Provider: constants.ProviderOpenAI, CostPerMIn: 1.50, CostPerMOut: 6.00, ContextWindow: 0},
-		{ID: "gpt-4.1", Tier: TierMedium, Class: ClassAgentic, Provider: constants.ProviderOpenAI, CostPerMIn: 2.00, CostPerMOut: 8.00, ContextWindow: 1_047_576},
-		{ID: "claude-sonnet-4-6", Tier: TierMedium, Class: ClassAgentic, Provider: constants.ProviderAnthropic, CostPerMIn: 3.00, CostPerMOut: 15.00, ContextWindow: 200_000},
-		{ID: "claude-sonnet-4-5", Tier: TierMedium, Class: ClassAgentic, Provider: constants.ProviderAnthropic, CostPerMIn: 3.00, CostPerMOut: 15.00, ContextWindow: 200_000},
-		{ID: "claude-sonnet-4-5-20250929", Tier: TierMedium, Class: ClassAgentic, Provider: constants.ProviderAnthropic, CostPerMIn: 3.00, CostPerMOut: 15.00, ContextWindow: 200_000},
-		{ID: "gemini-2.5-pro", Tier: TierMedium, Class: ClassAgentic, Provider: constants.ProviderGemini, CostPerMIn: 1.25, CostPerMOut: 10.00, ContextWindow: 1_048_576},
+		{ID: "gpt-5.1-codex-mini", Tier: TierMedium, Class: ClassCompletion, Provider: constants.ProviderOpenAI, CostPerMIn: 1.50, CostPerMOut: 6.00, ContextWindow: 0, RateLimitTPM: 0},
+		{ID: "gpt-4.1", Tier: TierMedium, Class: ClassAgentic, Provider: constants.ProviderOpenAI, CostPerMIn: 2.00, CostPerMOut: 8.00, ContextWindow: 1_047_576, RateLimitTPM: 30_000},
+		{ID: "claude-sonnet-4-6", Tier: TierMedium, Class: ClassAgentic, Provider: constants.ProviderAnthropic, CostPerMIn: 3.00, CostPerMOut: 15.00, ContextWindow: 200_000, RateLimitTPM: 0},
+		{ID: "claude-sonnet-4-5", Tier: TierMedium, Class: ClassAgentic, Provider: constants.ProviderAnthropic, CostPerMIn: 3.00, CostPerMOut: 15.00, ContextWindow: 200_000, RateLimitTPM: 0},
+		{ID: "claude-sonnet-4-5-20250929", Tier: TierMedium, Class: ClassAgentic, Provider: constants.ProviderAnthropic, CostPerMIn: 3.00, CostPerMOut: 15.00, ContextWindow: 200_000, RateLimitTPM: 0},
+		{ID: "gemini-2.5-pro", Tier: TierMedium, Class: ClassAgentic, Provider: constants.ProviderGemini, CostPerMIn: 1.25, CostPerMOut: 10.00, ContextWindow: 1_048_576, RateLimitTPM: 0},
 	},
 	TierHigh: {
-		{ID: "gpt-5.1-codex", Tier: TierHigh, Class: ClassCompletion, Provider: constants.ProviderOpenAI, CostPerMIn: 3.00, CostPerMOut: 12.00, ContextWindow: 0},
-		{ID: "gpt-5.2-codex", Tier: TierHigh, Class: ClassCompletion, Provider: constants.ProviderOpenAI, CostPerMIn: 5.00, CostPerMOut: 20.00, ContextWindow: 0},
-		{ID: "claude-opus-4-5", Tier: TierHigh, Class: ClassAgentic, Provider: constants.ProviderAnthropic, CostPerMIn: 15.00, CostPerMOut: 75.00, ContextWindow: 200_000},
-		{ID: "claude-opus-4-6", Tier: TierHigh, Class: ClassAgentic, Provider: constants.ProviderAnthropic, CostPerMIn: 15.00, CostPerMOut: 75.00, ContextWindow: 200_000},
-		{ID: "gemini-3-pro-preview", Tier: TierHigh, Class: ClassAgentic, Provider: constants.ProviderGemini, CostPerMIn: 5.00, CostPerMOut: 20.00, ContextWindow: 0},
+		{ID: "gpt-5.1-codex", Tier: TierHigh, Class: ClassCompletion, Provider: constants.ProviderOpenAI, CostPerMIn: 3.00, CostPerMOut: 12.00, ContextWindow: 0, RateLimitTPM: 0},
+		{ID: "gpt-5.2-codex", Tier: TierHigh, Class: ClassCompletion, Provider: constants.ProviderOpenAI, CostPerMIn: 5.00, CostPerMOut: 20.00, ContextWindow: 0, RateLimitTPM: 0},
+		{ID: "claude-opus-4-5", Tier: TierHigh, Class: ClassAgentic, Provider: constants.ProviderAnthropic, CostPerMIn: 15.00, CostPerMOut: 75.00, ContextWindow: 200_000, RateLimitTPM: 0},
+		{ID: "claude-opus-4-6", Tier: TierHigh, Class: ClassAgentic, Provider: constants.ProviderAnthropic, CostPerMIn: 15.00, CostPerMOut: 75.00, ContextWindow: 200_000, RateLimitTPM: 0},
+		{ID: "gemini-3-pro-preview", Tier: TierHigh, Class: ClassAgentic, Provider: constants.ProviderGemini, CostPerMIn: 5.00, CostPerMOut: 20.00, ContextWindow: 0, RateLimitTPM: 0},
 	},
 }
 
@@ -407,6 +408,12 @@ func (ms *ModelSelector) getBestAvailableModelFromTier(tier ModelTier, role, pro
 		// Skip models with a known context window that is too small for the role.
 		// ContextWindow == 0 means unknown — allow it through.
 		if minContextTokens > 0 && m.ContextWindow > 0 && m.ContextWindow < minContextTokens {
+			continue
+		}
+		// Skip models with rate limits too low for the initial prompt.
+		// RateLimitTPM == 0 means unknown/unlimited — allow it through.
+		// Add 20% buffer to account for response tokens and ensure we stay under limit.
+		if minContextTokens > 0 && m.RateLimitTPM > 0 && m.RateLimitTPM < int(float64(minContextTokens)*1.2) {
 			continue
 		}
 		available = append(available, m)
