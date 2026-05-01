@@ -56,7 +56,7 @@ Example:
 				metadata["priority"] = priority
 			}
 			if packetPath != "" {
-				metadata["task_packet"] = packetPath
+				metadata["task_packet_path"] = packetPath
 			}
 			if len(metadata) > 0 {
 				metadataJSON, _ := json.Marshal(metadata)
