@@ -75,3 +75,67 @@ func (s *AgentServer) RepairTaskDescriptions() error {
 
 	return nil
 }
+
+// CleanupOrphanedTasks removes tasks from the database that have no description
+// and no task packet directory (orphaned/incomplete tasks).
+func (s *AgentServer) CleanupOrphanedTasks() error {
+	if s.taskDB == nil {
+		return nil
+	}
+
+	monitoring.Logger.Info("orphaned_task_cleanup_started")
+
+	// Get all tasks
+	tasks, err := s.taskDB.ListTasks(taskdb.TaskFilter{
+		Limit: 10000,
+	})
+	if err != nil {
+		return err
+	}
+
+	deletedCount := 0
+	for _, task := range tasks {
+		// Only consider tasks with no meaningful description
+		hasDescription := task.TaskDescription != "" && !strings.HasPrefix(task.TaskDescription, "Task ")
+		if hasDescription {
+			continue
+		}
+
+		shortID := taskdb.ExtractShortID(task.ID)
+
+		// Check if task packet exists
+		taskPacketPath := ""
+		if task.Metadata != "" {
+			var metadata map[string]string
+			if err := json.Unmarshal([]byte(task.Metadata), &metadata); err == nil {
+				taskPacketPath = metadata["task_packet_path"]
+			}
+		}
+
+		// Try to find task packet by scanning filesystem
+		if taskPacketPath == "" && task.ProjectRoot != "" {
+			taskPacketPath = s.findTaskPacketPath(shortID, task.ProjectRoot)
+		}
+
+		// Delete if no task packet found
+		if taskPacketPath == "" {
+			if err := s.taskDB.DeleteTask(task.ID); err != nil {
+				monitoring.Logger.Warn("failed_to_delete_orphaned_task",
+					"task_id", shortID,
+					"error", err.Error())
+			} else {
+				monitoring.Logger.Info("orphaned_task_deleted",
+					"task_id", shortID,
+					"full_id", task.ID,
+					"project_root", task.ProjectRoot)
+				deletedCount++
+			}
+		}
+	}
+
+	monitoring.Logger.Info("orphaned_task_cleanup_complete",
+		"total_tasks", len(tasks),
+		"deleted_count", deletedCount)
+
+	return nil
+}
