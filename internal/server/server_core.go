@@ -496,9 +496,14 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	}
 	server.taskDB = taskDB
 
-	// Repair task descriptions on startup (one-time scan to fix old tasks)
+	// Repair task descriptions and cleanup orphaned tasks on startup
 	if taskDB != nil {
 		go func() {
+			// First cleanup orphaned tasks (no description, no task packet)
+			if err := server.CleanupOrphanedTasks(); err != nil {
+				monitoring.Logger.Warn("orphaned_task_cleanup_failed", "error", err.Error())
+			}
+			// Then repair remaining tasks with descriptions
 			if err := server.RepairTaskDescriptions(); err != nil {
 				monitoring.Logger.Warn("task_description_repair_failed", "error", err.Error())
 			}
