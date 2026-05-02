@@ -1467,7 +1467,13 @@ function App() {
                 <div className="p-4 bg-gray-800 border-b border-gray-700">
                   <div className="flex-1">
                     <h3 className="text-md font-semibold mb-1">Task Logs</h3>
-                    <div className="text-xs text-gray-500">Task ID: {selectedTask}</div>
+                    <div className="text-sm text-white mb-1">
+                      {(() => {
+                        const task = tasksData?.tasks.find((t: any) => t.taskID === selectedTask);
+                        return task?.task || selectedTask;
+                      })()}
+                    </div>
+                    <div className="text-xs text-gray-500">{selectedTask}</div>
                   </div>
                 </div>
                 <div className="flex-1 overflow-auto p-4 bg-gray-900 font-mono text-xs">

@@ -237,13 +237,21 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 				if err := json.Unmarshal([]byte(existingTask.Metadata), &metadata); err == nil {
 					if path := metadata["task_packet_path"]; path != "" {
 						taskPacketPath = path
-						// Read description from contract file
-						if desc := s.readTaskDescriptionFromContract(taskPacketPath, projectRoot); desc != "" {
-							taskDescription = desc
-						}
 					}
 				}
 			}
+		}
+	}
+
+	// If no task packet path in metadata, scan filesystem
+	if taskPacketPath == "" {
+		taskPacketPath = s.findTaskPacketPath(taskID, projectRoot)
+	}
+
+	// Read description from contract if found
+	if taskPacketPath != "" {
+		if desc := s.readTaskDescriptionFromContract(taskPacketPath, projectRoot); desc != "" {
+			taskDescription = desc
 		}
 	}
 
