@@ -108,6 +108,13 @@ func (s *AgentServer) readTaskDescriptionFromContract(taskPacketPath, projectRoo
 
 	// Join and trim
 	desc := strings.TrimSpace(strings.Join(descLines, "\n"))
+
+	// Skip template placeholder text
+	if strings.Contains(desc, "[Clear, concise description") ||
+	   strings.Contains(desc, "[Describe what needs to be done]") {
+		return ""
+	}
+
 	// Return first 200 chars for display
 	if len(desc) > 200 {
 		return desc[:200] + "..."
