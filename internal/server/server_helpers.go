@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,6 +28,69 @@ func parseRoleTimeout(s string) time.Duration {
 		return d
 	}
 	return defaultRoleTimeout
+}
+
+// findTaskInDB looks up a task by short ID in the database
+func (s *AgentServer) findTaskInDB(shortID, projectRoot string) *taskdb.Task {
+	tasks, err := s.taskDB.ListTasks(taskdb.TaskFilter{
+		ProjectRoot: projectRoot,
+		Limit:       1000,
+	})
+	if err != nil {
+		return nil
+	}
+
+	// Find task with matching short ID
+	for _, task := range tasks {
+		if taskdb.ExtractShortID(task.ID) == shortID {
+			return task
+		}
+	}
+	return nil
+}
+
+// readTaskDescriptionFromContract reads the task description from 00-contract.md
+func (s *AgentServer) readTaskDescriptionFromContract(taskPacketPath, projectRoot string) string {
+	contractPath := filepath.Join(projectRoot, taskPacketPath, "00-contract.md")
+	data, err := os.ReadFile(contractPath)
+	if err != nil {
+		return ""
+	}
+
+	// Parse the "## Task Description" section
+	lines := strings.Split(string(data), "\n")
+	inTaskDescription := false
+	var descLines []string
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		// Start capturing when we hit "## Task Description"
+		if strings.HasPrefix(trimmed, "## Task Description") {
+			inTaskDescription = true
+			continue
+		}
+
+		// Stop at next header or end
+		if inTaskDescription {
+			if strings.HasPrefix(trimmed, "#") {
+				break
+			}
+			// Skip empty lines at the start
+			if len(descLines) == 0 && trimmed == "" {
+				continue
+			}
+			descLines = append(descLines, line)
+		}
+	}
+
+	// Join and trim
+	desc := strings.TrimSpace(strings.Join(descLines, "\n"))
+	// Return first 200 chars for display
+	if len(desc) > 200 {
+		return desc[:200] + "..."
+	}
+	return desc
 }
 
 // applyTaskContractOverrides reads 00-contract.md from the task packet directory
@@ -130,10 +194,29 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 	taskID := taskInput
 	monitoring.Logger.Info("spawning_task", "beads_id", taskID, "project_root", projectRoot)
 
-	// Task description comes from taskInput for now (can be enhanced to read from task packet)
+	// Try to get task description from existing task in database
 	taskDescription := fmt.Sprintf("Task %s", taskID)
 	taskPacketPath := ""
 	workingDir := projectRoot
+
+	// Look up existing task to get metadata (task packet path)
+	if s.taskDB != nil {
+		if existingTask := s.findTaskInDB(taskID, projectRoot); existingTask != nil {
+			// Extract task packet path from metadata
+			if existingTask.Metadata != "" {
+				var metadata map[string]string
+				if err := json.Unmarshal([]byte(existingTask.Metadata), &metadata); err == nil {
+					if path := metadata["task_packet_path"]; path != "" {
+						taskPacketPath = path
+						// Read description from contract file
+						if desc := s.readTaskDescriptionFromContract(taskPacketPath, projectRoot); desc != "" {
+							taskDescription = desc
+						}
+					}
+				}
+			}
+		}
+	}
 
 	// v2 structural risk assessment (all roles)
 	riskAssessment := s.complexityRiskAnalyzer.ComputeComplexityRisk(role, taskDescription)
