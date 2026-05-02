@@ -495,6 +495,16 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 		monitoring.Logger.Info("taskdb_initialized", "path", taskDBPath)
 	}
 	server.taskDB = taskDB
+
+	// Repair task descriptions on startup (one-time scan to fix old tasks)
+	if taskDB != nil {
+		go func() {
+			if err := server.RepairTaskDescriptions(); err != nil {
+				monitoring.Logger.Warn("task_description_repair_failed", "error", err.Error())
+			}
+		}()
+	}
+
 	server.maxInactiveTurns = maxInactiveTurns
 	server.maxConsecutiveErrorTurns = maxConsecutiveErrorTurns
 	server.providerCosts = costs

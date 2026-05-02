@@ -417,27 +417,13 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Convert to TaskInfo
+		// Convert to TaskInfo (descriptions are repaired on server startup)
 		for _, dbTask := range dbTasks {
-			description := dbTask.TaskDescription
-
-			// If description is generic "Task {id}", try to read from contract file
-			if strings.HasPrefix(description, "Task ") && dbTask.Metadata != "" {
-				var metadata map[string]string
-				if err := json.Unmarshal([]byte(dbTask.Metadata), &metadata); err == nil {
-					if taskPacketPath := metadata["task_packet_path"]; taskPacketPath != "" {
-						if contractDesc := s.readTaskDescriptionFromContract(taskPacketPath, dbTask.ProjectRoot); contractDesc != "" {
-							description = contractDesc
-						}
-					}
-				}
-			}
-
 			task := TaskInfo{
-				TaskID:      taskdb.ExtractShortID(dbTask.ID), // Use short ID as the canonical task ID
+				TaskID:      taskdb.ExtractShortID(dbTask.ID),
 				Status:      dbTask.Status,
 				Role:        dbTask.Role,
-				Description: description,
+				Description: dbTask.TaskDescription,
 				ProjectRoot: dbTask.ProjectRoot,
 				Error:       dbTask.Error,
 				CreatedAt:   &dbTask.CreatedAt,
