@@ -27,8 +27,8 @@ func (s *AgentServer) RepairTaskDescriptions() error {
 
 	repairedCount := 0
 	for _, task := range tasks {
-		// Skip if description is not generic
-		if !strings.HasPrefix(task.TaskDescription, "Task ") {
+		// Skip if description is already meaningful (not generic "Task X" and not empty)
+		if task.TaskDescription != "" && !strings.HasPrefix(task.TaskDescription, "Task ") {
 			continue
 		}
 
