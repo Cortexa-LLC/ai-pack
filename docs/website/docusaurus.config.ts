@@ -7,10 +7,6 @@ const config: Config = {
   tagline: 'A comprehensive AI agent workflow framework for software development',
   favicon: 'img/favicon.ico',
 
-  future: {
-    v4: true,
-  },
-
   // Set the production url of your site here
   // For GitHub Pages: https://YOUR_ORG.github.io
   // For custom domain: https://yourdomain.com
@@ -116,7 +112,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Cortexa LLC. Built with Docusaurus.`,
+      copyright: `Copyright © 2025-${new Date().getFullYear()} Cortexa LLC. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,
