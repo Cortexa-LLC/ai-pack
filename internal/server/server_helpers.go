@@ -49,6 +49,28 @@ func (s *AgentServer) findTaskInDB(shortID, projectRoot string) *taskdb.Task {
 	return nil
 }
 
+// findTaskPacketPath scans the .ai/tasks directory to find a task packet for the given short ID
+func (s *AgentServer) findTaskPacketPath(shortID, projectRoot string) string {
+	tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
+	entries, err := os.ReadDir(tasksDir)
+	if err != nil {
+		return ""
+	}
+
+	// Look for directories starting with the short ID
+	prefix := shortID + "-"
+	for _, entry := range entries {
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), prefix) {
+			// Verify it has a 00-contract.md file
+			contractPath := filepath.Join(tasksDir, entry.Name(), "00-contract.md")
+			if _, err := os.Stat(contractPath); err == nil {
+				return filepath.Join(constants.TaskRootDir, "tasks", entry.Name())
+			}
+		}
+	}
+	return ""
+}
+
 // readTaskDescriptionFromContract reads the task description from 00-contract.md
 func (s *AgentServer) readTaskDescriptionFromContract(taskPacketPath, projectRoot string) string {
 	contractPath := filepath.Join(projectRoot, taskPacketPath, "00-contract.md")
