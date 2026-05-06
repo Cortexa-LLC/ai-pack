@@ -402,6 +402,9 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 		CreatedAt   *time.Time `json:"createdAt,omitempty"`
 		UpdatedAt   *time.Time `json:"updatedAt,omitempty"`
 		CompletedAt *time.Time `json:"completedAt,omitempty"`
+		// LatestRunID is the timestamped run ID used for log file lookups.
+		// Clients should use this as the execution folder prefix when fetching logs.
+		LatestRunID string `json:"latestRunId,omitempty"`
 	}
 
 	var tasks []TaskInfo
@@ -429,6 +432,7 @@ func (s *AgentServer) HandleTasksList(w http.ResponseWriter, r *http.Request) {
 				CreatedAt:   &dbTask.CreatedAt,
 				UpdatedAt:   &dbTask.UpdatedAt,
 				CompletedAt: dbTask.CompletedAt,
+				LatestRunID: dbTask.LatestRunID,
 			}
 			tasks = append(tasks, task)
 		}

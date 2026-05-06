@@ -17,7 +17,7 @@ export const api = {
     // Transform response to add GraphQL-compatible aliases
     let tasks = (data.tasks || []).map((task: any) => ({
       ...task,
-      taskID: task.taskId,
+      taskID: task.taskId,  // API now returns camelCase
       task: task.description,
       createdAt: task.createdAt || new Date().toISOString(),
       updatedAt: task.updatedAt || new Date().toISOString(),
