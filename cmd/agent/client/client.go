@@ -96,9 +96,12 @@ func RequireOK(resp *http.Response, action string) []byte {
 
 // TaskInfo is the minimal shape returned by /a2a/tasks.
 type TaskInfo struct {
+	// TaskID is the short logical task ID (e.g. "ai-pack-aa0").
 	TaskID      string `json:"task_id"`
-	BeadsTaskID string `json:"task_id"`
 	ProjectRoot string `json:"project_root"`
+	// LatestRunID is the most recent timestamped execution run ID.
+	// When non-empty, use this for log file lookups instead of TaskID.
+	LatestRunID string `json:"latest_run_id"`
 }
 
 // TaskListResponse is the envelope returned by GET /a2a/tasks.
@@ -132,6 +135,8 @@ func (c *Client) FetchTaskResults(internalTaskID string) (result string, ok bool
 
 // FindTaskByShortID queries the server for a task matching taskID and returns
 // (internalTaskID, projectRoot). Both are empty strings when not found.
+// internalTaskID is the latest_run_id when available (for log file lookups),
+// otherwise the short task_id.
 func (c *Client) FindTaskByShortID(taskID string) (internalTaskID, projectRoot string) {
 	resp, err := c.Get("/a2a/tasks")
 	if err != nil {
@@ -147,8 +152,13 @@ func (c *Client) FindTaskByShortID(taskID string) (internalTaskID, projectRoot s
 		return "", ""
 	}
 	for _, t := range result.Tasks {
-		if t.BeadsTaskID == taskID {
-			return t.TaskID, t.ProjectRoot
+		if t.TaskID == taskID {
+			// Prefer latest_run_id for log file resolution; fall back to task_id
+			id := t.LatestRunID
+			if id == "" {
+				id = t.TaskID
+			}
+			return id, t.ProjectRoot
 		}
 	}
 	return "", ""
