@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -62,7 +63,7 @@ func (db *DB) Close() error {
 	return db.db.Close()
 }
 
-// CreateTask inserts a new task with status 'queued'.
+// CreateTask inserts a new logical task with status 'queued'.
 func (db *DB) CreateTask(task *Task) error {
 	query := `
 		INSERT INTO tasks (
@@ -85,24 +86,140 @@ func (db *DB) CreateTask(task *Task) error {
 	return err
 }
 
-// GetTask retrieves a task by ID.
+// CreateTaskRun inserts a new execution attempt into task_runs and updates
+// the parent task's latest_run_id and status to in_progress.
+func (db *DB) CreateTaskRun(run *TaskRun) error {
+	now := time.Now()
+	run.CreatedAt = now
+	run.UpdatedAt = now
+	run.Status = StatusInProgress
+
+	// Insert the run
+	_, err := db.db.Exec(`
+		INSERT INTO task_runs (
+			run_id, task_id, project_root, role, status,
+			created_at, updated_at, metadata
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`,
+		run.RunID, run.TaskID, run.ProjectRoot, run.Role, run.Status,
+		run.CreatedAt, run.UpdatedAt, run.Metadata,
+	)
+	if err != nil {
+		return fmt.Errorf("insert task_run: %w", err)
+	}
+
+	// Update parent task: set latest_run_id and status to in_progress
+	_, err = db.db.Exec(`
+		UPDATE tasks
+		SET latest_run_id = ?,
+		    status = ?,
+		    started_at = COALESCE(started_at, ?),
+		    updated_at = ?
+		WHERE id = ?
+	`, run.RunID, StatusInProgress, now, now, run.TaskID)
+	if err != nil {
+		return fmt.Errorf("update parent task: %w", err)
+	}
+
+	return nil
+}
+
+// GetTaskRun retrieves a single task_run by its run_id.
+func (db *DB) GetTaskRun(runID string) (*TaskRun, error) {
+	query := `
+		SELECT run_id, task_id, project_root, role, status,
+		       owner_agent_id, claimed_at, created_at, started_at, completed_at,
+		       updated_at, result, error, metadata
+		FROM task_runs WHERE run_id = ?
+	`
+
+	run := &TaskRun{}
+	var ownerAgentID, result, errorMsg, metadata sql.NullString
+	var claimedAt, startedAt, completedAt sql.NullTime
+
+	err := db.db.QueryRow(query, runID).Scan(
+		&run.RunID, &run.TaskID, &run.ProjectRoot, &run.Role, &run.Status,
+		&ownerAgentID, &claimedAt, &run.CreatedAt, &startedAt, &completedAt,
+		&run.UpdatedAt, &result, &errorMsg, &metadata,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if ownerAgentID.Valid {
+		run.OwnerAgentID = ownerAgentID.String
+	}
+	if claimedAt.Valid {
+		run.ClaimedAt = &claimedAt.Time
+	}
+	if startedAt.Valid {
+		run.StartedAt = &startedAt.Time
+	}
+	if completedAt.Valid {
+		run.CompletedAt = &completedAt.Time
+	}
+	if result.Valid {
+		run.Result = result.String
+	}
+	if errorMsg.Valid {
+		run.Error = errorMsg.String
+	}
+	if metadata.Valid {
+		run.Metadata = metadata.String
+	}
+
+	return run, nil
+}
+
+// isRunID returns true if the given ID looks like a timestamped run ID
+// (e.g. "ai-pack-aa0-20260505-170335-b83db8") rather than a short task ID.
+func isRunID(id string) bool {
+	// Run IDs have the form <prefix>-<YYYYMMDD>-<HHMMSS>-<hex>
+	// We detect them by checking if a task_run with this ID exists.
+	return strings.Count(id, "-") >= 5
+}
+
+// resolveToTaskID resolves either a run_id or task_id to a task_id.
+// If runID is provided and exists in task_runs, it returns the parent task_id.
+// Otherwise returns id unchanged (treating it as a task ID).
+func (db *DB) resolveToTaskID(id string) (taskID string, runID string, err error) {
+	if isRunID(id) {
+		// Try to find this as a run_id first
+		var tID sql.NullString
+		err = db.db.QueryRow(`SELECT task_id FROM task_runs WHERE run_id = ?`, id).Scan(&tID)
+		if err == nil && tID.Valid {
+			return tID.String, id, nil
+		}
+		if err != nil && err != sql.ErrNoRows {
+			return "", "", err
+		}
+	}
+	// Treat id as a task_id
+	return id, "", nil
+}
+
+// GetTask retrieves a task by ID (task_id). Returns nil if not found.
 func (db *DB) GetTask(id string) (*Task, error) {
 	query := `
 		SELECT id, project_root, role, task_description, status,
 		       owner_agent_id, claimed_at, created_at, started_at, completed_at,
-		       updated_at, result, error, metadata
+		       updated_at, result, error, metadata, latest_run_id
 		FROM tasks WHERE id = ?
 	`
 
 	task := &Task{}
-	var ownerAgentID, result, errorMsg, metadata sql.NullString
+	var ownerAgentID, result, errorMsg, metadata, latestRunID sql.NullString
 	var claimedAt, startedAt, completedAt sql.NullTime
 
 	err := db.db.QueryRow(query, id).Scan(
 		&task.ID, &task.ProjectRoot, &task.Role,
 		&task.TaskDescription, &task.Status,
 		&ownerAgentID, &claimedAt, &task.CreatedAt, &startedAt, &completedAt,
-		&task.UpdatedAt, &result, &errorMsg, &metadata,
+		&task.UpdatedAt, &result, &errorMsg, &metadata, &latestRunID,
 	)
 
 	if err == sql.ErrNoRows {
@@ -134,56 +251,135 @@ func (db *DB) GetTask(id string) (*Task, error) {
 	if metadata.Valid {
 		task.Metadata = metadata.String
 	}
+	if latestRunID.Valid {
+		task.LatestRunID = latestRunID.String
+	}
 
 	return task, nil
 }
 
-
-// UpdateTaskStatus updates the status of a task.
+// UpdateTaskStatus updates the status of a task (or run if given a run_id).
 func (db *DB) UpdateTaskStatus(id, status, errorMsg string) error {
-	query := `
-		UPDATE tasks
-		SET status = ?, error = ?, updated_at = CURRENT_TIMESTAMP
-		WHERE id = ?
-	`
+	taskID, runID, err := db.resolveToTaskID(id)
+	if err != nil {
+		return err
+	}
 
-	_, err := db.db.Exec(query, status, errorMsg, id)
+	if runID != "" {
+		// Update run status
+		_, err = db.db.Exec(`
+			UPDATE task_runs SET status = ?, error = ?, updated_at = CURRENT_TIMESTAMP
+			WHERE run_id = ?
+		`, status, errorMsg, runID)
+		if err != nil {
+			return err
+		}
+		id = taskID
+	}
+
+	_, err = db.db.Exec(`
+		UPDATE tasks SET status = ?, error = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, status, errorMsg, id)
 	return err
 }
 
 // UpdateTaskResult updates the result of a completed task.
 func (db *DB) UpdateTaskResult(id, result string) error {
-	query := `
-		UPDATE tasks
-		SET result = ?, updated_at = CURRENT_TIMESTAMP
-		WHERE id = ?
-	`
+	taskID, runID, err := db.resolveToTaskID(id)
+	if err != nil {
+		return err
+	}
 
-	_, err := db.db.Exec(query, result, id)
+	if runID != "" {
+		_, err = db.db.Exec(`
+			UPDATE task_runs SET result = ?, updated_at = CURRENT_TIMESTAMP WHERE run_id = ?
+		`, result, runID)
+		if err != nil {
+			return err
+		}
+		id = taskID
+	}
+
+	_, err = db.db.Exec(`
+		UPDATE tasks SET result = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+	`, result, id)
 	return err
 }
 
-// CompleteTask marks a task as completed.
+// CompleteTask marks a task (or run) as completed.
+// If id is a run_id, the run is marked completed and the status propagates to the parent task.
 func (db *DB) CompleteTask(id, result string) error {
-	query := `
-		UPDATE tasks
-		SET status = ?, result = ?, completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-		WHERE id = ?
-	`
+	taskID, runID, err := db.resolveToTaskID(id)
+	if err != nil {
+		return err
+	}
 
-	_, err := db.db.Exec(query, StatusCompleted, result, id)
+	now := time.Now()
+
+	if runID != "" {
+		// Mark the run as completed
+		_, err = db.db.Exec(`
+			UPDATE task_runs
+			SET status = ?, result = ?, completed_at = ?, updated_at = ?
+			WHERE run_id = ?
+		`, StatusCompleted, result, now, now, runID)
+		if err != nil {
+			return fmt.Errorf("complete run: %w", err)
+		}
+		// Propagate to parent task
+		_, err = db.db.Exec(`
+			UPDATE tasks
+			SET status = ?, result = ?, completed_at = ?, updated_at = ?
+			WHERE id = ?
+		`, StatusCompleted, result, now, now, taskID)
+		return err
+	}
+
+	// Direct task completion
+	_, err = db.db.Exec(`
+		UPDATE tasks
+		SET status = ?, result = ?, completed_at = ?, updated_at = ?
+		WHERE id = ?
+	`, StatusCompleted, result, now, now, id)
 	return err
 }
 
-// FailTask marks a task as failed.
+// FailTask marks a task (or run) as failed.
+// If id is a run_id, the run is marked failed and the status propagates to the parent task.
 func (db *DB) FailTask(id, errorMsg string) error {
-	query := `
-		UPDATE tasks
-		SET status = ?, error = ?, completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-		WHERE id = ?
-	`
+	taskID, runID, err := db.resolveToTaskID(id)
+	if err != nil {
+		return err
+	}
 
-	_, err := db.db.Exec(query, StatusFailed, errorMsg, id)
+	now := time.Now()
+
+	if runID != "" {
+		// Mark the run as failed
+		_, err = db.db.Exec(`
+			UPDATE task_runs
+			SET status = ?, error = ?, completed_at = ?, updated_at = ?
+			WHERE run_id = ?
+		`, StatusFailed, errorMsg, now, now, runID)
+		if err != nil {
+			return fmt.Errorf("fail run: %w", err)
+		}
+		// Propagate to parent task
+		_, err = db.db.Exec(`
+			UPDATE tasks
+			SET status = ?, error = ?, completed_at = ?, updated_at = ?
+			WHERE id = ?
+		`, StatusFailed, errorMsg, now, now, taskID)
+		return err
+	}
+
+	// Direct task failure
+	_, err = db.db.Exec(`
+		UPDATE tasks
+		SET status = ?, error = ?, completed_at = ?, updated_at = ?
+		WHERE id = ?
+	`, StatusFailed, errorMsg, now, now, id)
 	return err
 }
 
@@ -203,7 +399,7 @@ func (db *DB) CancelTask(id string) error {
 func (db *DB) ListTasks(filter TaskFilter) ([]*Task, error) {
 	query := "SELECT id, project_root, role, task_description, status, " +
 		"owner_agent_id, claimed_at, created_at, started_at, completed_at, " +
-		"updated_at, result, error, metadata FROM tasks WHERE 1=1"
+		"updated_at, result, error, metadata, latest_run_id FROM tasks WHERE 1=1"
 
 	args := []interface{}{}
 
@@ -240,14 +436,14 @@ func (db *DB) ListTasks(filter TaskFilter) ([]*Task, error) {
 	var tasks []*Task
 	for rows.Next() {
 		task := &Task{}
-		var ownerAgentID, result, errorMsg, metadata sql.NullString
+		var ownerAgentID, result, errorMsg, metadata, latestRunID sql.NullString
 		var claimedAt, startedAt, completedAt sql.NullTime
 
 		err := rows.Scan(
 			&task.ID, &task.ProjectRoot, &task.Role,
 			&task.TaskDescription, &task.Status,
 			&ownerAgentID, &claimedAt, &task.CreatedAt, &startedAt, &completedAt,
-			&task.UpdatedAt, &result, &errorMsg, &metadata,
+			&task.UpdatedAt, &result, &errorMsg, &metadata, &latestRunID,
 		)
 		if err != nil {
 			return nil, err
@@ -274,6 +470,9 @@ func (db *DB) ListTasks(filter TaskFilter) ([]*Task, error) {
 		}
 		if metadata.Valid {
 			task.Metadata = metadata.String
+		}
+		if latestRunID.Valid {
+			task.LatestRunID = latestRunID.String
 		}
 
 		tasks = append(tasks, task)
