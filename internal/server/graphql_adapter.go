@@ -162,12 +162,16 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 		}
 	}
 
-	// Finally, scan project directories for execution artifacts not in taskDB
-	// This catches orphaned executions or tasks from before migration
-	monitoring.Logger.Info("scanning_project_tasks", "project_count", len(projectRoots))
-	for _, projectRoot := range projectRoots {
-		a.scanProjectTasks(projectRoot, tasks)
-	}
+	// DISABLED: Filesystem scanning is no longer needed after task+runs migration
+	// All tasks are in the database with proper short IDs and run history
+	// Filesystem scan was causing duplicates (short ID + timestamped run IDs)
+	//
+	// // Finally, scan project directories for execution artifacts not in taskDB
+	// // This catches orphaned executions or tasks from before migration
+	// monitoring.Logger.Info("scanning_project_tasks", "project_count", len(projectRoots))
+	// for _, projectRoot := range projectRoots {
+	// 	a.scanProjectTasks(projectRoot, tasks)
+	// }
 
 	monitoring.Logger.Info("get_all_tasks_complete", "total_tasks", len(tasks))
 	return tasks
