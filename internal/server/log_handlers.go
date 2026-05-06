@@ -169,12 +169,25 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 		}
 		logFile = filepath.Join(projectRoot, constants.TaskRootDir, "tasks", executionFolder, "execution.log")
 	} else {
-		// Check global execution log first for completed tasks
-		if foundRoot, _, err := s.findTaskProjectRootWithStatus(taskID); err == nil && foundRoot != "" {
-			projectRoot = foundRoot
+		// Not an active task - check database for latest_run_id
+		if s.taskDB != nil {
+			if task, err := s.taskDB.GetTask(taskID); err == nil && task != nil {
+				projectRoot = task.ProjectRoot
+				// Use latest_run_id from database as the execution folder
+				if task.LatestRunID != "" {
+					executionFolder = task.LatestRunID
+				}
+			}
 		}
 
-		// If not in execution log, try finding task
+		// Fallback: Check global execution log for completed tasks
+		if projectRoot == "" {
+			if foundRoot, _, err := s.findTaskProjectRootWithStatus(taskID); err == nil && foundRoot != "" {
+				projectRoot = foundRoot
+			}
+		}
+
+		// If not in database or execution log, try finding task
 		if projectRoot == "" {
 			projectRoot = s.findTaskProjectRoot(taskID)
 		}
@@ -183,12 +196,15 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 			projectRoot = s.rootDir // Fallback to server root
 		}
 
-		// Find the most recent execution folder for this task ID
-		// taskID might be just the task ID (e.g., "xasm++-syq1") without timestamp
-		executionFolder = s.findMostRecentExecutionFolder(projectRoot, taskID)
+		// If database didn't provide executionFolder, scan filesystem
 		if executionFolder == "" {
-			// No timestamped folder found, try direct path (legacy or non-execution task)
-			executionFolder = taskID
+			// Find the most recent execution folder for this task ID
+			// taskID might be just the task ID (e.g., "xasm++-syq1") without timestamp
+			executionFolder = s.findMostRecentExecutionFolder(projectRoot, taskID)
+			if executionFolder == "" {
+				// No timestamped folder found, try direct path (legacy or non-execution task)
+				executionFolder = taskID
+			}
 		}
 
 		// Try direct task directory first (agent-spawned tasks)
