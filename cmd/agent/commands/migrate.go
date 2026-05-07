@@ -50,10 +50,12 @@ func runMigrate(projectRoot string, all bool, force bool) error {
 	defer db.Close()
 
 	if force {
-		if err := db.ResetMigration(taskdb.MigrationBeadsJSONL); err != nil {
-			return fmt.Errorf("reset migration flag: %w", err)
+		for _, name := range []string{taskdb.MigrationBeadsJSONL, taskdb.MigrationRunsV1} {
+			if err := db.ResetMigration(name); err != nil {
+				return fmt.Errorf("reset migration flag %s: %w", name, err)
+			}
 		}
-		fmt.Println("🔄 Migration flag reset — will re-run Beads import")
+		fmt.Println("🔄 Migration flags reset — will re-run full import")
 	}
 
 	// Primary migration: import from Beads issues.jsonl files.
@@ -68,9 +70,20 @@ func runMigrate(projectRoot string, all bool, force bool) error {
 		fmt.Printf("  ✅ Imported %d tasks from Beads\n", beadsCount)
 	}
 
-	// Secondary: migrate per-project agent execution metadata (.beads/tasks/*/00-metadata.json)
+	// Migrate task runs from all .beads/tasks/ directories
+	fmt.Println("📋 Migrating agent execution runs (.beads/tasks/)...")
+	runsCount, err := db.MigrateRunsFromBeads()
+	if err != nil {
+		fmt.Printf("  ⚠️  Runs migration error: %v\n", err)
+	} else if runsCount == 0 {
+		fmt.Println("  (no new runs to import, or already migrated)")
+	} else {
+		fmt.Printf("  ✅ Imported %d runs\n", runsCount)
+	}
+
+	// Secondary: migrate legacy per-project agent execution metadata (old format)
 	if all {
-		fmt.Println("📋 Migrating agent execution metadata...")
+		fmt.Println("📋 Migrating legacy execution metadata...")
 		return migrateAllProjects(db)
 	}
 	return nil

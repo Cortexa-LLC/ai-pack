@@ -508,6 +508,13 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 				monitoring.Logger.Info("beads_jsonl_migration_complete", "imported", n)
 			}
 
+			// Auto-migrate task runs from .beads/tasks/ directories.
+			if n, err := taskDB.MigrateRunsFromBeads(); err != nil {
+				monitoring.Logger.Warn("beads_runs_migration_failed", "error", err.Error())
+			} else if n > 0 {
+				monitoring.Logger.Info("beads_runs_migration_complete", "imported", n)
+			}
+
 			// First cleanup orphaned tasks (no description, no task packet)
 			if err := server.CleanupOrphanedTasks(); err != nil {
 				monitoring.Logger.Warn("orphaned_task_cleanup_failed", "error", err.Error())
