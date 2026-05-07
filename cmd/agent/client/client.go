@@ -95,13 +95,14 @@ func RequireOK(resp *http.Response, action string) []byte {
 }
 
 // TaskInfo is the minimal shape returned by /a2a/tasks.
+// NOTE: the server serialises fields in camelCase — these tags must match.
 type TaskInfo struct {
 	// TaskID is the short logical task ID (e.g. "ai-pack-aa0").
-	TaskID      string `json:"task_id"`
-	ProjectRoot string `json:"project_root"`
+	TaskID      string `json:"taskId"`
+	ProjectRoot string `json:"projectRoot"`
 	// LatestRunID is the most recent timestamped execution run ID.
 	// When non-empty, use this for log file lookups instead of TaskID.
-	LatestRunID string `json:"latest_run_id"`
+	LatestRunID string `json:"latestRunId"`
 }
 
 // TaskListResponse is the envelope returned by GET /a2a/tasks.

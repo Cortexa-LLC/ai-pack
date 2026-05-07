@@ -1,6 +1,41 @@
 package constants
 
-import "time"
+import (
+	"os"
+	"path/filepath"
+	"time"
+)
+
+// ResolveExecutionLogPath returns the path to an execution log file.
+// New runs write to <projectRoot>/.ai/tasks/<runID>/execution.log.
+// Historical runs (pre-rename) live under .beads/tasks/ instead.
+// This function tries .ai/ first and falls back to .beads/ transparently.
+func ResolveExecutionLogPath(projectRoot, runID string) string {
+	primary := filepath.Join(projectRoot, TaskRootDir, TasksDir, runID, "execution.log")
+	if _, err := os.Stat(primary); err == nil {
+		return primary
+	}
+	legacy := filepath.Join(projectRoot, BeadsDir, TasksDir, runID, "execution.log")
+	if _, err := os.Stat(legacy); err == nil {
+		return legacy
+	}
+	// Return the primary path even if neither exists — callers handle missing files.
+	return primary
+}
+
+// ResolveTaskDir returns the directory for a task execution run.
+// Tries .ai/tasks/<runID>/ first; falls back to .beads/tasks/<runID>/.
+func ResolveTaskDir(projectRoot, runID string) string {
+	primary := filepath.Join(projectRoot, TaskRootDir, TasksDir, runID)
+	if _, err := os.Stat(primary); err == nil {
+		return primary
+	}
+	legacy := filepath.Join(projectRoot, BeadsDir, TasksDir, runID)
+	if _, err := os.Stat(legacy); err == nil {
+		return legacy
+	}
+	return primary
+}
 
 // Task and Execution Status
 const (
@@ -151,7 +186,8 @@ const (
 
 // Directory Names
 const (
-	TaskRootDir  = ".ai"      // Root directory for task execution data
+	TaskRootDir  = ".ai"      // Root directory for task execution data (new runs)
+	BeadsDir     = ".beads"   // Legacy execution run directory (historical logs live here)
 	ClaudeDir    = ".claude"
 	AIDir        = ".ai"
 	AIPackDir    = ".ai-pack"
