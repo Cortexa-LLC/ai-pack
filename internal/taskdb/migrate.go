@@ -260,6 +260,240 @@ func mapBeadsStatus(s string) string {
 	}
 }
 
+// MigrationRunsV1 is the key used to track the one-time task-runs migration.
+const MigrationRunsV1 = "beads_runs_v1"
+
+// MigrateRunsFromBeads scans all .beads/tasks/ directories across common project
+// locations and imports each execution attempt into the task_runs table.
+// It is a one-time migration guarded by schema_migrations.
+// Returns the total number of runs imported.
+func (db *DB) MigrateRunsFromBeads() (int, error) {
+	// Ensure migrations table exists
+	if _, err := db.db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+		name TEXT PRIMARY KEY,
+		applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		return 0, fmt.Errorf("ensure migrations table: %w", err)
+	}
+
+	// One-time guard
+	var count int
+	if err := db.db.QueryRow(
+		`SELECT COUNT(*) FROM schema_migrations WHERE name = ?`, MigrationRunsV1,
+	).Scan(&count); err != nil {
+		return 0, fmt.Errorf("check migration status: %w", err)
+	}
+	if count > 0 {
+		return 0, nil
+	}
+
+	homeDir := os.Getenv("HOME")
+	searchRoots := []string{
+		filepath.Join(homeDir, "Projects"),
+		filepath.Join(homeDir, "Code"),
+		filepath.Join(homeDir, "workspace"),
+		filepath.Join(homeDir, "src"),
+	}
+
+	total := 0
+	seen := map[string]bool{}
+
+	for _, root := range searchRoots {
+		if _, err := os.Stat(root); os.IsNotExist(err) {
+			continue
+		}
+
+		err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
+			if !info.IsDir() || info.Name() != ".beads" {
+				return nil
+			}
+
+			// Found a .beads dir — scan its tasks/ subdirectory
+			tasksDir := filepath.Join(path, "tasks")
+			projectRoot := filepath.Dir(path)
+
+			entries, err := os.ReadDir(tasksDir)
+			if err != nil {
+				return filepath.SkipDir
+			}
+
+			for _, entry := range entries {
+				if !entry.IsDir() || entry.Name() == ".archive" {
+					continue
+				}
+				runDir := filepath.Join(tasksDir, entry.Name())
+				if seen[runDir] {
+					continue
+				}
+				seen[runDir] = true
+
+				n, err := db.migrateRunDir(runDir, entry.Name(), projectRoot)
+				if err != nil {
+					fmt.Printf("    skip run %s: %v\n", entry.Name(), err)
+				} else {
+					total += n
+				}
+			}
+
+			return filepath.SkipDir
+		})
+		if err != nil {
+			fmt.Printf("Warning: error scanning %s: %v\n", root, err)
+		}
+	}
+
+	// Record completion
+	if _, err := db.db.Exec(
+		`INSERT OR IGNORE INTO schema_migrations (name) VALUES (?)`, MigrationRunsV1,
+	); err != nil {
+		return total, fmt.Errorf("record migration: %w", err)
+	}
+
+	return total, nil
+}
+
+// migrateRunDir imports a single .beads/tasks/<run-id>/ directory into task_runs.
+func (db *DB) migrateRunDir(runDir, runDirName, defaultProjectRoot string) (int, error) {
+	metaPath := filepath.Join(runDir, "00-metadata.json")
+	data, err := os.ReadFile(metaPath)
+	if err != nil {
+		return 0, nil // no metadata — skip silently
+	}
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return 0, nil
+	}
+
+	// run_id: use the task_id field if present, otherwise the directory name
+	runID := getString(raw, "task_id")
+	if runID == "" {
+		runID = runDirName
+	}
+
+	// Skip if already imported
+	var exists int
+	if err := db.db.QueryRow(`SELECT COUNT(*) FROM task_runs WHERE run_id = ?`, runID).Scan(&exists); err == nil && exists > 0 {
+		return 0, nil
+	}
+
+	// task_id: the short Beads ID from the nested metadata map
+	shortTaskID := ""
+	if meta, ok := raw["metadata"].(map[string]interface{}); ok {
+		shortTaskID = getString(meta, "beads_task_id")
+	}
+	if shortTaskID == "" {
+		// Fall back: strip timestamp suffix from run ID (e.g. "ai-pack-0a6-20260225-211529" → "ai-pack-0a6")
+		shortTaskID = extractShortTaskID(runID)
+	}
+
+	// project_root: prefer metadata.project_root
+	projectRoot := defaultProjectRoot
+	if meta, ok := raw["metadata"].(map[string]interface{}); ok {
+		if pr := getString(meta, "project_root"); pr != "" {
+			projectRoot = pr
+		}
+	}
+
+	role := getString(raw, "role")
+	if role == "" {
+		role = "engineer"
+	}
+
+	status := mapStatus(getString(raw, "status"))
+
+	var createdAt, updatedAt time.Time
+	if t, err := time.Parse(time.RFC3339Nano, getString(raw, "spawned_at")); err == nil {
+		createdAt = t.UTC()
+	} else if t, err := time.Parse(time.RFC3339, getString(raw, "spawned_at")); err == nil {
+		createdAt = t.UTC()
+	} else {
+		createdAt = time.Now().UTC()
+	}
+
+	if t, err := time.Parse(time.RFC3339Nano, getString(raw, "updated_at")); err == nil {
+		updatedAt = t.UTC()
+	} else if t, err := time.Parse(time.RFC3339, getString(raw, "updated_at")); err == nil {
+		updatedAt = t.UTC()
+	} else {
+		updatedAt = createdAt
+	}
+
+	var completedAt *time.Time
+	if status == StatusCompleted || status == StatusFailed || status == StatusCancelled {
+		t := updatedAt
+		completedAt = &t
+	}
+
+	// Read result from 30-results.md if present
+	result := ""
+	if rd, err := os.ReadFile(filepath.Join(runDir, "30-results.md")); err == nil {
+		result = string(rd)
+	}
+
+	// Store model/provider/tier in metadata
+	runMeta := map[string]interface{}{
+		"model":      getString(raw, "model"),
+		"provider":   getString(raw, "provider"),
+		"tier":       getString(raw, "tier"),
+		"spawned_by": getString(raw, "spawned_by"),
+	}
+	runMetaJSON, _ := json.Marshal(runMeta)
+
+	// Ensure the parent task row exists (create a stub if the JSONL migration
+	// didn't produce one — e.g. tasks created before Beads was in use)
+	if err := db.ensureTaskStub(shortTaskID, projectRoot, role, getString(raw, "description"), createdAt, updatedAt); err != nil {
+		return 0, fmt.Errorf("ensure task stub: %w", err)
+	}
+
+	_, err = db.db.Exec(`
+		INSERT OR IGNORE INTO task_runs (
+			run_id, task_id, project_root, role, status,
+			created_at, updated_at, completed_at,
+			result, metadata
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		runID, shortTaskID, projectRoot, role, status,
+		createdAt, updatedAt, completedAt,
+		result, string(runMetaJSON),
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	// Update parent task's latest_run_id if this is the most recent run
+	db.db.Exec(`
+		UPDATE tasks SET latest_run_id = ?, status = ?, updated_at = ?
+		WHERE id = ? AND (latest_run_id IS NULL OR updated_at <= ?)`,
+		runID, status, updatedAt, shortTaskID, updatedAt,
+	) //nolint:errcheck — best-effort update
+
+	return 1, nil
+}
+
+// ensureTaskStub creates a minimal tasks row if none exists for shortTaskID.
+// This handles runs whose Beads task record was never in issues.jsonl.
+func (db *DB) ensureTaskStub(taskID, projectRoot, role, description string, createdAt, updatedAt time.Time) error {
+	var exists int
+	if err := db.db.QueryRow(`SELECT COUNT(*) FROM tasks WHERE id = ?`, taskID).Scan(&exists); err != nil {
+		return err
+	}
+	if exists > 0 {
+		return nil
+	}
+	if description == "" {
+		description = taskID
+	}
+	_, err := db.db.Exec(`
+		INSERT OR IGNORE INTO tasks (id, project_root, role, task_description, status, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		taskID, projectRoot, role, description, StatusQueued, createdAt, updatedAt,
+	)
+	return err
+}
+
 // MigrateFromLegacy imports tasks from .beads/tasks directories into the SQLite database.
 // It scans all task directories and creates corresponding database entries.
 func (db *DB) MigrateFromLegacy(projectRoot string) (int, error) {
