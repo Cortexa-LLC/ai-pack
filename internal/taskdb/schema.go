@@ -60,6 +60,12 @@ CREATE INDEX IF NOT EXISTS idx_runs_task_id ON task_runs(task_id);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON task_runs(status);
 CREATE INDEX IF NOT EXISTS idx_runs_created ON task_runs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_runs_task_created ON task_runs(task_id, created_at DESC);
+
+-- Tracks one-time migrations so they are never re-run.
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    name       TEXT PRIMARY KEY,
+    applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 `
 
 // InitializeSchema applies the schema to the database.
