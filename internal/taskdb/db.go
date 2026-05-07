@@ -509,3 +509,10 @@ type TaskFilter struct {
 	OwnerAgentID string
 	Limit        int
 }
+
+// ResetMigration removes a migration record so it will run again on the next
+// call. Primarily used by `agent migrate --force`.
+func (db *DB) ResetMigration(name string) error {
+	_, err := db.db.Exec(`DELETE FROM schema_migrations WHERE name = ?`, name)
+	return err
+}

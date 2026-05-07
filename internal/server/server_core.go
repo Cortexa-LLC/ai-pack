@@ -499,6 +499,15 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	// Repair task descriptions and cleanup orphaned tasks on startup
 	if taskDB != nil {
 		go func() {
+			// Auto-migrate from Beads JSONL files (idempotent — skips existing rows).
+			// This ensures historical tasks from the shared Beads/Dolt service are
+			// always present in the taskDB without requiring manual `agent migrate`.
+			if n, err := taskDB.MigrateFromBeadsJSONL(); err != nil {
+				monitoring.Logger.Warn("beads_jsonl_migration_failed", "error", err.Error())
+			} else if n > 0 {
+				monitoring.Logger.Info("beads_jsonl_migration_complete", "imported", n)
+			}
+
 			// First cleanup orphaned tasks (no description, no task packet)
 			if err := server.CleanupOrphanedTasks(); err != nil {
 				monitoring.Logger.Warn("orphaned_task_cleanup_failed", "error", err.Error())

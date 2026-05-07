@@ -13,31 +13,34 @@ import (
 func newMigrateCmd() *cobra.Command {
 	var projectRoot string
 	var all bool
+	var force bool
 
 	cmd := &cobra.Command{
 		Use:   "migrate",
 		Short: "Migrate tasks from Beads to SQLite task database",
-		Long: `Migrate task data from .beads/tasks directories to the new SQLite task database.
+		Long: `Migrate task data from Beads (issues.jsonl) into the SQLite task database.
 
-This is a one-time migration from the old Beads-based task tracking to the new
-SQLite-based system. It will:
-  1. Scan .beads/tasks directories for task metadata
-  2. Import tasks into ~/.ai-pack/tasks.db
+This migration is normally run once automatically on server startup. Use this
+command to run it manually or to re-run it with --force if something went wrong.
+
+It will:
+  1. Scan ~/Projects (and other common locations) for .beads/issues.jsonl files
+  2. Import all Beads task records into ~/.ai-pack/tasks.db
   3. Skip tasks that are already in the database
-
-Run this after upgrading to the new task tracking system.`,
+  4. Record completion so it does not run again on startup`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMigrate(projectRoot, all)
+			return runMigrate(projectRoot, all, force)
 		},
 	}
 
 	cmd.Flags().StringVar(&projectRoot, "project", ".", "Project root directory to migrate (default: current directory)")
-	cmd.Flags().BoolVar(&all, "all", false, "Migrate all projects (scan common project locations)")
+	cmd.Flags().BoolVar(&all, "all", false, "Also scan per-project agent execution metadata (.beads/tasks/*/00-metadata.json)")
+	cmd.Flags().BoolVar(&force, "force", false, "Re-run even if already marked complete")
 
 	return cmd
 }
 
-func runMigrate(projectRoot string, all bool) error {
+func runMigrate(projectRoot string, all bool, force bool) error {
 	// Open task database
 	dbPath := filepath.Join(os.Getenv("HOME"), ".ai-pack", "tasks.db")
 	db, err := taskdb.Open(dbPath)
@@ -46,11 +49,31 @@ func runMigrate(projectRoot string, all bool) error {
 	}
 	defer db.Close()
 
-	if all {
-		return migrateAllProjects(db)
+	if force {
+		if err := db.ResetMigration(taskdb.MigrationBeadsJSONL); err != nil {
+			return fmt.Errorf("reset migration flag: %w", err)
+		}
+		fmt.Println("🔄 Migration flag reset — will re-run Beads import")
 	}
 
-	return migrateSingleProject(db, projectRoot)
+	// Primary migration: import from Beads issues.jsonl files.
+	// Does not require the Dolt server. One-time; skipped if already done.
+	fmt.Println("📋 Migrating from Beads task history (issues.jsonl)...")
+	beadsCount, err := db.MigrateFromBeadsJSONL()
+	if err != nil {
+		fmt.Printf("  ⚠️  Beads migration error: %v\n", err)
+	} else if beadsCount == 0 {
+		fmt.Println("  (no new Beads tasks to import, or already migrated)")
+	} else {
+		fmt.Printf("  ✅ Imported %d tasks from Beads\n", beadsCount)
+	}
+
+	// Secondary: migrate per-project agent execution metadata (.beads/tasks/*/00-metadata.json)
+	if all {
+		fmt.Println("📋 Migrating agent execution metadata...")
+		return migrateAllProjects(db)
+	}
+	return nil
 }
 
 func migrateSingleProject(db *taskdb.DB, projectRoot string) error {
