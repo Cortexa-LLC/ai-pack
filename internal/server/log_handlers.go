@@ -167,7 +167,7 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 		} else {
 			executionFolder = execution.TaskID
 		}
-		logFile = filepath.Join(projectRoot, constants.TaskRootDir, "tasks", executionFolder, "execution.log")
+		logFile = constants.ResolveExecutionLogPath(projectRoot, executionFolder)
 	} else {
 		// Not an active task - check database for latest_run_id
 		if s.taskDB != nil {
@@ -208,7 +208,7 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Try direct task directory first (agent-spawned tasks)
-		logFile = filepath.Join(projectRoot, constants.TaskRootDir, "tasks", executionFolder, "execution.log")
+		logFile = constants.ResolveExecutionLogPath(projectRoot, executionFolder)
 
 		// If not found, search execution directories for task ID
 		if _, err := os.Stat(logFile); os.IsNotExist(err) {
@@ -230,7 +230,7 @@ func (s *AgentServer) HandleTaskLogs(w http.ResponseWriter, r *http.Request) {
 		taskStatus = execution.Status
 	} else if logExists {
 		// Try to get status from execution metadata first
-		metadataPath := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", executionFolder, "00-metadata.json")
+		metadataPath := filepath.Join(constants.ResolveTaskDir(projectRoot, executionFolder), "00-metadata.json")
 		if metadataData, err := os.ReadFile(metadataPath); err == nil {
 			var metadata map[string]interface{}
 			if json.Unmarshal(metadataData, &metadata) == nil {
@@ -503,6 +503,16 @@ func (s *AgentServer) streamTaskLogs(w http.ResponseWriter, r *http.Request, log
 	}
 }
 
+// taskRunDirs returns the candidate execution run directories for a project root.
+// New runs write to .ai/tasks/; historical runs live under .beads/tasks/.
+// Both are returned so callers can scan whichever has the requested run.
+func taskRunDirs(projectRoot string) []string {
+	return []string{
+		filepath.Join(projectRoot, constants.TaskRootDir, "tasks"),
+		filepath.Join(projectRoot, constants.BeadsDir, "tasks"),
+	}
+}
+
 // findTaskProjectRoot finds which project root contains the given task
 // Returns the project root path, or empty string if not found
 func (s *AgentServer) findTaskProjectRoot(taskID string) string {
@@ -511,44 +521,45 @@ func (s *AgentServer) findTaskProjectRoot(taskID string) string {
 	// for any working directory and cannot be used to determine the correct project root.
 	prefix := taskID + "-"
 	for _, root := range s.GetProjectRoots() {
-		tasksDir := filepath.Join(root, constants.TaskRootDir, "tasks")
+		for _, tasksDir := range taskRunDirs(root) {
+			entries, err := os.ReadDir(tasksDir)
+			if err != nil {
+				continue
+			}
+			for _, entry := range entries {
+				if !entry.IsDir() {
+					continue
+				}
+				name := entry.Name()
+				if name == taskID || strings.HasPrefix(name, prefix) {
+					return root
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// findTaskExecutionLog searches for an execution log by task ID.
+// Checks both .ai/tasks/ (new) and .beads/tasks/ (legacy) locations.
+func (s *AgentServer) findTaskExecutionLog(projectRoot, taskID string) string {
+	for _, tasksDir := range taskRunDirs(projectRoot) {
 		entries, err := os.ReadDir(tasksDir)
 		if err != nil {
 			continue
 		}
+
 		for _, entry := range entries {
 			if !entry.IsDir() {
 				continue
 			}
-			name := entry.Name()
-			if name == taskID || strings.HasPrefix(name, prefix) {
-				return root
-			}
-		}
-	}
-	return ""
-}
 
-// findTaskExecutionLog searches for an execution log by task ID
-// Beads stores execution logs in timestamped directories like task-engineer-20260202-122957-000000
-// This function scans those directories to find which one has the matching beads_task_id in metadata
-func (s *AgentServer) findTaskExecutionLog(projectRoot, taskID string) string {
-	tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
-	entries, err := os.ReadDir(tasksDir)
-	if err != nil {
-		return ""
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		// Check if directory name matches the task ID
-		if entry.Name() == taskID {
-			logPath := filepath.Join(tasksDir, entry.Name(), "execution.log")
-			if _, err := os.Stat(logPath); err == nil {
-				return logPath
+			// Check if directory name matches the task ID
+			if entry.Name() == taskID {
+				logPath := filepath.Join(tasksDir, entry.Name(), "execution.log")
+				if _, err := os.Stat(logPath); err == nil {
+					return logPath
+				}
 			}
 		}
 	}
@@ -556,37 +567,35 @@ func (s *AgentServer) findTaskExecutionLog(projectRoot, taskID string) string {
 	return ""
 }
 
-// findMostRecentExecutionFolder finds the most recent timestamped execution folder for a task ID
-// Returns the folder name (e.g., "xasm++-syq1-20260211-080508") or empty string if not found
+// findMostRecentExecutionFolder finds the most recent timestamped execution folder for a task ID.
+// Searches both .ai/tasks/ (new runs) and .beads/tasks/ (historical runs).
+// Returns the folder name (e.g., "xasm++-syq1-20260211-080508") or empty string if not found.
 func (s *AgentServer) findMostRecentExecutionFolder(projectRoot, taskID string) string {
-	tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
-	entries, err := os.ReadDir(tasksDir)
-	if err != nil {
-		return ""
-	}
-
 	var mostRecentFolder string
 	var mostRecentTime time.Time
 
-	// Find all folders matching {short-task-id}-{timestamp} pattern
 	prefix := taskID + "-"
-	for _, entry := range entries {
-		if !entry.IsDir() {
+	for _, tasksDir := range taskRunDirs(projectRoot) {
+		entries, err := os.ReadDir(tasksDir)
+		if err != nil {
 			continue
 		}
 
-		folderName := entry.Name()
-		// Check if folder matches pattern: {short-task-id}-{timestamp}
-		// or exact match (in case taskID is already the full folder name)
-		if folderName == taskID || strings.HasPrefix(folderName, prefix) {
-			// Get folder modification time as a proxy for execution time
-			info, err := entry.Info()
-			if err != nil {
+		for _, entry := range entries {
+			if !entry.IsDir() {
 				continue
 			}
-			if mostRecentFolder == "" || info.ModTime().After(mostRecentTime) {
-				mostRecentFolder = folderName
-				mostRecentTime = info.ModTime()
+
+			folderName := entry.Name()
+			if folderName == taskID || strings.HasPrefix(folderName, prefix) {
+				info, err := entry.Info()
+				if err != nil {
+					continue
+				}
+				if mostRecentFolder == "" || info.ModTime().After(mostRecentTime) {
+					mostRecentFolder = folderName
+					mostRecentTime = info.ModTime()
+				}
 			}
 		}
 	}
@@ -635,7 +644,8 @@ func (s *AgentServer) HandleTaskResults(w http.ResponseWriter, r *http.Request) 
 		executionFolder = taskID
 	}
 
-	resultsPath := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", executionFolder, "30-results.md")
+	// Try both .ai/tasks/ (new) and .beads/tasks/ (legacy).
+	resultsPath := filepath.Join(constants.ResolveTaskDir(projectRoot, executionFolder), "30-results.md")
 	data, readErr := os.ReadFile(resultsPath)
 	if readErr != nil {
 		http.Error(w, "Results not found", http.StatusNotFound)

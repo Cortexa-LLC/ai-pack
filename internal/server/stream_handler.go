@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -60,7 +59,7 @@ func (s *AgentServer) handleStream(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		logPath := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", taskID, "execution.log")
+		logPath := constants.ResolveExecutionLogPath(projectRoot, taskID)
 
 		// Send initial connection event
 		s.sendSSEEvent(w, flusher, "connected", map[string]interface{}{

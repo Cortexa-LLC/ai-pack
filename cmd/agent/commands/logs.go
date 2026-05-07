@@ -84,7 +84,7 @@ func runLogs(args []string, tailLines int, follow, serverLogs, allLogs, jsonOutp
 		os.Exit(1)
 	}
 
-	logFile := filepath.Join(projectRoot, constants.TaskRootDir, "tasks", internalTaskID, "execution.log")
+	logFile := constants.ResolveExecutionLogPath(projectRoot, internalTaskID)
 	if follow {
 		followLogFile(logFile, jsonOutput)
 	} else {
