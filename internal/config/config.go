@@ -160,7 +160,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
 			Host:                "localhost",
-			Port:                8080,
+			Port:                8082,
 			MaxConcurrentAgents: 10,
 			WorkerPoolSize:      10,
 		},

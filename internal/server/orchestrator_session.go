@@ -220,7 +220,7 @@ func (s *OrchestratorSession) queryTasks() ([]TaskInfo, error) {
 		return nil, fmt.Errorf("failed to marshal query: %w", err)
 	}
 
-	resp, err := http.Post("http://localhost:8080/graphql", "application/json", bytes.NewReader(requestBody))
+	resp, err := http.Post(s.server.baseURL()+"/graphql", "application/json", bytes.NewReader(requestBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query GraphQL: %w", err)
 	}

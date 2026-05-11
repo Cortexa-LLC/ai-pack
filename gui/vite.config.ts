@@ -7,6 +7,10 @@ const gitVersion = (() => {
   catch { return 'dev' }
 })()
 
+// Agent server base URL — override via VITE_API_BASE_URL env var.
+// The compiled-in default matches the server's own default port (SERVER_PORT).
+const apiBase = process.env.VITE_API_BASE_URL ?? 'http://localhost:8082'
+
 export default defineConfig({
   plugins: [react()],
   define: {
@@ -16,27 +20,27 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '/a2a': 'http://localhost:8080',
-      '/stream': 'http://localhost:8080',
-      '/logs': 'http://localhost:8080',
-      '/metrics': 'http://localhost:8080',
-      '/health': 'http://localhost:8080',
-      '/graphql': 'http://localhost:8080',
-      '/playground': 'http://localhost:8080',
-      '/api': 'http://localhost:8080',
+      '/a2a': apiBase,
+      '/stream': apiBase,
+      '/logs': apiBase,
+      '/metrics': apiBase,
+      '/health': apiBase,
+      '/graphql': apiBase,
+      '/playground': apiBase,
+      '/api': apiBase,
     }
   },
   preview: {
     port: 3000,
     proxy: {
-      '/a2a': 'http://localhost:8080',
-      '/stream': 'http://localhost:8080',
-      '/logs': 'http://localhost:8080',
-      '/metrics': 'http://localhost:8080',
-      '/health': 'http://localhost:8080',
-      '/graphql': 'http://localhost:8080',
-      '/playground': 'http://localhost:8080',
-      '/api': 'http://localhost:8080',
+      '/a2a': apiBase,
+      '/stream': apiBase,
+      '/logs': apiBase,
+      '/metrics': apiBase,
+      '/health': apiBase,
+      '/graphql': apiBase,
+      '/playground': apiBase,
+      '/api': apiBase,
     }
   },
   build: {

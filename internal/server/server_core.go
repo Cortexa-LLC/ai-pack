@@ -121,6 +121,21 @@ type AgentServer struct {
 	cancel context.CancelFunc
 }
 
+// baseURL returns the canonical HTTP base URL for this server instance.
+// Use this wherever the server needs to call its own endpoints (e.g. GraphQL)
+// so the port is always derived from configuration rather than hardcoded.
+func (s *AgentServer) baseURL() string {
+	host := "localhost"
+	if s.config != nil && s.config.Server.Host != "" {
+		host = s.config.Server.Host
+	}
+	port := 8082
+	if s.config != nil && s.config.Server.Port != 0 {
+		port = s.config.Server.Port
+	}
+	return fmt.Sprintf("http://%s:%d", host, port)
+}
+
 type TaskExecution struct {
 	TaskID      string
 	Role        string
