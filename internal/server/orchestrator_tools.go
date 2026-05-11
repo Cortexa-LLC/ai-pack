@@ -286,7 +286,7 @@ func (s *AgentServer) executeQueryTasks(input map[string]interface{}) (string, e
 	`
 
 	requestBody, _ := json.Marshal(map[string]string{"query": query})
-	resp, err := http.Post("http://localhost:8080/graphql", "application/json", bytes.NewReader(requestBody))
+	resp, err := http.Post(s.baseURL()+"/graphql", "application/json", bytes.NewReader(requestBody))
 	if err != nil {
 		return "", fmt.Errorf("failed to query tasks: %w", err)
 	}
@@ -345,7 +345,7 @@ func (s *AgentServer) executeGetTaskDetails(input map[string]interface{}) (strin
 	`, taskID)
 
 	requestBody, _ := json.Marshal(map[string]string{"query": query})
-	resp, err := http.Post("http://localhost:8080/graphql", "application/json", bytes.NewReader(requestBody))
+	resp, err := http.Post(s.baseURL()+"/graphql", "application/json", bytes.NewReader(requestBody))
 	if err != nil {
 		return "", fmt.Errorf("failed to query task: %w", err)
 	}

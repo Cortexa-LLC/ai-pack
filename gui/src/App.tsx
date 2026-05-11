@@ -684,7 +684,7 @@ function App() {
     setLogs([]);
 
     // Fetch initial logs
-    fetch(`http://localhost:8080/a2a/tasks/${selectedTask}/logs`)
+    fetch(`/a2a/tasks/${selectedTask}/logs`)
       .then(res => {
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -718,7 +718,7 @@ function App() {
     // whether the task is actively running. Relying on the cached GUI status caused
     // the log view to freeze when a task was incorrectly marked failed.
     try {
-        const eventSource = new EventSource(`http://localhost:8080/a2a/tasks/${selectedTask}/logs?stream=true`);
+        const eventSource = new EventSource(`/a2a/tasks/${selectedTask}/logs?stream=true`);
         eventSourceRef.current = eventSource;
 
         // Handle connected event

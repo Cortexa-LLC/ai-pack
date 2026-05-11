@@ -11,14 +11,19 @@ import (
 	"time"
 )
 
-// ServerURL is the canonical default agent server base URL.
-// Use DefaultBaseURL for runtime overrides (e.g. tests).
-const ServerURL = "http://localhost:8080"
+// ServerURL is the compiled-in fallback agent server base URL.
+// Prefer DefaultBaseURL for all runtime usage — it respects AGENT_SERVER_URL.
+const ServerURL = "http://localhost:8082"
 
-// DefaultBaseURL is the base URL used by Default(). Tests can override this
-// variable to redirect CLI HTTP calls to an httptest.Server without modifying
-// production code. Production code should not change this variable.
-var DefaultBaseURL = ServerURL
+// DefaultBaseURL is the base URL used by Default().
+// It is initialised from the AGENT_SERVER_URL environment variable when set,
+// falling back to ServerURL. Tests may override this variable directly.
+var DefaultBaseURL = func() string {
+	if v := os.Getenv("AGENT_SERVER_URL"); v != "" {
+		return v
+	}
+	return ServerURL
+}()
 
 // SSEDataPrefix is the standard Server-Sent Events data line prefix ("data: ").
 const SSEDataPrefix = "data: "
