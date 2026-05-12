@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-register-mcp.py — Idempotently register agent-mcp in ~/.claude.json (global scope)
-so Claude Code picks it up in every project.
+register-mcp.py — Idempotently register agent-mcp in ~/.claude/settings.json
+(global scope) so Claude Code picks it up in every project.
 
 Usage:
     python3 scripts/register-mcp.py [--dry-run] [--install-dir /usr/local/bin]
@@ -17,11 +17,11 @@ import os
 import sys
 
 
-CLAUDE_JSON = os.path.expanduser("~/.claude.json")
+SETTINGS_JSON = os.path.expanduser("~/.claude/settings.json")
 SERVER_NAME = "agent-mcp"
 
 
-def load_claude_json(path: str) -> dict:
+def load_json(path: str) -> dict:
     if os.path.exists(path):
         with open(path) as f:
             try:
@@ -36,7 +36,6 @@ def merge_server(config: dict, binary_path: str) -> tuple[dict, bool]:
     Merge the agent-mcp server entry into the config dict.
     Returns (updated_config, changed).
     """
-    # Claude Code uses `mcpServers` at the top level of ~/.claude.json
     mcp_servers = config.setdefault("mcpServers", {})
 
     new_entry = {
@@ -54,7 +53,7 @@ def merge_server(config: dict, binary_path: str) -> tuple[dict, bool]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Register agent-mcp in ~/.claude.json")
+    parser = argparse.ArgumentParser(description="Register agent-mcp in ~/.claude/settings.json")
     parser.add_argument("--dry-run", action="store_true", help="Print without writing")
     parser.add_argument("--install-dir", default="/usr/local/bin",
                         help="Directory containing the agent-mcp binary")
@@ -62,24 +61,25 @@ def main() -> None:
 
     binary_path = os.path.join(args.install_dir, "agent-mcp")
 
-    config = load_claude_json(CLAUDE_JSON)
+    config = load_json(SETTINGS_JSON)
     updated, changed = merge_server(config, binary_path)
 
     pretty = json.dumps(updated, indent=2) + "\n"
 
     if not changed:
-        print(f"✅  agent-mcp already registered in {CLAUDE_JSON} — no changes needed.")
+        print(f"✅  agent-mcp already registered in {SETTINGS_JSON} — no changes needed.")
         return
 
     if args.dry_run:
-        print(f"[dry-run] Would write to {CLAUDE_JSON}:")
+        print(f"[dry-run] Would write to {SETTINGS_JSON}:")
         print(pretty)
         return
 
-    with open(CLAUDE_JSON, "w") as f:
+    os.makedirs(os.path.dirname(SETTINGS_JSON), exist_ok=True)
+    with open(SETTINGS_JSON, "w") as f:
         f.write(pretty)
 
-    print(f"✅  Registered '{SERVER_NAME}' in {CLAUDE_JSON}")
+    print(f"✅  Registered '{SERVER_NAME}' in {SETTINGS_JSON}")
     print(f"    command: {binary_path}")
     print()
     print("Restart Claude Code (or run /mcp-restart) for the change to take effect.")
