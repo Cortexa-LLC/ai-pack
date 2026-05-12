@@ -29,7 +29,7 @@ func TestApplyTokenBudgetCheck_NoLimit(t *testing.T) {
 
 	result, err := s.applyTokenBudgetCheck(
 		"task1", t.TempDir(), "engineer", cfg,
-		1, 5000, 3000, 0, 0, 0, "", nil, "", nopLog,
+		1, 5000, 3000, 0, 0, 0, "", nil, "", "", "", nopLog,
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -46,7 +46,7 @@ func TestApplyTokenBudgetCheck_BelowLimit(t *testing.T) {
 
 	result, err := s.applyTokenBudgetCheck(
 		"task1", t.TempDir(), "engineer", cfg,
-		1, 5000, 3000, 0, 0, 0, "", nil, "", nopLog,
+		1, 5000, 3000, 0, 0, 0, "", nil, "", "", "", nopLog,
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -64,7 +64,7 @@ func TestApplyTokenBudgetCheck_Warn80Pct(t *testing.T) {
 	var logs []string
 	result, err := s.applyTokenBudgetCheck(
 		"task1", t.TempDir(), "engineer", cfg,
-		1, 8_500, 100, 0, 0, 0, "", nil, "", logLines(&logs),
+		1, 8_500, 100, 0, 0, 0, "", nil, "", "", "", logLines(&logs),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -103,6 +103,7 @@ func TestApplyTokenBudgetCheck_BudgetExhausted(t *testing.T) {
 		2, 0, 42, "sig-xyz",
 		[]streaming.Message{{Role: "user", Content: "hello"}},
 		"partial result",
+		"", "",
 		nopLog,
 	)
 
@@ -146,7 +147,7 @@ func TestApplyTokenBudgetCheck_ExactlyAtLimit(t *testing.T) {
 	// used == limit (exactly at boundary)
 	result, err := s.applyTokenBudgetCheck(
 		taskID, projectRoot, "engineer", cfg,
-		1, 500, 500, 0, 0, 0, "", nil, "", nopLog,
+		1, 500, 500, 0, 0, 0, "", nil, "", "", "", nopLog,
 	)
 	if !errors.Is(err, ErrTaskPaused) {
 		t.Fatalf("expected ErrTaskPaused at exactly limit, got %v", err)
@@ -405,6 +406,7 @@ func TestFlushCheckpoint_WritesFile(t *testing.T) {
 		42, "sig-abc",
 		1000, 2000,
 		msgs, "partial",
+		"/working/dir", "task-packet",
 		nopLog,
 	)
 	if err != nil {
@@ -462,7 +464,7 @@ func TestFlushCheckpoint_ErrorOnBadPath(t *testing.T) {
 	err := flushCheckpoint(
 		"/does/not/exist", "task1", "engineer", "model",
 		1, 0, 0, 0, 0, 0, "",
-		0, 0, nil, "", nopLog,
+		0, 0, nil, "", "", "", nopLog,
 	)
 	if err == nil {
 		t.Error("expected error for non-existent projectRoot, got nil")

@@ -713,8 +713,22 @@ func (s *AgentServer) HandleResumeTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if taskInfo.Status != constants.StatusPaused && !isTimeoutFailure {
-		http.Error(w, fmt.Sprintf("Task cannot be resumed (status: %s). Only paused or timed-out tasks can be resumed.", taskInfo.Status), http.StatusBadRequest)
+	// Allow resuming paused, timed-out-failed, or in_progress tasks.
+	// in_progress is included to recover from cases where a resume goroutine
+	// crashed without resetting the status (double-resume race or server crash).
+	// However, if there is an active goroutine for the task (found in s.activeTasks),
+	// return 409 Conflict to prevent a double-resume race.
+	if taskInfo.Status == constants.StatusInProgress {
+		s.mu.RLock()
+		_, activeInMemory := s.activeTasks[taskID]
+		s.mu.RUnlock()
+		if activeInMemory {
+			http.Error(w, fmt.Sprintf("Task %s already has an active agent running (status: in_progress). Wait for it to finish or restart the server if it is stuck.", taskID), http.StatusConflict)
+			return
+		}
+		// No active goroutine — the task is stuck (e.g. server crash). Allow the resume.
+	} else if taskInfo.Status != constants.StatusPaused && !isTimeoutFailure {
+		http.Error(w, fmt.Sprintf("Task cannot be resumed (status: %s). Only paused, timed-out, or stuck in-progress tasks can be resumed.", taskInfo.Status), http.StatusBadRequest)
 		return
 	}
 

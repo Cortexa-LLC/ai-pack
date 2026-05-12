@@ -16,7 +16,7 @@ import (
 	"github.com/cortexa-llc/ai-pack/internal/streaming"
 )
 
-func (s *AgentServer) executeAgenticLoop(ctx context.Context, roleTimeout time.Duration, taskID string, role string, initialPrompt string, roleContext string, workingDir string, projectRoot string, config *AgentConfig, logMsg func(string)) (string, error) {
+func (s *AgentServer) executeAgenticLoop(ctx context.Context, roleTimeout time.Duration, taskID string, role string, initialPrompt string, roleContext string, workingDir string, projectRoot string, taskPacketPath string, config *AgentConfig, logMsg func(string)) (string, error) {
 	// Define tools (native + MCP tools) in provider-agnostic format
 	toolDefs := s.getAllTools(projectRoot)
 
@@ -335,7 +335,7 @@ func (s *AgentServer) executeAgenticLoop(ctx context.Context, roleTimeout time.D
 			turn, totalInputTokens, totalOutputTokens,
 			inactiveTurns, consecutiveErrorTurns,
 			lastTextLength, lastToolSignature,
-			messages, finalResult.String(), logMsg,
+			messages, finalResult.String(), workingDir, taskPacketPath, logMsg,
 		); budgetResult == tokenBudgetPaused {
 			return finalResult.String(), err
 		}
@@ -622,7 +622,7 @@ func (s *AgentServer) executeAgentWorkflow(ctx context.Context, roleTimeout time
 	}
 	s.mu.Unlock()
 
-	result, err := s.executeAgenticLoop(ctx, roleTimeout, execution.TaskID, execution.Role, prompt, systemPrompt, workingDir, execution.ProjectRoot, execution.Config, logMsg)
+	result, err := s.executeAgenticLoop(ctx, roleTimeout, execution.TaskID, execution.Role, prompt, systemPrompt, workingDir, execution.ProjectRoot, execution.metadata["task_packet_path"], execution.Config, logMsg)
 	if err != nil {
 		// Check if error is due to cancellation or timeout.
 		// context.Canceled: User-initiated cancellation via CancelTask()
@@ -651,14 +651,16 @@ func (s *AgentServer) executeAgentWorkflow(ctx context.Context, roleTimeout time
 			// Write a minimal checkpoint so the task can be resumed
 			// We don't have the full loop state here, but we can save what's available
 			cp := &AgentCheckpoint{
-				TaskID:        execution.TaskID,
-				CreatedAt:     time.Now(),
-				Turn:          0, // Unknown - agent will restart from beginning with more time
-				PartialResult: result,
-				ResumeReason:  "timeout",
-				Role:          execution.Role,
-				ProjectRoot:   execution.ProjectRoot,
-				Model:         execution.Config.Model,
+				TaskID:         execution.TaskID,
+				CreatedAt:      time.Now(),
+				Turn:           0, // Unknown - agent will restart from beginning with more time
+				PartialResult:  result,
+				ResumeReason:   "timeout",
+				Role:           execution.Role,
+				ProjectRoot:    execution.ProjectRoot,
+				Model:          execution.Config.Model,
+				WorkingDir:     workingDir,
+				TaskPacketPath: execution.metadata["task_packet_path"],
 			}
 			if err := writeCheckpoint(execution.ProjectRoot, execution.TaskID, cp); err != nil {
 				logMsg(fmt.Sprintf("⚠️  Failed to write timeout checkpoint: %v", err))
@@ -710,6 +712,15 @@ func (s *AgentServer) resumeFromCheckpoint(taskID, projectRoot string, cp *Agent
 		metadata:    map[string]string{"project_root": projectRoot},
 		streamChan:  make(chan *protocol.StreamEvent, 100),
 		streamOpen:  true,
+	}
+	// Restore working directory and task packet path from the checkpoint so that
+	// extractTaskMetadata (and executeAgentWorkflow) use the same paths as the
+	// original run instead of falling back to s.rootDir.
+	if cp.WorkingDir != "" {
+		execution.metadata["working_directory"] = cp.WorkingDir
+	}
+	if cp.TaskPacketPath != "" {
+		execution.metadata["task_packet_path"] = cp.TaskPacketPath
 	}
 
 	// Calculate timeout: either full reset or extended by specified duration

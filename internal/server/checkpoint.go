@@ -47,6 +47,11 @@ type AgentCheckpoint struct {
 	Role        string `json:"role"`
 	ProjectRoot string `json:"project_root"`
 	Model       string `json:"model"` // model name at pause time; may differ from current config if the model was changed between runs
+
+	// Task environment — preserved so resumed agents start in the same
+	// directory and can locate the same task packet as the original run.
+	WorkingDir     string `json:"working_dir,omitempty"`
+	TaskPacketPath string `json:"task_packet_path,omitempty"`
 }
 
 const checkpointFileName = "checkpoint.json"
