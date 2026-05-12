@@ -272,7 +272,8 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 	}
 
 	// If working directory not specified in task, use project root
-	// Generate unique task ID
+	// Generate unique task ID — preserve the short (parent) ID for DB linkage.
+	parentTaskID := taskID
 	taskID = taskdb.GenerateTaskID(taskID)
 
 	// Supersede any previous execution for this task so the GUI
@@ -332,16 +333,36 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 		metadata:    metadata,
 	}
 
-	// Create task in SQLite database for persistent tracking
+	// Create task run in SQLite database for persistent tracking.
+	// Use CreateTaskRun (not CreateTask) so that latest_run_id is set on the
+	// parent task row, enabling log/status lookups by short task ID.
 	if s.taskDB != nil {
-		dbTask := &taskdb.Task{
-			ID:              taskID,
-			ProjectRoot:     projectRoot,
-			Role:            role,
-			TaskDescription: taskDescription,
+		metadataJSON := ""
+		if len(metadata) > 0 {
+			if b, err := json.Marshal(metadata); err == nil {
+				metadataJSON = string(b)
+			}
 		}
-		if err := s.taskDB.CreateTask(dbTask); err != nil {
-			monitoring.Logger.Warn("failed_to_create_taskdb_entry", "error", err.Error(), "task_id", taskID)
+		run := &taskdb.TaskRun{
+			RunID:       taskID,
+			TaskID:      parentTaskID,
+			ProjectRoot: projectRoot,
+			Role:        role,
+			Metadata:    metadataJSON,
+		}
+		if err := s.taskDB.CreateTaskRun(run); err != nil {
+			// If the parent task doesn't exist yet (e.g. direct spawn without prior
+			// agent create), fall back to creating a standalone task row.
+			monitoring.Logger.Warn("failed_to_create_task_run", "error", err.Error(), "run_id", taskID, "parent", parentTaskID)
+			dbTask := &taskdb.Task{
+				ID:              taskID,
+				ProjectRoot:     projectRoot,
+				Role:            role,
+				TaskDescription: taskDescription,
+			}
+			if err2 := s.taskDB.CreateTask(dbTask); err2 != nil {
+				monitoring.Logger.Warn("failed_to_create_taskdb_entry", "error", err2.Error(), "task_id", taskID)
+			}
 		}
 	}
 
