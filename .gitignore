@@ -98,9 +98,7 @@ tests/workflow_test_workspace/
 /server
 /coverage.out
 /data/
-/bin/agent
-/bin/agent-server
-/bin/kg
+/bin/
 
 # Local configuration (use agent-server.json.template)
 agent-server.json
