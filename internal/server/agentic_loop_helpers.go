@@ -50,6 +50,8 @@ func (s *AgentServer) applyTokenBudgetCheck(
 	lastToolSignature string,
 	messages []streaming.Message,
 	partialResult string,
+	workingDir string,
+	taskPacketPath string,
 	logMsg func(string),
 ) (tokenBudgetResult, error) {
 	if config.Delegation.MaxBudgetTokens <= 0 {
@@ -80,6 +82,8 @@ func (s *AgentServer) applyTokenBudgetCheck(
 			Role:                  role,
 			ProjectRoot:           projectRoot,
 			Model:                 config.Model,
+			WorkingDir:            workingDir,
+			TaskPacketPath:        taskPacketPath,
 		}
 
 		if err := writeCheckpoint(projectRoot, taskID, cp); err != nil {
@@ -326,6 +330,8 @@ func flushCheckpoint(
 	budgetUsed int64,
 	messages []streaming.Message,
 	partialResult string,
+	workingDir string,
+	taskPacketPath string,
 	logMsg func(string),
 ) error {
 	cp := &AgentCheckpoint{
@@ -345,6 +351,8 @@ func flushCheckpoint(
 		Role:                  role,
 		ProjectRoot:           projectRoot,
 		Model:                 model,
+		WorkingDir:            workingDir,
+		TaskPacketPath:        taskPacketPath,
 	}
 
 	if err := writeCheckpoint(projectRoot, taskID, cp); err != nil {
