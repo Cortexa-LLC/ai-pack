@@ -100,13 +100,13 @@ build-gui: codegen-gui ## Build GUI for production
 	@cd $(GUI_DIR) && npm run build
 	@echo "✅ GUI built in $(GUI_DIR)/dist/"
 
-build-all: build build-gui ## Build everything (agent + GUI)
+build-all: build build-gui build-agent-mcp ## Build everything (agent + GUI + agent-mcp)
 
 # ============================================================================
 # INSTALL TARGETS
 # ============================================================================
 
-install: install-agent ## Install agent binaries to /usr/local/bin, then run: make setup-mcp
+install: install-agent install-agent-mcp ## Install all binaries to /usr/local/bin, then run: make setup-mcp
 
 install-agent: build-agent build-server ## Install agent binaries to /usr/local/bin
 	@echo "Installing agent binaries..."
