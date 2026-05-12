@@ -1,5 +1,5 @@
 .PHONY: test test-short test-coverage build build-gui codegen-gui clean clean-all sonarqube help
-.PHONY: install install-agent uninstall uninstall-agent setup-mcp
+.PHONY: install install-agent install-mcp-agent uninstall uninstall-agent setup-mcp install-mcp
 .PHONY: start-server start-gui start-all stop-server stop-gui stop-all restart-server restart-gui restart-all
 .PHONY: setup-services uninstall-services status-services
 .PHONY: setup-launchd uninstall-launchd status-launchd
@@ -113,6 +113,26 @@ install-agent: build-agent build-server ## Install agent binaries to /usr/local/
 	@install -m 755 bin/agent /usr/local/bin/agent
 	@install -m 755 bin/agent-server /usr/local/bin/agent-server
 	@echo "✅ Agent binaries installed to /usr/local/bin"
+
+build-mcp-agent: ## Build mcp-agent MCP stdio server (CGO_ENABLED=0)
+	@mkdir -p bin
+	CGO_ENABLED=0 go build -o bin/mcp-agent ./cmd/mcp-agent
+
+install-mcp-agent: build-mcp-agent ## Install mcp-agent binary to /usr/local/bin
+	@echo "Installing mcp-agent..."
+	@install -m 755 bin/mcp-agent /usr/local/bin/mcp-agent
+	@echo "✅ mcp-agent installed to /usr/local/bin/mcp-agent"
+
+install-mcp: install-mcp-agent ## Build, install mcp-agent, register in ~/.claude.json, and copy orchestrate skill
+	@echo "Registering mcp-agent in ~/.claude.json..."
+	@python3 scripts/register-mcp.py
+	@echo ""
+	@echo "Installing orchestrate skill..."
+	@mkdir -p ~/.claude/skills
+	@cp config/skills/orchestrate.md ~/.claude/skills/orchestrate.md
+	@echo "✅ ~/.claude/skills/orchestrate.md installed"
+	@echo ""
+	@echo "✅ install-mcp complete. Restart Claude Code to pick up the changes."
 
 setup-mcp: ## Register AI-Pack MCP servers globally (~/.claude/settings.json)
 	@python3 scripts/setup-mcp.py
