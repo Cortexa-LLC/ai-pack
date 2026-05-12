@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-register-mcp.py — Idempotently register mcp-agent in ~/.claude.json (global scope)
+register-mcp.py — Idempotently register agent-mcp in ~/.claude.json (global scope)
 so Claude Code picks it up in every project.
 
 Usage:
@@ -8,7 +8,7 @@ Usage:
 
 Flags:
     --dry-run       Print what would be written without modifying any files.
-    --install-dir   Directory where mcp-agent binary lives (default: /usr/local/bin).
+    --install-dir   Directory where agent-mcp binary lives (default: /usr/local/bin).
 """
 
 import argparse
@@ -18,7 +18,7 @@ import sys
 
 
 CLAUDE_JSON = os.path.expanduser("~/.claude.json")
-SERVER_NAME = "mcp-agent"
+SERVER_NAME = "agent-mcp"
 
 
 def load_claude_json(path: str) -> dict:
@@ -33,7 +33,7 @@ def load_claude_json(path: str) -> dict:
 
 def merge_server(config: dict, binary_path: str) -> tuple[dict, bool]:
     """
-    Merge the mcp-agent server entry into the config dict.
+    Merge the agent-mcp server entry into the config dict.
     Returns (updated_config, changed).
     """
     # Claude Code uses `mcpServers` at the top level of ~/.claude.json
@@ -54,13 +54,13 @@ def merge_server(config: dict, binary_path: str) -> tuple[dict, bool]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Register mcp-agent in ~/.claude.json")
+    parser = argparse.ArgumentParser(description="Register agent-mcp in ~/.claude.json")
     parser.add_argument("--dry-run", action="store_true", help="Print without writing")
     parser.add_argument("--install-dir", default="/usr/local/bin",
-                        help="Directory containing the mcp-agent binary")
+                        help="Directory containing the agent-mcp binary")
     args = parser.parse_args()
 
-    binary_path = os.path.join(args.install_dir, "mcp-agent")
+    binary_path = os.path.join(args.install_dir, "agent-mcp")
 
     config = load_claude_json(CLAUDE_JSON)
     updated, changed = merge_server(config, binary_path)
@@ -68,7 +68,7 @@ def main() -> None:
     pretty = json.dumps(updated, indent=2) + "\n"
 
     if not changed:
-        print(f"✅  mcp-agent already registered in {CLAUDE_JSON} — no changes needed.")
+        print(f"✅  agent-mcp already registered in {CLAUDE_JSON} — no changes needed.")
         return
 
     if args.dry_run:
