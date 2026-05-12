@@ -317,3 +317,53 @@ func TestMigrationFromLegacyTimestampedRows(t *testing.T) {
 		t.Error("legacy timestamped row still present in tasks table after migration")
 	}
 }
+
+// TestLatestRunIDSetOnSpawn is a focused regression guard verifying that
+// CreateTaskRun — the DB call made during every task spawn — sets
+// latest_run_id on the parent task row.
+//
+// If this test fails it means the UI / CLI would show an empty run ID for
+// newly-spawned tasks (log lookup, streaming, etc. would break).
+func TestLatestRunIDSetOnSpawn(t *testing.T) {
+	db, cleanup := openTestDB(t)
+	defer cleanup()
+
+	const parentID = "ai-pack-spawn-0"
+	const runID = "ai-pack-spawn-0-20260512-094408-abcdef"
+
+	// Pre-create the parent task (mirrors what "agent create" does before
+	// the orchestrator spawns the agent).
+	parent := &taskdb.Task{
+		ID:          parentID,
+		ProjectRoot: "/tmp/project",
+		Role:        "engineer",
+	}
+	if err := db.CreateTask(parent); err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+
+	// Spawn: create the run, which should atomically update latest_run_id.
+	run := &taskdb.TaskRun{
+		RunID:   runID,
+		TaskID:  parentID,
+		Role:    "engineer",
+	}
+	if err := db.CreateTaskRun(run); err != nil {
+		t.Fatalf("CreateTaskRun: %v", err)
+	}
+
+	// Verify latest_run_id is set on the parent task.
+	got, err := db.GetTask(parentID)
+	if err != nil {
+		t.Fatalf("GetTask: %v", err)
+	}
+	if got == nil {
+		t.Fatal("parent task not found after spawn")
+	}
+	if got.LatestRunID == "" {
+		t.Error("latest_run_id is empty after task spawn; expected it to be set to the new run ID")
+	}
+	if got.LatestRunID != runID {
+		t.Errorf("latest_run_id = %q; want %q", got.LatestRunID, runID)
+	}
+}
