@@ -52,12 +52,11 @@ func runList(running, completed, failed, all, jsonOutput, verbose bool) error {
 
 	var response struct {
 		Tasks []struct {
-			TaskID      string   `json:"task_id"`
-			BeadsTaskID string   `json:"task_id"`
+			TaskID      string   `json:"taskId"`
 			Status      string   `json:"status"`
 			Role        string   `json:"role"`
 			Description string   `json:"description"`
-			ProjectRoot string   `json:"project_root"`
+			ProjectRoot string   `json:"projectRoot"`
 			StartedAt   string   `json:"started_at"`
 			CompletedAt string   `json:"completed_at"`
 			Tags        []string `json:"tags"`
@@ -76,12 +75,11 @@ func runList(running, completed, failed, all, jsonOutput, verbose bool) error {
 
 	// Filter tasks
 	var tasks []struct {
-		TaskID      string   `json:"task_id"`
-		BeadsTaskID string   `json:"task_id"`
+		TaskID      string   `json:"taskId"`
 		Status      string   `json:"status"`
 		Role        string   `json:"role"`
 		Description string   `json:"description"`
-		ProjectRoot string   `json:"project_root"`
+		ProjectRoot string   `json:"projectRoot"`
 		StartedAt   string   `json:"started_at"`
 		CompletedAt string   `json:"completed_at"`
 		Tags        []string `json:"tags"`
@@ -126,11 +124,7 @@ func runList(running, completed, failed, all, jsonOutput, verbose bool) error {
 	for _, t := range tasks {
 		statusEmoji := statusIcon(t.Status)
 		desc := truncateDescription(t.Description, 44)
-		// Display short task ID (backward compatible with old BeadsTaskID field)
-		displayID := t.BeadsTaskID
-		if displayID == "" {
-			displayID = t.TaskID[:minInt(12, len(t.TaskID))]
-		}
+		displayID := t.TaskID
 		fmt.Printf("%-25s %-12s %s %-10s %-45s\n",
 			displayID,
 			t.Role,
@@ -140,7 +134,6 @@ func runList(running, completed, failed, all, jsonOutput, verbose bool) error {
 		)
 
 		if verbose {
-			fmt.Printf("  Internal ID: %s\n", t.TaskID)
 			fmt.Printf("  Project:     %s\n", t.ProjectRoot)
 			if t.StartedAt != "" {
 				started, err := time.Parse(time.RFC3339, t.StartedAt)
