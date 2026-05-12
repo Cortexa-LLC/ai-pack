@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -175,30 +174,21 @@ func (db *DB) GetTaskRun(runID string) (*TaskRun, error) {
 	return run, nil
 }
 
-// isRunID returns true if the given ID looks like a timestamped run ID
-// (e.g. "ai-pack-aa0-20260505-170335-b83db8") rather than a short task ID.
-func isRunID(id string) bool {
-	// Run IDs have the form <prefix>-<YYYYMMDD>-<HHMMSS>-<hex>
-	// We detect them by checking if a task_run with this ID exists.
-	return strings.Count(id, "-") >= 5
-}
-
 // resolveToTaskID resolves either a run_id or task_id to a task_id.
-// If runID is provided and exists in task_runs, it returns the parent task_id.
-// Otherwise returns id unchanged (treating it as a task ID).
+// Always checks task_runs first. The old isRunID heuristic (counting hyphens)
+// broke for single-segment project names (e.g. "consumer-project", "xasm") whose run
+// IDs have only 4 hyphens — below the old >= 5 threshold.
 func (db *DB) resolveToTaskID(id string) (taskID string, runID string, err error) {
-	if isRunID(id) {
-		// Try to find this as a run_id first
-		var tID sql.NullString
-		err = db.db.QueryRow(`SELECT task_id FROM task_runs WHERE run_id = ?`, id).Scan(&tID)
-		if err == nil && tID.Valid {
-			return tID.String, id, nil
-		}
-		if err != nil && err != sql.ErrNoRows {
-			return "", "", err
-		}
+	// Always check task_runs first.
+	var tID sql.NullString
+	err = db.db.QueryRow(`SELECT task_id FROM task_runs WHERE run_id = ?`, id).Scan(&tID)
+	if err == nil && tID.Valid {
+		return tID.String, id, nil
 	}
-	// Treat id as a task_id
+	if err != nil && err != sql.ErrNoRows {
+		return "", "", err
+	}
+	// Not found in task_runs — treat as a task_id directly.
 	return id, "", nil
 }
 

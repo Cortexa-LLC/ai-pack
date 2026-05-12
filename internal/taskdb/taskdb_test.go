@@ -367,3 +367,54 @@ func TestLatestRunIDSetOnSpawn(t *testing.T) {
 		t.Errorf("latest_run_id = %q; want %q", got.LatestRunID, runID)
 	}
 }
+
+// TestCompleteTask_SingleWordProject is a regression guard for the isRunID
+// heuristic bug where projects with no hyphens in their name (consumer-project, xasm,
+// HomeControl, etc.) produced run IDs with only 4 hyphens.  The old
+// strings.Count(id, "-") >= 5 guard skipped the task_runs lookup, so
+// CompleteTask would UPDATE against the full timestamped run ID — matching
+// zero rows and leaving the parent stuck at "in_progress" forever.
+func TestCompleteTask_SingleWordProject(t *testing.T) {
+	db, cleanup := openTestDB(t)
+	defer cleanup()
+
+	const parentID = "consumer-project-abc"
+	const runID = "consumer-project-abc-20260512-134911-60f638"
+
+	// Create the parent task (mirrors "agent create").
+	parent := &taskdb.Task{
+		ID:          parentID,
+		ProjectRoot: "/tmp/consumer-project",
+		Role:        "engineer",
+	}
+	if err := db.CreateTask(parent); err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+
+	// Spawn: create the run row.
+	run := &taskdb.TaskRun{
+		RunID:  runID,
+		TaskID: parentID,
+		Role:   "engineer",
+	}
+	if err := db.CreateTaskRun(run); err != nil {
+		t.Fatalf("CreateTaskRun: %v", err)
+	}
+
+	// Complete via the run ID (the value mcp-agent passes to saveAndCompleteTask).
+	if err := db.CompleteTask(runID, "all done"); err != nil {
+		t.Fatalf("CompleteTask: %v", err)
+	}
+
+	// The PARENT task must now be completed.
+	got, err := db.GetTask(parentID)
+	if err != nil {
+		t.Fatalf("GetTask: %v", err)
+	}
+	if got == nil {
+		t.Fatal("parent task not found")
+	}
+	if got.Status != taskdb.StatusCompleted {
+		t.Errorf("parent status = %q, want completed; single-word project name resolveToTaskID regression", got.Status)
+	}
+}
