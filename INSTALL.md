@@ -71,16 +71,53 @@ This fetches LiveBench CSV data (no API key needed) and writes grade files to
 make build install
 ```
 
-Installs three binaries to `/usr/local/bin/`:
+This installs:
 
+**Binaries** (to `/usr/local/bin/`):
 | Binary | Purpose |
 |--------|---------|
 | `agent` | CLI used by orchestrators to spawn and monitor agents |
 | `agent-server` | Local A2A server that executes agent tasks |
 | `kg` | Knowledge graph CLI for codebase indexing |
 
+**Configuration** (to `~/.ai-pack/config.json`):
+- Server URL (default: `http://localhost:8080`)
+- API settings (model, timeouts)
+- Logging configuration
+- Metrics settings
+
+The config file is created automatically if it doesn't exist. All components (agent CLI, agent-server, GUI) read from this single source of truth.
+
 > **Note:** `make install` requires write access to `/usr/local/bin/`. Use `sudo make install`
 > if needed, or override the prefix: `PREFIX=~/.local make install`.
+
+### Configuration Files
+
+AI-Pack uses `~/.ai-pack/config.json` as the single source of truth for all settings.
+
+**View current configuration:**
+```bash
+python3 scripts/init-config.py --show
+```
+
+**Reset to defaults:**
+```bash
+python3 scripts/init-config.py --force
+```
+
+**Edit manually:**
+```bash
+vim ~/.ai-pack/config.json
+```
+
+**Override with environment variables:**
+```bash
+export SERVER_PORT=9090
+export ANTHROPIC_MODEL=claude-opus-4-7
+export LOG_LEVEL=debug
+```
+
+Environment variables take highest priority and override the config file.
 
 ---
 

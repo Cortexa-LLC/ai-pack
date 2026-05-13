@@ -7,8 +7,9 @@ const gitVersion = (() => {
   catch { return 'dev' }
 })()
 
-// Agent server base URL — override via VITE_API_BASE_URL env var.
-// The compiled-in default matches the server's own default port (SERVER_PORT).
+// Agent server base URL from environment variable.
+// Set by launchd plist (setup-services.py) to match SERVER_PORT.
+// Fallback to localhost:8080 only if env var not set (manual dev mode).
 const apiBase = process.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 
 export default defineConfig({

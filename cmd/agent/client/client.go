@@ -8,22 +8,65 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 )
 
-// ServerURL is the compiled-in fallback agent server base URL.
-// Prefer DefaultBaseURL for all runtime usage — it respects AGENT_SERVER_URL.
-const ServerURL = "http://localhost:8082"
-
-// DefaultBaseURL is the base URL used by Default().
-// It is initialised from the AGENT_SERVER_URL environment variable when set,
-// falling back to ServerURL. Tests may override this variable directly.
-var DefaultBaseURL = func() string {
+// loadServerURL reads the server URL from configuration sources.
+// Priority order (highest to lowest):
+// 1. AGENT_SERVER_URL environment variable
+// 2. ~/.ai-pack/config.json server.host:port
+// 3. Hardcoded fallback (only if config file missing)
+func loadServerURL() string {
+	// 1. Environment variable (highest priority)
 	if v := os.Getenv("AGENT_SERVER_URL"); v != "" {
 		return v
 	}
-	return ServerURL
-}()
+
+	// 2. Read from config file
+	if url := readConfigServerURL(); url != "" {
+		return url
+	}
+
+	// 3. Fallback only if config missing (should never happen after install)
+	return "http://localhost:8080"
+}
+
+// readConfigServerURL reads server URL from ~/.ai-pack/config.json
+func readConfigServerURL() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	configPath := filepath.Join(home, ".ai-pack", "config.json")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return ""
+	}
+
+	var config struct {
+		Server struct {
+			Host string `json:"host"`
+			Port int    `json:"port"`
+		} `json:"server"`
+	}
+
+	if err := json.Unmarshal(data, &config); err != nil {
+		return ""
+	}
+
+	if config.Server.Host != "" && config.Server.Port > 0 {
+		return fmt.Sprintf("http://%s:%d", config.Server.Host, config.Server.Port)
+	}
+
+	return ""
+}
+
+// DefaultBaseURL is the base URL used by Default().
+// It is loaded from AGENT_SERVER_URL env var, or ~/.ai-pack/config.json.
+// Tests may override this variable directly.
+var DefaultBaseURL = loadServerURL()
 
 // SSEDataPrefix is the standard Server-Sent Events data line prefix ("data: ").
 const SSEDataPrefix = "data: "

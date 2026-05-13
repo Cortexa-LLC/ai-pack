@@ -203,7 +203,7 @@ func findInternalTaskID(taskID string) string {
 // streamTaskProgressWithInactivity streams SSE events from the server.
 // Returns true on successful completion, false on failure or cancellation.
 func streamTaskProgressWithInactivity(internalTaskID string, inactiveTimeout time.Duration) bool {
-	streamURL := fmt.Sprintf("%s/stream/%s", agentclient.ServerURL, internalTaskID)
+	streamURL := fmt.Sprintf("%s/stream/%s", agentclient.DefaultBaseURL, internalTaskID)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

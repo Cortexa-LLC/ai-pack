@@ -187,7 +187,7 @@ func followLogFile(logFile string, jsonOutput bool) {
 }
 
 func streamServerLogs(jsonOutput bool) {
-	resp, err := http.Get(fmt.Sprintf("%s/logs/stream", agentclient.ServerURL))
+	resp, err := http.Get(fmt.Sprintf("%s/logs/stream", agentclient.DefaultBaseURL))
 	if err != nil {
 		fmt.Printf("❌ Failed to connect to log stream: %v\n", err)
 		os.Exit(1)
