@@ -9,7 +9,7 @@ const gitVersion = (() => {
 
 // Agent server base URL — override via VITE_API_BASE_URL env var.
 // The compiled-in default matches the server's own default port (SERVER_PORT).
-const apiBase = process.env.VITE_API_BASE_URL ?? 'http://localhost:8082'
+const apiBase = process.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 
 export default defineConfig({
   plugins: [react()],
