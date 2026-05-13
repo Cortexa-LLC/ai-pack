@@ -254,7 +254,7 @@ func DefaultConfig() *Config {
 // 1. Built-in defaults
 // 2. ~/.claude/agent-server.json (user baseline)
 // 3. ./agent-server.json (project config — overrides user baseline)
-// 4. AGENT_SERVER_CONFIG or explicit --config path (explicit override)
+// 4. AIPACK_AGENT_SERVER_CONFIG or explicit --config path (explicit override)
 // 5. Environment variables (highest priority)
 func LoadConfig(configPath string) (*Config, error) {
 	cfg := DefaultConfig()
@@ -284,7 +284,7 @@ func LoadConfig(configPath string) (*Config, error) {
 		return nil, err
 	}
 
-	// 4. Explicit path (--config flag or AGENT_SERVER_CONFIG env)
+	// 4. Explicit path (--config flag or AIPACK_AGENT_SERVER_CONFIG env)
 	if explicitPath := resolveExplicitConfigPath(configPath); explicitPath != "" {
 		if err := mergeFile(explicitPath); err != nil {
 			return nil, err
@@ -305,8 +305,8 @@ func resolveExplicitConfigPath(explicitPath string) string {
 		return explicitPath
 	}
 
-	// 2. AGENT_SERVER_CONFIG environment variable
-	if envPath := os.Getenv("AGENT_SERVER_CONFIG"); envPath != "" {
+	// 2. AIPACK_AGENT_SERVER_CONFIG environment variable
+	if envPath := os.Getenv("AIPACK_AGENT_SERVER_CONFIG"); envPath != "" {
 		if _, err := os.Stat(envPath); err == nil {
 			return envPath
 		}
@@ -320,7 +320,7 @@ func applyServerOverrides(cfg *Config) {
 	if val := os.Getenv("SERVER_HOST"); val != "" {
 		cfg.Server.Host = val
 	}
-	if val := os.Getenv("SERVER_PORT"); val != "" {
+	if val := os.Getenv("AIPACK_AGENT_SERVER_PORT"); val != "" {
 		if port, err := strconv.Atoi(val); err == nil {
 			cfg.Server.Port = port
 		}
@@ -355,7 +355,7 @@ func applyAPIOverrides(cfg *Config) {
 }
 
 func applyLoggingOverrides(cfg *Config) {
-	if val := os.Getenv("LOG_LEVEL"); val != "" {
+	if val := os.Getenv("AIPACK_AGENT_SERVER_LOG_LEVEL"); val != "" {
 		cfg.Logging.Level = val
 	}
 	if val := os.Getenv("LOG_FORMAT"); val != "" {

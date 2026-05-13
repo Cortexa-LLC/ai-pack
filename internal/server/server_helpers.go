@@ -1042,7 +1042,7 @@ func (s *AgentServer) loadSharedPolicy(projectRoot string) string {
 
 func resolveConfigPath() string {
 	// Check for explicit config path from environment
-	if envPath := os.Getenv("AGENT_SERVER_CONFIG"); envPath != "" {
+	if envPath := os.Getenv("AIPACK_AGENT_SERVER_CONFIG"); envPath != "" {
 		return envPath
 	}
 

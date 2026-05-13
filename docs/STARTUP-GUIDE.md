@@ -326,8 +326,8 @@ python3 -m http.server 8000
 
 **Agent Server:**
 - `ANTHROPIC_API_KEY` - Anthropic API key (required)
-- `PORT` - Server port (default: 8080)
-- `LOG_LEVEL` - Log level (debug, info, warn, error)
+- `AIPACK_AGENT_SERVER_PORT` - Server port (default: 8080)
+- `AIPACK_AGENT_SERVER_LOG_LEVEL` - Log level (debug, info, warn, error)
 
 **GUI:**
 - `VITE_API_BASE_URL` - Override API base URL

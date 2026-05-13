@@ -112,9 +112,9 @@ vim ~/.ai-pack/config.json
 
 **Override with environment variables:**
 ```bash
-export SERVER_PORT=9090
+export AIPACK_AGENT_SERVER_PORT=9090
 export ANTHROPIC_MODEL=claude-opus-4-7
-export LOG_LEVEL=debug
+export AIPACK_AGENT_SERVER_LOG_LEVEL=debug
 ```
 
 Environment variables take highest priority and override the config file.

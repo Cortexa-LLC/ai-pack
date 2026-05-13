@@ -14,12 +14,12 @@ import (
 
 // loadServerURL reads the server URL from configuration sources.
 // Priority order (highest to lowest):
-// 1. AGENT_SERVER_URL environment variable
+// 1. AIPACK_AGENT_SERVER_URL environment variable
 // 2. ~/.ai-pack/config.json server.host:port
 // 3. Hardcoded fallback (only if config file missing)
 func loadServerURL() string {
 	// 1. Environment variable (highest priority)
-	if v := os.Getenv("AGENT_SERVER_URL"); v != "" {
+	if v := os.Getenv("AIPACK_AGENT_SERVER_URL"); v != "" {
 		return v
 	}
 
@@ -64,7 +64,7 @@ func readConfigServerURL() string {
 }
 
 // DefaultBaseURL is the base URL used by Default().
-// It is loaded from AGENT_SERVER_URL env var, or ~/.ai-pack/config.json.
+// It is loaded from AIPACK_AGENT_SERVER_URL env var, or ~/.ai-pack/config.json.
 // Tests may override this variable directly.
 var DefaultBaseURL = loadServerURL()
 

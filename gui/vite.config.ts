@@ -8,7 +8,7 @@ const gitVersion = (() => {
 })()
 
 // Agent server base URL from environment variable.
-// Set by launchd plist (setup-services.py) to match SERVER_PORT.
+// Set by launchd plist (setup-services.py) to match AIPACK_AGENT_SERVER_PORT.
 // Fallback to localhost:8080 only if env var not set (manual dev mode).
 const apiBase = process.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 
