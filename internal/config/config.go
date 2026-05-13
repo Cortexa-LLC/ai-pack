@@ -317,7 +317,7 @@ func resolveExplicitConfigPath(explicitPath string) string {
 }
 
 func applyServerOverrides(cfg *Config) {
-	if val := os.Getenv("SERVER_HOST"); val != "" {
+	if val := os.Getenv("AIPACK_AGENT_SERVER_HOST"); val != "" {
 		cfg.Server.Host = val
 	}
 	if val := os.Getenv("AIPACK_AGENT_SERVER_PORT"); val != "" {

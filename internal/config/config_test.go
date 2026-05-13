@@ -12,7 +12,7 @@ func clearEnvVars(t *testing.T) func() {
 	savedVars := map[string]string{
 		"ANTHROPIC_BASE_URL": os.Getenv("ANTHROPIC_BASE_URL"),
 		"ANTHROPIC_MODEL":    os.Getenv("ANTHROPIC_MODEL"),
-		"SERVER_HOST":        os.Getenv("SERVER_HOST"),
+		"AIPACK_AGENT_SERVER_HOST":        os.Getenv("AIPACK_AGENT_SERVER_HOST"),
 		"AIPACK_AGENT_SERVER_PORT":        os.Getenv("AIPACK_AGENT_SERVER_PORT"),
 		"API_MODE":           os.Getenv("API_MODE"),
 	}
@@ -20,7 +20,7 @@ func clearEnvVars(t *testing.T) func() {
 	// Clear all config-related env vars
 	os.Unsetenv("ANTHROPIC_BASE_URL")
 	os.Unsetenv("ANTHROPIC_MODEL")
-	os.Unsetenv("SERVER_HOST")
+	os.Unsetenv("AIPACK_AGENT_SERVER_HOST")
 	os.Unsetenv("AIPACK_AGENT_SERVER_PORT")
 	os.Unsetenv("API_MODE")
 
@@ -225,7 +225,7 @@ func TestLoadConfigEnvVarOverrides(t *testing.T) {
 
 	// Set environment variable overrides
 	os.Setenv("AIPACK_AGENT_SERVER_PORT", "9999")
-	os.Setenv("SERVER_HOST", "0.0.0.0")
+	os.Setenv("AIPACK_AGENT_SERVER_HOST", "0.0.0.0")
 
 	// Load config
 	cfg, err := LoadConfig(configPath)
