@@ -113,6 +113,18 @@ func (s *AgentServer) updateTaskStatus(taskID, projectRoot, status, errorMsg str
 	}
 
 	monitoring.Logger.Info("task_status_updated", "task_id", taskID, "status", status)
+
+	// Sync status to SQLite DB (best-effort: a missing task row is not fatal).
+	// This ensures the DB stays consistent with the JSON metadata for statuses
+	// such as "paused" and "cancelled" that do not go through CompleteTask or
+	// FailTask.
+	if s.taskDB != nil {
+		if dbErr := s.taskDB.UpdateTaskStatus(taskID, status, errorMsg); dbErr != nil {
+			monitoring.Logger.Warn("taskdb_status_sync_failed",
+				"task_id", taskID, "status", status, "error", dbErr)
+		}
+	}
+
 	return nil
 }
 

@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -419,5 +420,131 @@ func TestServeTaskContract_WithTaskDB(t *testing.T) {
 
 	if retrieved.Metadata == "" {
 		t.Error("Expected metadata to be set")
+	}
+}
+
+// TestUpdateTaskStatus_SyncsToTaskDB verifies that updateTaskStatus writes the new status
+// to the SQLite taskDB, not just the JSON metadata file on disk.
+// This is the regression test for the bug where "paused" (and other statuses routed through
+// updateTaskStatus) were never reflected in the DB.
+func TestUpdateTaskStatus_SyncsToTaskDB(t *testing.T) {
+	monitoring.InitMetrics()
+
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "tasks.db")
+
+	db, err := taskdb.Open(dbPath)
+	if err != nil {
+		t.Fatalf("Failed to open taskDB: %v", err)
+	}
+	defer db.Close()
+
+	cfg := &config.Config{
+		API: config.APIConfig{
+			MaxTokens:      4096,
+			AnthropicModel: "claude-3-5-sonnet-20241022",
+		},
+	}
+
+	server, err := NewAgentServer(tmpDir, 1, 4096, "claude-3-5-sonnet-20241022", cfg)
+	if err != nil {
+		t.Fatalf("Failed to create server: %v", err)
+	}
+	server.taskDB = db
+
+	taskID := "pause-sync-test-001"
+
+	// Seed the DB with a queued task.
+	if err := db.CreateTask(&taskdb.Task{
+		ID:              taskID,
+		ProjectRoot:     tmpDir,
+		Role:            "engineer",
+		TaskDescription: "test pause sync",
+	}); err != nil {
+		t.Fatalf("Failed to create task in DB: %v", err)
+	}
+
+	// Create the on-disk metadata file that updateTaskStatus reads/writes.
+	metadataDir := filepath.Join(tmpDir, constants.TaskRootDir, "tasks", taskID)
+	if err := os.MkdirAll(metadataDir, 0755); err != nil {
+		t.Fatalf("Failed to create metadata dir: %v", err)
+	}
+	initialMeta := map[string]interface{}{
+		"task_id": taskID,
+		"status":  taskdb.StatusQueued,
+	}
+	metaBytes, _ := json.MarshalIndent(initialMeta, "", "  ")
+	metaPath := filepath.Join(metadataDir, constants.MetadataFileName)
+	if err := os.WriteFile(metaPath, metaBytes, 0644); err != nil {
+		t.Fatalf("Failed to write metadata file: %v", err)
+	}
+
+	// Call updateTaskStatus with "paused" — this is the path that was broken.
+	if err := server.updateTaskStatus(taskID, tmpDir, taskdb.StatusPaused, ""); err != nil {
+		t.Fatalf("updateTaskStatus returned error: %v", err)
+	}
+
+	// Verify DB was updated.
+	retrieved, err := db.GetTask(taskID)
+	if err != nil {
+		t.Fatalf("Failed to retrieve task from DB: %v", err)
+	}
+	if retrieved.Status != taskdb.StatusPaused {
+		t.Errorf("DB status not updated: expected %q, got %q", taskdb.StatusPaused, retrieved.Status)
+	}
+
+	// Verify the JSON metadata file was also updated (existing behaviour).
+	metaData, err := os.ReadFile(metaPath)
+	if err != nil {
+		t.Fatalf("Failed to read metadata file: %v", err)
+	}
+	var meta map[string]interface{}
+	if err := json.Unmarshal(metaData, &meta); err != nil {
+		t.Fatalf("Failed to unmarshal metadata: %v", err)
+	}
+	if meta["status"] != taskdb.StatusPaused {
+		t.Errorf("Metadata file status not updated: expected %q, got %v", taskdb.StatusPaused, meta["status"])
+	}
+}
+
+// TestUpdateTaskStatus_NilTaskDB_NoError verifies that updateTaskStatus succeeds when
+// taskDB is nil (server started without a database).
+func TestUpdateTaskStatus_NilTaskDB_NoError(t *testing.T) {
+	monitoring.InitMetrics()
+
+	tmpDir := t.TempDir()
+
+	cfg := &config.Config{
+		API: config.APIConfig{
+			MaxTokens:      4096,
+			AnthropicModel: "claude-3-5-sonnet-20241022",
+		},
+	}
+
+	server, err := NewAgentServer(tmpDir, 1, 4096, "claude-3-5-sonnet-20241022", cfg)
+	if err != nil {
+		t.Fatalf("Failed to create server: %v", err)
+	}
+	// Explicitly leave server.taskDB as nil.
+
+	taskID := "no-db-test-001"
+
+	// Create on-disk metadata.
+	metadataDir := filepath.Join(tmpDir, constants.TaskRootDir, "tasks", taskID)
+	if err := os.MkdirAll(metadataDir, 0755); err != nil {
+		t.Fatalf("Failed to create metadata dir: %v", err)
+	}
+	initialMeta := map[string]interface{}{
+		"task_id": taskID,
+		"status":  taskdb.StatusQueued,
+	}
+	metaBytes, _ := json.MarshalIndent(initialMeta, "", "  ")
+	if err := os.WriteFile(filepath.Join(metadataDir, constants.MetadataFileName), metaBytes, 0644); err != nil {
+		t.Fatalf("Failed to write metadata file: %v", err)
+	}
+
+	// Should succeed without panicking even when taskDB is nil.
+	if err := server.updateTaskStatus(taskID, tmpDir, taskdb.StatusPaused, ""); err != nil {
+		t.Errorf("updateTaskStatus with nil taskDB returned unexpected error: %v", err)
 	}
 }
