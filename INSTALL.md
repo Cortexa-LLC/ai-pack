@@ -5,17 +5,16 @@
 ```mermaid
 flowchart TD
     A[Clone repo] --> B["make bootstrap\nGo modules · npm · grade seeding"]
-    B --> C["make build install\nagent · agent-server · kg → /usr/local/bin"]
-    C --> D["make setup-mcp\nRegister kg MCP server in Claude Code"]
-    D --> E["Install Beads\nbd CLI — git-backed task tracker"]
-    E --> F{Using auto-start?}
-    F -->|Yes| G["make setup-services\nlaunchd / systemd service"]
-    F -->|No| H["agent-server &\nStart manually each session"]
-    G --> I{New project?}
-    H --> I
-    I -->|Yes| J["git submodule add .ai-pack\ncp CLAUDE.md · bd init · kg index"]
-    I -->|No| K[Done ✅]
-    J --> K
+    B --> C["make build install\nagent · agent-server → /usr/local/bin"]
+    C --> D["make setup-mcp\nRegister MCP servers in Claude Code"]
+    D --> E{Using auto-start?}
+    E -->|Yes| F["make setup-services\nlaunchd / systemd service"]
+    E -->|No| G["agent-server &\nStart manually each session"]
+    F --> H{New project?}
+    G --> H
+    H -->|Yes| I["git submodule add .ai-pack\ncp CLAUDE.md"]
+    H -->|No| J[Done ✅]
+    I --> J
 ```
 
 ---
@@ -139,26 +138,7 @@ make setup-mcp-local
 
 ---
 
-## 5. Install Beads (Task Tracker)
-
-AI-Pack uses [Beads](https://github.com/steveyegge/beads) for persistent, git-backed task tracking:
-
-```bash
-# macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
-
-# Windows PowerShell
-irm https://raw.githubusercontent.com/steveyegge/beads/main/install.ps1 | iex
-```
-
-Verify:
-```bash
-bd --version
-```
-
----
-
-## 6. Auto-Start Services (Optional)
+## 5. Auto-Start Services (Optional)
 
 Install background services so `agent-server` starts automatically at login:
 
@@ -167,14 +147,10 @@ make setup-services
 ```
 
 **macOS:** Installs launchd plists to `~/Library/LaunchAgents/` for:
-- `com.beads.dolt-shared` — shared Dolt SQL server at `~/.beads/dolt/` port 3307
 - `com.cortexa.ai-pack.agent-server` — AI-Pack agent server
 - `com.cortexa.ai-pack.gui` — GUI dev server
 
-**Linux:** Installs systemd user services (Dolt must be started manually on Linux).
-
-> **Important:** The shared Dolt service (`com.beads.dolt-shared`) must be running before
-> initializing Beads for any project. `make setup-services` starts it automatically on macOS.
+**Linux:** Installs systemd user services.
 
 Without this, start the server manually before spawning agents:
 ```bash
@@ -194,7 +170,6 @@ make status-services
 agent --version          # Agent CLI
 agent-server --version   # A2A server
 kg --version             # Knowledge graph CLI
-bd --version             # task tracker
 ```
 
 Start the server and verify it responds:
@@ -219,25 +194,14 @@ git submodule update --init --recursive
 # 2. Create local workspace
 mkdir -p .ai/tasks
 
-# 3. Initialize Beads (use the shared centralized Dolt server)
-bd init --server-host 127.0.0.1 --server-port 3307
-
-# 4. Copy the bootstrap CLAUDE.md template
+# 3. Copy the bootstrap CLAUDE.md template
 cp .ai-pack/templates/CLAUDE.md ./CLAUDE.md
 # Edit CLAUDE.md: fill in project name, working directory, tech stack, key files
 
-# 5. Index the codebase into the knowledge graph
-kg index
-
-# 6. Commit
-git add .ai-pack .beads/issues.jsonl CLAUDE.md
+# 4. Commit
+git add .ai-pack CLAUDE.md
 git commit -m "Add ai-pack framework"
 ```
-
-> **Beads backend:** `make setup-services` installs and starts a shared Dolt server at
-> `~/.beads/dolt/` (port 3307, managed by launchd). Always use
-> `bd init --server-host 127.0.0.1 --server-port 3307` — never plain `bd init`, which
-> falls back to an embedded Dolt that conflicts with the shared server.
 
 > **Critical:** Fill in `CLAUDE.md` before spawning any agent. The working directory
 > and task packet path in task descriptions are parsed by the agent server — they
