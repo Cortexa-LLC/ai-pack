@@ -117,7 +117,11 @@ install-agent: build-agent build-server ## Install agent binaries to /usr/local/
 	@echo "✅ Agent binaries installed to /usr/local/bin"
 	@echo ""
 	@echo "Initializing configuration..."
-	@python3 scripts/init-config.py
+	@if [ -n "$$SUDO_USER" ]; then \
+		sudo -u "$$SUDO_USER" python3 scripts/init-config.py; \
+	else \
+		python3 scripts/init-config.py; \
+	fi
 	@echo "✅ Configuration ready at ~/.ai-pack/config.json"
 
 build-agent-mcp: ## Build agent-mcp MCP stdio server (CGO_ENABLED=0)
