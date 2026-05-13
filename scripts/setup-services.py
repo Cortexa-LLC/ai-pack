@@ -23,11 +23,8 @@ class Colors:
 
 SERVER_LABEL = "com.cortexa.ai-pack.agent-server"
 GUI_LABEL = "com.cortexa.ai-pack.gui"
-BEADS_DOLT_LABEL = "com.beads.dolt-shared"
 SERVER_UNIT = "ai-pack-agent-server"
 GUI_UNIT = "ai-pack-gui"
-
-BEADS_DOLT_DIR = Path.home() / '.beads' / 'dolt'
 
 
 def get_project_root():
@@ -57,48 +54,6 @@ def _base_path():
     return f"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:{_go_bin()}"
 
 
-def generate_beads_dolt_plist():
-    dolt = shutil.which('dolt') or '/opt/homebrew/bin/dolt'
-    data_dir = str(BEADS_DOLT_DIR)
-    log_file = str(Path.home() / '.beads' / 'dolt-shared.log')
-    return f"""<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>{BEADS_DOLT_LABEL}</string>
-
-    <key>ProgramArguments</key>
-    <array>
-        <string>{dolt}</string>
-        <string>sql-server</string>
-        <string>--host</string>
-        <string>127.0.0.1</string>
-        <string>--port</string>
-        <string>3307</string>
-        <string>--data-dir</string>
-        <string>{data_dir}</string>
-        <string>--loglevel</string>
-        <string>warning</string>
-    </array>
-
-    <key>WorkingDirectory</key>
-    <string>{data_dir}</string>
-
-    <key>StandardOutPath</key>
-    <string>{log_file}</string>
-
-    <key>StandardErrorPath</key>
-    <string>{log_file}</string>
-
-    <key>RunAtLoad</key>
-    <true/>
-
-    <key>KeepAlive</key>
-    <true/>
-</dict>
-</plist>
-"""
 
 
 def generate_server_plist(project_root):
@@ -242,14 +197,9 @@ def install_macos(project_root):
     launchd_dir = get_launchd_dir()
     launchd_dir.mkdir(parents=True, exist_ok=True)
 
-    # Ensure shared Beads Dolt data directory exists before starting the service
-    BEADS_DOLT_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"{Colors.GREEN}✅ Beads Dolt data dir: {BEADS_DOLT_DIR}{Colors.RESET}")
-
     plists = {
-        BEADS_DOLT_LABEL: (launchd_dir / f"{BEADS_DOLT_LABEL}.plist", generate_beads_dolt_plist()),
-        SERVER_LABEL:     (launchd_dir / f"{SERVER_LABEL}.plist",      generate_server_plist(project_root)),
-        GUI_LABEL:        (launchd_dir / f"{GUI_LABEL}.plist",         generate_gui_plist(project_root)),
+        SERVER_LABEL: (launchd_dir / f"{SERVER_LABEL}.plist", generate_server_plist(project_root)),
+        GUI_LABEL:    (launchd_dir / f"{GUI_LABEL}.plist",    generate_gui_plist(project_root)),
     }
 
     print(f"{Colors.BLUE}Installing launchd plists...{Colors.RESET}\n")
@@ -277,7 +227,7 @@ def install_macos(project_root):
 
 def uninstall_macos():
     launchd_dir = get_launchd_dir()
-    for label in (BEADS_DOLT_LABEL, SERVER_LABEL, GUI_LABEL):
+    for label in (SERVER_LABEL, GUI_LABEL):
         plist_path = launchd_dir / f"{label}.plist"
         result = _launchctl('bootout', _domain(), label)
         if result.returncode == 0:
@@ -314,7 +264,7 @@ def stop_macos(label):
 def status_macos(project_root):
     print(f"{Colors.BLUE}AI-Pack Service Status (macOS){Colors.RESET}\n")
     launchd_dir = get_launchd_dir()
-    for label in (BEADS_DOLT_LABEL, SERVER_LABEL, GUI_LABEL):
+    for label in (SERVER_LABEL, GUI_LABEL):
         plist_path = launchd_dir / f"{label}.plist"
         installed = plist_path.exists()
         r = _launchctl('print', f"{_domain()}/{label}")
