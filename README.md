@@ -569,26 +569,25 @@ irm https://raw.githubusercontent.com/steveyegge/beads/main/install.ps1 | iex
 
 ```bash
 # Create a task — description MUST include Working directory + Task packet lines
-BID=$(agent create "Implement user authentication
+TID=$(agent create "Implement user authentication
 
 Working directory: /path/to/your-project
-Task packet: .ai/tasks/${BID}-$(date +%Y%m%d%H%M%S)-user-auth/
 
 Add email/password login with session management." \
-  --priority P1 --json | jq -r '.id')
+  --priority P1 --json | jq -r '.task_id')
 
 # Create task packet from templates
 TS=$(date +%Y%m%d%H%M%S)
-SLUG="${BID}-${TS}-user-auth"
+SLUG="${TID}-${TS}-user-auth"
 mkdir -p .ai/tasks/$SLUG
 cp .ai-pack/templates/task-packet/*.md .ai/tasks/$SLUG/
 
 # Fill in contract and plan, then spawn the agent
 # (--stream blocks until complete and shows live output)
-agent engineer $BID --stream
+agent engineer $TID --stream
 
 # Close when done
-agent close $BID -r "Complete"
+agent close $TID -r "Complete"
 agent list --status queued   # Find next task
 ```
 
