@@ -115,6 +115,10 @@ install-agent: build-agent build-server ## Install agent binaries to /usr/local/
 	@install -m 755 bin/agent /usr/local/bin/agent
 	@install -m 755 bin/agent-server /usr/local/bin/agent-server
 	@echo "✅ Agent binaries installed to /usr/local/bin"
+	@echo ""
+	@echo "Initializing configuration..."
+	@python3 scripts/init-config.py
+	@echo "✅ Configuration ready at ~/.ai-pack/config.json"
 
 build-agent-mcp: ## Build agent-mcp MCP stdio server (CGO_ENABLED=0)
 	@mkdir -p bin

@@ -107,7 +107,7 @@ func newMetricsCmd() *cobra.Command {
 }
 
 func showMetrics() {
-	resp, err := http.Get(fmt.Sprintf("%s/metrics", agentclient.ServerURL)) //nolint:gosec,noctx
+	resp, err := http.Get(fmt.Sprintf("%s/metrics", agentclient.DefaultBaseURL)) //nolint:gosec,noctx
 	if err != nil {
 		fmt.Printf("⚠️  Could not get metrics: %v\n", err)
 		return
@@ -156,7 +156,7 @@ func newPerformanceCmd() *cobra.Command {
 }
 
 func runPerformance(jsonOutput bool) error {
-	resp, err := http.Get(fmt.Sprintf("%s/metrics", agentclient.ServerURL)) //nolint:gosec,noctx
+	resp, err := http.Get(fmt.Sprintf("%s/metrics", agentclient.DefaultBaseURL)) //nolint:gosec,noctx
 	if err != nil {
 		return fmt.Errorf("could not fetch metrics: %w", err)
 	}
@@ -230,7 +230,7 @@ func newDiscoveryCmd() *cobra.Command {
 }
 
 func runDiscovery(jsonOutput, verbose bool) error {
-	resp, err := http.Get(fmt.Sprintf("%s/a2a/discovery", agentclient.ServerURL)) //nolint:gosec,noctx
+	resp, err := http.Get(fmt.Sprintf("%s/a2a/discovery", agentclient.DefaultBaseURL)) //nolint:gosec,noctx
 	if err != nil {
 		return fmt.Errorf("failed to connect to server: %w", err)
 	}
@@ -293,7 +293,7 @@ func newVersionCmd() *cobra.Command {
 }
 
 func runVersion() {
-	resp, err := http.Get(fmt.Sprintf("%s/health", agentclient.ServerURL)) //nolint:gosec,noctx
+	resp, err := http.Get(fmt.Sprintf("%s/health", agentclient.DefaultBaseURL)) //nolint:gosec,noctx
 	if err != nil {
 		fmt.Printf("CLI Version: %s\n", getVersion())
 		fmt.Printf("Server:      (not running)\n")
@@ -314,7 +314,7 @@ func runVersion() {
 	if serverVersion, ok := health["version"].(string); ok {
 		fmt.Printf("Server Version: %s\n", serverVersion)
 	}
-	fmt.Printf("Server URL:     %s\n", agentclient.ServerURL)
+	fmt.Printf("Server URL:     %s\n", agentclient.DefaultBaseURL)
 	fmt.Printf("Platform:       %s\n", getRuntimeInfo())
 	fmt.Printf("Status:         %s\n", statusIcon("completed")+" connected")
 }

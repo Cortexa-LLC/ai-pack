@@ -155,12 +155,15 @@ type ProviderConfig struct {
 // Supported provider keys: "anthropic", "openai", "gemini", "qwen".
 type ProvidersConfig map[string]ProviderConfig
 
-// DefaultConfig returns default configuration
+// DefaultConfig returns default configuration.
+// NOTE: These defaults are only used as a baseline for merging config files.
+// Users should have ~/.ai-pack/config.json created by 'make install'.
+// The port default here should match scripts/init-config.py.
 func DefaultConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
 			Host:                "localhost",
-			Port:                8082,
+			Port:                8080, // Match ~/.ai-pack/config.json default
 			MaxConcurrentAgents: 10,
 			WorkerPoolSize:      10,
 		},
