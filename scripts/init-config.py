@@ -41,6 +41,34 @@ def get_config_path():
     return config_dir / 'config.json'
 
 
+def _apply_env_to_existing(config_path):
+    """Update server.host/port in an existing config if env vars are explicitly set.
+    Returns True if any changes were written, False otherwise.
+    """
+    env_port = os.environ.get("AIPACK_AGENT_SERVER_PORT")
+    env_host = os.environ.get("SERVER_HOST")
+    if not env_port and not env_host:
+        return False
+
+    with open(config_path) as f:
+        config = json.load(f)
+
+    changed = False
+    server = config.setdefault("server", {})
+    if env_port and str(server.get("port")) != env_port:
+        server["port"] = int(env_port)
+        changed = True
+    if env_host and server.get("host") != env_host:
+        server["host"] = env_host
+        changed = True
+
+    if changed:
+        with open(config_path, 'w') as f:
+            json.dump(config, f, indent=2)
+
+    return changed
+
+
 def init_config(force=False):
     """
     Initialize config file with defaults.
@@ -59,8 +87,12 @@ def init_config(force=False):
 
     # Check if config exists
     if config_path.exists() and not force:
-        print(f"✅ Config already exists: {config_path}")
-        print(f"   Use --force to overwrite")
+        # Surgically update server.host/port if env vars are explicitly set
+        updated = _apply_env_to_existing(config_path)
+        if updated:
+            print(f"✅ Config updated: {config_path}")
+        else:
+            print(f"✅ Config already exists: {config_path}")
         return config_path
 
     # Write default config
