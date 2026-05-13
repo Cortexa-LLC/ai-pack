@@ -103,7 +103,7 @@ When creating tasks, you MUST create and FILL OUT the task packet directory. Thi
 ```bash
 # 1. Create task packet directory with timestamp
 TS=$(date +%Y%m%d%H%M%S)
-SLUG="${BID}-${TS}-short-desc"
+SLUG="${TID}-${TS}-short-desc"
 mkdir -p .ai/tasks/$SLUG
 
 # 2. Copy templates
