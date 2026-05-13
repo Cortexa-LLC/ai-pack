@@ -13,8 +13,8 @@ from pathlib import Path
 
 DEFAULT_CONFIG = {
     "server": {
-        "host": os.environ.get("SERVER_HOST", "localhost"),
-        "port": int(os.environ.get("AIPACK_AGENT_SERVER_PORT", 8080)),
+        "host": "localhost",
+        "port": int(os.environ.get("AIPACK_AGENT_SERVER_PORT") or 8080),
         "max_concurrent_agents": 10
     },
     "api": {
@@ -46,7 +46,11 @@ def _apply_env_to_existing(config_path):
     Returns True if any changes were written, False otherwise.
     """
     env_port = os.environ.get("AIPACK_AGENT_SERVER_PORT")
-    env_host = os.environ.get("SERVER_HOST")
+    env_host = os.environ.get("AIPACK_AGENT_SERVER_HOST")
+    # Treat empty strings as unset
+    env_port = env_port if env_port else None
+    env_host = env_host if env_host else None
+
     if not env_port and not env_host:
         return False
 

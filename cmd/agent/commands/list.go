@@ -16,14 +16,19 @@ func newListCmd() *cobra.Command {
 	var all bool
 	var jsonOutput bool
 	var verbose bool
+	var status string
+	var prefix string
 
 	cmd := &cobra.Command{
-		Use:          "list",
+		Use:          "list [prefix]",
 		Short:        "List agent tasks",
 		Aliases:      []string{"ls"},
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(running, completed, failed, all, jsonOutput, verbose)
+			if len(args) > 0 {
+				prefix = args[0]
+			}
+			return runList(running, completed, failed, all, jsonOutput, verbose, status, prefix)
 		},
 	}
 
@@ -31,13 +36,14 @@ func newListCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&completed, "completed", "c", false, "Show only completed tasks")
 	cmd.Flags().BoolVarP(&failed, "failed", "F", false, "Show only failed tasks")
 	cmd.Flags().BoolVarP(&all, "all", "a", false, "Show all tasks")
+	cmd.Flags().StringVarP(&status, "status", "s", "", "Filter by status (queued, in_progress, completed, failed)")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, descOutputAsJSON)
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed information")
 	return cmd
 }
 
-func runList(running, completed, failed, all, jsonOutput, verbose bool) error {
-	showOnlyActive := !running && !completed && !failed && !all
+func runList(running, completed, failed, all, jsonOutput, verbose bool, status, prefix string) error {
+	showOnlyActive := !running && !completed && !failed && !all && status == ""
 
 	c := agentclient.Default()
 	resp, err := c.Get("/a2a/tasks")
@@ -88,16 +94,29 @@ func runList(running, completed, failed, all, jsonOutput, verbose bool) error {
 	}
 
 	for _, t := range response.Tasks {
+		// Filter by prefix if provided
+		if prefix != "" && !hasPrefix(t.TaskID, prefix) {
+			continue
+		}
+
+		// Filter by status
+		matched := false
 		switch {
+		case status != "" && t.Status == status:
+			matched = true
 		case showOnlyActive && (t.Status == "in_progress" || t.Status == "queued"):
-			tasks = append(tasks, t)
+			matched = true
 		case running && t.Status == "in_progress":
-			tasks = append(tasks, t)
+			matched = true
 		case completed && t.Status == "completed":
-			tasks = append(tasks, t)
+			matched = true
 		case failed && t.Status == "failed":
-			tasks = append(tasks, t)
+			matched = true
 		case all:
+			matched = true
+		}
+
+		if matched {
 			tasks = append(tasks, t)
 		}
 	}
@@ -162,4 +181,11 @@ func statusIcon(status string) string {
 	default:
 		return "❓"
 	}
+}
+
+func hasPrefix(taskID, prefix string) bool {
+	if len(prefix) > len(taskID) {
+		return false
+	}
+	return taskID[:len(prefix)] == prefix
 }
