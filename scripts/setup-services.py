@@ -107,13 +107,13 @@ def generate_server_plist(project_root):
     server_bin = project_root / 'bin' / 'agent-server'
     home = str(Path.home())
     api_key = os.environ.get('ANTHROPIC_API_KEY', '')
-    server_port = os.environ.get('SERVER_PORT', '8080')
+    server_port = os.environ.get('AIPACK_AGENT_SERVER_PORT', '8080')
     env_block = f"""
         <key>HOME</key>
         <string>{home}</string>
         <key>PATH</key>
         <string>{_base_path()}</string>
-        <key>SERVER_PORT</key>
+        <key>AIPACK_AGENT_SERVER_PORT</key>
         <string>{server_port}</string>"""
     if api_key:
         env_block += f"""
@@ -172,7 +172,7 @@ def generate_gui_plist(project_root):
     log_dir.mkdir(exist_ok=True)
     npm = _npm_path()
     home = str(Path.home())
-    server_port = os.environ.get('SERVER_PORT', '8080')
+    server_port = os.environ.get('AIPACK_AGENT_SERVER_PORT', '8080')
 
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

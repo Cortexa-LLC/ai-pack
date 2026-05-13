@@ -77,9 +77,9 @@ def init_config(force=False):
     print(f"  Model:   {DEFAULT_CONFIG['api']['anthropic_model']}")
     print(f"  Logging: {DEFAULT_CONFIG['logging']['level']}")
     print(f"\nOverride with environment variables:")
-    print(f"  SERVER_PORT=8080")
+    print(f"  AIPACK_AGENT_SERVER_PORT=8080")
     print(f"  ANTHROPIC_MODEL=claude-opus-4-7")
-    print(f"  LOG_LEVEL=debug")
+    print(f"  AIPACK_AGENT_SERVER_LOG_LEVEL=debug")
 
     return config_path
 
