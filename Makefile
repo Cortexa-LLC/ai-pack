@@ -37,10 +37,12 @@ help: ## Show this help message
 	@echo ""
 	@echo "Quick Start (fresh clone):"
 	@echo "  make bootstrap            # Install all tool dependencies (run once)"
-	@echo "  make build install        # Build and install binaries"
+	@echo "  make build install        # Build and install binaries to /usr/local/bin"
 	@echo "  make setup-mcp            # Register MCP servers in Claude Code"
-	@echo "  make setup-services       # Setup auto-start (macOS/Linux)"
+	@echo "  make setup-services       # Setup auto-start services (OPTIONAL but recommended)"
 	@echo "  kg index                  # Index codebase into knowledge graph"
+	@echo ""
+	@echo "📦 See INSTALL.md for complete installation and troubleshooting guide"
 
 # ============================================================================
 # BOOTSTRAP (first-time environment setup)
