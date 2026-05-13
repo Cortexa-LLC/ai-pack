@@ -1,5 +1,5 @@
 .PHONY: test test-short test-coverage build build-gui codegen-gui clean clean-all sonarqube help
-.PHONY: install install-agent install-mcp-agent uninstall uninstall-agent setup-mcp install-mcp
+.PHONY: install install-agent install-agent-mcp uninstall uninstall-agent setup-mcp install-mcp
 .PHONY: start-server start-gui start-all stop-server stop-gui stop-all restart-server restart-gui restart-all
 .PHONY: setup-services uninstall-services status-services
 .PHONY: setup-launchd uninstall-launchd status-launchd

@@ -12,7 +12,7 @@ Claude Code has a built-in `Agent()` tool (shown as "Agent" in tool listings).
 **Do not use it for ai-pack orchestration.** It does not track tasks, does not
 write to the beads task system, and leaves no audit trail.
 
-Instead, use the three MCP tools provided by the `mcp-agent` server:
+Instead, use the three MCP tools provided by the `agent-mcp` server:
 `create_task` → `spawn_agent` → `get_task_status` / `get_task_logs`.
 
 ---
