@@ -265,11 +265,17 @@ sequenceDiagram
 - ✅ **Multi-provider** — Anthropic, OpenAI, local inference endpoints
 
 **Quick Start:**
+
+**📦 See [INSTALL.md](INSTALL.md) for complete installation instructions.**
+
 ```bash
-# Build and install
+# Build and install binaries
 make build install
 
-# Start the server (or use make setup-services for auto-start)
+# Optional: Setup auto-start services (recommended)
+make setup-services
+
+# Or start manually each session
 agent-server &
 
 # Invoke an agent
@@ -530,6 +536,10 @@ git commit -m "Add <role-name> extension for [project need]"
 ---
 
 ### Quick Start
+
+**📦 See [INSTALL.md](INSTALL.md) for complete installation and setup instructions.**
+
+This quick start assumes you've already installed AI-Pack binaries (`make build install`) and optionally configured auto-start services (`make setup-services`).
 
 #### 1. Add Framework to Your Project
 
@@ -798,6 +808,8 @@ The Clean Code Standards and AI Workflow Framework work together:
 
 ### Quick Start with Claude Code Integration
 
+**📦 First time setup? See [INSTALL.md](INSTALL.md) for complete installation instructions.**
+
 **Recommended setup for projects using Claude Code:**
 
 ```bash
@@ -830,6 +842,11 @@ git commit -m "Add ai-pack framework with Claude Code integration"
 # Spawned agents need file write permissions
 # See docs/CLAUDE-CODE-CONFIGURATION.md for details
 ```
+
+**Prerequisites:** This assumes you've already:
+- Installed AI-Pack binaries: `make build install`
+- Configured auto-start (optional): `make setup-services`
+- See [INSTALL.md](INSTALL.md) for complete installation steps
 
 See:
 - [Claude Code Integration](#claude-code-integration) for integration details
