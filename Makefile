@@ -118,9 +118,9 @@ install-agent: build-agent build-server ## Install agent binaries to /usr/local/
 	@echo ""
 	@echo "Initializing configuration..."
 	@if [ -n "$$SUDO_USER" ]; then \
-		sudo -u "$$SUDO_USER" python3 scripts/init-config.py; \
+		sudo -u "$$SUDO_USER" env AIPACK_AGENT_SERVER_PORT="$(AIPACK_AGENT_SERVER_PORT)" python3 scripts/init-config.py; \
 	else \
-		python3 scripts/init-config.py; \
+		AIPACK_AGENT_SERVER_PORT="$(AIPACK_AGENT_SERVER_PORT)" python3 scripts/init-config.py; \
 	fi
 	@echo "✅ Configuration ready at ~/.ai-pack/config.json"
 
