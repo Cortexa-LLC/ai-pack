@@ -13,8 +13,8 @@ from pathlib import Path
 
 DEFAULT_CONFIG = {
     "server": {
-        "host": "localhost",
-        "port": 8080,
+        "host": os.environ.get("SERVER_HOST", "localhost"),
+        "port": int(os.environ.get("AIPACK_AGENT_SERVER_PORT", 8080)),
         "max_concurrent_agents": 10
     },
     "api": {
