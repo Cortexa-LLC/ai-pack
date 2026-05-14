@@ -1464,7 +1464,7 @@ function App() {
             {/* Task Logs Tab Content */}
             {activeTab === 'task-logs' && selectedTask && (
               <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="p-4 bg-gray-800 border-b border-gray-700">
+                <div className="p-4 bg-gray-800 border-b border-gray-700 max-h-20 overflow-y-auto flex-shrink-0">
                   <div className="flex-1">
                     <h3 className="text-md font-semibold mb-1">Task Logs</h3>
                     <div className="text-sm text-white mb-1">
