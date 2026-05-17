@@ -154,7 +154,8 @@ func applyTaskContractOverrides(config *AgentConfig, taskPacketPath, projectRoot
 
 		switch field {
 		case configFieldModel:
-			if value != "" {
+			// Skip template placeholders (start with '[') — they are not real model IDs.
+			if value != "" && !strings.HasPrefix(value, "[") {
 				monitoring.Logger.Info("task_contract_override",
 					"field", "Model",
 					"role_value", config.Model,
