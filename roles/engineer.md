@@ -1655,6 +1655,127 @@ Reserve `Bash` for: building, testing, running git commands, and shell operation
 
 ---
 
+## Phase 7: PR Review Resolution
+
+**Trigger:** Task brief mentions "fix PR review", "resolve review comments", "address bot feedback",
+or provides a PR number with a list of review threads to address.
+
+Pull GitHub review threads directly, implement fixes, and mark each thread resolved in one pass.
+
+### Step 1 — Fetch Unresolved Threads
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+PR=<number from task brief>
+
+gh api graphql -f query="
+{
+  repository(owner: \"${REPO%/*}\", name: \"${REPO#*/}\") {
+    pullRequest(number: ${PR}) {
+      headRefName
+      reviewThreads(first: 50) {
+        nodes {
+          id
+          isResolved
+          path
+          line
+          comments(first: 1) {
+            nodes {
+              databaseId
+              body
+              author { login }
+            }
+          }
+        }
+      }
+    }
+  }
+}" | jq '.data.repository.pullRequest.reviewThreads.nodes[]
+  | select(.isResolved == false)
+  | {id, path, line,
+     author: .comments.nodes[0].author.login,
+     body: .comments.nodes[0].body,
+     commentId: .comments.nodes[0].databaseId}'
+```
+
+Save the output — each object gives you:
+- `id` — thread node ID (used to resolve)
+- `commentId` — REST comment database ID (used to reply)
+- `path` / `line` — where the issue is anchored
+- `body` — the reviewer's comment text
+
+### Step 2 — Triage Each Thread
+
+| Severity | Pattern in body | Action |
+|----------|-----------------|--------|
+| **BLOCKING** | `[BLOCKING]` prefix | MUST fix — do not skip |
+| **SUGGESTION** | `[SUGGESTION]` prefix | Fix unless explicitly out of scope |
+| No prefix (Copilot, bots, etc.) | Any unresolved thread | Fix or document why skipped |
+
+**Out-of-scope rule:** If a suggestion is intentionally not addressed, do NOT resolve the
+thread — leave it open so it doesn't silently disappear.
+
+### Step 3 — Implement Each Fix
+
+For each thread you will address:
+
+1. Read `path` to locate the file; use `line` as a hint (right-side diff line number)
+2. Read the full `body` to understand the exact issue
+3. Implement the fix using standard TDD (RED-GREEN-REFACTOR when tests are involved)
+4. If any schema/API definition files changed, rerun the project's composition/validation tool
+5. Run tests for the affected service/module
+
+### Step 4 — Reply to Each Fixed Thread
+
+After the code is fixed, post a brief reply so the reviewer sees what changed:
+
+```bash
+gh api repos/${REPO}/pulls/comments/<commentId>/replies \
+  --method POST \
+  --field body="Fixed: <one sentence explaining what changed and how>"
+```
+
+One sentence referencing the change is enough.
+
+### Step 5 — Resolve Each Fixed Thread
+
+```bash
+gh api graphql -f query='mutation {
+  resolveReviewThread(input: { threadId: "<thread id>" }) {
+    thread { id isResolved }
+  }
+}'
+```
+
+Verify `isResolved: true` in the response. If it returns false or errors, investigate before
+claiming the thread is done.
+
+### Step 6 — Commit All Fixes Together
+
+Stage all changed files and commit with a message that references the PR:
+
+```bash
+git add <files...>
+git commit -m "fix(pr<N>): address review feedback
+
+- <file>: <what changed and why>
+- <file>: <what changed and why>
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+
+git push origin <branch>
+```
+
+### Step 7 — Report Back
+
+Summarise:
+- Threads fixed and resolved (with thread IDs)
+- Threads intentionally left open (with reason)
+- Whether any schema/contract files were recomposed
+- Whether tests passed
+
+---
+
 ## Success Criteria
 
 An Engineer is successful when:

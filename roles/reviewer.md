@@ -63,7 +63,7 @@ Do NOT read files speculatively. Read only what is directly relevant to the code
 
 ## Output Format
 
-Write findings to `30-results.md` in the task execution folder (`.beads/tasks/<task-id>/30-results.md`). Use this exact structure:
+Write findings to `30-results.md` in the task execution folder (`.ai/tasks/<task-id>/30-results.md`). Use this exact structure:
 
 ```markdown
 ## Review Summary
@@ -135,3 +135,137 @@ The task contract will specify exactly what to review. Follow it literally:
 4. Done
 
 Do not explore the broader codebase. Do not read test files unless the contract says to verify test coverage. Do not read schema files unless a specific type mismatch is flagged.
+
+---
+
+## GitHub PR Review Workflow
+
+When the task is to review a GitHub PR, follow this four-step workflow instead of the generic diff flow above.
+
+### Step 1 — Gather PR Context
+
+```bash
+gh pr view <PR>                              # title, author, branch, description
+gh pr checks <PR>                            # CI status for every check
+gh pr diff <PR>                              # full diff
+gh pr view <PR> --json files,headRefOid      # changed files + HEAD commit SHA
+```
+
+Save the HEAD commit SHA — required for the review API call in Step 4.
+
+### Step 2 — CI Gate (BLOCKING)
+
+If any **required** check is not `pass` / `success`:
+
+- Do NOT approve.
+- Set event to `REQUEST_CHANGES`.
+- Include a summary of failing checks in the top-level body.
+- Skip Step 3 and proceed directly to Step 4.
+
+### Step 3 — Code Review
+
+Check out the PR branch locally for file reads:
+
+```bash
+gh pr checkout <PR>
+```
+
+Read only the files that changed. For every issue found, record:
+- `path` — file path relative to repo root
+- `line` — the **new** line number in the diff (right side)
+- `severity` — `BLOCKING` or `SUGGESTION`
+- `body` — inline comment text (see format below)
+
+If a line number is not determinable (architecture concern, missing file, etc.),
+omit `line` and `path` — include it in the top-level review body only.
+
+Return to the original branch when done: `git checkout -`
+
+### Step 4 — Post Review via GitHub API
+
+Use the review API to post inline comments and verdict **atomically in one call**.
+Never use `gh pr review --approve` / `gh pr review --request-changes` — those cannot
+carry inline comments.
+
+```bash
+REPO="<org>/<repo>"
+COMMIT_SHA="<sha from Step 1>"
+EVENT="APPROVE"   # or "REQUEST_CHANGES"
+
+gh api repos/${REPO}/pulls/<PR>/reviews \
+  --method POST \
+  --input - << 'EOF'
+{
+  "commit_id": "<COMMIT_SHA>",
+  "body": "<top-level verdict body>",
+  "event": "<EVENT>",
+  "comments": [
+    {
+      "path": "src/foo/Bar.kt",
+      "line": 42,
+      "side": "RIGHT",
+      "body": "**[BLOCKING]** Description of issue and how to fix it."
+    },
+    {
+      "path": "src/foo/Bar.kt",
+      "line": 17,
+      "side": "RIGHT",
+      "body": "**[SUGGESTION]** Minor improvement: consider extracting this into a helper."
+    }
+  ]
+}
+EOF
+```
+
+Pass `"comments": []` when there are no inline comments.
+
+**Events:**
+- `"APPROVE"` — all checks pass, no blocking issues
+- `"REQUEST_CHANGES"` — any blocking issue or failing CI check
+- `"COMMENT"` — re-review after a push where CI is still pending (rare)
+
+### Inline Comment Format
+
+```
+**[BLOCKING]** <one-line description of the problem>
+
+<explanation of why this is an issue and what to fix, 2–4 sentences max>
+```
+
+```
+**[SUGGESTION]** <one-line description>
+
+<optional brief explanation>
+```
+
+One comment per distinct issue, anchored to the most relevant line.
+Do not duplicate issues already described in the top-level body.
+
+### PR Verdict Body
+
+**APPROVE:**
+```
+Code review complete ✅
+
+**CI:** All required checks passing
+**Security:** No vulnerabilities found
+**Standards:** Conventions followed
+**Tests:** Coverage adequate
+```
+
+**REQUEST_CHANGES:**
+```
+Code review: changes requested ❌
+
+**Blocking issues:** (see inline comments for details)
+- [SECURITY] <file>:<line> — <one-line summary>
+- [STANDARDS] <file>:<line> — <one-line summary>
+
+**Non-blocking suggestions:** (see inline comments)
+
+[If CI gate triggered:]
+**Failing CI checks:**
+- <check-name>: <status>
+
+Please address blocking issues and re-request review.
+```
