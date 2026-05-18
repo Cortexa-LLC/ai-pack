@@ -140,29 +140,26 @@ Do not explore the broader codebase. Do not read test files unless the contract 
 
 ## GitHub PR Review Workflow
 
-When the task is to review a GitHub PR, follow this four-step workflow instead of the generic diff flow above.
+When the task is to review a GitHub PR, follow this three-step workflow instead of the
+generic diff flow above.
+
+**CI check status is not a factor** — post a verdict regardless of whether CI is still
+running or failing. CI is a separate gate handled outside the reviewer role.
+
+If the task description lists previously-raised review threads, **do not re-raise those
+issues** (whether resolved or still open). Only flag new findings.
 
 ### Step 1 — Gather PR Context
 
 ```bash
 gh pr view <PR>                              # title, author, branch, description
-gh pr checks <PR>                            # CI status for every check
 gh pr diff <PR>                              # full diff
 gh pr view <PR> --json files,headRefOid      # changed files + HEAD commit SHA
 ```
 
-Save the HEAD commit SHA — required for the review API call in Step 4.
+Save the HEAD commit SHA — required for the review API call in Step 3.
 
-### Step 2 — CI Gate (BLOCKING)
-
-If any **required** check is not `pass` / `success`:
-
-- Do NOT approve.
-- Set event to `REQUEST_CHANGES`.
-- Include a summary of failing checks in the top-level body.
-- Skip Step 3 and proceed directly to Step 4.
-
-### Step 3 — Code Review
+### Step 2 — Code Review
 
 Check out the PR branch locally for file reads:
 
@@ -181,7 +178,7 @@ omit `line` and `path` — include it in the top-level review body only.
 
 Return to the original branch when done: `git checkout -`
 
-### Step 4 — Post Review via GitHub API
+### Step 3 — Post Review via GitHub API
 
 Use the review API to post inline comments and verdict **atomically in one call**.
 Never use `gh pr review --approve` / `gh pr review --request-changes` — those cannot
@@ -220,9 +217,9 @@ EOF
 Pass `"comments": []` when there are no inline comments.
 
 **Events:**
-- `"APPROVE"` — all checks pass, no blocking issues
-- `"REQUEST_CHANGES"` — any blocking issue or failing CI check
-- `"COMMENT"` — re-review after a push where CI is still pending (rare)
+- `"APPROVE"` — no blocking issues found
+- `"REQUEST_CHANGES"` — one or more blocking issues found
+- `"COMMENT"` — never use; always post APPROVE or REQUEST_CHANGES
 
 ### Inline Comment Format
 
@@ -247,10 +244,11 @@ Do not duplicate issues already described in the top-level body.
 ```
 Code review complete ✅
 
-**CI:** All required checks passing
 **Security:** No vulnerabilities found
 **Standards:** Conventions followed
 **Tests:** Coverage adequate
+
+[Optional: 1-3 sentences of specific praise or non-blocking notes.]
 ```
 
 **REQUEST_CHANGES:**
@@ -262,10 +260,6 @@ Code review: changes requested ❌
 - [STANDARDS] <file>:<line> — <one-line summary>
 
 **Non-blocking suggestions:** (see inline comments)
-
-[If CI gate triggered:]
-**Failing CI checks:**
-- <check-name>: <status>
 
 Please address blocking issues and re-request review.
 ```
