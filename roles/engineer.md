@@ -960,6 +960,49 @@ NOTE: Commits are managed by orchestrator, not by agent
 
 ---
 
+## Phase 5: Pre-Commit Validation (MANDATORY)
+
+**Run all of the following locally and fix any failures before committing.
+Do not push broken code expecting CI to catch it.**
+
+### 5a — Tests
+
+Run tests for every service/module whose source files you touched.
+Tests must be 100% green before proceeding.
+
+### 5b — Schema / Contract Validation
+
+If any schema or API contract definition files changed (`.graphql`, `.proto`,
+OpenAPI specs, etc.):
+- Recompose or re-validate using the project's schema tool
+- Verify the composed output matches what CI will produce
+- Stage the recomposed artifact in the same commit as the schema changes
+
+Check `.ai/repo-overrides.md` or `.ai-pack/quality/engineering-standards.md` for
+the project-specific compose command.
+
+### 5c — Self-Review
+
+1. **Re-read acceptance criteria** — All met?
+2. **Check coverage** — Meets targets (80-90% overall, 95%+ critical)?
+3. **Review your code** — Follows project standards?
+4. **Check security** — No hardcoded secrets, SQL injection, auth bypass?
+5. **git diff** — Review every line you're about to commit
+
+### Pre-Commit Checklist
+
+```
+□ Tests for changed services/modules — all green
+□ Schema/contract recomposed and staged (if applicable)
+□ Zero warnings (see language-specific requirements)
+□ No hardcoded secrets or tokens
+□ Self-review complete
+```
+
+Only after all boxes are checked may you run `git commit` and `git push`.
+
+---
+
 ## Capabilities and Permissions
 
 ### File Operations
@@ -1725,17 +1768,29 @@ For each thread you will address:
 4. If any schema/API definition files changed, rerun the project's composition/validation tool
 5. Run tests for the affected service/module
 
-### Step 4 — Reply to Each Fixed Thread
+### Step 4 — Reply to Each Fixed Thread (MANDATORY)
 
-After the code is fixed, post a brief reply so the reviewer sees what changed:
+After fixing, post a reply so there is a traceable record of what changed and why.
+**This step is not optional** — no thread may be resolved without a reply.
 
 ```bash
 gh api repos/${REPO}/pulls/comments/<commentId>/replies \
   --method POST \
-  --field body="Fixed: <one sentence explaining what changed and how>"
+  --field body="Fixed in <short SHA>: <one sentence explaining what changed and how>"
 ```
 
-One sentence referencing the change is enough.
+For threads **intentionally not fixed**, reply explaining why, then leave the thread
+**open** — do NOT resolve it:
+
+```bash
+gh api repos/${REPO}/pulls/comments/<commentId>/replies \
+  --method POST \
+  --field body="Acknowledged. Not fixing because <reason>."
+# Do NOT call resolveReviewThread for skipped threads
+```
+
+A silently resolved thread with no fix disappears from review without anyone knowing the
+issue was dropped.
 
 ### Step 5 — Resolve Each Fixed Thread
 
@@ -1773,6 +1828,25 @@ Summarise:
 - Threads intentionally left open (with reason)
 - Whether any schema/contract files were recomposed
 - Whether tests passed
+
+### CI Behavior and Enforcement
+
+- **`[BLOCKING]` threads cause CI to fail** — the bot reviewer exits with
+  `REQUEST_CHANGES`, which blocks merge until all blocking issues are resolved.
+- **The verdict re-runs on every push** — it filters by HEAD SHA, so pushing a new
+  commit triggers a fresh review. Do not assume a prior passing review carries over.
+- **`[SUGGESTION]` threads do not block CI** but must still be addressed or explicitly
+  acknowledged with a reply.
+
+**Checklist before marking PR complete:**
+
+```
+□ All [BLOCKING] threads fixed and resolved
+□ All [SUGGESTION] threads fixed or acknowledged with a reply
+□ No thread resolved without a reply (including skipped ones)
+□ Skipped threads left open with a reply explaining why
+□ Bot reviewer status check green on latest commit
+```
 
 ---
 
