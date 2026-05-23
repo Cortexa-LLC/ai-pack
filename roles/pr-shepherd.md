@@ -167,7 +167,7 @@ THREADS=$(gh api graphql -f query="
           isResolved
           path
           line
-          comments(first: 1) {
+          comments(first: 10) {
             nodes { id body author { login } }
           }
         }
@@ -185,8 +185,8 @@ THREADS=$(gh api graphql -f query="
 
 OPEN_COUNT=$(echo "$THREADS" | jq length)
 
-# Get latest verdict from the reviewer bot
-VERDICT=$(gh api "repos/${REPO}/pulls/${PR}/reviews" \
+# Get latest verdict from the reviewer bot (paginate to avoid missing it on busy PRs)
+VERDICT=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate \
   --jq '[.[] | select(.user.login | endswith("[bot]"))] | last | .state // "NONE"')
 
 echo "Open threads: $OPEN_COUNT | Verdict: $VERDICT"
