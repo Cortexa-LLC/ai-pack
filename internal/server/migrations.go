@@ -183,7 +183,7 @@ Migrated on: ` + time.Now().Format("2006-01-02") + `
 				// No prompt or no task - archive
 				monitoring.Logger.Info("migration_archive_no_prompt",
 					"folder", folderName,
-					"reason", "no_beads_id")
+					"reason", "no_task_id")
 				if err := os.Rename(folderPath, filepath.Join(archiveDir, folderName)); err != nil {
 					monitoring.Logger.Error("migration_archive_failed", "folder", folderName, "error", err.Error())
 					skipped++
@@ -199,7 +199,7 @@ Migrated on: ` + time.Now().Format("2006-01-02") + `
 				monitoring.Logger.Info("migration_archive_freeform",
 					"folder", folderName,
 					"task", shortTaskID,
-					"reason", "not_beads_id_format")
+					"reason", "not_task_id_format")
 				if err := os.Rename(folderPath, filepath.Join(archiveDir, folderName)); err != nil {
 					monitoring.Logger.Error("migration_archive_failed", "folder", folderName, "error", err.Error())
 					skipped++
@@ -218,7 +218,7 @@ Migrated on: ` + time.Now().Format("2006-01-02") + `
 				// Destination exists - archive the duplicate
 				monitoring.Logger.Info("migration_archive_duplicate",
 					"folder", folderName,
-					"beads_id", shortTaskID,
+					"task_id", shortTaskID,
 					"reason", "destination_exists")
 				if err := os.Rename(folderPath, filepath.Join(archiveDir, folderName)); err != nil {
 					monitoring.Logger.Error("migration_archive_failed", "folder", folderName, "error", err.Error())
@@ -233,7 +233,7 @@ Migrated on: ` + time.Now().Format("2006-01-02") + `
 			monitoring.Logger.Info("migration_rename",
 				"from", folderName,
 				"to", newName,
-				"beads_id", shortTaskID)
+				"task_id", shortTaskID)
 			if err := os.Rename(folderPath, newPath); err != nil {
 				monitoring.Logger.Error("migration_rename_failed",
 					"folder", folderName,

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -39,28 +38,11 @@ func (a *GraphQLAdapter) GetActiveTasks() map[string]*graphql.TaskInfo {
 	return tasks
 }
 
-// resolveTaskRoot walks up from dir until it finds a .beads/ directory
-// containing an actual task database (beads.db or issues.jsonl).
-// A .beads/ with only a tasks/ subdirectory (agent execution scratch space)
-// is not a real database root and is skipped.
-// Falls back to the original dir if no database is found.
+// resolveTaskRoot returns the canonical task root for a project directory.
+// Previously this walked up to find a .beads/ directory; now that Beads is
+// removed the function simply returns dir unchanged, but is retained to avoid
+// changing all call sites.
 func resolveTaskRoot(dir string) string {
-	current := dir
-	for {
-		taskRootDir := filepath.Join(current, constants.TaskRootDir)
-		// Check for a real task database file
-		if _, err := os.Stat(filepath.Join(taskRootDir, "beads.db")); err == nil {
-			return current
-		}
-		if _, err := os.Stat(filepath.Join(taskRootDir, "issues.jsonl")); err == nil {
-			return current
-		}
-		parent := filepath.Dir(current)
-		if parent == current {
-			break
-		}
-		current = parent
-	}
 	return dir
 }
 
@@ -148,9 +130,8 @@ func (a *GraphQLAdapter) GetAllTasks() map[string]*graphql.TaskInfo {
 	}
 
 	// Get all project roots to scan (server root + registered projects).
-	// Resolve each to its canonical beads root (walk up to find .beads/tasks)
-	// and deduplicate — prevents a subdir (e.g. a2a-agent/) and its parent
-	// (ai-pack/) from both being scanned when they share the same .beads/.
+	// Deduplicate to prevent a subdir (e.g. a2a-agent/) and its parent
+	// (ai-pack/) from both being scanned.
 	rawRoots := a.server.GetProjectRoots()
 	seen := make(map[string]bool)
 	var projectRoots []string
@@ -248,7 +229,7 @@ func (a *GraphQLAdapter) findMostRecentExecution(projectRoot, shortTaskID string
 				if superseded, ok := metadata["superseded"].(bool); ok && superseded {
 					monitoring.Logger.Debug("skipping_superseded_execution",
 						"folder", exec.folderName,
-						"beads_id", shortTaskID)
+						"task_id", shortTaskID)
 					continue // Skip superseded executions
 				}
 			}
@@ -445,7 +426,7 @@ func (a *GraphQLAdapter) loadTaskFromProject(projectRoot, taskID string) (*graph
 	}
 
 	// Reconcile stale terminal statuses against live task status.
-	// A task closed in Beads is always completed regardless of how the execution ended.
+	// Status reconciliation is no longer needed - taskDB is the source of truth.
 	if taskInfo.Status == constants.StatusCancelled ||
 		taskInfo.Status == constants.StatusFailed ||
 		taskInfo.Status == "blocked" {
@@ -665,7 +646,7 @@ func convertToTaskInfo(execution *TaskExecution) *graphql.TaskInfo {
 
 
 // CloseTask marks a task as closed so it won't appear in the GUI
-// Tasks are stored in each project's .beads/tasks/<taskID>/metadata.json
+// Tasks are stored in each project's .ai/tasks/<taskID>/metadata.json
 func (a *GraphQLAdapter) CloseTask(taskID string) error {
 	a.server.mu.Lock()
 	defer a.server.mu.Unlock()
@@ -697,15 +678,15 @@ func (a *GraphQLAdapter) CloseTask(taskID string) error {
 		}
 	}
 
-	// If not found, search all task directories for one with matching beads_task_id
-	// This handles legacy tasks created before standardizing on task IDs
-	monitoring.Logger.Info("searching_task_directories_for_beads_id", "task_id", taskID)
+	// If not found, search all task directories for one with matching task_id
+	// This handles tasks created before standardizing on task IDs
+	monitoring.Logger.Info("searching_task_directories_for_task_id", "task_id", taskID)
 	for projectRoot := range a.server.projectRoots {
 		tasksDir := filepath.Join(projectRoot, constants.TaskRootDir, "tasks")
 		entries, err := os.ReadDir(tasksDir)
 		if err != nil {
 			monitoring.Logger.Info("skipping_project", "project_root", projectRoot, "error", err.Error())
-			continue // Project might not have a .beads/tasks directory yet
+			continue // Project might not have a .ai/tasks directory yet
 		}
 
 		monitoring.Logger.Info("scanning_tasks_in_project", "project_root", projectRoot, "task_count", len(entries))
@@ -721,43 +702,23 @@ func (a *GraphQLAdapter) CloseTask(taskID string) error {
 		}
 	}
 
-	// If still not found in known projects, try using bd CLI to find the task
-	// Beads can search across the filesystem to find tasks
-	monitoring.Logger.Info("task_not_in_known_projects_trying_bd_show", "task_id", taskID)
-
-	// Use bd show to verify the task exists and get its project location
-	cmd := exec.Command("bd", "show", taskID)
-	output, err := cmd.CombinedOutput()
-	if err == nil && len(output) > 0 {
-		// Task exists in Beads, even if not in our registry
-		// Mark as closed by updating metadata through bd or directly
-		monitoring.Logger.Info("task_found_via_bd_not_updating_agent_server", "task_id", taskID)
-		// Return success since Beads knows about it and close succeeded
-		return nil
-	}
-
 	return fmt.Errorf("task not found in any known project: %s", taskID)
 }
 
-// DeleteTask permanently removes a task via `bd delete` and cleans up local state.
+// DeleteTask permanently removes a task and cleans up local state.
 func (a *GraphQLAdapter) DeleteTask(taskID string) error {
-	// Find the project root for this task (needed to set working directory for bd)
+	// Find the project root for this task (needed to locate execution artifacts).
 	projectRoot := a.findProjectRootForTask(taskID)
 
-	// Run bd delete — this removes the task from the Beads database entirely.
-	// Ignore failure: the task may already be deleted while execution
-	// artifacts remain on disk (orphaned folders after a server crash, etc.).
-	cmd := exec.Command("bd", "delete", taskID)
-	if projectRoot != "" {
-		cmd.Dir = projectRoot
-	}
-	if out, err := cmd.CombinedOutput(); err != nil {
-		monitoring.Logger.Warn("bd_delete_failed",
-			"task_id", taskID,
-			"error", err.Error(),
-			"output", string(out))
-	} else {
-		monitoring.Logger.Info("bd_delete_succeeded", "task_id", taskID)
+	// Delete from the SQLite task database.
+	if a.server.taskDB != nil {
+		if err := a.server.taskDB.DeleteTask(taskID); err != nil {
+			monitoring.Logger.Warn("taskdb_delete_failed",
+				"task_id", taskID,
+				"error", err.Error())
+		} else {
+			monitoring.Logger.Info("taskdb_delete_succeeded", "task_id", taskID)
+		}
 	}
 
 	// Remove from in-memory active tasks (both short task ID and any timestamped executions)
