@@ -222,7 +222,7 @@ func (s *AgentServer) spawnAgentTask(role, taskInput string, projectRoot string)
 
 	// taskInput is the task ID (short form like "ai-pack-abc123")
 	taskID := taskInput
-	monitoring.Logger.Info("spawning_task", "beads_id", taskID, "project_root", projectRoot)
+	monitoring.Logger.Info("spawning_task", "task_id", taskID, "project_root", projectRoot)
 
 	// Try to get task description from existing task in database
 	taskDescription := fmt.Sprintf("Task %s", taskID)

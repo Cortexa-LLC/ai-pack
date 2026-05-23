@@ -7,20 +7,15 @@ import (
 )
 
 // ResolveExecutionLogPath returns the path to an execution log file.
-// New runs write to <projectRoot>/.ai/tasks/<runID>/execution.log.
-// Historical runs (pre-rename) live under .beads/tasks/ instead.
-// When neither exact path exists, scans both task dirs for the most
-// recently modified directory whose name starts with runID (handles the case
-// where latest_run_id is not populated in the DB and the stored ID is the
+// Runs are written to <projectRoot>/.ai/tasks/<runID>/execution.log.
+// When the exact path doesn't exist, scans for the most recently modified
+// directory whose name starts with runID (handles the case where
+// latest_run_id is not populated in the DB and the stored ID is the
 // short task ID rather than the full timestamped run directory name).
 func ResolveExecutionLogPath(projectRoot, runID string) string {
 	primary := filepath.Join(projectRoot, TaskRootDir, TasksDir, runID, "execution.log")
 	if _, err := os.Stat(primary); err == nil {
 		return primary
-	}
-	legacy := filepath.Join(projectRoot, BeadsDir, TasksDir, runID, "execution.log")
-	if _, err := os.Stat(legacy); err == nil {
-		return legacy
 	}
 	// Prefix scan: find the most recent run directory that starts with runID.
 	if best := latestRunDirWithPrefix(projectRoot, runID); best != "" {
@@ -31,16 +26,11 @@ func ResolveExecutionLogPath(projectRoot, runID string) string {
 }
 
 // ResolveTaskDir returns the directory for a task execution run.
-// Tries .ai/tasks/<runID>/ first; falls back to .beads/tasks/<runID>/.
-// Falls back to a prefix scan when neither exact path exists.
+// Falls back to a prefix scan when the exact path doesn't exist.
 func ResolveTaskDir(projectRoot, runID string) string {
 	primary := filepath.Join(projectRoot, TaskRootDir, TasksDir, runID)
 	if _, err := os.Stat(primary); err == nil {
 		return primary
-	}
-	legacy := filepath.Join(projectRoot, BeadsDir, TasksDir, runID)
-	if _, err := os.Stat(legacy); err == nil {
-		return legacy
 	}
 	if best := latestRunDirWithPrefix(projectRoot, runID); best != "" {
 		return best
@@ -48,13 +38,12 @@ func ResolveTaskDir(projectRoot, runID string) string {
 	return primary
 }
 
-// latestRunDirWithPrefix scans both .ai/tasks/ and .beads/tasks/ for
-// directories whose names begin with prefix and returns the one with the
-// most recent modification time. Returns "" if none found.
+// latestRunDirWithPrefix scans .ai/tasks/ for directories whose names begin
+// with prefix and returns the one with the most recent modification time.
+// Returns "" if none found.
 func latestRunDirWithPrefix(projectRoot, prefix string) string {
 	roots := []string{
 		filepath.Join(projectRoot, TaskRootDir, TasksDir),
-		filepath.Join(projectRoot, BeadsDir, TasksDir),
 	}
 	var bestPath string
 	var bestTime int64
@@ -245,8 +234,7 @@ const (
 
 // Directory Names
 const (
-	TaskRootDir  = ".ai"      // Root directory for task execution data (new runs)
-	BeadsDir     = ".beads"   // Legacy execution run directory (historical logs live here)
+	TaskRootDir  = ".ai"   // Root directory for task execution data
 	ClaudeDir    = ".claude"
 	AIDir        = ".ai"
 	AIPackDir    = ".ai-pack"

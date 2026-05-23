@@ -2,7 +2,7 @@
 
 **Agent:** pr-shepherd
 **Description:** Iterative PR driver — watches CI, fixes failures, addresses reviewer threads, loops until green
-**Timeout:** 90min
+**Timeout:** 180min
 **MaxTurns:** 600
 **MaxBudgetTokens:** 0
 **MaxContext:** 32000
@@ -91,7 +91,7 @@ If the deadline is hit, report status and continue — don't abort.
 
 ```bash
 FAILURES=$(gh pr checks $PR --json name,state \
-  | jq -r '.[] | select(.state == "FAILURE") | .name')
+  | jq -r '.[] | select(.state == "FAILURE" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED" or .state == "STARTUP_FAILURE") | .name')
 echo "Failed checks: $FAILURES"
 ```
 
@@ -140,8 +140,12 @@ For direct fixes: read the file, make the targeted change, verify the fix makes 
 
 ```bash
 git add <changed files>
-git commit -m "fix(pr${PR}): <one-line summary of root cause>"
-git push
+if ! git diff --cached --quiet; then
+  git commit -m "fix(pr${PR}): <one-line summary of root cause>"
+  git push
+else
+  echo "Nothing to commit — fixes were delegated or already applied"
+fi
 ```
 
 After pushing, loop back to **Step 1** to wait for the new CI run.

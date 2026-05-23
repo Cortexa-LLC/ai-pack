@@ -504,12 +504,10 @@ func (s *AgentServer) streamTaskLogs(w http.ResponseWriter, r *http.Request, log
 }
 
 // taskRunDirs returns the candidate execution run directories for a project root.
-// New runs write to .ai/tasks/; historical runs live under .beads/tasks/.
-// Both are returned so callers can scan whichever has the requested run.
+// Runs are written to .ai/tasks/.
 func taskRunDirs(projectRoot string) []string {
 	return []string{
 		filepath.Join(projectRoot, constants.TaskRootDir, "tasks"),
-		filepath.Join(projectRoot, constants.BeadsDir, "tasks"),
 	}
 }
 

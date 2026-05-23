@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -514,22 +513,6 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 	// Repair task descriptions and cleanup orphaned tasks on startup
 	if taskDB != nil {
 		go func() {
-			// Auto-migrate from Beads JSONL files (idempotent — skips existing rows).
-			// This ensures historical tasks from the shared Beads/Dolt service are
-			// always present in the taskDB without requiring manual `agent migrate`.
-			if n, err := taskDB.MigrateFromBeadsJSONL(); err != nil {
-				monitoring.Logger.Warn("beads_jsonl_migration_failed", "error", err.Error())
-			} else if n > 0 {
-				monitoring.Logger.Info("beads_jsonl_migration_complete", "imported", n)
-			}
-
-			// Auto-migrate task runs from .beads/tasks/ directories.
-			if n, err := taskDB.MigrateRunsFromBeads(); err != nil {
-				monitoring.Logger.Warn("beads_runs_migration_failed", "error", err.Error())
-			} else if n > 0 {
-				monitoring.Logger.Info("beads_runs_migration_complete", "imported", n)
-			}
-
 			// First cleanup orphaned tasks (no description, no task packet)
 			if err := server.CleanupOrphanedTasks(); err != nil {
 				monitoring.Logger.Warn("orphaned_task_cleanup_failed", "error", err.Error())
@@ -632,13 +615,6 @@ func NewAgentServer(rootDir string, maxConcurrent int, maxTokens int, model stri
 
 	// Start worker pool
 	go server.startWorkerPool()
-
-	// Log Beads availability
-	if false {
-		monitoring.Logger.Info("beads_available", "installed", true)
-	} else {
-		monitoring.Logger.Warn("beads_not_installed", "message", "Install Beads for better task tracking: https://github.com/steveyegge/beads")
-	}
 
 	// Load registered project roots from disk
 	if err := server.loadProjectRoots(); err != nil {
@@ -898,28 +874,10 @@ func (s *AgentServer) ensureKGForProject(projectRoot string) {
 	}
 }
 
-// ensureTaskDirForProject initializes a Beads database for the given project
-// root on the shared Dolt server at port 3307, if not already initialized.
-// It is a no-op when the `bd` command is not installed or the project already
-// has a .beads/ directory.  All errors are logged and never surface to callers.
+// ensureTaskDirForProject is a no-op retained for call-site compatibility.
+// The previous implementation tried to initialise a Beads/Dolt database;
+// that system has been removed.
 func (s *AgentServer) ensureTaskDirForProject(projectRoot string) {
-	if !false {
-		return
-	}
-
-	taskRootDir := filepath.Join(projectRoot, constants.TaskRootDir)
-	if _, err := os.Stat(taskRootDir); err == nil {
-		// .beads/ already exists — skip init.
-		return
-	}
-
-	cmd := exec.Command("bd", "init", "--server-host", "127.0.0.1", "--server-port", "3307")
-	cmd.Dir = projectRoot
-	if out, err := cmd.CombinedOutput(); err != nil {
-		monitoring.Logger.Warn("beads_init_failed", "project", projectRoot, "err", err.Error(), "output", string(out))
-	} else {
-		monitoring.Logger.Info("beads_init_done", "project", projectRoot)
-	}
 }
 
 func (s *AgentServer) GetActiveTaskCount() int {

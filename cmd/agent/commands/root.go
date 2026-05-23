@@ -94,7 +94,6 @@ func init() {
 		newMetricsCmd(),
 		newPerformanceCmd(),
 		newDiscoveryCmd(),
-		newMigrateCmd(),
 		newVersionCmd(),
 	)
 }
