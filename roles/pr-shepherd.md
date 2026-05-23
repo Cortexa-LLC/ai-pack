@@ -2,7 +2,7 @@
 
 **Agent:** pr-shepherd
 **Description:** Iterative PR driver — watches CI, fixes failures, addresses reviewer threads, loops until green
-**Timeout:** 180min
+**Timeout:** 60min
 **MaxTurns:** 600
 **MaxBudgetTokens:** 0
 **MaxContext:** 32000
@@ -32,6 +32,19 @@ to an engineer agent.
 
 ---
 
+## Spawning This Role
+
+**Always spawn via the agent CLI — never via the MCP spawn tool:**
+
+```bash
+agent pr-shepherd <task-id> --stream
+```
+
+The MCP `spawn_agent` tool is limited to the four base roles and will run this
+under the engineer's 45-minute timeout instead of the shepherd's 90-minute window.
+
+---
+
 ## Required Inputs (from task contract)
 
 The task contract **must** include:
@@ -43,6 +56,35 @@ Working directory: <absolute path to local clone>
 ```
 
 Parse these from `00-contract.md` before starting the loop.
+
+---
+
+## Resume Support
+
+The shepherd writes loop state to `20-shepherd-state.md` in the task packet after each
+iteration. On startup, check for this file first:
+
+```bash
+STATE_FILE=".ai/tasks/<task-packet-slug>/20-shepherd-state.md"
+if [ -f "$STATE_FILE" ]; then
+  echo "Resuming from saved state:"
+  cat "$STATE_FILE"
+  # Parse ITERATION and any in-progress context from the file
+fi
+```
+
+State file format (overwrite after each iteration):
+
+```markdown
+## Shepherd State
+
+Iteration: <N>
+Last action: <brief description — e.g. "pushed fix for markdown lint">
+CI state at last check: <SUCCESS|FAILURE|RUNNING>
+Open threads at last check: <count>
+```
+
+This allows `agent resume <task-id>` to continue the loop rather than restart from zero.
 
 ---
 
@@ -261,7 +303,18 @@ NEW_SHA=$(git rev-parse --short HEAD)
 
 `NEW_SHA` is used in the reply bodies posted in Step 6 — capture it after the push so replies reference the correct commit.
 
-Then go back to **Step 1**.
+Then write state and go back to **Step 1**:
+
+```bash
+cat > "$STATE_FILE" <<EOF
+## Shepherd State
+
+Iteration: <N>
+Last action: addressed reviewer threads — <brief list>
+CI state at last check: RUNNING (new push triggered)
+Open threads at last check: 0
+EOF
+```
 
 ---
 
