@@ -1,0 +1,8 @@
+{
+  "name": "ai-pack",
+  "version": "0.1.0",
+  "description": "Multi-agent engineering system — delegate implementation, architecture, review, and investigation to specialized sub-agents",
+  "author": {
+    "name": "Bryan Woodruff"
+  }
+}

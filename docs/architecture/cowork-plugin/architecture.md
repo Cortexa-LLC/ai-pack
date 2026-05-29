@@ -29,10 +29,14 @@ The two execution paths remain independent and coexist:
 | Agent execution | Claude Code subprocesses | Cowork sub-agents |
 | Role definitions | `roles/*.md` | `cowork-plugin/agents/*.md` |
 | Cost | API key per turn | Max subscription |
-| MCP role | Drives the agent server | External tools only |
+| MCP role | Drives the agent server | Task DB (read/write); GitHub; KG |
 
-The agent-mcp server is **not** wired into the Cowork plugin. The plugin's `agents/` directory
-is the agent definition surface; Cowork handles spawning and coordination natively.
+The agent-mcp server is wired into the Cowork plugin as a **read/write interface to the
+shared task database only** — not as an execution driver. Cowork agents can check for
+existing tasks, create task records for work started in Cowork (so `agent list` reflects
+both paths), and read status/logs of API-path tasks. Cowork handles sub-agent spawning
+natively via the plugin's `agents/` directory. The `mcp__agent-mcp__spawn_agent` tool
+must never be called from Cowork — that would bypass the Max subscription and incur API costs.
 
 ---
 
@@ -106,8 +110,9 @@ Include 3–5 `<example>` blocks with representative natural-language triggers.
 
 ### .mcp.json
 
-Only GitHub for now. Do NOT add the ai-pack agent-mcp server here — that is the API path
-and is irrelevant to Cowork's native execution model.
+GitHub for PR/issue access. `kg` for persistent memory and investigation findings.
+`agent-mcp` for shared task DB access — check for duplicate work, log Cowork-initiated
+tasks, read status/logs of API-path runs. Do NOT use `spawn_agent` from Cowork.
 
 ```json
 {
@@ -115,6 +120,15 @@ and is irrelevant to Cowork's native execution model.
     "github": {
       "type": "http",
       "url": "https://api.githubcopilot.com/mcp/"
+    },
+    "kg": {
+      "command": "kg",
+      "args": ["server", "--stdio"]
+    },
+    "agent-mcp": {
+      "command": "/usr/local/bin/agent-mcp",
+      "args": [],
+      "type": "stdio"
     }
   }
 }
