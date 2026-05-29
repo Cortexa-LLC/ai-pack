@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/"
+    },
+    "kg": {
+      "command": "kg",
+      "args": ["server", "--stdio"]
+    },
+    "agent-mcp": {
+      "command": "/usr/local/bin/agent-mcp",
+      "args": [],
+      "type": "stdio"
+    }
+  }
+}

@@ -1,5 +1,5 @@
 .PHONY: test test-short test-coverage build build-gui codegen-gui clean clean-all sonarqube help
-.PHONY: install install-agent install-agent-mcp uninstall uninstall-agent setup-mcp install-mcp
+.PHONY: install install-agent install-agent-mcp uninstall uninstall-agent setup-mcp install-mcp cowork-plugin install-cowork-plugin clean-cowork-plugin
 .PHONY: start-server start-gui start-all stop-server stop-gui stop-all restart-server restart-gui restart-all
 .PHONY: setup-services uninstall-services status-services
 .PHONY: setup-launchd uninstall-launchd status-launchd
@@ -156,6 +156,23 @@ uninstall-agent: ## Uninstall agent binaries from /usr/local/bin
 	@echo "Uninstalling agent binaries..."
 	@rm -f /usr/local/bin/agent /usr/local/bin/agent-server
 	@echo "✅ Agent binaries uninstalled"
+
+# ============================================================================
+# COWORK PLUGIN
+# ============================================================================
+
+cowork-plugin: ## Package the Cowork plugin into dist/ai-pack.plugin
+	@mkdir -p dist
+	@zip -r dist/ai-pack.plugin cowork-plugin/ -x "*.DS_Store"
+	@echo "✅ Cowork plugin packaged: dist/ai-pack.plugin"
+
+install-cowork-plugin: cowork-plugin ## Package and install the Cowork plugin via claude CLI
+	@claude plugin install dist/ai-pack.plugin
+	@echo "✅ Cowork plugin installed"
+
+clean-cowork-plugin: ## Remove the packaged Cowork plugin artifact
+	@rm -f dist/ai-pack.plugin
+	@echo "✅ dist/ai-pack.plugin removed"
 
 # ============================================================================
 # START/STOP TARGETS (via launchctl on macOS, systemd on Linux)
