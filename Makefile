@@ -166,9 +166,11 @@ cowork-plugin: ## Package the Cowork plugin into dist/ai-pack.plugin
 	@zip -r dist/ai-pack.plugin cowork-plugin/ -x "*.DS_Store"
 	@echo "✅ Cowork plugin packaged: dist/ai-pack.plugin"
 
-install-cowork-plugin: cowork-plugin ## Package and install the Cowork plugin via claude CLI
-	@claude plugin install dist/ai-pack.plugin
-	@echo "✅ Cowork plugin installed"
+install-cowork-plugin: cowork-plugin ## Package the Cowork plugin and open dist/ for drag-and-drop install
+	@echo "✅ Plugin ready: dist/ai-pack.plugin"
+	@echo ""
+	@echo "To install: drag dist/ai-pack.plugin into a Claude Desktop chat window."
+	@open dist/
 
 clean-cowork-plugin: ## Remove the packaged Cowork plugin artifact
 	@rm -f dist/ai-pack.plugin
