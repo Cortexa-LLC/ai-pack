@@ -233,24 +233,50 @@ SOLID principles, no code smells:
 
 ---
 
-## Knowledge Graph — Persistent Memory
+## KG — Persistent Memory and Compaction Resume
 
-The KG MCP server is available in this environment. Use it to make your findings permanent.
+Cowork sessions compact when context fills: older turns are summarized and raw content is lost.
+Write to KG so a resumed session can continue without re-reading files already reviewed.
 
-**Before starting any review:**
+### On startup — before reading any files (MANDATORY)
+
 ```
+kg__search_knowledge({query: "<PR number or component name> review in progress"})
 kg__search_knowledge({query: "<component name> review findings"})
 kg__search_knowledge({query: "<file pattern> known issues"})
 ```
-→ Prior reviews may have documented recurring patterns in this area. Check before reviewing.
 
-**After completing a review, record notable findings:**
+First query: checks whether **this exact review** was in progress and compacted mid-session.
+If prior review state exists: **resume from where the last session left off** — read the
+checkpoint to see which files were already reviewed and what findings were recorded, then
+continue with the remaining files only.
+
+Second and third queries: surface recurring patterns from prior reviews of this area.
+Check before reviewing — known issues provide instant context without file reads.
+
+If no prior state: fresh start — proceed normally.
+
+### Checkpointing during review
+
+Write after each file reviewed (or every 5 turns for large reviews):
+
 ```
-entity_id = kg__add_entity({name: "<component or PR> review", type: "topic"})
-kg__add_observation({entity_id, content: "[REVIEW] <what was found: patterns, recurring issues, security notes>"})
+kg__add_entity({name: "<PR or component> review", type: "review-in-progress"})
+kg__add_observation({entity_id: "<id>", content:
+  "Files reviewed: [list]. Findings so far: [brief list with file:line].
+   Files remaining: [list]. Next: <next file or action>."})
 ```
 
-Recording review findings makes future reviews faster — patterns found in one session become context for the next.
+**Always write before stopping** — whether you hit a blocker or complete the review.
+
+### After completing a review
+
+Update the entity with final findings (makes future reviews faster):
+
+```
+kg__add_observation({entity_id: "<id>", content:
+  "[REVIEW COMPLETE] Verdict: <APPROVE|REQUEST_CHANGES>. Key findings: [patterns, recurring issues, security notes]."})
+```
 
 ---
 

@@ -176,6 +176,40 @@ gh api graphql -f query='mutation { resolveReviewThread(input:{threadId:"<id>"})
 
 ---
 
+## KG — Context Compaction and Resume
+
+Cowork sessions compact when context fills: older turns are summarized and raw content is lost.
+Write to KG so a resumed session can continue without re-reading files or re-running builds.
+
+### On startup — before any file reads (MANDATORY)
+
+```
+kg__search_knowledge({query: "<task description or feature name>"})
+```
+
+If prior state exists for this task: **resume from where the last session left off.** Read
+the checkpoint, identify what was completed and what's next, then continue — do NOT re-read
+files already processed or re-run builds already confirmed passing.
+
+If no prior state: fresh start — proceed normally.
+
+### Checkpointing during implementation
+
+Write after each major phase (and at minimum every 10 turns):
+
+```
+kg__add_entity({name: "<task description>", type: "work-in-progress"})
+kg__add_observation({entity_id: "<id>", content:
+  "Phase: <current phase>. Modified: [list absolute paths of changed files].
+   Tests: <pass count / fail count>. Build: <clean | failing — error summary>.
+   Next: <exactly what to do next if resuming>."})
+```
+
+**Always write before stopping** — whether blocked, complete, or handing off. The next
+session (or the next agent) must be able to pick up from this checkpoint without re-investigation.
+
+---
+
 ## Commit Policy
 
 **Do not commit.** When work is complete:

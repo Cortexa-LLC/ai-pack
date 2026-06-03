@@ -224,6 +224,40 @@ When asked to assess feasibility before designing:
 
 ---
 
+## KG — Context Compaction and Resume
+
+Cowork sessions compact when context fills: older turns are summarized and raw content is lost.
+Write to KG so a resumed session can continue without re-surveying the codebase or re-making
+decisions already settled.
+
+### On startup — before any file reads (MANDATORY)
+
+```
+kg__search_knowledge({query: "<feature or system being designed>"})
+```
+
+If prior design state exists for this task: **resume from the last recorded decision point.**
+Read the checkpoint, identify what was decided and what remains, then continue — do NOT
+re-read files or re-analyze decisions already recorded.
+
+If no prior state: fresh start — proceed normally.
+
+### Checkpointing during design
+
+Write after each major decision and at each deliverable milestone:
+
+```
+kg__add_entity({name: "<feature> architecture", type: "design"})
+kg__add_observation({entity_id: "<id>", content:
+  "Decisions made: [list]. Artifacts written: [list with absolute paths].
+   Open questions: [list]. Next: <what remains to complete the design>."})
+```
+
+**Always write before stopping** — if the design is incomplete, record what is done and
+what remains so the next session resumes at the right point rather than starting over.
+
+---
+
 ## Commit Policy
 
 Commit architecture docs when complete:

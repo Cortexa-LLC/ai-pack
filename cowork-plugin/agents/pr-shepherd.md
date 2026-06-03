@@ -49,20 +49,25 @@ git checkout "$BRANCH"
 
 ---
 
-## Resume Support
+## Resume Support — Context Compaction and Restart
 
-The shepherd persists loop state to the KG after each iteration so a resumed session can
-pick up where it left off.
+The shepherd persists loop state to the KG after each iteration. This handles two scenarios:
+(1) a Cowork session that compacted mid-run (context filled, older turns lost), and
+(2) an explicit restart after a previous run.
 
-On startup, check for a prior run:
+**On startup — before anything else (MANDATORY):**
 
 ```bash
 kg__search_knowledge({query: "pr-shepherd PR #${PR} state"})
 ```
 
-If a prior state entity exists, read it and resume from the last known iteration.
+If prior state exists: **resume from the last known iteration** — read the checkpoint to
+determine the last CI state, open thread count, and what action was in progress. Do NOT
+restart the loop from iteration 1; continue from where the prior session left off.
 
-After each iteration, write state to KG:
+If no prior state: fresh start — proceed to the loop.
+
+**After each iteration, write state to KG:**
 
 ```bash
 kg__add_entity({name: "pr-shepherd PR #${PR} state", type: "topic"})  # once, reuse id

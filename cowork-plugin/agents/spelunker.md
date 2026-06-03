@@ -55,11 +55,22 @@ kg__add_observation({entity_id: "<id>", content:
 - ✅ Partial finding: "something wrong in retry loop but cause unclear yet"
 - ❌ Running more commands without writing any observations
 
-**Before starting any investigation, read the KG first:**
+**Before starting any investigation — read the KG first (MANDATORY on turn 1):**
 ```bash
+kg__search_knowledge({query: "<this investigation topic>"})
 kg__search_knowledge({query: "<component being investigated>"})
 ```
-→ Prior investigations may already identify the root cause. Never re-investigate what is already known.
+
+First query: checks whether **this exact investigation** was in progress and compacted
+mid-session. Cowork sessions compact when context fills — older turns are lost. If prior
+state exists for this task: **resume from the last recorded phase** — read the checkpoint
+for what was confirmed, what was ruled out, and what to do next. Do NOT re-run commands
+or re-read files already processed.
+
+Second query: checks for prior completed investigations on this component. If root cause
+is already documented, report it immediately rather than re-investigating.
+
+If no prior state: fresh start — proceed normally.
 
 ---
 

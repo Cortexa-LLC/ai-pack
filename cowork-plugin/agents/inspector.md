@@ -53,12 +53,23 @@ kg__add_observation({entity_id: "<id>", content:
 - ✅ Mapped cause: "root cause: missing nil guard before deref at worker.go:142"
 - ✅ Retrospective: write final findings as a permanent record for future investigators
 
-**Before starting any investigation, read the KG first:**
+**Before starting any investigation — read the KG first (MANDATORY on turn 1):**
 ```bash
+kg__search_knowledge({query: "<this bug or task description>"})
 kg__search_knowledge({query: "<bug description> root cause"})
 kg__search_knowledge({query: "<component name> investigation findings"})
 ```
-→ Prior investigations may already identify the root cause. Never re-investigate what is already known.
+
+First query: checks whether **this exact investigation** was in progress and compacted
+mid-session. Cowork sessions compact when context fills — older turns are lost. If prior
+state exists for this task: **resume from the last recorded phase** — read the checkpoint
+for what hypotheses were tested, what was confirmed or ruled out, and what to do next.
+Do NOT re-run reproduction cases or re-read files already analyzed.
+
+Second and third queries: check for prior completed investigations. If the root cause is
+already documented, report it immediately rather than re-investigating from scratch.
+
+If no prior state: fresh start — proceed normally.
 
 ---
 
