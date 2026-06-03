@@ -3,7 +3,6 @@ import { useMetrics } from './hooks/useMetrics';
 import { useTasks } from './hooks/useTasks';
 import { useDetailedMetrics } from './hooks/useDetailedMetrics';
 import MetricsCard from './components/MetricsCard';
-import ChatPanel from './components/ChatPanel';
 import CostBreakdown from './components/CostBreakdown';
 import PerformanceDashboard from './components/PerformanceDashboard';
 
@@ -204,42 +203,6 @@ function App() {
     setAlertModal({ show: true, title, message });
   };
 
-  // Panel widths (resizable) - only chat panel now
-  const [chatWidth, setChatWidth] = useState(() => {
-    const saved = localStorage.getItem('ai-pack-chat-width');
-    return saved ? parseInt(saved) : 384; // default 384px (w-96)
-  });
-  const [isResizingChat, setIsResizingChat] = useState(false);
-  const [resizeStartX, setResizeStartX] = useState(0);
-  const [resizeStartWidth, setResizeStartWidth] = useState(0);
-
-  // Save panel widths to localStorage
-  useEffect(() => {
-    localStorage.setItem('ai-pack-chat-width', chatWidth.toString());
-  }, [chatWidth]);
-
-  // Handle resize for chat panel
-  useEffect(() => {
-    if (!isResizingChat) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const delta = resizeStartX - e.clientX; // Positive delta = dragging left = wider panel
-      const newWidth = resizeStartWidth + delta;
-      setChatWidth(Math.max(300, Math.min(800, newWidth))); // Min 300px, max 800px
-    };
-
-    const handleMouseUp = () => {
-      setIsResizingChat(false);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizingChat, resizeStartX, resizeStartWidth]);
 
   // Auto-scroll to bottom when following logs
   useEffect(() => {
@@ -838,7 +801,7 @@ function App() {
         </div>
       </header>
 
-      {/* Main Layout: Left (Tasks + Metrics) and Right (Chat) */}
+      {/* Main Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left: Tasks and Metrics */}
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -2141,20 +2104,6 @@ function App() {
           </div>
         )}
 
-        {/* Right: Chat Panel */}
-        {/* Resize handle for chat panel */}
-        <div
-          className="w-1 bg-gray-700 hover:bg-blue-500 cursor-col-resize flex-shrink-0 transition-colors"
-          onMouseDown={(e) => {
-            setResizeStartX(e.clientX);
-            setResizeStartWidth(chatWidth);
-            setIsResizingChat(true);
-          }}
-          title="Drag to resize"
-        />
-        <div style={{ width: `${chatWidth}px` }} className="flex-shrink-0">
-          <ChatPanel />
-        </div>
       </div>
 
       {/* Confirmation Modal */}
