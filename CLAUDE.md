@@ -1,17 +1,10 @@
 # Claude Code Instructions for AI-Pack
 
-## 🚫 ABSOLUTE PROHIBITION — READ FIRST
+## ⚠️ Agent Execution Mode
 
-**NEVER use the built-in `Agent` tool** (the one in your tool list that spawns a sub-agent inline).
+Agent spawning method is controlled globally — see `~/.claude/CLAUDE.md`.
 
-That tool bypasses the ai-pack agent server entirely. It is **FORBIDDEN** in this project.
-
-The ONLY way to spawn agents is via the **`agent` bash command**:
-```bash
-agent engineer <task-id> --stream   # ✅ CORRECT
-```
-
-Using the `Agent(...)` tool call is ALWAYS wrong here, even if it seems convenient.
+Run `~/.claude/set-agent-mode [ai-pack|builtin]` to switch modes. Restart session to apply.
 
 ---
 
@@ -21,75 +14,15 @@ Using the `Agent(...)` tool call is ALWAYS wrong here, even if it seems convenie
 **You are ALWAYS Orchestrator unless explicitly told otherwise.**
 
 As Orchestrator:
-- Delegate work to specialized agents via `agent` CLI (ONLY method)
-- Monitor progress via task tracking (SQLite database)
+- Delegate work to specialized agents (method determined by active agent mode)
+- Monitor progress via task tracking
 - Coordinate parallel execution (up to 10+ agents)
 - Do NOT do implementation work directly
 - Only switch roles when user explicitly says "Work as Engineer", "Act as Reviewer", etc.
 
 **Reference:** [roles/orchestrator.md](roles/orchestrator.md)
 
-### 2. Agent CLI (PRIMARY INTERFACE - MANDATORY)
-
-**Quick Start (sequential):**
-```bash
-# 1. Create task with priority and role
-TASK_ID=$(agent create "Task description
-
-Working directory: /Users/bryanw/Projects/Vibe/ai-pack
-Task packet: .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/
-
-Details..." --priority P1 --role engineer --json | jq -r '.task_id')
-
-# 2. Create timestamped task packet dir
-TS=$(date +%Y%m%d%H%M%S)
-SLUG="${TASK_ID}-${TS}-short-desc"
-mkdir -p .ai/tasks/$SLUG
-cp templates/task-packet/*.md .ai/tasks/$SLUG/
-
-# 3. Spawn agent — blocks until complete, streams live output
-agent engineer $TASK_ID --stream
-
-# 4. Close task
-agent close $TASK_ID -r "Complete"
-```
-
-**Parallel execution (multiple workstreams):**
-```bash
-# Spawn all agents in background (no --stream = non-blocking)
-agent engineer ai-pack-task1
-agent engineer ai-pack-task2
-agent engineer ai-pack-task3
-
-# Attach to each one to get live output and block until done
-agent wait ai-pack-task1 --stream
-agent wait ai-pack-task2 --stream
-agent wait ai-pack-task3 --stream
-```
-
-**CRITICAL Rules:**
-- ✅ Sequential task: use `agent <role> <id> --stream` (blocks until complete)
-- ✅ Parallel tasks: spawn without `--stream`, then `agent wait <id> --stream`
-- ✅ Use `agent` bash CLI exclusively — the `Agent` tool in your tool list is FORBIDDEN
-- ✅ Task priority format: P0–P4 (NOT high/medium/low)
-- ✅ Task description should contain `Working directory:` and `Task packet:` lines
-- ❌ NEVER poll manually for completion (use `--stream` or `agent wait`)
-- ❌ NEVER use Task tool with run_in_background (broken)
-- ❌ NEVER implement code directly as Orchestrator
-
-**⚠️ Task ID vs task packet slug — CRITICAL DISTINCTION:**
-```
-Task ID:              HomeControl-qx7               ← pass this to agent commands
-Task packet slug:     HomeControl-qx7-20260424-072021-short-desc  ← directory name only
-```
-`agent logs`, `agent status`, `agent results`, `agent wait`, `agent diff`, `agent files`
-all take the **Task ID** (e.g. `HomeControl-qx7`), **NOT** the task packet directory
-name. The slug includes the timestamp and short-desc suffix — strip everything after the
-shortid (3-char alphanumeric after the last hyphen of the project prefix).
-
-**After any task completes, IMMEDIATELY continue — do NOT ask for permission.**
-
-### 3. Task Packets (CRITICAL - ALWAYS REQUIRED)
+### 2. Task Packets (CRITICAL - ALWAYS REQUIRED)
 
 **⚠️ MANDATORY: Task packets MUST be fully populated, NOT just template copies.**
 
