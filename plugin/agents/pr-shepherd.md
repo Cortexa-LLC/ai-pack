@@ -292,6 +292,9 @@ if [ "$ALL_OK" = "true" ] && [ "$OPEN_COUNT" -eq 0 ] && [ "$VERDICT" = "APPROVED
 else
   echo "Not yet done — ALL_OK=$ALL_OK OPEN_COUNT=$OPEN_COUNT VERDICT=$VERDICT"
   # write state to KG and loop back to Step 1
+  # once, reuse id
+  kg__add_observation({entity_id: "<state-entity-id>", content:
+    "Iteration: <N> | Last action: <brief> | CI: <SUCCESS|FAILURE|RUNNING> | Open threads: <count>"})
 fi
 ```
 

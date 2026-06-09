@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "ai-pack",
-      "source": "./cowork-plugin",
+      "source": "./plugin",
       "description": "Multi-agent engineering system — delegate implementation, architecture, review, and investigation to specialized sub-agents"
     }
   ]
