@@ -295,6 +295,35 @@ agent engineer <task-id> --stream
 
 **Status:** ✅ v2.0.0 — Production Ready
 
+#### 🧠 MCP Servers — Persistent Memory and Tools
+
+AI-Pack ships MCP (Model Context Protocol) servers as a git submodule at [`mcp/`](mcp/),
+sourced from [github.com/Cortexa-LLC/mcp](https://github.com/Cortexa-LLC/mcp).
+
+| Server | Purpose |
+|--------|---------|
+| `kg` | Project knowledge graph — persist investigation findings, review notes, and code entities across sessions |
+| `markitdown` | Convert documents to Markdown (PDF, DOCX, XLSX, HTML, images) |
+
+The `kg` server is what gives investigation and review agents cross-session memory. It is
+automatically wired into all plugin agents via `plugin/.mcp.json`.
+
+**Install after cloning:**
+```bash
+# Initialize the submodule (if not already)
+git submodule update --init mcp
+
+# Install kg (required for investigation and review agents)
+python3 mcp/install.py --mcp kg
+
+# Install all servers
+python3 mcp/install.py
+```
+
+**Claude Code plugin agents** use `kg` via `plugin/.mcp.json` (see that file for the exact
+invocation). The `kg` binary must be on your PATH — install it with
+`python3 mcp/install.py --mcp kg`.
+
 ### Deployment Model
 
 The ai-pack framework is designed for the following structure in your projects:
@@ -1222,6 +1251,16 @@ ai-pack/
 ├── VERSION                            # Version information
 ├── PARALLEL-ENGINEERS-CONFIG.md       # Parallel execution configuration
 ├── GITHUB_SETUP.md                    # GitHub integration guide
+│
+├── mcp/                               # Git submodule: MCP servers (kg, markitdown)
+│   ├── src/kg/                        # Knowledge graph MCP server
+│   └── src/markitdown/                # Document-to-Markdown converter
+│
+├── plugin/                            # Claude Code native plugin (builtin agent mode)
+│   ├── .claude-plugin/plugin.json     # Plugin manifest
+│   ├── .mcp.json                      # Registers kg MCP for plugin agents
+│   ├── agents/                        # Sub-agent role definitions
+│   └── skills/orchestrate/SKILL.md   # Orchestration skill
 │
 ├── gates/                             # Quality control rules
 │   ├── 00-global-gates.md             # Universal rules

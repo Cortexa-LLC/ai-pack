@@ -26,6 +26,38 @@ Choose the right agent for each job:
 
 ---
 
+## Agent Spawning
+
+**Always set `run_in_background: true`** when spawning agents via the Agent tool.
+
+Never block the conversation waiting for an agent to finish. Spawn, then continue responding to the user. You will be notified automatically when the agent completes.
+
+```text
+Agent({ ..., run_in_background: true })  ✅
+Agent({ ... })                           ❌  blocks the conversation
+```
+
+**Exception:** when sequencing dependent agents (e.g. `spelunker → engineer`, `architect → engineer`), wait for the first agent's output before spawning the next — `run_in_background: true` applies to independent parallel agents, not sequential chains.
+
+### Permissions
+
+Agents that write files (engineer, pr-shepherd) require `Edit` and `Write` permissions. These must be pre-approved — without them the agent will stall waiting for user approval on every file change.
+
+Ensure `~/.claude/settings.json` includes:
+```json
+{
+  "permissions": {
+    "allow": ["Edit", "Write"]
+  }
+}
+```
+
+Without these permissions in the global settings, engineer and pr-shepherd agents cannot operate autonomously in the background.
+
+Ensure `kg` is on your PATH (installed via `python3 mcp/install.py --mcp kg`).
+
+---
+
 ## Sequencing Rules
 
 Always sequence agents so each one's output feeds the next:
