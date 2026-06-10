@@ -68,12 +68,12 @@ Create login/logout endpoints with JWT tokens and session management." \
 
   STEP 2: Create task packet directory (.ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/)
 
-  STEP 3: Copy all templates from .ai-pack/templates/task-packet/
+  STEP 3: Copy task template: cp .ai-pack/templates/task-packet/task.md .ai/tasks/<slug>/
 
-  STEP 4: Link Task ID in 00-contract.md
-    echo "**Beads Task:** ${task_id}" >> .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/00-contract.md
+  STEP 4: Record task ID in task.md
+    echo "**Task ID:** ${task_id}" >> .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/task.md
 
-  STEP 5: Fill out 00-contract.md with requirements
+  STEP 5: Fill out task.md with requirements
 
   STEP 6: ONLY THEN proceed to planning
 END FOR
@@ -153,7 +153,7 @@ Each agent will execute in its specified working directory.
 **Bi-Directional Linking:**
 
 The linking process creates two critical connections:
-1. **Contract → Beads** (STEP 4): The task packet's 00-contract.md references the task ID
+1. **Contract → Beads** (STEP 4): The task packet's task.md references the task ID
 2. **Beads → Task Packet** (STEP 1): The task description includes "Task packet: `<path>`"
 
 This bi-directional linking ensures:
@@ -171,11 +171,11 @@ This bi-directional linking ensures:
 **Task Packet Files (ALL REQUIRED):**
 ```
 .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/
-├── 00-contract.md      # REQUIRED: Define task and acceptance criteria
-├── 10-plan.md          # REQUIRED: Document implementation approach
-├── 20-work-log.md      # REQUIRED: Track execution progress
-├── 30-review.md        # REQUIRED: Quality review findings
-└── 40-acceptance.md    # REQUIRED: Sign-off and completion
+├── task.md      # REQUIRED: Define task and acceptance criteria
+├── task.md          # REQUIRED: Document implementation approach
+├── result.md      # REQUIRED: Track execution progress
+├── result.md        # REQUIRED: Quality review findings
+└── result.md    # REQUIRED: Sign-off and completion
 ```
 
 **Enforcement:**
@@ -233,7 +233,7 @@ STEP 3: MANDATORY - Set dependencies
 
 STEP 4: THEN create task packets for each task
   mkdir .ai/tasks/${task_id}-$(date +%Y%m%d%H%M%S)-subtask-1/
-  echo "**Beads Task:** ${task_id}" >> 00-contract.md
+  echo "**Beads Task:** ${task_id}" >> task.md
 
 STEP 5: Verify with agent list --status queued (should show only tasks with no dependencies)
 
@@ -574,7 +574,7 @@ STEP 4: Determine strategy
   END IF
 
 STEP 5: Document decision
-  Write analysis to task packet 10-plan.md
+  Write analysis to task packet task.md
   Include strategy, rationale, and worker plan
 
 STEP 6: Execute according to strategy
@@ -614,7 +614,7 @@ WHEN parallel workers operate on same codebase:
 **Documentation Requirements:**
 ```
 Analysis MUST be documented in:
-  PRIMARY: Task packet .ai/tasks/*/10-plan.md
+  PRIMARY: Task packet .ai/tasks/*/task.md
   OR: Orchestrator output before delegation
   OR: Work package contract
 
@@ -1521,8 +1521,8 @@ WHEN spawning agent:
     agent update --claim bd-a1b2
 
   STEP 4: Document in work log
-    echo "Spawned Engineer-1 (Task ID: bd-a1b2)" >> .ai/tasks/*/20-work-log.md
-    echo "Task: Implement login feature" >> .ai/tasks/*/20-work-log.md
+    echo "Spawned Engineer-1 (Task ID: bd-a1b2)" >> .ai/tasks/*/result.md
+    echo "Task: Implement login feature" >> .ai/tasks/*/result.md
 END WHEN
 ```
 
@@ -1632,9 +1632,9 @@ WHEN spawning agent:
     agent engineer "$task_id" --wait
 
   STEP 3: Document in work log
-    echo "Spawned Engineer agent (task: $task_id)" >> .ai/tasks/*/20-work-log.md
-    echo "Task: Implement authentication API endpoints" >> .ai/tasks/*/20-work-log.md
-    echo "Monitoring: agent status $task_id" >> .ai/tasks/*/20-work-log.md
+    echo "Spawned Engineer agent (task: $task_id)" >> .ai/tasks/*/result.md
+    echo "Task: Implement authentication API endpoints" >> .ai/tasks/*/result.md
+    echo "Monitoring: agent status $task_id" >> .ai/tasks/*/result.md
 END WHEN
 ```
 
@@ -2417,7 +2417,7 @@ agent show bd-g7h8  # Check last_update timestamp
 # If no updates for >15 minutes, agent may be stuck
 
 # Check work logs for detailed progress
-tail -20 .ai/tasks/*/20-work-log.md
+tail -20 .ai/tasks/*/result.md
 ```
 
 ---
@@ -2521,7 +2521,7 @@ STEP 2: Delegate to Tester agent (MANDATORY)
     prompt="You are the Tester role from .ai-pack/roles/tester.md.
             Validate TDD compliance and test sufficiency.
             Focus: TDD process, coverage (80-90%), test quality.
-            Report findings in .ai/tasks/${task_id}/30-review.md"
+            Report findings in .ai/tasks/${task_id}/result.md"
   )
 
   tester_result = wait_for_completion(tester)
@@ -2537,7 +2537,7 @@ STEP 3: Delegate to Reviewer agent (MANDATORY)
     prompt="You are the Reviewer role from .ai-pack/roles/reviewer.md.
             Review code quality and standards compliance.
             Focus: code quality, architecture, security, documentation.
-            Report findings in .ai/tasks/${task_id}/30-review.md"
+            Report findings in .ai/tasks/${task_id}/result.md"
   )
 
   reviewer_result = wait_for_completion(reviewer)
@@ -2643,7 +2643,7 @@ RULE 3: Both validations must pass
 **Documentation Requirements:**
 ```
 All review findings MUST be documented in:
-  .ai/tasks/${task_id}/30-review.md
+  .ai/tasks/${task_id}/result.md
 
 Required sections:
   - Tester Validation (verdict, findings, status)
@@ -2660,7 +2660,7 @@ BEFORE marking work complete, verify:
   □ Reviewer delegated and completed (if code changes)
   □ Reviewer verdict: APPROVED
   □ All blocking issues resolved
-  □ 30-review.md complete
+  □ result.md complete
   □ Ready for acceptance
 
 IF all verified AND both approved THEN
@@ -2763,7 +2763,7 @@ if [ "$status" = "closed" ]; then
   echo "🧹 Cleaning up and archiving artifacts..."
 
   # 6a. Archive task packet (if exists)
-  task_packet_dir=$(find .ai/tasks -type d -name "*" -exec grep -l "$task_id" {}/00-contract.md \; 2>/dev/null | head -1 | xargs dirname)
+  task_packet_dir=$(find .ai/tasks -type d -name "*" -exec grep -l "$task_id" {}/task.md \; 2>/dev/null | head -1 | xargs dirname)
 
   if [ -n "$task_packet_dir" ] && [ -d "$task_packet_dir" ]; then
     # Create archive directory if needed

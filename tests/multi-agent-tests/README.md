@@ -83,11 +83,11 @@ This creates:
 ```
 .ai/test-artifacts/multi-agent-parallel-{timestamp}/
 ├── tasks/
-│   ├── feature-1-auth/00-contract.md
-│   ├── feature-2-api/00-contract.md
-│   ├── feature-3-cache/00-contract.md
-│   ├── feature-4-validator/00-contract.md
-│   └── feature-5-logger/00-contract.md
+│   ├── feature-1-auth/task.md
+│   ├── feature-2-api/task.md
+│   ├── feature-3-cache/task.md
+│   ├── feature-4-validator/task.md
+│   └── feature-5-logger/task.md
 ├── output/ (empty, will be populated by agents)
 ├── README.md
 ├── test-metadata.json
@@ -113,7 +113,7 @@ Task(
     subagent_type="general-purpose",
     description="Auth feature engineer",
     ,
-    prompt="Read contract at .../feature-1-auth/00-contract.md and create all files..."
+    prompt="Read contract at .../feature-1-auth/task.md and create all files..."
 )
 # ... repeat for features 2-5
 ```

@@ -220,7 +220,7 @@ WHEN validating work:
     STATUS = "CHANGES REQUIRED"
     BLOCK approval
     REJECT work
-    DOCUMENT violations in 30-review.md
+    DOCUMENT violations in result.md
     REQUIRE: Engineer redo with proper TDD
   ELSE
     STATUS = "APPROVED"
@@ -461,7 +461,7 @@ Work is TDD-compliant when:
 - [ ] Run coverage analysis
 - [ ] Check against mandatory targets
 - [ ] BLOCK if TDD not followed
-- [ ] Document verdict in 30-review.md
+- [ ] Document verdict in result.md
 
 **For Orchestrators:**
 - [ ] Remind Engineers of TDD requirement

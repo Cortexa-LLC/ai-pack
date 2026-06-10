@@ -155,7 +155,7 @@ class TestOrchestratorDelegation(unittest.TestCase):
         task_packet_dir.mkdir(parents=True, exist_ok=True)
 
         # Contract
-        contract = task_packet_dir / "00-contract.md"
+        contract = task_packet_dir / "task.md"
         contract.write_text('''# Task: Implement User Authentication
 
 ## Requirements
@@ -169,7 +169,7 @@ class TestOrchestratorDelegation(unittest.TestCase):
 ''')
 
         # Plan
-        plan = task_packet_dir / "10-plan.md"
+        plan = task_packet_dir / "task.md"
         plan.write_text('''# Implementation Plan
 
 ## Approach
@@ -187,7 +187,7 @@ class TestOrchestratorDelegation(unittest.TestCase):
         print("✅ Task packet created for Engineer")
 
         # Simulate Engineer completing work
-        work_log = task_packet_dir / "20-work-log.md"
+        work_log = task_packet_dir / "result.md"
         work_log.write_text(f'''# Work Log
 
 ## Session {datetime.now().strftime("%Y-%m-%d %H:%M")}
@@ -227,7 +227,7 @@ Ready for review
         task_packet_dir = self.test_dir / ".ai" / "tasks" / "local-20260115090000-review-auth"
         task_packet_dir.mkdir(parents=True, exist_ok=True)
 
-        review = task_packet_dir / "30-review.md"
+        review = task_packet_dir / "result.md"
         review.write_text(f'''# Code Review
 
 **Date:** {datetime.now().strftime("%Y-%m-%d %H:%M")}
@@ -429,7 +429,7 @@ class TestOrchestratorIntegration(unittest.TestCase):
         print("\nPhase 4: Review (Reviewer)")
         task_dir = self.test_dir / ".ai" / "tasks" / "local-20260115090000-feature"
         task_dir.mkdir(parents=True, exist_ok=True)
-        review_file = task_dir / "30-review.md"
+        review_file = task_dir / "result.md"
         review_file.write_text("# Review\n\n## Verdict: APPROVED")
         print("   ✅ Reviewer: Review APPROVED")
 

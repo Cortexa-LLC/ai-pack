@@ -63,7 +63,7 @@ class TestEngineerRoleDeliverables(unittest.TestCase):
     def _create_task_packet(cls):
         """Create minimal task packet for testing"""
         # Create contract
-        contract = cls.task_packet_dir / "00-contract.md"
+        contract = cls.task_packet_dir / "task.md"
         contract.write_text("""# Task Contract: Test Task
 
 ## Requirements
@@ -81,7 +81,7 @@ class TestEngineerRoleDeliverables(unittest.TestCase):
 """)
 
         # Create plan
-        plan = cls.task_packet_dir / "10-plan.md"
+        plan = cls.task_packet_dir / "task.md"
         plan.write_text("""# Implementation Plan
 
 ## Approach
@@ -95,7 +95,7 @@ class TestEngineerRoleDeliverables(unittest.TestCase):
 """)
 
         # Create work log
-        work_log = cls.task_packet_dir / "20-work-log.md"
+        work_log = cls.task_packet_dir / "result.md"
         work_log.write_text("""# Work Log
 
 ## Session: {timestamp}
@@ -267,7 +267,7 @@ def test_add_negative_numbers():
         print("TEST 4: Engineer Updates Work Log")
         print("="*70)
 
-        work_log = self.task_packet_dir / "20-work-log.md"
+        work_log = self.task_packet_dir / "result.md"
 
         # Verify work log exists
         self.assertTrue(
@@ -483,13 +483,13 @@ class TestEngineerIntegration(unittest.TestCase):
         task_packet = self.test_dir / f"{timestamp}_integration-task"
         task_packet.mkdir(exist_ok=True)
 
-        contract = task_packet / "00-contract.md"
+        contract = task_packet / "task.md"
         contract.write_text("# Task: Implement string utilities\n\n## Requirements\n- Create reverse_string() function")
 
-        plan = task_packet / "10-plan.md"
+        plan = task_packet / "task.md"
         plan.write_text("# Plan: Implement in src/utils.py, test in tests/test_utils.py")
 
-        work_log = task_packet / "20-work-log.md"
+        work_log = task_packet / "result.md"
         work_log.write_text("# Work Log\n\n## Started\n- Ready to implement")
 
         print("✅ Task packet created")

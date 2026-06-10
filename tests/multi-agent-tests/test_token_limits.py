@@ -95,7 +95,7 @@ class TestTokenLimitStress(unittest.TestCase):
         task_dir = self.test_dir / "tasks" / "local-20260115090000-15-file-feature"
         task_dir.mkdir(parents=True, exist_ok=True)
 
-        contract = task_dir / "00-contract.md"
+        contract = task_dir / "task.md"
         contract.write_text(f"""# Feature: User Management System
 
 ## Objective
@@ -345,7 +345,7 @@ Create 15 Python files:
 
             # Create task packet
             subtask['task_dir'].mkdir(parents=True, exist_ok=True)
-            contract = subtask['task_dir'] / "00-contract.md"
+            contract = subtask['task_dir'] / "task.md"
             contract.write_text(f"""# Subtask: {subtask['name']}
 
 Part of larger 30-file feature (decomposed for token limits)

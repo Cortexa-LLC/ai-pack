@@ -158,7 +158,7 @@ Added task size guidelines and decomposition strategy:
 
 4. **Orchestrator MUST document decomposition strategy:**
 
-   **Document in 10-plan.md:**
+   **Document in task.md:**
    ```markdown
    ## Task Decomposition Analysis
 
@@ -277,14 +277,14 @@ Added task size guidelines and decomposition strategy:
 
    **Check 1: Task size analysis documented**
    ```bash
-   grep -i "Total files:" .ai/tasks/*/10-plan.md
-   grep -i "TOO LARGE\|RISKY\|SAFE" .ai/tasks/*/10-plan.md
+   grep -i "Total files:" .ai/tasks/*/task.md
+   grep -i "TOO LARGE\|RISKY\|SAFE" .ai/tasks/*/task.md
    ```
    Expected: Evidence of size analysis
 
    **Check 2: Decomposition strategy documented**
    ```bash
-   grep -i "Subtask\|Component\|Split" .ai/tasks/*/10-plan.md
+   grep -i "Subtask\|Component\|Split" .ai/tasks/*/task.md
    ```
    Expected: Clear decomposition into smaller chunks
 
@@ -297,7 +297,7 @@ Added task size guidelines and decomposition strategy:
    **Check 4: Each subtask within limits**
    ```bash
    for task in .ai/tasks/*/; do
-     file_count=$(grep -c "File:" "$task/00-contract.md" || echo 0)
+     file_count=$(grep -c "File:" "$task/task.md" || echo 0)
      echo "$task: $file_count files"
    done
    ```
@@ -305,7 +305,7 @@ Added task size guidelines and decomposition strategy:
 
    **Check 5: Agents spawned per subtask (not all at once)**
    ```bash
-   grep "Task(" .ai/tasks/*/20-work-log.md | wc -l
+   grep "Task(" .ai/tasks/*/result.md | wc -l
    ```
    Expected: 5 Task() calls (one per subtask)
 
@@ -372,7 +372,7 @@ Orchestrator: "I'll decompose this into 5 subtasks, each within safe limits.
 
 Documenting decomposition strategy in task packet..."
 
-[Writes detailed decomposition to 10-plan.md]
+[Writes detailed decomposition to task.md]
 ```
 
 **Step 4: Orchestrator creates subtask packets**
@@ -446,7 +446,7 @@ Orchestrator: [Should detect failure via TC-OR-001]
 
 **Orchestrator Analysis:**
 - Size analysis performed: [Yes/No]
-- Analysis documented in 10-plan.md: [Yes/No]
+- Analysis documented in task.md: [Yes/No]
 - Size assessment: [SAFE/RISKY/TOO LARGE]
 
 **Decomposition:**
@@ -472,7 +472,7 @@ Orchestrator: [Should detect failure via TC-OR-001]
 ✅ Orchestrator counts total files
 ✅ Orchestrator applies size guidelines correctly
 ✅ Orchestrator identifies TOO LARGE tasks (>15 files)
-✅ Analysis documented in 10-plan.md
+✅ Analysis documented in task.md
 
 **Decomposition:**
 ✅ Large tasks decomposed into subtasks
@@ -602,7 +602,7 @@ Attempt 1: Analyze size (25 files = TOO LARGE)
 1. **Detect during planning review**
    ```bash
    # Check plan for size analysis
-   grep -i "total files\|task size\|decomposition" .ai/tasks/*/10-plan.md
+   grep -i "total files\|task size\|decomposition" .ai/tasks/*/task.md
    ```
 
 2. **Intervene before execution**

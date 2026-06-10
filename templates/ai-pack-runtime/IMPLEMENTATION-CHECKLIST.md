@@ -16,14 +16,14 @@
 - [ ] Set timeout limits
 - [ ] Map to existing `/roles/*.md` files
 
-#### Beads Integration
+#### Task Tracking Integration
 - [ ] Update task packet template with agent metadata
 - [ ] Implement parent-child task relationships
 - [ ] Add agent execution tracking
 - [ ] Create task lineage visualization
 
 #### Orchestrator Enhancement
-- [ ] Implement `bd spawn` command wrapper
+- [ ] Implement `agent spawn` command wrapper
 - [ ] Create role loading logic
 - [ ] Add task packet creation hook
 - [ ] Test single agent spawn
@@ -153,10 +153,10 @@
 - [ ] Add status change events
 - [ ] Implement heartbeat
 
-#### Beads Integration
+#### Task State Integration
 - [ ] Implement state persistence
 - [ ] Create checkpoint system
-- [ ] Save task state to `.beads/`
+- [ ] Save task state to `.ai/tasks/`
 - [ ] Implement resume capability
 - [ ] Store artifacts
 

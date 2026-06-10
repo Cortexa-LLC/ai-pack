@@ -84,10 +84,10 @@ Some background info.
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Write contract file
-			contractPath := filepath.Join(contractDir, "00-contract.md")
+			// Write task file (new format)
+			contractPath := filepath.Join(contractDir, "task.md")
 			if err := os.WriteFile(contractPath, []byte(tt.contractContent), 0644); err != nil {
-				t.Fatalf("failed to write contract file: %v", err)
+				t.Fatalf("failed to write task file: %v", err)
 			}
 
 			// Create server instance

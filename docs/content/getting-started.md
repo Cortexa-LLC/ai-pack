@@ -230,11 +230,11 @@ TASK_ID=$(date +%Y-%m-%d)_feature-name
 mkdir -p .ai/tasks/$TASK_ID
 
 # Copy templates
-cp .ai-pack/templates/task-packet/00-contract.md .ai/tasks/$TASK_ID/
-cp .ai-pack/templates/task-packet/10-plan.md .ai/tasks/$TASK_ID/
-cp .ai-pack/templates/task-packet/20-work-log.md .ai/tasks/$TASK_ID/
-cp .ai-pack/templates/task-packet/30-review.md .ai/tasks/$TASK_ID/
-cp .ai-pack/templates/task-packet/40-acceptance.md .ai/tasks/$TASK_ID/
+cp .ai-pack/templates/task-packet/task.md .ai/tasks/$TASK_ID/
+cp .ai-pack/templates/task-packet/task.md .ai/tasks/$TASK_ID/
+cp .ai-pack/templates/task-packet/result.md .ai/tasks/$TASK_ID/
+cp .ai-pack/templates/task-packet/result.md .ai/tasks/$TASK_ID/
+cp .ai-pack/templates/task-packet/result.md .ai/tasks/$TASK_ID/
 ```text
 
 Or use the Claude Code command:
@@ -246,11 +246,11 @@ Or use the Claude Code command:
 ### Following the Workflow
 
 1. **Track** - Mark task in progress: `bd start bd-a1b2`
-2. **Define** - Fill out `00-contract.md` with requirements
-3. **Plan** - Create implementation plan in `10-plan.md`
-4. **Execute** - Implement while updating `20-work-log.md`
-5. **Review** - Conduct review, document in `30-review.md`
-6. **Accept** - Complete acceptance checklist in `40-acceptance.md`
+2. **Define** - Fill out `task.md` with requirements
+3. **Plan** - Create implementation plan in `task.md`
+4. **Execute** - Implement while updating `result.md`
+5. **Review** - Conduct review, document in `result.md`
+6. **Accept** - Complete acceptance checklist in `result.md`
 7. **Complete** - Mark done: `agent close bd-a1b2`
 8. **Next** - Find next task: `agent list --status queued`
 
@@ -315,7 +315,7 @@ If agents fail with permission errors:
 If the hook blocks implementation:
 
 1. Create task packet: `/ai-pack task-init <name>`
-2. Fill out `00-contract.md` at minimum
+2. Fill out `task.md` at minimum
 3. Try again
 
 ### Beads Command Not Found

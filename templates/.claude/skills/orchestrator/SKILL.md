@@ -937,12 +937,12 @@ agent list --status in_progress --assignee "Engineer-*"
 
 **Output example:**
 ```
-AI-Pack Agent Status (via Beads)
+AI-Pack Agent Status
 ================================
 
 Active Agents: 1 / 5 maximum
 
-1. Task ID: bd-c3d4
+1. Task ID: ai-pack-c3d4
    Assignee: Engineer-3
    Task:     Agent: Engineer - Implement feature C
    Status:   in_progress
@@ -972,7 +972,7 @@ agent list --assignee "Engineer-*" --json | jq -r '
 - ❌ Manually check worker output files
 - ❌ Parse worker logs yourself
 - ❌ Guess if workers are done
-- ✅ Just query Beads or use `/ai-pack agents`
+- ✅ Just use `agent list` or `/ai-pack agents`
 
 ## 🚨 MANDATORY: AGENT COMPLETION VERIFICATION 🚨
 
@@ -1007,7 +1007,7 @@ grep -i "tool.*failed\|error executing" /path/to/agent-output.txt
 
 ACTIONS:
 1. Report failure to user with error details
-2. bd block <task-id> "Agent failed: [error type]"
+2. agent update --status blocked <task-id>
 3. Assess if task can be retried or needs different approach
 ```
 
@@ -1020,7 +1020,7 @@ ACTIONS:
 # 1. Read agent output to see what files it claimed to create
 # 2. Verify EVERY file exists: ls -la <file-path>
 # 3. Check Write() tool calls were made (count should be > 0)
-# 4. If files missing: bd block <task-id> "Files not persisted"
+# 4. If files missing: agent update --status blocked <task-id>
 # 5. If files exist: agent close <task-id>
 
 # Check if agent made ANY Write() calls
@@ -1054,7 +1054,7 @@ Orchestrator Action: Declared "Agent completed successfully!" ❌ WRONG
 Correct Action Should Have Been:
 1. Detect "exceeded.*token.*maximum" in output → FAILURE
 2. Report: "Agent failed due to token limit"
-3. bd block task-id "Token limit exceeded, 0 files created"
+3. agent update --status blocked task-id
 4. Retry with more concise instructions
 ```
 
@@ -1273,14 +1273,14 @@ IF files missing THEN
 END IF
 ```
 
-### Beads Status Updates
+### Task Status Updates
 
 ```bash
 # If verification PASSES - all files exist
 agent close <agent-task-id>
 
 # If verification FAILS - files missing
-bd block <agent-task-id> "File persistence failed - 5 files missing from repository"
+agent update --status blocked <agent-task-id>
 ```
 
 **This verification is NOT OPTIONAL. It is MANDATORY and BLOCKING.**

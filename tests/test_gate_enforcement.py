@@ -228,7 +228,7 @@ class TestGate35CodeQualityReview(unittest.TestCase):
         task_dir = self.test_dir / "tasks" / "local-20260115090000-task1"
         task_dir.mkdir(parents=True, exist_ok=True)
 
-        review_file = task_dir / "30-review.md"
+        review_file = task_dir / "result.md"
         # No review file exists
 
         # Check verdicts
@@ -271,7 +271,7 @@ class TestGate35CodeQualityReview(unittest.TestCase):
         task_dir = self.test_dir / "tasks" / "local-20260115090000-task2"
         task_dir.mkdir(parents=True, exist_ok=True)
 
-        review_file = task_dir / "30-review.md"
+        review_file = task_dir / "result.md"
         review_file.write_text("""# Review
 
 ## Tester Verdict: REJECTED
@@ -319,7 +319,7 @@ class TestGate35CodeQualityReview(unittest.TestCase):
         task_dir = self.test_dir / "tasks" / "local-20260115090000-task3"
         task_dir.mkdir(parents=True, exist_ok=True)
 
-        review_file = task_dir / "30-review.md"
+        review_file = task_dir / "result.md"
         review_file.write_text("""# Review
 
 ## Tester Verdict: APPROVED
@@ -390,8 +390,8 @@ class TestGate10PersistenceGate(unittest.TestCase):
 
         # Expected artifacts
         expected_artifacts = {
-            "Contract": self.test_dir / "tasks" / "local-20260115090000-test" / "00-contract.md",
-            "Plan": self.test_dir / "tasks" / "local-20260115090000-test" / "10-plan.md",
+            "Contract": self.test_dir / "tasks" / "local-20260115090000-test" / "task.md",
+            "Plan": self.test_dir / "tasks" / "local-20260115090000-test" / "task.md",
             "Code": self.test_dir / "src" / "feature.py",
             "Tests": self.test_dir / "tests" / "test_feature.py",
         }
@@ -442,9 +442,9 @@ class TestGate10PersistenceGate(unittest.TestCase):
         tests_dir.mkdir(exist_ok=True)
 
         artifacts = {
-            "Contract": task_dir / "00-contract.md",
-            "Plan": task_dir / "10-plan.md",
-            "Work Log": task_dir / "20-work-log.md",
+            "Contract": task_dir / "task.md",
+            "Plan": task_dir / "task.md",
+            "Work Log": task_dir / "result.md",
             "Code": src_dir / "feature.py",
             "Tests": tests_dir / "test_feature.py",
         }

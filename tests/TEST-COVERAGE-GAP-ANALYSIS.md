@@ -201,7 +201,7 @@ def test_engineer_full_task_execution():
    - Not just coverage percentage gaming
 
 ✅ test_reviewer_produces_review_document()
-   - Creates 30-review.md in task packet
+   - Creates result.md in task packet
    - Documents findings
    - Provides verdict (APPROVED/REJECTED/REVISIONS)
    - Lists specific issues if any
@@ -233,7 +233,7 @@ def test_engineer_full_task_execution():
    - Validates coverage
 
 ✅ test_tester_produces_verdict()
-   - Creates verdict in 30-review.md
+   - Creates verdict in result.md
    - APPROVED or REJECTED or REVISIONS
    - Specific issues documented
    - Coverage report included
@@ -421,30 +421,30 @@ def test_orchestrator_uses_beads_for_decomposition():
    - All 5 files present (00-40)
 
 ✅ test_contract_phase()
-   - Fill 00-contract.md
+   - Fill task.md
    - Requirements defined
    - Acceptance criteria clear
    - Stakeholders identified
 
 ✅ test_plan_phase()
-   - Fill 10-plan.md
+   - 
    - Approach documented
    - Workflow selected
    - Execution strategy defined
 
 ✅ test_work_phase()
-   - Update 20-work-log.md during execution
+   - 
    - Progress tracked
    - Decisions documented
    - Blockers noted
 
 ✅ test_review_phase()
-   - Tester creates verdict in 30-review.md
-   - Reviewer creates verdict in 30-review.md
+   - Tester creates verdict in result.md
+   - Reviewer creates verdict in result.md
    - Both must APPROVE to proceed
 
 ✅ test_acceptance_phase()
-   - Fill 40-acceptance.md
+   - Fill result.md
    - All criteria verified
    - Deviations documented
    - Sign-off complete

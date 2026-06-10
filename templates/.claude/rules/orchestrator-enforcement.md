@@ -13,7 +13,7 @@ paths: **/*
 1. Use the `task-orchestrator` skill to create and delegate work
 2. Create task first (`agent create`)
 3. Create task packet (`.ai/tasks/`)
-4. Fill contract (`00-contract.md`)
+4. Fill task brief (`task.md`)
 5. Spawn agent with appropriate role
 
 ## What Requires Task Orchestrator

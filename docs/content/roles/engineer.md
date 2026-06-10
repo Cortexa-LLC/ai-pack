@@ -26,8 +26,8 @@ The Engineer is an implementation specialist responsible for executing specific,
 BEFORE starting work:
   IF task is non-trivial THEN
     CHECK: Does .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/ exist?
-    CHECK: Does 00-contract.md exist with requirements?
-    CHECK: Does 10-plan.md exist with implementation plan?
+    CHECK: Does task.md exist with requirements?
+    CHECK: Does task.md exist with implementation plan?
 
     IF any check fails THEN
       STOP immediately
@@ -49,7 +49,7 @@ END BEFORE
 IF orchestrator assigned task without packet THEN
   "I need a task packet created at .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/
    before I can begin implementation. Please create the task packet
-   infrastructure first with 00-contract.md and 10-plan.md."
+   infrastructure first with task.md and task.md."
   WAIT for task packet creation
 END IF
 ```
@@ -57,7 +57,7 @@ END IF
 **Work Log Requirement:**
 ```
 DURING implementation:
-  MUST update 20-work-log.md regularly:
+  MUST update result.md regularly:
   - What was implemented
   - Tests added
   - Issues encountered
@@ -160,8 +160,8 @@ docs/
 **Integration with Task Packet:**
 ```
 Task packet (.ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/) contains:
-  - 00-contract.md: Immediate task requirements
-  - 10-plan.md: Implementation approach for this task
+  - task.md: Immediate task requirements
+  - task.md: Implementation approach for this task
 
 Persisted artifacts (docs/) contain:
   - Long-term product requirements
@@ -243,12 +243,12 @@ Implement bcrypt password hashing utility with salt generation and verification.
 # If you get blocked - MANDATORY use bd block
 bd block bd-a1b2 "Waiting for API key from DevOps"
 # THEN update work log
-echo "BLOCKER: Waiting for API key" >> .ai/tasks/*/20-work-log.md
+echo "BLOCKER: Waiting for API key" >> .ai/tasks/*/result.md
 
 # When unblocked - MANDATORY use bd unblock
 bd unblock bd-a1b2
 # THEN update work log
-echo "UNBLOCKED: API key received" >> .ai/tasks/*/20-work-log.md
+echo "UNBLOCKED: API key received" >> .ai/tasks/*/result.md
 
 # Check what's ready after current task
 agent list --status queued
@@ -261,7 +261,7 @@ agent list --status queued
 agent close bd-a1b2
 
 # THEN update task packet
-echo "✅ Task complete" >> .ai/tasks/*/40-acceptance.md
+echo "✅ Task complete" >> .ai/tasks/*/result.md
 
 # Find next work
 agent list --status queued
@@ -293,7 +293,7 @@ If you were spawned by the Orchestrator, you'll have a task assigned to you:
 
 ```bash
 # Find your assigned task (documented in work log)
-grep "Task ID:" .ai/tasks/*/20-work-log.md
+grep "Task ID:" .ai/tasks/*/result.md
 # Example output: "Spawned Engineer-1 (Task ID: bd-a1b2)"
 
 # Update status when encountering issues
@@ -698,7 +698,7 @@ Check task packet for commit instructions.
 
 **Progress Reporting:**
 ```
-Regular updates to work log (.ai/tasks/*/20-work-log.md):
+Regular updates to work log (.ai/tasks/*/result.md):
 - What was implemented
 - Tests added/modified
 - Issues encountered
@@ -834,12 +834,12 @@ WHILE working:
     # MANDATORY - Block in Beads FIRST
     bd block <task-id> "Reason for blocker"
     # THEN document in work log
-    echo "BLOCKER: [reason]" >> .ai/tasks/*/20-work-log.md
+    echo "BLOCKER: [reason]" >> .ai/tasks/*/result.md
     ask for help
 
     # When unblocked
     bd unblock <task-id>
-    echo "UNBLOCKED: [resolution]" >> .ai/tasks/*/20-work-log.md
+    echo "UNBLOCKED: [resolution]" >> .ai/tasks/*/result.md
   END IF
 END WHILE
 ```
@@ -886,8 +886,8 @@ Check task packet for commit instructions.
 agent close <task-id>
 
 # STEP 3: THEN update acceptance document
-echo "✅ Task complete" >> .ai/tasks/*/40-acceptance.md
-echo "Beads Task: <task-id> [CLOSED]" >> .ai/tasks/*/40-acceptance.md
+echo "✅ Task complete" >> .ai/tasks/*/result.md
+echo "Beads Task: <task-id> [CLOSED]" >> .ai/tasks/*/result.md
 
 # STEP 4: Find next work
 agent list --status queued

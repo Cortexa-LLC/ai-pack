@@ -105,7 +105,7 @@ Message: ⏰ Coordination checkpoint 3 triggered
 ============================================================
 ACTION REQUIRED:
 1. Check agent status: /ai-pack agents
-2. Review work logs: Read .ai/tasks/*/20-work-log.md
+2. Review work logs: Read .ai/tasks/*/result.md
 3. Check git activity: git log -5 --oneline
 4. Identify any blocked/stuck agents
 5. Intervene if needed

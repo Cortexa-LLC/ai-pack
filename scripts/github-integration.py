@@ -499,39 +499,42 @@ def create_task_packet_for_import(task_id: str, title: str, issue_number: int, b
     task_dir = PROJECT_ROOT / '.ai' / 'tasks' / f'{date_str}_{safe_title}'
     task_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create contract file
-    contract_file = task_dir / '00-contract.md'
-    contract_content = f"""# Task Contract
+    # Create task file (new format: task.md + result.md)
+    contract_file = task_dir / 'task.md'
+    contract_content = f"""# Task: {title}
 
-**Task ID:** {task_id}
-**GitHub Issue:** #{issue_number}
-**Created:** {date_str}
+**Working directory:** {PROJECT_ROOT}
+**Role:** engineer
+**Priority:** P2
 
-## Requirements
+## What to do
 
 {body}
 
-## Acceptance Criteria
+## Files to change
+[Agent to identify during implementation]
+
+## Acceptance criteria
 
 - [ ] Implementation matches GitHub issue requirements
 - [ ] Tests added and passing
 - [ ] Code reviewed
 - [ ] GitHub issue updated with completion status
 
-## Stakeholders
+## Context
 
-- GitHub Issue Reporter
+GitHub Issue: #{issue_number}
+Created: {date_str}
 """
 
     contract_file.write_text(contract_content)
 
-    # Copy other templates
+    # Copy result.md template
     templates_dir = PROJECT_ROOT / '.ai-pack' / 'templates' / 'task-packet'
     if templates_dir.exists():
-        for template in ['10-plan.md', '20-work-log.md', '30-review.md', '40-acceptance.md']:
-            src = templates_dir / template
-            if src.exists():
-                shutil.copy(src, task_dir / template)
+        result_template = templates_dir / 'result.md'
+        if result_template.exists():
+            shutil.copy(result_template, task_dir / 'result.md')
 
     log_info(f"Created task packet: {task_dir}")
 

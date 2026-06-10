@@ -157,9 +157,9 @@ bd status
 ### Context Best Practices
 
 **ALWAYS ensure task packets contain:**
-- **00-contract.md**: Complete requirements and acceptance criteria
-- **10-plan.md**: Implementation approach and technical details
-- **20-work-log.md**: Progress tracking (updated by agents)
+- **task.md**: Complete requirements and acceptance criteria
+- **task.md**: Implementation approach and technical details
+- **result.md**: Progress tracking (updated by agents)
 
 **Task description must include:**
 - Reference to task packet location: `.ai/tasks/ai-pack-4fn-20260124090000-feature-name/`
@@ -489,7 +489,7 @@ Always ensure task packets are complete before spawning agents.
 ### Q: How do I track what agents did?
 
 **A**: Both agent types update:
-- **Task packets**: `.ai/tasks/*/20-work-log.md` for progress
+- **Task packets**: `.ai/tasks/*/result.md` for progress
 - **tasks**: `agent show <task-id>` for status and results
 - **Git commits**: Agent work is committed with co-author attribution
 

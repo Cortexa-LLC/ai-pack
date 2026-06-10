@@ -122,7 +122,7 @@ def test_divide_by_zero():
         task_dir = self.test_dir / "tasks" / "local-20260115090000-refactor-calculator"
         task_dir.mkdir(parents=True, exist_ok=True)
 
-        work_log = task_dir / "20-work-log.md"
+        work_log = task_dir / "result.md"
         work_log.write_text(f"""# Work Log: Refactor Calculator
 
 ## Phase 1: Baseline
@@ -198,7 +198,7 @@ class Calculator:
 
         # Update work log
         task_dir = self.test_dir / "tasks" / "local-20260115090000-refactor-calculator"
-        work_log = task_dir / "20-work-log.md"
+        work_log = task_dir / "result.md"
 
         existing = work_log.read_text()
         updated = existing + f"""
@@ -275,7 +275,7 @@ Refactoring complete, tests still green
         task_dir = self.test_dir / "tasks" / "local-20260115090000-refactor-calculator"
 
         # Reviewer validates refactoring
-        review = task_dir / "30-review.md"
+        review = task_dir / "result.md"
         review.write_text(f"""# Review: Calculator Refactor
 
 **Date:** {datetime.now().strftime("%Y-%m-%d %H:%M")}
@@ -313,7 +313,7 @@ Clean refactoring that improves code quality without changing behavior.
 Type hints and simplified code will help future maintenance.
 
 ### References
-- Work Log: [20-work-log.md](20-work-log.md)
+- Work Log: [result.md](result.md)
 """)
 
         content = review.read_text()
@@ -416,7 +416,7 @@ class UserService:
         task_dir = self.test_dir / "tasks" / "local-20260115090000-refactor-user-service"
         task_dir.mkdir(parents=True, exist_ok=True)
 
-        (task_dir / "30-review.md").write_text("""# Review
+        (task_dir / "result.md").write_text("""# Review
 ## Reviewer Verdict: APPROVED
 - Code quality improved
 - Tests still pass
@@ -429,7 +429,7 @@ class UserService:
         deliverables = {
             "Original Code": src_dir / "user_service.py",
             "Tests": tests_dir / "test_user_service.py",
-            "Review": task_dir / "30-review.md",
+            "Review": task_dir / "result.md",
         }
 
         all_exist = True

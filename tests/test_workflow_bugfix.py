@@ -184,7 +184,7 @@ def validate_password(plain_password: str, hashed_password: str) -> bool:
         task_dir = self.test_dir / "tasks" / "local-20260115090000-fix-login"
         task_dir.mkdir(parents=True, exist_ok=True)
 
-        work_log = task_dir / "20-work-log.md"
+        work_log = task_dir / "result.md"
         work_log.write_text(f"""# Work Log: Fix Login Bug (BUG-123)
 
 ## Session {datetime.now().strftime("%Y-%m-%d %H:%M")}
@@ -235,7 +235,7 @@ Changed line 42 in src/auth/login.py:
         task_dir = self.test_dir / "tasks" / "local-20260115090000-fix-login"
 
         # Tester validates the fix
-        review = task_dir / "30-review.md"
+        review = task_dir / "result.md"
         review.write_text(f"""# Review: Bug Fix BUG-123
 
 **Date:** {datetime.now().strftime("%Y-%m-%d %H:%M")}
@@ -272,7 +272,7 @@ Changed line 42 in src/auth/login.py:
 ✅ **APPROVED** - Bug fix verified, regression test solid
 
 ### References
-- Work Log: [20-work-log.md](20-work-log.md)
+- Work Log: [result.md](result.md)
 - RCA: docs/investigations/2026-01-15-login-failure/rca.md
 """)
 
@@ -290,7 +290,7 @@ Changed line 42 in src/auth/login.py:
         print("="*70)
 
         task_dir = self.test_dir / "tasks" / "local-20260115090000-fix-login"
-        review = task_dir / "30-review.md"
+        review = task_dir / "result.md"
 
         # Reviewer adds to review
         existing = review.read_text()
@@ -406,12 +406,12 @@ Add null check
 
         task_dir = self.test_dir / "tasks" / "local-20260115090000-fix-null-pointer"
         task_dir.mkdir(parents=True, exist_ok=True)
-        (task_dir / "20-work-log.md").write_text("# Work Log\n## Fix\nAdded null check")
+        (task_dir / "result.md").write_text("# Work Log\n## Fix\nAdded null check")
         print("  ✅ Engineer: Work log updated")
 
         # Phase 2: Validation
         print("\n✅ Phase 2: Validation")
-        (task_dir / "30-review.md").write_text("""# Review
+        (task_dir / "result.md").write_text("""# Review
 ## Tester Verdict: APPROVED
 - Regression test validated
 - Bug fixed
@@ -420,8 +420,8 @@ Add null check
 
         # Phase 3: Review
         print("\n👀 Phase 3: Review")
-        existing = (task_dir / "30-review.md").read_text()
-        (task_dir / "30-review.md").write_text(existing + "\n## Reviewer Verdict: APPROVED\n")
+        existing = (task_dir / "result.md").read_text()
+        (task_dir / "result.md").write_text(existing + "\n## Reviewer Verdict: APPROVED\n")
         print("  ✅ Reviewer: APPROVED")
 
         # Verify deliverables
@@ -430,8 +430,8 @@ Add null check
             "RCA": rca_dir / "rca.md",
             "Regression Test": tests_dir / "test_null_regression.py",
             "Fix": src_dir / "user.py",
-            "Work Log": task_dir / "20-work-log.md",
-            "Review": task_dir / "30-review.md",
+            "Work Log": task_dir / "result.md",
+            "Review": task_dir / "result.md",
         }
 
         all_exist = True

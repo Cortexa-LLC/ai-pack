@@ -226,7 +226,7 @@ The orchestrator MUST document the execution strategy decision:
 ```
 
 **Documentation Location:**
-- In task packet `10-plan.md` (preferred)
+- In task packet `task.md` or `result.md`
 - OR in orchestrator's analysis output before delegation
 - OR in work package contract
 

@@ -74,7 +74,7 @@ class TestTier2Setup(unittest.TestCase):
         ]
 
         # Create contract
-        contract = task_dir / "00-contract.md"
+        contract = task_dir / "task.md"
         contract_content = f"""# Tier 2 Test Contract: Simple File Creation
 
 **Objective:** Validate spawned agent file creation with persistence verification

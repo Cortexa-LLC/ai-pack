@@ -145,7 +145,7 @@ This ADR covers the **design specification only**. Implementation tasks:
 5. Migrate gates out of existing role files into corresponding skills
 6. Parse `.ai/workflow.md` gate overrides
 
-Tracked in: `.ai/tasks/ai-pack-aew-20260225192348-role-skill-ocp/10-plan.md`
+Tracked in: `.ai/tasks/ai-pack-aew-20260225192348-role-skill-ocp/task.md`
 
 ---
 

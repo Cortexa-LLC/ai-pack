@@ -57,7 +57,7 @@ func toolParamPreview(toolName string, input map[string]interface{}) string {
 	return ""
 }
 
-// extractContractSections pulls the meaningful sections out of a 00-contract.md file,
+// extractContractSections pulls the meaningful sections out of a task.md or 00-contract.md file,
 // skipping empty boilerplate placeholders ([Requirement X], [Assumption X], etc.).
 
 func (s *AgentServer) executeTool(ctx context.Context, toolName string, toolInput map[string]interface{}, workingDir string, projectRoot string) (string, error) {

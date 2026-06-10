@@ -101,7 +101,7 @@ If you were spawned by the Orchestrator, you'll have a task assigned to you:
 
 ```bash
 # Find your assigned task (documented in work log)
-grep "Task ID:" .ai/tasks/*/20-work-log.md
+grep "Task ID:" .ai/tasks/*/result.md
 # Example output: "Spawned Tester-1 (Task ID: bd-a1b2)"
 
 # Update status when encountering issues
@@ -175,7 +175,7 @@ FOR each implemented feature or bug fix:
     ACTION = "REJECT WORK"
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    Document in 30-review.md:
+    Document in result.md:
       ## TDD VIOLATION DETECTED
 
       **Severity:** BLOCKING
@@ -270,7 +270,7 @@ STEP 4: Assess gap severity
     MAJOR: Request edge case tests
   END IF
 
-STEP 5: Document findings in 30-review.md
+STEP 5: Document findings in result.md
 ```
 
 **CRITICAL: Progress Reporting**
@@ -306,7 +306,7 @@ When running as a spawned agent, update work log regularly with progress:
 
 ### [Timestamp] - Final Report
 - Validation complete
-- Writing findings to 30-review.md
+- Writing findings to result.md
 ```
 
 **Update frequency**: After each major phase (TDD check, coverage run, quality analysis)
@@ -317,7 +317,7 @@ If spawned by Orchestrator, update your assigned task:
 
 ```bash
 # Find your task ID (documented in work log)
-grep "Task ID:" .ai/tasks/*/20-work-log.md
+grep "Task ID:" .ai/tasks/*/result.md
 
 # If blocked on issues
 bd block <task-id> "Engineer TDD violations - cannot proceed"
@@ -953,7 +953,7 @@ mvn test jacoco:report
 - [Testing Standards](../quality/clean-code/04-testing.md)
 - [TDD Gate](../gates/00-global-gates.md#7-test-driven-development)
 - [Verification Gates](../gates/30-verification.md)
-- Review Template (`.ai-pack/templates/task-packet/30-review.md`)
+- Review Template (`.ai-pack/templates/task-packet/result.md`)
 
 ---
 

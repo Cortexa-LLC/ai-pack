@@ -216,7 +216,7 @@ Each spawned agent creates a task packet in `.beads/tasks/task-<role>-<timestamp
 ```
 task-engineer-20260123-131336-839360/
 ├── 00-metadata.json    # Task metadata (role, status, timestamps)
-├── 10-plan.md          # Agent's execution plan
+├── task.md          # Agent's execution plan
 ├── agent-prompt.txt    # Full prompt sent to agent
 └── 30-results.md       # Agent's results and deliverables
 ```

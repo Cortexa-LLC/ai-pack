@@ -11,11 +11,8 @@ Task packets provide structured templates for organizing work through all phases
 
 Located in `templates/task-packet/`:
 
-1. **00-contract.md** - Task definition and acceptance criteria
-2. **10-plan.md** - Implementation plan
-3. **20-work-log.md** - Execution log and progress tracking
-4. **30-review.md** - Review findings and feedback
-5. **40-acceptance.md** - Sign-off and completion
+1. **task.md** - Task brief: description, acceptance criteria, files to change, constraints
+2. **result.md** - Completion record written by the agent: status, summary, findings
 
 ## Usage
 

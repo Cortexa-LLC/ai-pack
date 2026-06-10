@@ -47,7 +47,7 @@ the default outcome.
 but gives no checklist for what must exist *before the first task ever runs*.
 
 **Failure evidence:** Our architect agent was spawned with only a task (`agent create`) —
-no `.ai/tasks/` directory, no `00-contract.md`, no `10-plan.md`. The engineer role's mandatory
+no `.ai/tasks/` directory, no `task.md`, no `task.md`. The engineer role's mandatory
 pre-implementation check (section 0) had nothing to find. The agent skipped straight to
 writing files with no plan.
 
@@ -73,12 +73,12 @@ which agents verify by running `./build/xasm++ --test` and checking exit code.
 **Required fix:** Acceptance criteria must be expressed as shell commands with expected
 output or exit codes. Template must enforce this format.
 
-### Gap 3: No `40-acceptance.md` enforcement when task packets are missing
+### Gap 3: No `result.md` enforcement when task packets are missing
 
-**Current state:** The engineer role requires a `40-acceptance.md` sign-off, but only checks
-`.ai/tasks/*/40-acceptance.md`. If no task packet exists, this gate silently doesn't fire.
+**Current state:** The engineer role requires a `result.md` sign-off, but only checks
+`.ai/tasks/*/result.md`. If no task packet exists, this gate silently doesn't fire.
 
-**Failure evidence:** None of the three agent tasks today produced a `40-acceptance.md`
+**Failure evidence:** None of the three agent tasks today produced a `result.md`
 because none had task packets. All were marked "complete" anyway.
 
 **Required fix:** Either (a) require task packets for all agent-spawned work, or (b) add

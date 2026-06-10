@@ -60,7 +60,7 @@ class TestTesterRoleDeliverables(unittest.TestCase):
     def _create_task_packet_with_tests(cls):
         """Create task packet with tests to validate"""
         # Create review template for Tester verdict
-        review_template = cls.task_packet_dir / "30-review.md"
+        review_template = cls.task_packet_dir / "result.md"
         review_template.write_text("""# Test Validation
 
 ## Tester Verdict
@@ -217,7 +217,7 @@ def test_multiply():
         print("TEST 4: Tester Produces Validation Report")
         print("="*70)
 
-        review_doc = self.task_packet_dir / "30-review.md"
+        review_doc = self.task_packet_dir / "result.md"
 
         # Tester creates validation report
         validation_content = f"""# Test Validation Report
@@ -345,7 +345,7 @@ Ready for final review.
         print("TEST 5: Tester Provides Blocking Verdict")
         print("="*70)
 
-        review_doc = self.task_packet_dir / "30-review.md"
+        review_doc = self.task_packet_dir / "result.md"
         content = review_doc.read_text()
 
         # Tester verdict is BLOCKING
@@ -487,7 +487,7 @@ def test_another():
         task_dir = self.test_dir / "task"
         task_dir.mkdir(exist_ok=True)
 
-        validation_doc = task_dir / "30-review.md"
+        validation_doc = task_dir / "result.md"
         validation_doc.write_text(f'''# Test Validation
 
 **Date:** {datetime.now().strftime("%Y-%m-%d %H:%M")}

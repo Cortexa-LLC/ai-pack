@@ -11,7 +11,7 @@ import (
 	"github.com/cortexa-llc/ai-pack/internal/monitoring"
 )
 
-// ParseRelatedProjects scans a 00-contract.md file for lines matching
+// ParseRelatedProjects scans a task.md or 00-contract.md file for lines matching
 // "Related Projects: /path/to/project" and returns the list of paths.
 // Lines that don't start with "Related Projects:" are ignored.
 // If the file cannot be read, an empty slice is returned silently.

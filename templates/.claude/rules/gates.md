@@ -11,12 +11,12 @@ All work must follow these quality gates from the ai-pack framework.
 **BEFORE starting ANY non-trivial task:**
 
 ```bash
-# Create task packet
-/ai-pack task-init <task-name>
+# Create task packet directory
+TS=$(date +%Y%m%d%H%M%S)
+mkdir -p .ai/tasks/<task-id>-${TS}-<short-desc>
 
-# Fill out contract and plan
-# Edit .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/00-contract.md
-# Edit .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/10-plan.md
+# Fill out task brief
+# Edit .ai/tasks/<task-id>-${TS}-<short-desc>/task.md
 ```
 
 **Non-trivial = Any task that:**
@@ -67,7 +67,7 @@ END IF
 **For tasks with 3+ independent subtasks:**
 
 1. **Analyze parallelization opportunities** BEFORE execution
-2. **Document strategy** in `.ai/tasks/*/10-plan.md`:
+2. **Document strategy** in `.ai/tasks/*/task.md` (or in `result.md` once work begins):
    - Which subtasks can run in parallel
    - Which must be sequential
    - Shared resource coordination (builds, databases, coverage)

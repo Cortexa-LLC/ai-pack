@@ -291,7 +291,7 @@ WAITING=$(echo "$CHECKS_JSON" | jq -r '.[] | select(.state == "WAITING") | .name
 if [ -n "$WAITING" ]; then
   echo "⚠️  Check(s) WAITING for environment approval — human action required: $WAITING"
   printf '## Shepherd halted — environment approval required\n\nApprove pending environment(s) in GitHub (%s), then re-run the shepherd.\n' \
-    "$WAITING" >> "${TASK_PACKET}30-review.md"
+    "$WAITING" >> "${TASK_PACKET}result.md"
   exit 1
 fi
 
@@ -375,14 +375,14 @@ If the engineer sub-task fails, the thread stays open and is retried next iterat
 - Do not modify test expectations unless the reviewer explicitly requested it.
 - Do not add features — only fix what CI or the reviewer flagged.
 - Stay on the PR branch throughout. Never switch to main.
-- All `exit 1` paths must write a partial failure entry to `${TASK_PACKET}30-review.md`
+- All `exit 1` paths must write a partial failure entry to `${TASK_PACKET}result.md`
   before stopping so the task packet always records why the shepherd halted.
 
 ---
 
 ## Completion Report
 
-Write to `${TASK_PACKET}30-review.md`:
+Write to `${TASK_PACKET}result.md`:
 
 ```markdown
 ## PR Shepherd Result — PR #<N>
