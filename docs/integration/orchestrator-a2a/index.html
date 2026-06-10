@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.10.1">
 <title data-rh="true">Orchestrator &amp; A2A Integration | AI-Pack</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:image" content="https://cortexa-llc.github.io/ai-pack/img/social-card.png"><meta data-rh="true" name="twitter:image" content="https://cortexa-llc.github.io/ai-pack/img/social-card.png"><meta data-rh="true" property="og:url" content="https://cortexa-llc.github.io/ai-pack/docs/integration/orchestrator-a2a"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Orchestrator &amp; A2A Integration | AI-Pack"><meta data-rh="true" name="description" content="Current State: Integrated Dual Agent Systems"><meta data-rh="true" property="og:description" content="Current State: Integrated Dual Agent Systems"><link data-rh="true" rel="icon" href="/ai-pack/img/favicon.ico"><link data-rh="true" rel="canonical" href="https://cortexa-llc.github.io/ai-pack/docs/integration/orchestrator-a2a"><link data-rh="true" rel="alternate" href="https://cortexa-llc.github.io/ai-pack/docs/integration/orchestrator-a2a" hreflang="en"><link data-rh="true" rel="alternate" href="https://cortexa-llc.github.io/ai-pack/docs/integration/orchestrator-a2a" hreflang="x-default"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Orchestrator & A2A Integration","item":"https://cortexa-llc.github.io/ai-pack/docs/integration/orchestrator-a2a"}]}</script><link rel="stylesheet" href="/ai-pack/assets/css/styles.fd2316e3.css">
-<script src="/ai-pack/assets/js/runtime~main.36dd6469.js" defer="defer"></script>
+<script src="/ai-pack/assets/js/runtime~main.c51922e3.js" defer="defer"></script>
 <script src="/ai-pack/assets/js/main.9a9038f8.js" defer="defer"></script>
 </head>
 <body>
@@ -88,9 +88,9 @@
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-best-practices">Context Best Practices<a href="#context-best-practices" class="hash-link" aria-label="Direct link to Context Best Practices" title="Direct link to Context Best Practices" translate="no">​</a></h3>
 <p><strong>ALWAYS ensure task packets contain:</strong></p>
 <ul>
-<li class=""><strong>00-contract.md</strong>: Complete requirements and acceptance criteria</li>
-<li class=""><strong>10-plan.md</strong>: Implementation approach and technical details</li>
-<li class=""><strong>20-work-log.md</strong>: Progress tracking (updated by agents)</li>
+<li class=""><strong>task.md</strong>: Complete requirements and acceptance criteria</li>
+<li class=""><strong>task.md</strong>: Implementation approach and technical details</li>
+<li class=""><strong>result.md</strong>: Progress tracking (updated by agents)</li>
 </ul>
 <p><strong>Task description must include:</strong></p>
 <ul>
@@ -248,7 +248,7 @@
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="q-how-do-i-track-what-agents-did">Q: How do I track what agents did?<a href="#q-how-do-i-track-what-agents-did" class="hash-link" aria-label="Direct link to Q: How do I track what agents did?" title="Direct link to Q: How do I track what agents did?" translate="no">​</a></h3>
 <p><strong>A</strong>: Both agent types update:</p>
 <ul>
-<li class=""><strong>Task packets</strong>: <code>.ai/tasks/*/20-work-log.md</code> for progress</li>
+<li class=""><strong>Task packets</strong>: <code>.ai/tasks/*/result.md</code> for progress</li>
 <li class=""><strong>tasks</strong>: <code>agent show &lt;task-id&gt;</code> for status and results</li>
 <li class=""><strong>Git commits</strong>: Agent work is committed with co-author attribution</li>
 </ul>
