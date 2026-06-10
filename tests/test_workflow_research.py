@@ -62,7 +62,7 @@ class TestResearchWorkflowPhases(unittest.TestCase):
         task_dir = self.test_dir / "tasks" / "local-20260115090000-research-graphql"
         task_dir.mkdir(parents=True, exist_ok=True)
 
-        contract = task_dir / "00-contract.md"
+        contract = task_dir / "task.md"
         contract.write_text("""# Research Task: GraphQL vs REST
 
 ## Objective
@@ -84,7 +84,7 @@ Research and compare GraphQL and REST for our API layer.
 - Documentation in docs/research/
 """)
 
-        plan = task_dir / "10-plan.md"
+        plan = task_dir / "task.md"
         plan.write_text("""# Research Plan
 
 ## Approach
@@ -252,7 +252,7 @@ Revisit GraphQL when:
 
         task_dir = self.test_dir / "tasks" / "local-20260115090000-research-graphql"
 
-        work_log = task_dir / "20-work-log.md"
+        work_log = task_dir / "result.md"
         work_log.write_text(f"""# Work Log: GraphQL vs REST Research
 
 ## Session {datetime.now().strftime("%Y-%m-%d %H:%M")}
@@ -280,7 +280,7 @@ Revisit GraphQL when:
 Research complete, findings documented
 
 ### References
-- Plan: [10-plan.md](10-plan.md)
+- Plan: [task.md](task.md)
 - Findings: docs/research/2026-01-15-graphql-vs-rest/findings.md
 """)
 
@@ -353,7 +353,7 @@ class TestResearchWorkflowIntegration(unittest.TestCase):
         task_dir = self.test_dir / "tasks" / "local-20260115090000-research-database"
         task_dir.mkdir(parents=True, exist_ok=True)
 
-        (task_dir / "00-contract.md").write_text("""# Research: Database Selection
+        (task_dir / "task.md").write_text("""# Research: Database Selection
 ## Objective
 Research which database to use for our application.
 
@@ -362,7 +362,7 @@ Research which database to use for our application.
 - Performance considerations?
 - Scalability needs?
 """)
-        (task_dir / "10-plan.md").write_text("# Plan\nResearch both options")
+        (task_dir / "task.md").write_text("# Plan\nResearch both options")
         print("  ✅ Research task created")
 
         # Phase 2: Conduct Research
@@ -393,16 +393,16 @@ Use PostgreSQL
 
         # Phase 3: Work Log
         print("\n📝 Phase 3: Work Log")
-        (task_dir / "20-work-log.md").write_text("# Work Log\nResearch complete")
+        (task_dir / "result.md").write_text("# Work Log\nResearch complete")
         print("  ✅ Work log updated")
 
         # Verify deliverables
         print("\n📦 Verifying Research Deliverables:")
         deliverables = {
-            "Contract": task_dir / "00-contract.md",
-            "Plan": task_dir / "10-plan.md",
+            "Contract": task_dir / "task.md",
+            "Plan": task_dir / "task.md",
             "Findings": research_dir / "findings.md",
-            "Work Log": task_dir / "20-work-log.md",
+            "Work Log": task_dir / "result.md",
         }
 
         all_exist = True

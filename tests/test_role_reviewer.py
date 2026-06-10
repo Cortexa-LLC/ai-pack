@@ -61,7 +61,7 @@ class TestReviewerRoleDeliverables(unittest.TestCase):
     def _create_task_packet_with_code(cls):
         """Create task packet with code for review"""
         # Create review template
-        review_template = cls.task_packet_dir / "30-review.md"
+        review_template = cls.task_packet_dir / "result.md"
         review_template.write_text("""# Code Review
 
 ## Reviewer Verdict
@@ -197,7 +197,7 @@ def test_divide_by_zero():
         print("TEST 3: Reviewer Produces Review Document")
         print("="*70)
 
-        review_doc = self.task_packet_dir / "30-review.md"
+        review_doc = self.task_packet_dir / "result.md"
 
         # Reviewer creates comprehensive review
         review_content = f"""# Code Review
@@ -302,7 +302,7 @@ Ready for acceptance.
         print("TEST 4: Reviewer Provides Clear Verdict")
         print("="*70)
 
-        review_doc = self.task_packet_dir / "30-review.md"
+        review_doc = self.task_packet_dir / "result.md"
         content = review_doc.read_text()
 
         # Check for verdict
@@ -512,7 +512,7 @@ def test_reverse_string_type_error():
         task_dir = self.test_dir / "task"
         task_dir.mkdir(exist_ok=True)
 
-        review_doc = task_dir / "30-review.md"
+        review_doc = task_dir / "result.md"
         review_doc.write_text(f'''# Code Review
 
 **Date:** {datetime.now().strftime("%Y-%m-%d %H:%M")}

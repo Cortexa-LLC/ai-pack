@@ -461,11 +461,8 @@ Commit should include:
 
 **Verification:**
 ```
-✓ Contract established (00-contract.md)
-✓ Plan documented (10-plan.md)
-✓ Work log updated (20-work-log.md)
-✓ Review completed (30-review.md)
-✓ Acceptance signed off (40-acceptance.md)
+✓ Brief documented (task.md)
+✓ Result written (result.md)
 ```
 
 **Update Requirements:**

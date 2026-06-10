@@ -76,20 +76,20 @@ cp .ai-pack/templates/task-packet/*.md "$TASK_DIR/"
 
 # Verify templates copied
 ls -la "$TASK_DIR"
-# Should see: 00-contract.md, 10-plan.md, 20-work-log.md, 30-review.md, 40-acceptance.md
+# Should see: task.md, result.md
 ```
 
 **Task packet format:**
 ```
 .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/
-├── 00-contract.md    # Requirements and acceptance criteria
-├── 10-plan.md        # Implementation approach
-├── 20-work-log.md    # Progress tracking
-├── 30-review.md      # Quality assurance
-└── 40-acceptance.md  # Final sign-off
+├── task.md    # Requirements and acceptance criteria
+├── task.md        # Implementation approach
+├── result.md    # Progress tracking
+├── result.md      # Quality assurance
+└── result.md  # Final sign-off
 ```
 
-### Step 3: Fill Contract (00-contract.md)
+### Step 3: Fill Task Brief (task.md)
 
 **Minimum required fields:**
 
@@ -155,28 +155,28 @@ CRITICAL WORKING DIRECTORY CONTEXT:
 - Use absolute paths for ALL file operations
 - Example: Write(file_path="{PROJECT_ROOT}/path/to/file", content="...")
 
-TASK CONTRACT: {PROJECT_ROOT}/.ai/tasks/<task-packet-dir>/00-contract.md
+TASK BRIEF: {PROJECT_ROOT}/.ai/tasks/<task-packet-dir>/task.md
 
 BEADS TASK: <beads-task-id>
 
-Read the contract at 00-contract.md for complete requirements, acceptance criteria, and context.
+Read task.md for complete requirements, acceptance criteria, and context.
 
 DELIVERABLES:
-- Update 20-work-log.md with progress
+- Update result.md with progress
 - Create all artifacts specified in contract
 - Update task status as you progress
 - Report absolute paths of all files created
 
-START: Read contract, fill out plan in 10-plan.md, then execute per your role.""",
+START: Read contract, fill out plan in task.md, then execute per your role.""",
     run_in_background=True  # For parallel execution
 )
 ```
 
 **Agent responsibilities:**
-1. Read contract (00-contract.md)
-2. Fill out plan (10-plan.md)
+1. Read brief (task.md)
+2. Fill out plan (task.md)
 3. Execute work per role definition
-4. Update work log (20-work-log.md)
+4. Update work log (result.md)
 5. Update task status
 6. Report completion
 
@@ -199,7 +199,7 @@ agent list --status=blocked
 
 ```bash
 # Read agent's progress updates
-tail -f .ai/tasks/<task-packet-dir>/20-work-log.md
+tail -f .ai/tasks/<task-packet-dir>/result.md
 ```
 
 **Via Agent Output:**
@@ -224,14 +224,14 @@ tail -f <agent-output-file>
    
    WORKING DIRECTORY: {PROJECT_ROOT}
    TASK: Validate tests for task {BEADS_TASK_ID}
-   CONTRACT: {PROJECT_ROOT}/.ai/tasks/{TASK_DIR}/00-contract.md
+   BRIEF: {PROJECT_ROOT}/.ai/tasks/{TASK_DIR}/task.md
    
    Verify:
    - TDD process followed
    - Test coverage ≥ 80%
    - All tests passing
    
-   Write verdict to 30-review.md: APPROVED or CHANGES REQUIRED""",
+   Write verdict to result.md: APPROVED or CHANGES REQUIRED""",
        run_in_background=True
    )
    ```
@@ -246,14 +246,14 @@ tail -f <agent-output-file>
    
    WORKING DIRECTORY: {PROJECT_ROOT}
    TASK: Review code for task {BEADS_TASK_ID}
-   CONTRACT: {PROJECT_ROOT}/.ai/tasks/{TASK_DIR}/00-contract.md
+   BRIEF: {PROJECT_ROOT}/.ai/tasks/{TASK_DIR}/task.md
    
    Verify:
    - Code quality standards met
    - Security concerns addressed
    - Best practices followed
    
-   Write verdict to 30-review.md: APPROVED or CHANGES REQUESTED""",
+   Write verdict to result.md: APPROVED or CHANGES REQUESTED""",
        run_in_background=True
    )
    ```
@@ -263,9 +263,9 @@ tail -f <agent-output-file>
 ### Step 8: Completion
 
 ```bash
-# Verify all acceptance criteria met (read 00-contract.md)
-# Verify quality gates passed (read 30-review.md)
-# Update acceptance document (40-acceptance.md)
+# Verify all acceptance criteria met (read task.md)
+# Verify quality gates passed (read result.md)
+# Update acceptance document (result.md)
 
 # Close task
 agent close <beads-task-id>
@@ -360,8 +360,8 @@ Agent(
     description="Continue task <task-id>",
     prompt=f"""Continue working on task <task-id>
     
-CONTRACT: {PROJECT_ROOT}/.ai/tasks/<task-dir>/00-contract.md
-WORK LOG: {PROJECT_ROOT}/.ai/tasks/<task-dir>/20-work-log.md
+BRIEF: {PROJECT_ROOT}/.ai/tasks/<task-dir>/task.md
+WORK LOG: {PROJECT_ROOT}/.ai/tasks/<task-dir>/result.md
 
 Read work log to see what's been completed.
 Continue from where previous agent left off.

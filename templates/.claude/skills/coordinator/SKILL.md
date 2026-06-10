@@ -192,7 +192,7 @@ Coordination:
 
 **CRITICAL:** After each check-in, you MUST report status to both Orchestrator AND display progress to user.
 
-**Check agent status via Beads:**
+**Check agent status via agent CLI:**
 
 ```bash
 # Check active agents
@@ -204,13 +204,13 @@ agent list --status in_progress --assignee "Reviewer-*"
 /ai-pack agents
 
 # Check specific agent details
-agent show bd-a1b2
+agent show ai-pack-a1b2
 
 # If agent completed (should already be closed by agent)
-agent close bd-a1b2
+agent close ai-pack-a1b2
 
 # If agent blocked (agent should do this, but Coordinator can too)
-bd block bd-a1b2 "Permission denied - needs user intervention"
+agent update --status blocked ai-pack-a1b2
 ```
 
 **IMPORTANT: Display progress update to user:**

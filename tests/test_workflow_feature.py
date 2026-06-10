@@ -192,7 +192,7 @@ Simpler client implementation.
         task_dir.mkdir(parents=True, exist_ok=True)
 
         # Contract
-        contract = task_dir / "00-contract.md"
+        contract = task_dir / "task.md"
         contract.write_text("""# Task Contract: User Profile
 
 ## Objective
@@ -214,7 +214,7 @@ Implement user profile viewing and editing.
 """)
 
         # Plan
-        plan = task_dir / "10-plan.md"
+        plan = task_dir / "task.md"
         plan.write_text("""# Implementation Plan
 
 ## Approach
@@ -228,7 +228,7 @@ TDD with RED-GREEN-REFACTOR.
 5. Integration tests
 
 ## References
-- Contract: [00-contract.md](00-contract.md)
+- Contract: [task.md](task.md)
 """)
 
         self.assertTrue(contract.exists(), "❌ Contract not created")
@@ -289,7 +289,7 @@ class ProfileController:
 ''')
 
         # Engineer updates work log
-        work_log = task_dir / "20-work-log.md"
+        work_log = task_dir / "result.md"
         work_log.write_text(f"""# Work Log
 
 ## Session {datetime.now().strftime("%Y-%m-%d %H:%M")}
@@ -311,7 +311,7 @@ class ProfileController:
 - Coverage: 85%
 
 ### References
-- Plan: [10-plan.md](10-plan.md)
+- Plan: [task.md](task.md)
 """)
 
         self.assertTrue(test_file.exists(), "❌ Tests not created")
@@ -330,7 +330,7 @@ class ProfileController:
         task_dir = self.test_dir / "tasks" / "local-20260115090000-user-profile"
 
         # Tester creates validation report
-        review = task_dir / "30-review.md"
+        review = task_dir / "result.md"
         review.write_text(f"""# Review
 
 **Date:** {datetime.now().strftime("%Y-%m-%d %H:%M")}
@@ -348,7 +348,7 @@ class ProfileController:
 - ✅ All tests passing
 
 ## References
-- Work Log: [20-work-log.md](20-work-log.md)
+- Work Log: [result.md](result.md)
 """)
 
         content = review.read_text()
@@ -363,7 +363,7 @@ class ProfileController:
         print("="*70)
 
         task_dir = self.test_dir / "tasks" / "local-20260115090000-user-profile"
-        review = task_dir / "30-review.md"
+        review = task_dir / "result.md"
 
         # Reviewer adds to review document
         existing = review.read_text()
@@ -400,7 +400,7 @@ class ProfileController:
         task_dir = self.test_dir / "tasks" / "local-20260115090000-user-profile"
 
         # Orchestrator creates acceptance document
-        acceptance = task_dir / "40-acceptance.md"
+        acceptance = task_dir / "result.md"
         acceptance.write_text(f"""# Acceptance
 
 **Date:** {datetime.now().strftime("%Y-%m-%d %H:%M")}
@@ -434,8 +434,8 @@ None - All requirements met
 **Date:** {datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 ## References
-- Contract: [00-contract.md](00-contract.md)
-- Review: [30-review.md](30-review.md)
+- Contract: [task.md](task.md)
+- Review: [result.md](result.md)
 """)
 
         content = acceptance.read_text()
@@ -507,8 +507,8 @@ class TestFeatureWorkflowIntegration(unittest.TestCase):
 
         task_dir = self.test_dir / "tasks" / "local-20260115090000-dark-mode"
         task_dir.mkdir(parents=True, exist_ok=True)
-        (task_dir / "00-contract.md").write_text("# Contract: Dark Mode\n## Objective\nDark mode toggle")
-        (task_dir / "10-plan.md").write_text("# Plan\n## Approach\nTDD implementation")
+        (task_dir / "task.md").write_text("# Contract: Dark Mode\n## Objective\nDark mode toggle")
+        (task_dir / "task.md").write_text("# Plan\n## Approach\nTDD implementation")
         print("  ✅ Orchestrator: Task packet created")
 
         # Phase 2: Implementation
@@ -518,13 +518,13 @@ class TestFeatureWorkflowIntegration(unittest.TestCase):
         (self.test_dir / "tests" / "test_theme.py").write_text("def test_toggle(): assert True")
         (self.test_dir / "src").mkdir(exist_ok=True)
         (self.test_dir / "src" / "theme.py").write_text("class ThemeController: pass")
-        (task_dir / "20-work-log.md").write_text("# Work Log\n## Completed\n- Implementation done")
+        (task_dir / "result.md").write_text("# Work Log\n## Completed\n- Implementation done")
         print("  ✅ Engineer: Implementation complete")
 
         # Phase 3: Review
         print("\n🔍 Phase 3: Review")
 
-        (task_dir / "30-review.md").write_text("""# Review
+        (task_dir / "result.md").write_text("""# Review
 ## Tester Verdict: APPROVED
 ## Reviewer Verdict: APPROVED
 """)
@@ -534,7 +534,7 @@ class TestFeatureWorkflowIntegration(unittest.TestCase):
         # Phase 4: Acceptance
         print("\n✅ Phase 4: Acceptance")
 
-        (task_dir / "40-acceptance.md").write_text("# Acceptance\n## Sign-off\n✅ ACCEPTED")
+        (task_dir / "result.md").write_text("# Acceptance\n## Sign-off\n✅ ACCEPTED")
         print("  ✅ Orchestrator: ACCEPTED")
 
         # Verify all deliverables
@@ -544,13 +544,13 @@ class TestFeatureWorkflowIntegration(unittest.TestCase):
             "PRD": prd_dir / "prd.md",
             "Architecture": arch_dir / "architecture.md",
             "Design": design_dir / "design-specs.md",
-            "Contract": task_dir / "00-contract.md",
-            "Plan": task_dir / "10-plan.md",
+            "Contract": task_dir / "task.md",
+            "Plan": task_dir / "task.md",
             "Tests": self.test_dir / "tests" / "test_theme.py",
             "Implementation": self.test_dir / "src" / "theme.py",
-            "Work Log": task_dir / "20-work-log.md",
-            "Review": task_dir / "30-review.md",
-            "Acceptance": task_dir / "40-acceptance.md",
+            "Work Log": task_dir / "result.md",
+            "Review": task_dir / "result.md",
+            "Acceptance": task_dir / "result.md",
         }
 
         all_exist = True

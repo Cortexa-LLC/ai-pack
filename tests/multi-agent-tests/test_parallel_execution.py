@@ -176,7 +176,7 @@ class TestTier2ParallelExecution(unittest.TestCase):
             feature_output_dir = output_dir / feature["id"]
 
             # Create contract
-            contract = feature_task_dir / "00-contract.md"
+            contract = feature_task_dir / "task.md"
 
             # Build file deliverables section
             files_section = ""
@@ -243,7 +243,7 @@ Create {len(feature["files"])} Python files:
             "test_dir": str(test_dir.absolute()),
             "features": [f["id"] for f in features],
             "execution_instructions": [
-                "1. Review contracts in tasks/feature-*-*/00-contract.md",
+                "1. Review contracts in tasks/feature-*-*/task.md",
                 "2. Spawn 5 agents simultaneously using Claude Code Task tool",
                 "3. Each agent reads its contract and creates 3 files",
                 "4. Monitor agent completion via task notifications",

@@ -138,8 +138,9 @@ Each archived task folder contains:
 - ` + "`00-metadata.json`" + ` - Agent configuration and metadata
 - ` + "`agent-prompt.txt`" + ` - The original task prompt
 - ` + "`execution.log`" + ` - Execution history
-- ` + "`10-plan.md`" + ` - Planning phase output (if applicable)
-- ` + "`30-results.md`" + ` - Task results (if completed)
+- ` + "`task.md`" + ` - Task brief (if present)
+- ` + "`result.md`" + ` - Task results (if completed)
+- ` + "`30-results.md`" + ` - Task results (legacy format)
 
 ## Accessing Archived Tasks
 These tasks are read-only archives. If you need to perform similar work:

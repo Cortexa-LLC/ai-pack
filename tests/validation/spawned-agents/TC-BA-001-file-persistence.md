@@ -68,7 +68,7 @@ Validate that spawned agents successfully persist files to the repository and th
 
      Task: Create file src/tests/sample-test.js with a simple test.
 
-     Update work log at .ai/tasks/local-20260115090000-test-ba-001/20-work-log.md
+     Update work log at .ai/tasks/local-20260115090000-test-ba-001/result.md
      """,
      
    )

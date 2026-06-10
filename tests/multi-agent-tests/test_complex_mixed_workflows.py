@@ -217,7 +217,7 @@ Stage 4: Integration Tester (Sequential)
         orchestrator_dir = stages_dir / "stage-1-orchestrator"
         orchestrator_dir.mkdir(parents=True, exist_ok=True)
 
-        orchestrator_contract = orchestrator_dir / "00-contract.md"
+        orchestrator_contract = orchestrator_dir / "task.md"
         orchestrator_contract.write_text(f"""# Orchestrator Contract: Shopping Cart Decomposition
 
 **Agent Role:** Orchestrator

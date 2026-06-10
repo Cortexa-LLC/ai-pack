@@ -236,7 +236,7 @@ STEP 3: Consider shared context constraints
   ⚠️ COORDINATE: Build ops, coverage merging, migrations
 
 STEP 4: Document strategy decision
-  Write analysis to task packet 10-plan.md:
+  Write analysis to task.md in the task packet:
   - Subtask inventory
   - Independence assessment
   - Strategy choice (PARALLEL/SEQUENTIAL/HYBRID)
@@ -555,7 +555,7 @@ IF work includes code changes THEN
     subagent_type="general-purpose",
     prompt="You are the Tester role. Validate TDD compliance and test sufficiency.
             Focus: TDD process, coverage (80-90%), test quality.
-            Report in .ai/tasks/${task_id}/30-review.md"
+            Report in .ai/tasks/${task_id}/result.md"
   )
 
   tester_result = wait_for_completion(tester)
@@ -620,7 +620,7 @@ IF work includes code changes THEN
     subagent_type="general-purpose",
     prompt="You are the Reviewer role. Review code quality and standards.
             Focus: quality, architecture, security, documentation.
-            Report in .ai/tasks/${task_id}/30-review.md"
+            Report in .ai/tasks/${task_id}/result.md"
   )
 
   reviewer_result = wait_for_completion(reviewer)
@@ -712,7 +712,7 @@ END IF
 ✓ Standards compliance verified
 ✓ All acceptance criteria met
 ✓ User approved (if applicable)
-✓ Documentation complete (30-review.md, 40-acceptance.md)
+✓ result.md written with findings
 ✓ Task complete and signed off
 ```
 
@@ -790,7 +790,7 @@ When using parallel workers (DEFAULT for 3+ subtasks):
 - Address Tester findings (if any)
 - Address Reviewer findings (if any)
 - Re-validate until both approve
-- Update 30-review.md with resolution
+- Update result.md with resolution
 ```
 
 **Parallel Worker Responsibilities:**
@@ -814,7 +814,7 @@ For all work packages with code changes:
 - Assess test quality (clarity, independence, reliability)
 - Verify test type coverage (unit/integration/e2e pyramid)
 - Check test scenarios (happy/edge/error cases)
-- Document findings in 30-review.md
+- Document findings in result.md
 - Provide verdict: APPROVED or CHANGES REQUIRED
 - Re-validate after fixes if changes required
 ```
@@ -830,7 +830,7 @@ For all work packages with code changes:
 - Assess security concerns
 - Evaluate documentation adequacy
 - Check acceptance criteria met
-- Document findings in 30-review.md
+- Document findings in result.md
 - Provide verdict: APPROVED or CHANGES REQUESTED
 - Re-validate after fixes if changes requested
 ```
@@ -877,30 +877,30 @@ For all work packages with code changes:
 
 **Initialize (.ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/):**
 ```
-00-contract.md    - Define at Phase 1 start
-10-plan.md        - Create at Phase 2
-20-work-log.md    - Update during Phase 3
-30-review.md      - Complete at Phase 4
-40-acceptance.md  - Finalize at Phase 4 end
+task.md          - Write at Phase 1 start
+
+
+
+result.md        - Write at completion
 ```
 
 **Update Pattern:**
 ```
 Phase 1 (Understanding):
-  - Initialize 00-contract.md
+  - Write task.md with requirements
   - Document requirements and acceptance criteria
 
 Phase 2 (Planning):
-  - Create 10-plan.md
+
   - Document approach and steps
 
 Phase 3 (Implementation):
-  - Update 20-work-log.md regularly
+
   - Document progress, decisions, issues
 
 Phase 4 (Review):
-  - Complete 30-review.md
-  - Finalize 40-acceptance.md
+
+  - Write result.md with findings
   - Sign off on completion
 ```
 

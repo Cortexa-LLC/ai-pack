@@ -78,9 +78,9 @@ kg__add_observation({entity_id: "<id>", content:
 
 ---
 
-## Task Discovery with Beads (WORKFLOW START)
+## Task Discovery (WORKFLOW START)
 
-**REQUIREMENT:** Use Beads to find next validation task and track progress.
+**REQUIREMENT:** Use the `agent` CLI to find next validation task and track progress.
 
 **Finding Next Task:**
 ```bash
@@ -88,12 +88,12 @@ kg__add_observation({entity_id: "<id>", content:
 agent list --status queued
 
 # Output shows available tasks:
-# bd-a1b2  Validate login feature TDD     [priority: high]
-# bd-c3d4  Verify dark mode tests         [priority: normal]
-# bd-e5f6  Validate bug fix coverage      [priority: critical]
+# ai-pack-a1b2  Validate login feature TDD     [priority: high]
+# ai-pack-c3d4  Verify dark mode tests         [priority: normal]
+# ai-pack-e5f6  Validate bug fix coverage      [priority: critical]
 
 # Step 2: Get full task details
-agent show bd-a1b2
+agent show ai-pack-a1b2
 
 # Shows:
 # - Task description
@@ -106,7 +106,7 @@ agent show bd-a1b2
 **Starting Work:**
 ```bash
 # Mark validation task as in-progress
-agent update --claim bd-a1b2
+agent update --claim ai-pack-a1b2
 
 # This signals to Orchestrator and other agents that you're validating this task
 ```
@@ -114,7 +114,7 @@ agent update --claim bd-a1b2
 **During Validation:**
 ```bash
 # If you discover issues that block validation
-bd block bd-a1b2 "TDD violations found - Engineer must fix"
+agent update --status blocked ai-pack-a1b2
 
 # If you need to create follow-up validation tasks - ALWAYS include full description
 follow_up=$(agent create "Verify regression tests for login timeout
@@ -124,7 +124,7 @@ Task packet: .ai/tasks/$(date +%Y-%m-%d)_regression-tests/
 
 Verify that regression tests properly cover the login timeout scenarios.
 Check edge cases, error handling, and test coverage metrics." \
-  --depends-on bd-a1b2 --json | jq -r '.id')
+  --depends-on ai-pack-a1b2 --json | jq -r '.id')
 
 # Check what's ready after current validation
 agent list --status queued
@@ -133,50 +133,48 @@ agent list --status queued
 **Completing Work:**
 ```bash
 # When validation complete and work approved
-agent close bd-a1b2
+agent close ai-pack-a1b2
 
 # Find next validation task
 agent list --status queued
 ```
 
-**Beads Workflow Summary:**
+**Workflow Summary:**
 ```
-1. agent list --status queued           → Find next validation task
-2. agent show <id>       → Review what needs validation
-3. agent update --claim <id>      → Begin validation
-4. [Check TDD]        → Verify test-first approach
-5. [Check coverage]   → Verify test sufficiency
-6. [Check quality]    → Verify test quality
-7. agent close <id>      → Mark validation complete (or bd block if issues found)
-8. agent list --status queued           → Find next task
+1. agent list --status queued    → Find next validation task
+2. agent show <id>               → Review what needs validation
+3. agent update --claim <id>     → Begin validation
+4. [Check TDD]                   → Verify test-first approach
+5. [Check coverage]              → Verify test sufficiency
+6. [Check quality]               → Verify test quality
+7. agent close <id>              → Mark validation complete (or update --status blocked if issues found)
+8. agent list --status queued    → Find next task
 ```
 
-**Why Use Beads:**
+**Why Use the agent CLI:**
 - ✅ Tasks persist across AI sessions (no memory loss)
 - ✅ Orchestrator sees validation progress in real-time
 - ✅ Dependency tracking ensures validation order
 - ✅ Git-backed storage maintains validation history
 - ✅ Multi-agent coordination prevents duplicate validation
 
-**Reference:** See `quality/tooling/beads-integration.md` for complete guide.
-
 **Special Case: Spawned by Orchestrator**
 
 If you were spawned by the Orchestrator, you'll have a task assigned to you:
 
 ```bash
-# Find your assigned task (documented in work log)
-grep "Task ID:" .ai/tasks/*/20-work-log.md
-# Example output: "Spawned Tester-1 (Task ID: bd-a1b2)"
+# Find your assigned task (documented in result.md)
+grep "Task ID:" .ai/tasks/*/result.md
+# Example output: "Spawned Tester-1 (Task ID: ai-pack-a1b2)"
 
 # Update status when encountering issues
-bd block bd-a1b2 "Engineer TDD violations - cannot proceed"
+agent update --status blocked ai-pack-a1b2
 
 # Unblock when resolved
-bd unblock bd-a1b2
+agent update --status queued ai-pack-a1b2
 
 # Mark complete when finished
-agent close bd-a1b2
+agent close ai-pack-a1b2
 ```
 
 The Orchestrator monitors these tasks to track validation progress, so keeping them updated helps coordination.
@@ -240,7 +238,7 @@ FOR each implemented feature or bug fix:
     ACTION = "REJECT WORK"
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    Document in 30-review.md:
+    Document in result.md:
       ## TDD VIOLATION DETECTED
 
       **Severity:** BLOCKING
@@ -335,7 +333,7 @@ STEP 4: Assess gap severity
     MAJOR: Request edge case tests
   END IF
 
-STEP 5: Document findings in 30-review.md
+STEP 5: Document findings in result.md
 ```
 
 **CRITICAL: Progress Reporting**
@@ -371,24 +369,24 @@ When running as a spawned agent, update work log regularly with progress:
 
 ### [Timestamp] - Final Report
 - Validation complete
-- Writing findings to 30-review.md
+- Writing findings to result.md
 ```
 
 **Update frequency**: After each major phase (TDD check, coverage run, quality analysis)
 
-**Beads Task Updates (When Spawned by Orchestrator):**
+**Task Status Updates (When Spawned by Orchestrator):**
 
 If spawned by Orchestrator, update your assigned task:
 
 ```bash
-# Find your task ID (documented in work log)
-grep "Task ID:" .ai/tasks/*/20-work-log.md
+# Find your task ID (documented in result.md)
+grep "Task ID:" .ai/tasks/*/result.md
 
 # If blocked on issues
-bd block <task-id> "Engineer TDD violations - cannot proceed"
+agent update --status blocked <task-id>
 
 # When unblocked
-bd unblock <task-id>
+agent update --status queued <task-id>
 
 # When validation complete
 agent close <task-id>
@@ -980,12 +978,12 @@ These don't block approval - excellent test discipline!"
 - Grep (to search for test patterns)
 - Glob (to find test files)
 - Bash (to run tests and generate coverage reports)
-- Beads (`bd` command) for task tracking and coordination
+- `agent` CLI for task tracking and coordination
   - `agent list --status queued` - Find next validation task
   - `agent show <id>` - View task details
   - `agent update --claim <id>` - Begin validation
-  - `bd block <id> "reason"` - Report blocking issues
-  - `bd unblock <id>` - Clear blocking status
+  - `agent update --status blocked <id>` - Report blocking issues
+  - `agent update --status queued <id>` - Clear blocking status
   - `agent close <id>` - Mark validation complete
 
 ### Test Execution Commands
@@ -1018,7 +1016,7 @@ mvn test jacoco:report
 - [Testing Standards](../quality/clean-code/04-testing.md)
 - [TDD Gate](../gates/00-global-gates.md#7-test-driven-development)
 - [Verification Gates](../gates/30-verification.md)
-- [Review Template](../templates/task-packet/30-review.md)
+- [Result Template](../templates/task-packet/result.md)
 
 ---
 

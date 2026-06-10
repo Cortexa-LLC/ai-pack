@@ -267,21 +267,19 @@ STEP 3: Define acceptance criteria for fix
 
 **Task Packet Contents:**
 ```
-00-contract.md:
+task.md:
   - Bug summary and reproduction steps
   - Root cause explanation
   - Fix requirements (NOT implementation)
-  - Acceptance criteria
-  - Testing requirements
-
-10-plan.md:
   - Recommended fix approach
   - Files to modify
   - Critical considerations
   - Potential side effects to watch
   - Edge cases to handle
+  - Acceptance criteria
+  - Testing requirements
 
-Attachments:
+Attachments (if needed):
   - Reproduction test case
   - Diagnostic logs
   - Stack traces
@@ -430,15 +428,14 @@ Contents:
 Location: .ai/tasks/[bug-id]/
 
 Files:
-- 00-contract.md (bug fix requirements)
-- 10-plan.md (fix approach and considerations)
+- task.md (bug fix requirements and approach)
 - reproduction-test.{ext} (failing test)
 - retrospective.md (bug investigation retrospective)
 ```
 
 **3. Regression Test Specifications**
 ```
-Document in 00-contract.md:
+Document in task.md:
 - Test scenarios required
 - Coverage expectations
 - Example test cases

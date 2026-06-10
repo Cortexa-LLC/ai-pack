@@ -77,7 +77,7 @@ class TestClaudeCodeAgentSpawning(unittest.TestCase):
         task_dir = self.test_dir / "tasks" / "local-20260115090000-test-spawn"
         task_dir.mkdir(parents=True, exist_ok=True)
 
-        contract = task_dir / "00-contract.md"
+        contract = task_dir / "task.md"
         contract.write_text(f"""# Test Contract: Agent Spawning
 
 **Objective:** Verify Claude Code agent can be spawned and execute

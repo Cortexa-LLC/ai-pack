@@ -138,7 +138,7 @@ Tests create artifacts in `.ai/test-artifacts/`:
 │   │   └── test_service.py
 │   └── tasks/
 │       └── local-20260115090000-multi-agent-simple-task/
-│           └── 00-contract.md
+│           └── task.md
 │
 ├── multi-agent-sequential-{timestamp}/
 │   ├── output/

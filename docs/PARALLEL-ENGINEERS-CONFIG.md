@@ -360,22 +360,22 @@ Each parallel worker gets isolated task packet:
 ```
 .ai/tasks/
 ├── local-20260107090000-work-package/
-│   ├── 00-contract.md              # Overall work package contract
-│   ├── 10-plan.md                  # Master plan with parallel strategy
+│   ├── task.md              # Overall work package contract
+│   ├── task.md                  # Master plan with parallel strategy
 │   ├── worker-1/                   # Worker 1 isolated context
-│   │   ├── 00-contract.md
-│   │   ├── 20-work-log.md
-│   │   └── 40-acceptance.md
+│   │   ├── task.md
+│   │   ├── result.md
+│   │   └── result.md
 │   ├── worker-2/                   # Worker 2 isolated context
-│   │   ├── 00-contract.md
-│   │   ├── 20-work-log.md
-│   │   └── 40-acceptance.md
+│   │   ├── task.md
+│   │   ├── result.md
+│   │   └── result.md
 │   ├── worker-3/                   # Worker 3 isolated context
-│   │   ├── 00-contract.md
-│   │   ├── 20-work-log.md
-│   │   └── 40-acceptance.md
-│   ├── 30-review.md                # Integrated review
-│   └── 40-acceptance.md            # Overall acceptance
+│   │   ├── task.md
+│   │   ├── result.md
+│   │   └── result.md
+│   ├── result.md                # Integrated review
+│   └── result.md            # Overall acceptance
 ```
 
 ---

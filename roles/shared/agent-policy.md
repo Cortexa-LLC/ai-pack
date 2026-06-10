@@ -43,7 +43,7 @@ Every API call has a cost. Treat every turn as precious.
 ## Missing Files and Paths
 
 - **1 attempt only.** If a file, directory, or path does not exist after your first attempt, move on immediately.
-- **Never retry variations of a path that returned "not found".** If `.ai/tasks/foo/00-contract.md` doesn't exist, do not try `.ai/tasks/foo/contract.md`, `tasks/foo/00-contract.md`, `./foo/00-contract.md`, etc.
+- **Never retry variations of a path that returned "not found".** If `.ai/tasks/foo/task.md` doesn't exist, do not try alternative paths.
 - **Task packets are optional context.** If the task description references a task packet directory that does not exist, skip it entirely and begin work from first principles using the task description itself.
 - **Missing context is not a blocker.** Work with what exists.
 
@@ -92,7 +92,7 @@ If this happens: note it in your output. The orchestrator will coordinate the sp
 
 ---
 
-## Beads Task Workflow
+## Task Workflow
 
 All agents that work on tasks follow this lifecycle:
 
@@ -100,17 +100,17 @@ All agents that work on tasks follow this lifecycle:
 |------|---------|------|
 | Check task | `agent show <id>` | Before starting |
 | Claim task | `agent update --claim <id>` | When starting work |
-| Block task | `bd block <id> "reason"` | When blocked on dependency |
-| Unblock task | `bd unblock <id>` | When dependency resolved |
+| Block task | `agent update --status blocked <id>` | When blocked on dependency |
+| Unblock task | `agent update --status queued <id>` | When dependency resolved |
 | Complete task | `agent close <id>` | When work is done |
 
-**task IDs** follow the format `<prefix>-<hash>` (e.g. `xasm++-qbxv`). Timestamped execution folder names (e.g. `xasm++-qbxv-20260218-084509`) are **not** task IDs — never pass them to `bd` commands.
+**task IDs** follow the format `<prefix>-<hash>` (e.g. `xasm++-qbxv`). Timestamped execution folder names (e.g. `xasm++-qbxv-20260218-084509`) are **not** task IDs — never pass them to `agent` commands.
 
 ---
 
 ## Work Log
 
-If your role uses a task packet, update `.ai/tasks/*/20-work-log.md` after each major phase. Include:
+If your role uses a task packet, write findings to `.ai/tasks/*/result.md` as you make progress. Include:
 - What you did
 - What you found
 - What's next or what's blocking you

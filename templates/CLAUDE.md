@@ -106,86 +106,61 @@ TS=$(date +%Y%m%d%H%M%S)
 SLUG="${TID}-${TS}-short-desc"
 mkdir -p .ai/tasks/$SLUG
 
-# 2. Copy templates
-cp templates/task-packet/*.md .ai/tasks/$SLUG/
+# 2. Copy task.md template
+cp templates/task-packet/task.md .ai/tasks/$SLUG/
 
-# 3. FILL OUT each template file (DO NOT SKIP THIS STEP)
-# Write actual content to these files using Write tool:
-#   - 00-contract.md: Full task description, acceptance criteria, constraints
-#   - 01-context.md: Background, why this task exists, related work
-#   - 02-approach.md: Proposed solution approach (if known)
-#   - 03-notes.md: Any additional notes, gotchas, or considerations
+# 3. FILL OUT task.md with actual content (DO NOT leave placeholders)
 ```
 
-**What to include in task packet files:**
+**What to include in task.md:**
 
-- **00-contract.md**: Complete task specification
-  - What needs to be done (detailed, not just title)
-  - Acceptance criteria (how to verify it's complete)
-  - Constraints (time limits, dependencies, what NOT to change)
-  - Related files/components
-  - Any error messages or symptoms (for bug fixes)
+- **What to do**: Detailed description, not just the title
+- **Files to change**: Specific paths and what changes are needed
+- **Acceptance criteria**: How to verify the work is complete
+- **Constraints**: What NOT to change, dependencies, time limits
+- **Context**: Background/history (omit if obvious)
 
-- **01-context.md**: Why this task matters
-  - Background/history that led to this task
-  - Related previous work or decisions
-  - Links to issues, PRs, docs, or Slack threads
-  - User impact or business value
-
-- **02-approach.md**: How to solve it (if you know)
-  - Proposed implementation strategy
-  - Key files to modify
-  - Testing approach
-  - Alternative approaches considered
-
-- **03-notes.md**: Additional details
-  - Gotchas or tricky edge cases
-  - Performance considerations
-  - Security implications
-  - Follow-up tasks
-
-**❌ WRONG (template copy only):**
+**❌ WRONG (template placeholders left in):**
 ```bash
-cp templates/task-packet/*.md .ai/tasks/$SLUG/
-# Stop here — files still contain template placeholders
+cp templates/task-packet/task.md .ai/tasks/$SLUG/
+# Stop here — file still contains template placeholders
 ```
 
 **✅ CORRECT (fully populated):**
 ```bash
-cp templates/task-packet/*.md .ai/tasks/$SLUG/
+cp templates/task-packet/task.md .ai/tasks/$SLUG/
 
 # Write actual content
-cat > .ai/tasks/$SLUG/00-contract.md <<EOF
-# Task Contract: Enable agent resume for timed-out tasks
+cat > .ai/tasks/$SLUG/task.md <<EOF
+# Task: Enable agent resume for timed-out tasks
 
-## Objective
+**Working directory:** $(pwd)
+**Role:** engineer
+**Priority:** P1
+
+## What to do
 Modify the agent resume functionality to work with tasks that failed due to 
 timeout, not just token-budget paused tasks.
 
-## Acceptance Criteria
+## Files to change
+- internal/server/task_execution.go — write checkpoint on timeout
+- internal/server/checkpoint.go — add ResumeReason field
+- cmd/agent/commands/server.go — add --extend flag
+
+## Acceptance criteria
 - [ ] Tasks that timeout write a checkpoint before failing
 - [ ] Resume command accepts failed tasks with "TIMEOUT:" prefix
-- [ ] Agent receives context about the timeout when resuming
 - [ ] --extend flag allows extending timeout instead of resetting
 
 ## Constraints
 - Must maintain backward compatibility with token budget resume
 - Default behavior should reset timeout to full duration
-- Checkpoint must include ResumeReason field
-
-## Related Files
-- internal/server/task_execution.go
-- internal/server/checkpoint.go
-- internal/server/a2a_handlers.go
-- cmd/agent/commands/server.go
 EOF
-
-# Fill out 01-context.md, 02-approach.md, 03-notes.md similarly...
 ```
 
 **Why this matters:**
 - After conversation compaction, the agent has NO memory of earlier discussion
-- Task packet is the ONLY source of context
+- task.md is the ONLY source of context
 - Template placeholders provide zero useful information
 - Agents will fail or produce wrong solutions without proper context
 
@@ -297,7 +272,7 @@ The project uses `.claudeignore` files (similar to `.gitignore`) to prevent agen
 **/dist/
 
 # Task logs
-.beads/tasks/
+.ai/tasks/
 
 # Large files
 **/*.log

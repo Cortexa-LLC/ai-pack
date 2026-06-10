@@ -597,12 +597,18 @@ func (s *AgentServer) executeAgentWorkflow(ctx context.Context, roleTimeout time
 	}
 
 	// Pre-flight for related projects declared in the task contract.
-	// Reads "Related Projects: /path" lines from 00-contract.md and merges each
+	// Reads "Related Projects: /path" lines from task.md (or legacy 00-contract.md) and merges each
 	// project's KG context into the system prompt.
 	if os.Getenv("AIPACK_KG_DISABLED") != "1" {
 		if taskPacketPath := execution.metadata["task_packet_path"]; taskPacketPath != "" {
+			// Try new format (task.md) first, then fall back to legacy (00-contract.md)
+			taskMdPath := filepath.Join(workingDir, taskPacketPath, "task.md")
 			contractPath := filepath.Join(workingDir, taskPacketPath, "00-contract.md")
-			if relatedPaths := kgclient.ParseRelatedProjects(contractPath); len(relatedPaths) > 0 {
+			taskContractPath := taskMdPath
+			if _, err := os.Stat(taskMdPath); os.IsNotExist(err) {
+				taskContractPath = contractPath
+			}
+			if relatedPaths := kgclient.ParseRelatedProjects(taskContractPath); len(relatedPaths) > 0 {
 				for _, relProject := range relatedPaths {
 					s.ensureKGForProject(relProject)
 					if relBlock := kgclient.PreflightContext(ctx, s.mcpManager, execution.Task, relProject); relBlock != "" {

@@ -176,26 +176,17 @@ Structured templates for organizing work through all phases. Located in `templat
 
 ```mermaid
 flowchart LR
-    A["00-contract.md\nRequirements\nAcceptance criteria"]
-    B["10-plan.md\nApproach\nExecution strategy"]
-    C["20-work-log.md\nProgress\nDecisions"]
-    D["30-review.md\nTester · Reviewer\nassessment"]
-    E["40-acceptance.md\nSign-off\nLessons learned"]
+    A["task.md\nBrief\nAcceptance criteria"]
+    B["result.md\nFindings\nDecisions\nBlockers"]
 
-    A --> B --> C --> D --> E
+    A --> B
 
     style A fill:#3498db,color:#fff
-    style B fill:#3498db,color:#fff
-    style C fill:#3498db,color:#fff
-    style D fill:#e67e22,color:#fff
-    style E fill:#27ae60,color:#fff
+    style B fill:#27ae60,color:#fff
 ```
 
-- **[00-contract.md](templates/task-packet/00-contract.md)** - Task definition and acceptance criteria
-- **[10-plan.md](templates/task-packet/10-plan.md)** - Implementation plan
-- **[20-work-log.md](templates/task-packet/20-work-log.md)** - Execution log and progress tracking
-- **[30-review.md](templates/task-packet/30-review.md)** - Review findings and feedback
-- **[40-acceptance.md](templates/task-packet/40-acceptance.md)** - Sign-off and completion
+- **[task.md](templates/task-packet/task.md)** - Task brief, acceptance criteria, and context (written by orchestrator)
+- **[result.md](templates/task-packet/result.md)** - Findings, decisions, blockers (written by agent on completion)
 
 #### 📦 Task Memory System - Beads Integration
 
@@ -346,11 +337,8 @@ your-project/
 ├── .ai/                             # Local workspace (your project)
 │   ├── tasks/                       # Active task packets (temporary)
 │   │   └── local-20260107090000-feature-x/   # Example task
-│   │       ├── 00-contract.md      # From template
-│   │       ├── 10-plan.md          # From template
-│   │       ├── 20-work-log.md      # From template
-│   │       ├── 30-review.md        # From template
-│   │       └── 40-acceptance.md    # From template
+│   │       ├── task.md             # Brief + acceptance criteria (written by orchestrator)
+│   │       └── result.md           # Findings + decisions (written by agent on completion)
 │   └── repo-overrides.md           # Optional project-specific deltas
 │
 ├── docs/                            # Permanent documentation (committed)
@@ -1300,11 +1288,8 @@ ai-pack/
 │   │   ├── settings.json              # Hook configuration
 │   │   └── README.md                  # Integration docs
 │   └── task-packet/                   # Task packet templates
-│       ├── 00-contract.md             # Task definition
-│       ├── 10-plan.md                 # Implementation plan
-│       ├── 20-work-log.md             # Execution log
-│       ├── 30-review.md               # Review findings
-│       └── 40-acceptance.md           # Completion sign-off
+│       ├── task.md                    # Brief + acceptance criteria
+│       └── result.md                  # Findings + completion record
 │
 └── quality/                           # Quality standards
     └── clean-code/                    # Clean code standards

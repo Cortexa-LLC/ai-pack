@@ -65,7 +65,7 @@ The Engineer is an implementation specialist responsible for executing specific,
 
 **Key Metaphor:** Skilled craftsperson - takes clear specifications, implements with quality, reports progress.
 
-**⚠️ CRITICAL:** All task lifecycle operations MUST use Beads commands. See **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** for mandatory requirements.
+**⚠️ CRITICAL:** All task lifecycle operations MUST use `agent` CLI commands.
 
 **📚 Work Item Patterns:** For guidance on working with Epics, Stories, Tasks, Spikes, and Issues, see **[Work Item Patterns](../docs/WORK-ITEM-PATTERNS.md)**.
 
@@ -120,8 +120,7 @@ Build and query project knowledge using persistent memory:
 BEFORE starting work:
   IF task is non-trivial THEN
     CHECK: Does .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/ exist?
-    CHECK: Does 00-contract.md exist with requirements?
-    CHECK: Does 10-plan.md exist with implementation plan?
+    CHECK: Does task.md exist with requirements?
 
     IF any check fails THEN
       STOP immediately
@@ -143,20 +142,20 @@ END BEFORE
 IF orchestrator assigned task without packet THEN
   "I need a task packet created at .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/
    before I can begin implementation. Please create the task packet
-   infrastructure first with 00-contract.md and 10-plan.md."
+   infrastructure first with a populated task.md."
   WAIT for task packet creation
 END IF
 ```
 
-**Work Log Requirement:**
+**Result File Requirement:**
 ```
 DURING implementation:
-  MUST update 20-work-log.md regularly:
-  - What was implemented
-  - Tests added
-  - Issues encountered
-  - Decisions made
-  - Progress status
+  Update result.md with significant findings and decisions.
+  MUST write result.md on completion with:
+  - What was done
+  - Key decisions made
+  - Any blockers encountered
+  - Final status (COMPLETE | HALTED | FAILED)
 
   IF work log not updated THEN
     violates engineer responsibilities
@@ -254,8 +253,8 @@ docs/
 **Integration with Task Packet:**
 ```
 Task packet (.ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/) contains:
-  - 00-contract.md: Immediate task requirements
-  - 10-plan.md: Implementation approach for this task
+  - task.md: Immediate task requirements and acceptance criteria
+  - result.md: Written by agent on completion (findings, decisions, blockers)
 
 Persisted artifacts (docs/) contain:
   - Long-term product requirements
@@ -309,7 +308,7 @@ This is critical for resumed/retried tasks. Prior runs may have already identifi
 
 #### Step 1b: Cross-project KG orientation (when Related Projects declared)
 
-If the task contract (`00-contract.md`) contains a `Related Projects:` line, those
+If the task contract (`task.md`) contains a `Related Projects:` line, those
 projects have their own KG servers started automatically at agent launch. Query them
 **in addition to** the current project's KG — they often contain the upstream symbols,
 APIs, or data formats that the current project depends on.
@@ -398,13 +397,11 @@ WHY: Future agents investigating related files will find this and skip rediscove
 
 ---
 
-### 0.7 Task Discovery with Beads (WORKFLOW START)
+### 0.7 Task Discovery (WORKFLOW START)
 
-**REQUIREMENT:** Use Beads to find next available work and track progress.
+**REQUIREMENT:** Use the `agent` CLI to find next available work and track progress.
 
-**ENFORCEMENT:** See **[Beads Enforcement Gate](../gates/06-beads-enforcement.md)** for full requirements. All task operations MUST use Beads commands.
-
-**CRITICAL:** Task discovery MUST use `agent list --status queued` command, not manual task selection. See Rule 3 of Beads Enforcement Gate.
+**CRITICAL:** Task discovery MUST use `agent list --status queued` command, not manual task selection.
 
 **Finding Next Task:**
 ```bash
@@ -412,12 +409,12 @@ WHY: Future agents investigating related files will find this and skip rediscove
 agent list --status queued
 
 # Output shows available tasks:
-# bd-a1b2  Implement user authentication     [priority: high]
-# bd-c3d4  Add dark mode toggle              [priority: normal]
-# bd-e5f6  Fix login bug                     [priority: critical]
+# ai-pack-a1b2  Implement user authentication     [priority: high]
+# ai-pack-c3d4  Add dark mode toggle              [priority: normal]
+# ai-pack-e5f6  Fix login bug                     [priority: critical]
 
 # Step 2: Get full task details
-agent show bd-a1b2
+agent show ai-pack-a1b2
 
 # Shows:
 # - Task description
@@ -430,9 +427,8 @@ agent show bd-a1b2
 **Starting Work:**
 ```bash
 # MANDATORY - Mark task as in-progress
-agent update --claim bd-a1b2
+agent update --claim ai-pack-a1b2
 
-# GATE ENFORCEMENT: Work cannot begin without agent update --claim command
 # This signals to Orchestrator and other engineers that you're working on it
 ```
 
@@ -445,17 +441,17 @@ Working directory: $(pwd)
 Task packet: .ai/tasks/$(date +%Y-%m-%d)_password-hashing/
 
 Implement bcrypt password hashing utility with salt generation and verification." \
-  --depends-on bd-a1b2 --json | jq -r '.id')
+  --depends-on ai-pack-a1b2 --json | jq -r '.id')
 
-# If you get blocked - MANDATORY use bd block
-bd block bd-a1b2 "Waiting for API key from DevOps"
-# THEN update work log
-echo "BLOCKER: Waiting for API key" >> .ai/tasks/*/20-work-log.md
+# If you get blocked - update status
+agent update --status blocked ai-pack-a1b2
+# THEN update result.md
+echo "BLOCKER: Waiting for API key" >> .ai/tasks/*/result.md
 
-# When unblocked - MANDATORY use bd unblock
-bd unblock bd-a1b2
-# THEN update work log
-echo "UNBLOCKED: API key received" >> .ai/tasks/*/20-work-log.md
+# When unblocked - update status back to queued
+agent update --status queued ai-pack-a1b2
+# THEN update result.md
+echo "UNBLOCKED: API key received" >> .ai/tasks/*/result.md
 
 # Check what's ready after current task
 agent list --status queued
@@ -464,53 +460,54 @@ agent list --status queued
 **Completing Work:**
 ```bash
 # When task fully implemented and tested
-# MANDATORY - Close in Beads FIRST
-agent close bd-a1b2
+# MANDATORY - Close task FIRST
+agent close ai-pack-a1b2
 
-# THEN update task packet
-echo "✅ Task complete" >> .ai/tasks/*/40-acceptance.md
+# THEN write result.md
+echo "# Result: [task title]" >> .ai/tasks/*/result.md
+echo "" >> .ai/tasks/*/result.md
+echo "**Status:** COMPLETE" >> .ai/tasks/*/result.md
+echo "**Completed:** $(date +%Y-%m-%d)" >> .ai/tasks/*/result.md
 
 # Find next work
 agent list --status queued
 ```
 
-**Beads Workflow Summary:**
+**Workflow Summary:**
 ```
-1. agent list --status queued           → Find next task
-2. agent show <id>       → Review requirements
-3. agent update --claim <id>      → Begin work
-4. [Implement code]   → Do the work
-5. [Run tests]        → Verify quality
-6. agent close <id>      → Mark complete
-7. agent list --status queued           → Find next task
+1. agent list --status queued    → Find next task
+2. agent show <id>               → Review requirements
+3. agent update --claim <id>     → Begin work
+4. [Implement code]              → Do the work
+5. [Run tests]                   → Verify quality
+6. agent close <id>              → Mark complete
+7. agent list --status queued    → Find next task
 ```
 
-**Why Use Beads:**
+**Why Use the agent CLI:**
 - ✅ Tasks persist across AI sessions (no memory loss)
 - ✅ Orchestrator sees your progress in real-time
 - ✅ Dependency tracking prevents working on blocked tasks
 - ✅ Git-backed storage maintains project history
 - ✅ Multi-agent coordination prevents duplicate work
 
-**Reference:** See `quality/tooling/beads-integration.md` for complete guide.
-
 **Special Case: Spawned by Orchestrator**
 
 If you were spawned by the Orchestrator, you'll have a task assigned to you:
 
 ```bash
-# Find your assigned task (documented in work log)
-grep "Task ID:" .ai/tasks/*/20-work-log.md
-# Example output: "Spawned Engineer-1 (Task ID: bd-a1b2)"
+# Find your assigned task (documented in result.md)
+grep "Task ID:" .ai/tasks/*/result.md
+# Example output: "Spawned Engineer-1 (Task ID: ai-pack-a1b2)"
 
 # Update status when encountering issues
-bd block bd-a1b2 "Waiting for API credentials"
+agent update --status blocked ai-pack-a1b2
 
 # Unblock when resolved
-bd unblock bd-a1b2
+agent update --status queued ai-pack-a1b2
 
 # Mark complete when finished
-agent close bd-a1b2
+agent close ai-pack-a1b2
 ```
 
 The Orchestrator monitors these tasks to track your progress, so keeping them updated helps coordination.
@@ -917,12 +914,11 @@ See the [Commit Policy](shared/agent-policy.md#commit-policy) in Agent Policy fo
 
 **Progress Reporting:**
 ```
-Regular updates to work log (.ai/tasks/*/20-work-log.md):
-- What was implemented
-- Tests added/modified
+Update result.md with key decisions and findings as you go:
+- What was implemented (briefly)
+- Key decisions made
 - Issues encountered
-- Decisions made
-- Next steps
+- Blockers (if any)
 ```
 
 ---
@@ -1090,18 +1086,18 @@ WHILE working:
   run tests frequently
   verify changes locally
   check against requirements
-  update progress (work log only - Beads stays "in_progress")
+  update progress (result.md if significant decisions made)
 
   IF stuck THEN
-    # MANDATORY - Block in Beads FIRST
-    bd block <task-id> "Reason for blocker"
-    # THEN document in work log
-    echo "BLOCKER: [reason]" >> .ai/tasks/*/20-work-log.md
+    # MANDATORY - Update status first
+    agent update --status blocked <task-id>
+    # THEN document in result.md
+    echo "BLOCKER: [reason]" >> .ai/tasks/*/result.md
     ask for help
 
     # When unblocked
-    bd unblock <task-id>
-    echo "UNBLOCKED: [resolution]" >> .ai/tasks/*/20-work-log.md
+    agent update --status queued <task-id>
+    echo "UNBLOCKED: [resolution]" >> .ai/tasks/*/result.md
   END IF
 END WHILE
 ```
@@ -1163,22 +1159,22 @@ reassign or escalate.
 
 Do NOT commit. Summarize changed files and write a suggested commit message. The human reviewer owns the commit. See [Commit Policy](shared/agent-policy.md#commit-policy).
 
-**⚠️ CRITICAL: Beads Task Closure (MANDATORY)**
+**⚠️ CRITICAL: Task Closure (MANDATORY)**
 
 ```bash
 # STEP 1: Verify all work complete (checklist above)
 
-# STEP 2: MANDATORY - Close in Beads FIRST
+# STEP 2: MANDATORY - Close task FIRST
 agent close <task-id>
 
-# STEP 3: THEN update acceptance document
-echo "✅ Task complete" >> .ai/tasks/*/40-acceptance.md
-echo "Beads Task: <task-id> [CLOSED]" >> .ai/tasks/*/40-acceptance.md
+# STEP 3: THEN write result.md
+# Use the result.md template from templates/task-packet/result.md
+# Fill in: status, summary, findings, blockers
 
 # STEP 4: Find next work
 agent list --status queued
 
-IF task not closed in Beads THEN
+IF task not closed THEN
   GATE VIOLATION - Work incomplete
   BLOCK acceptance
   REQUIRE: agent close command
@@ -1680,11 +1676,12 @@ Use the dedicated tools instead — they apply `.claudeignore` automatically, sk
 | Read a file | `Read` tool | `Bash(cat ...)` |
 
 Reserve `Bash` for: building, testing, running git commands, and shell operations that have no dedicated tool equivalent.
-- Beads (`bd` command) for persistent task tracking
+- `agent` CLI for persistent task tracking
   - `agent list --status queued` - Find next available task
   - `agent show` - View task details
-  - `agent update --claim/close` - Update task status
-  - `bd block` - Mark task as blocked
+  - `agent update --claim <id>` - Claim a task
+  - `agent update --status blocked <id>` - Mark task as blocked
+  - `agent close <id>` - Mark task complete
   - `agent create` - Create new subtasks
 - AskUserQuestion (when needing clarification)
 
@@ -1694,7 +1691,6 @@ Reserve `Bash` for: building, testing, running git commands, and shell operation
 - [Global Gates](../gates/00-global-gates.md)
 - [Verification Gates](../gates/30-verification.md)
 - [Workflow Guides](../workflows/)
-- [Beads Integration Guide](../quality/tooling/beads-integration.md)
 
 ---
 

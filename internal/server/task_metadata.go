@@ -47,13 +47,8 @@ func (s *AgentServer) createTaskPacketInProject(taskID, role, task string, confi
 		return fmt.Errorf("failed to write metadata: %w", err)
 	}
 
-	// Create plan file
-	planContent := fmt.Sprintf("# Task Plan: %s\n\n**Role**: %s\n**Task**: %s\n**Created**: %s\n\n## Execution Plan\n\n(Agent will populate during execution)\n",
-		taskID, role, task, time.Now().Format(time.RFC3339))
-
-	if err := os.WriteFile(filepath.Join(taskDir, "10-plan.md"), []byte(planContent), 0644); err != nil {
-		return fmt.Errorf("failed to write plan: %w", err)
-	}
+	// No longer create 10-plan.md — agents use task.md (brief) + result.md (findings)
+	// The task.md template is copied by the orchestrator when creating task packets
 
 	monitoring.Logger.Info("task_packet_created", "task_id", taskID, "path", taskDir, "project", projectRoot)
 	return nil
@@ -223,8 +218,12 @@ func (s *AgentServer) buildPrompt(role, task, roleContext string, config *AgentC
 	// If a contract exists, extract its key sections so we can place them prominently.
 	contractSections := ""
 	if taskPacketPath != "" {
+		// Try task.md (new format) first, then fall back to 00-contract.md (legacy)
+		taskMdPath := filepath.Join(workingDir, taskPacketPath, "task.md")
 		contractPath := filepath.Join(workingDir, taskPacketPath, "00-contract.md")
-		if contractData, err := os.ReadFile(contractPath); err == nil {
+		if contractData, err := os.ReadFile(taskMdPath); err == nil {
+			contractSections = extractContractSections(string(contractData))
+		} else if contractData, err := os.ReadFile(contractPath); err == nil {
 			contractSections = extractContractSections(string(contractData))
 		}
 	}
@@ -268,7 +267,7 @@ All file operations (Read, Write, Edit, Glob, Grep, Bash) must be performed rela
 			workingDir)
 
 		if taskPacketPath != "" {
-			prompt += fmt.Sprintf("\n\n**Task Packet:** %s\n\nThe task packet contains: 00-contract.md, 10-plan.md, 20-work-log.md, 30-review.md, 40-acceptance.md.", taskPacketPath)
+			prompt += fmt.Sprintf("\n\n**Task Packet:** %s\n\nThe task packet contains: task.md (brief) + result.md (written by agent on completion).", taskPacketPath)
 		}
 	}
 

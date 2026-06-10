@@ -70,7 +70,7 @@ test structure, logging format. Follow what you find. Deviate only when necessar
 ## Missing Files and Paths
 
 - **1 attempt only.** If a file, directory, or path does not exist after your first attempt, move on immediately.
-- **Never retry variations of a path that returned "not found".** If `.ai/tasks/foo/00-contract.md` doesn't exist, do not try `.ai/tasks/foo/contract.md`, `tasks/foo/00-contract.md`, etc.
+- **Never retry variations of a path that returned "not found".** If `.ai/tasks/foo/task.md` doesn't exist, do not try alternative paths.
 - **Missing context is not a blocker.** Work with what exists.
 
 ## Error Handling

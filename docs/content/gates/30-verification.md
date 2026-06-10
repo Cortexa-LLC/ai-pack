@@ -466,11 +466,11 @@ Commit should include:
 
 **Verification:**
 ```text
-✓ Contract established (00-contract.md)
-✓ Plan documented (10-plan.md)
-✓ Work log updated (20-work-log.md)
-✓ Review completed (30-review.md)
-✓ Acceptance signed off (40-acceptance.md)
+✓ Contract established (task.md)
+✓ Plan documented (task.md)
+✓ Work log updated (result.md)
+✓ Review completed (result.md)
+✓ Acceptance signed off (result.md)
 ```text
 
 **Update Requirements:**

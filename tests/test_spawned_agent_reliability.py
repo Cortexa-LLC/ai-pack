@@ -187,9 +187,9 @@ class TestBackgroundAgentArtifactPersistence(unittest.TestCase):
         task_dir.mkdir(parents=True, exist_ok=True)
 
         expected_deliverables = {
-            "Contract": task_dir / "00-contract.md",
-            "Plan": task_dir / "10-plan.md",
-            "Work Log": task_dir / "20-work-log.md",
+            "Contract": task_dir / "task.md",
+            "Plan": task_dir / "task.md",
+            "Work Log": task_dir / "result.md",
             "Code": self.test_dir / "src" / "feature.py",
             "Tests": self.test_dir / "tests" / "test_feature.py",
         }
@@ -199,8 +199,8 @@ class TestBackgroundAgentArtifactPersistence(unittest.TestCase):
             print(f"   - {name}: {path}")
 
         # Simulate agent creating SOME but not ALL files
-        (task_dir / "00-contract.md").write_text("# Contract")
-        (task_dir / "10-plan.md").write_text("# Plan")
+        (task_dir / "task.md").write_text("# Contract")
+        (task_dir / "task.md").write_text("# Plan")
         # Work log NOT created (simulating failure)
         # Code and Tests NOT created (simulating failure)
 

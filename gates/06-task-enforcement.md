@@ -34,15 +34,17 @@ BEFORE starting ANY task:
 # MANDATORY - Create task in database
 task_id=$(agent create "Implement user authentication" --priority P1 --role engineer --json | jq -r '.task_id')
 
-# MANDATORY - Document in task packet
-echo "**Task ID:** ${task_id}" >> .ai/tasks/${task_id}-20260428090000-auth/00-contract.md
+# Create task packet and fill out task.md
+mkdir -p .ai/tasks/${task_id}-$(date +%Y%m%d%H%M%S)-auth/
+cp .ai-pack/templates/task-packet/task.md .ai/tasks/${task_id}-$(date +%Y%m%d%H%M%S)-auth/
+# ... fill out task.md with actual requirements ...
 
 # Now work can begin
 ```
 
 **Verification:**
 - ✅ `agent list --all` shows the task
-- ✅ Task packet references Task ID
+- ✅ Task packet has populated task.md
 - ✅ `~/.ai-pack/tasks.db` contains task entry
 
 ---
@@ -55,9 +57,9 @@ echo "**Task ID:** ${task_id}" >> .ai/tasks/${task_id}-20260428090000-auth/00-co
 
 | Workflow Event | Required Agent Command | Required Packet Update |
 |----------------|------------------------|------------------------|
-| Starting work | `agent update <id> --status in_progress` | Update 20-work-log.md |
-| Completing task | `agent close <id>` | Update 40-acceptance.md |
-| Partial update | `agent update <id> --result "progress"` | Update 20-work-log.md |
+| Starting work | `agent update --claim <id>` | Begin work on task.md brief |
+| Completing task | `agent close <id>` | Write result.md |
+| Partial update | `agent update <id> --result "progress"` | Note in result.md |
 
 ---
 

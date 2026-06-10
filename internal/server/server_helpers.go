@@ -61,8 +61,12 @@ func (s *AgentServer) findTaskPacketPath(shortID, projectRoot string) string {
 	prefix := shortID + "-"
 	for _, entry := range entries {
 		if entry.IsDir() && strings.HasPrefix(entry.Name(), prefix) {
-			// Verify it has a 00-contract.md file
+			// Verify it has a task.md or 00-contract.md file (new or legacy format)
+			taskMdPath := filepath.Join(tasksDir, entry.Name(), "task.md")
 			contractPath := filepath.Join(tasksDir, entry.Name(), "00-contract.md")
+			if _, err := os.Stat(taskMdPath); err == nil {
+				return filepath.Join(constants.TaskRootDir, "tasks", entry.Name())
+			}
 			if _, err := os.Stat(contractPath); err == nil {
 				return filepath.Join(constants.TaskRootDir, "tasks", entry.Name())
 			}
@@ -71,12 +75,18 @@ func (s *AgentServer) findTaskPacketPath(shortID, projectRoot string) string {
 	return ""
 }
 
-// readTaskDescriptionFromContract reads the task description from 00-contract.md
+// readTaskDescriptionFromContract reads the task description from task.md (or legacy 00-contract.md)
 func (s *AgentServer) readTaskDescriptionFromContract(taskPacketPath, projectRoot string) string {
+	// Try new format first (task.md), then fall back to legacy (00-contract.md)
+	taskMdPath := filepath.Join(projectRoot, taskPacketPath, "task.md")
 	contractPath := filepath.Join(projectRoot, taskPacketPath, "00-contract.md")
-	data, err := os.ReadFile(contractPath)
-	if err != nil {
-		return ""
+
+	var data []byte
+	var err error
+	if data, err = os.ReadFile(taskMdPath); err != nil {
+		if data, err = os.ReadFile(contractPath); err != nil {
+			return ""
+		}
 	}
 
 	// Parse the "## Task Description" section
@@ -122,7 +132,7 @@ func (s *AgentServer) readTaskDescriptionFromContract(taskPacketPath, projectRoo
 	return desc
 }
 
-// applyTaskContractOverrides reads 00-contract.md from the task packet directory
+// applyTaskContractOverrides reads task.md (or legacy 00-contract.md) from the task packet directory
 // and applies any Model, Timeout, MaxBudgetTokens, or MaxTurns overrides found there,
 // allowing individual tasks to redirect to a different model or adjust limits
 // without permanently modifying the role.
@@ -134,10 +144,18 @@ func applyTaskContractOverrides(config *AgentConfig, taskPacketPath, projectRoot
 	if taskPacketPath == "" || projectRoot == "" {
 		return
 	}
+	// Try new format (task.md) then fall back to legacy (00-contract.md)
+	taskMdPath := filepath.Join(projectRoot, taskPacketPath, "task.md")
 	contractPath := filepath.Join(projectRoot, taskPacketPath, "00-contract.md")
-	data, err := os.ReadFile(contractPath)
-	if err != nil {
-		return // contract absent or unreadable — not an error
+	var data []byte
+	var err error
+	var resolvedPath string
+	if data, err = os.ReadFile(taskMdPath); err == nil {
+		resolvedPath = taskMdPath
+	} else if data, err = os.ReadFile(contractPath); err == nil {
+		resolvedPath = contractPath
+	} else {
+		return // neither present — not an error
 	}
 
 	for _, line := range strings.Split(string(data), "\n") {
@@ -160,7 +178,7 @@ func applyTaskContractOverrides(config *AgentConfig, taskPacketPath, projectRoot
 					"field", "Model",
 					"role_value", config.Model,
 					"contract_value", value,
-					"contract", contractPath,
+					"contract", resolvedPath,
 				)
 				config.Model = value
 			}
@@ -170,7 +188,7 @@ func applyTaskContractOverrides(config *AgentConfig, taskPacketPath, projectRoot
 					"field", "Timeout",
 					"role_value", config.Delegation.Timeout,
 					"contract_value", value,
-					"contract", contractPath,
+					"contract", resolvedPath,
 				)
 				config.Delegation.Timeout = value
 			}
@@ -181,7 +199,7 @@ func applyTaskContractOverrides(config *AgentConfig, taskPacketPath, projectRoot
 					"field", "MaxBudgetTokens",
 					"role_value", config.Delegation.MaxBudgetTokens,
 					"contract_value", v,
-					"contract", contractPath,
+					"contract", resolvedPath,
 				)
 				config.Delegation.MaxBudgetTokens = v
 			}
@@ -192,7 +210,7 @@ func applyTaskContractOverrides(config *AgentConfig, taskPacketPath, projectRoot
 					"field", "MaxTurns",
 					"role_value", config.Delegation.MaxTurns,
 					"contract_value", v,
-					"contract", contractPath,
+					"contract", resolvedPath,
 				)
 				config.Delegation.MaxTurns = v
 			}

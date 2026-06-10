@@ -73,7 +73,7 @@ Create a contract that would cause an agent to perform an excessively long opera
         contract_dir.mkdir(parents=True, exist_ok=True)
 
         # Create timeout-inducing contract
-        contract = contract_dir / "00-contract.md"
+        contract = contract_dir / "task.md"
         contract.write_text(f"""# Engineer Contract: Timeout Test
 
 **Agent Role:** Engineer
@@ -180,7 +180,7 @@ Monitor for progress updates throughout execution.
         contract_dir = test_dir / "contract"
         contract_dir.mkdir(parents=True, exist_ok=True)
 
-        contract = contract_dir / "00-contract.md"
+        contract = contract_dir / "task.md"
         contract.write_text(f"""# Engineer Contract: Progress Monitoring Test
 
 **Agent Role:** Engineer
@@ -293,7 +293,7 @@ Contract tries to write to a protected directory
         scenario1 = scenarios_dir / "scenario-1-invalid-path"
         scenario1.mkdir(parents=True, exist_ok=True)
 
-        contract1 = scenario1 / "00-contract.md"
+        contract1 = scenario1 / "task.md"
         contract1.write_text("""# Engineer Contract: Invalid Path Test
 
 **Agent Role:** Engineer
@@ -328,7 +328,7 @@ Agent should NOT claim success.
         scenario2 = scenarios_dir / "scenario-2-missing-dependency"
         scenario2.mkdir(parents=True, exist_ok=True)
 
-        contract2 = scenario2 / "00-contract.md"
+        contract2 = scenario2 / "task.md"
         contract2.write_text(f"""# Engineer Contract: Missing Dependency Test
 
 **Agent Role:** Engineer
@@ -425,7 +425,7 @@ Validate that agents properly clean up resources when terminated or failed.
         contract_dir = test_dir / "contract"
         contract_dir.mkdir(parents=True, exist_ok=True)
 
-        contract = contract_dir / "00-contract.md"
+        contract = contract_dir / "task.md"
         contract.write_text(f"""# Engineer Contract: Resource Cleanup Test
 
 **Agent Role:** Engineer

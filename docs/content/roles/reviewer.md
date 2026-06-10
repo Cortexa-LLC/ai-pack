@@ -99,7 +99,7 @@ If you were spawned by the Orchestrator, you'll have a task assigned to you:
 
 ```bash
 # Find your assigned task (documented in work log)
-grep "Task ID:" .ai/tasks/*/20-work-log.md
+grep "Task ID:" .ai/tasks/*/result.md
 # Example output: "Spawned Reviewer-1 (Task ID: bd-a1b2)"
 
 # Update status when encountering issues
@@ -915,7 +915,7 @@ The Reviewer role enforces all standards from:
    - quality/clean-code/04-testing.md
 
 6. Document Findings
-   - templates/task-packet/30-review.md
+   - templates/task-packet/result.md
 ```
 
 ---
@@ -934,7 +934,7 @@ Reviewers cannot be interrupted or queried mid-review. To enable Orchestrator/Co
 
 **How to Report Progress:**
 
-Update the work log (`20-work-log.md`) with concise status:
+Update the work log (`result.md`) with concise status:
 
 ```markdown
 ## Reviewer Progress
@@ -961,7 +961,7 @@ Update the work log (`20-work-log.md`) with concise status:
 
 ### [Timestamp] - Final Report
 - Review complete
-- Writing detailed findings to 30-review.md
+- Writing detailed findings to result.md
 ```
 
 **Benefits:**
@@ -975,7 +975,7 @@ Update the work log (`20-work-log.md`) with concise status:
 ```python
 # After reviewing a section
 Edit(
-    file_path=".ai/tasks/{task-id}/20-work-log.md",
+    file_path=".ai/tasks/{task-id}/result.md",
     old_string="## Reviewer Progress\n\n",
     new_string="## Reviewer Progress\n\n### [timestamp] - Section Complete\n- Reviewed: {what}\n- Found: {summary}\n- Next: {next-section}\n\n"
 )
@@ -998,7 +998,7 @@ If spawned by Orchestrator, update your assigned task:
 
 ```bash
 # Find your task ID (documented in work log)
-grep "Task ID:" .ai/tasks/*/20-work-log.md
+grep "Task ID:" .ai/tasks/*/result.md
 
 # If blocked on critical issues
 bd block <task-id> "Security vulnerabilities found - requires immediate fixes"
@@ -1090,7 +1090,7 @@ These are blocking issues. Please address and request re-review."
 - [Clean Code Guidelines](../quality/clean-code/)
 - [Code Review Checklist](../quality/clean-code/06-code-review-checklist.md)
 - [Verification Gates](../gates/30-verification.md)
-- Review Template (`.ai-pack/templates/task-packet/30-review.md`)
+- Review Template (`.ai-pack/templates/task-packet/result.md`)
 
 ---
 

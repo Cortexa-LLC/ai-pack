@@ -114,7 +114,7 @@ Gate 05 enforces Lean Flow principles from "Accelerate" (Gene Kim, Jez Humble, N
    Recommended limit: ≤14 files
 
    This batch is larger than ideal. You MUST:
-   ✅ Documented decomposition consideration in 00-contract.md
+   ✅ Documented decomposition consideration in task.md
    ✅ Explained why not decomposed further
    ✅ Created contingency plan for token limit issues
 
@@ -139,7 +139,7 @@ Gate 05 enforces Lean Flow principles from "Accelerate" (Gene Kim, Jez Humble, N
    Recommended limit: ≤14 files per task packet
 
    This batch is larger than ideal. While not blocking, you MUST:
-   1. Document decomposition consideration in 10-plan.md
+   1. Document decomposition consideration in task.md
    2. Explain why not decomposed further
    3. Create contingency plan for token limit issues
 
@@ -173,7 +173,7 @@ Gate 05 enforces Lean Flow principles from "Accelerate" (Gene Kim, Jez Humble, N
    REQUIRED ACTION:
    1. Decompose task into smaller batches (≤14 files each)
    2. Create separate task packets for each batch
-   3. Document dependencies in 10-plan.md
+   3. Document dependencies in task.md
    4. Sequence work appropriately
 
    EXAMPLE DECOMPOSITION:
@@ -493,14 +493,14 @@ Status: IDEAL batch size
 **6-14 files:**
 ```
 ⚠️ WARN but PASS
-Requires: Justification in 00-contract.md
+Requires: Justification in task.md
 Status: ACCEPTABLE with plan
 ```
 
 **15-26 files:**
 ```
 ⚠️ WARN strongly
-Requires: Decomposition plan in 10-plan.md
+Requires: Decomposition plan in task.md
 Status: CONDITIONAL PASS
 ```
 
@@ -772,7 +772,7 @@ Target: >95%
 
 **Related Documentation:**
 - `roles/orchestrator.md` - Section on task decomposition
-- `templates/task-packet/00-contract.md` - Lean Flow Analysis section
+- `templates/task-packet/task.md` - Lean Flow Analysis section
 
 ---
 

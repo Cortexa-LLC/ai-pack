@@ -159,7 +159,7 @@ Each agent reads previous outputs before creating new deliverables.
             stage_dir = stages_dir / stage["id"]
             stage_dir.mkdir(parents=True, exist_ok=True)
 
-            contract = stage_dir / "00-contract.md"
+            contract = stage_dir / "task.md"
 
             # Build inputs section
             inputs_section = ""
@@ -408,12 +408,12 @@ This test validates a 5-stage sequential workflow where each agent reads previou
 
 ### Stage 1: PRD Agent
 
-**Contract:** `stages/stage-1-prd/00-contract.md`
+**Contract:** `stages/stage-1-prd/task.md`
 
 **In Claude Code:**
 ```
 Spawn a PRD agent to create requirements.md for the User Profile Management System.
-Use contract at: {test_dir.absolute()}/stages/stage-1-prd/00-contract.md
+Use contract at: {test_dir.absolute()}/stages/stage-1-prd/task.md
 ```
 
 **Wait for completion notification**, then verify:
@@ -425,14 +425,14 @@ ls -lh output/requirements.md
 
 ### Stage 2: Architect Agent
 
-**Contract:** `stages/stage-2-architect/00-contract.md`
+**Contract:** `stages/stage-2-architect/task.md`
 
 **IMPORTANT:** Only start after Stage 1 completes!
 
 **In Claude Code:**
 ```
 Spawn an Architect agent to create architecture.md based on requirements.md.
-Use contract at: {test_dir.absolute()}/stages/stage-2-architect/00-contract.md
+Use contract at: {test_dir.absolute()}/stages/stage-2-architect/task.md
 ```
 
 **Wait for completion notification**, then verify:
@@ -444,14 +444,14 @@ ls -lh output/architecture.md
 
 ### Stage 3: Engineer Agent
 
-**Contract:** `stages/stage-3-engineer/00-contract.md`
+**Contract:** `stages/stage-3-engineer/task.md`
 
 **IMPORTANT:** Only start after Stage 2 completes!
 
 **In Claude Code:**
 ```
 Spawn an Engineer agent to implement the user profile system.
-Use contract at: {test_dir.absolute()}/stages/stage-3-engineer/00-contract.md
+Use contract at: {test_dir.absolute()}/stages/stage-3-engineer/task.md
 ```
 
 **Wait for completion notification**, then verify:
@@ -464,14 +464,14 @@ ls -lh output/tests/
 
 ### Stage 4: Reviewer Agent
 
-**Contract:** `stages/stage-4-reviewer/00-contract.md`
+**Contract:** `stages/stage-4-reviewer/task.md`
 
 **IMPORTANT:** Only start after Stage 3 completes!
 
 **In Claude Code:**
 ```
 Spawn a Reviewer agent to review the implementation.
-Use contract at: {test_dir.absolute()}/stages/stage-4-reviewer/00-contract.md
+Use contract at: {test_dir.absolute()}/stages/stage-4-reviewer/task.md
 ```
 
 **Wait for completion notification**, then verify:
@@ -483,14 +483,14 @@ ls -lh output/review.md
 
 ### Stage 5: Tester Agent
 
-**Contract:** `stages/stage-5-tester/00-contract.md`
+**Contract:** `stages/stage-5-tester/task.md`
 
 **IMPORTANT:** Only start after Stage 4 completes!
 
 **In Claude Code:**
 ```
 Spawn a Tester agent to validate the complete implementation.
-Use contract at: {test_dir.absolute()}/stages/stage-5-tester/00-contract.md
+Use contract at: {test_dir.absolute()}/stages/stage-5-tester/task.md
 ```
 
 **Wait for completion notification**, then verify:

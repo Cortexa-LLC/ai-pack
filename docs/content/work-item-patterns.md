@@ -105,9 +105,9 @@ epics:
 Epic-level task packet (optional):
 ```
 .ai/tasks/local-20260118090000-user-authentication-system/
-├── 00-contract.md         # Epic scope and acceptance criteria
-├── 10-plan.md             # Epic breakdown and architecture
-└── 20-work-log.md         # Epic-level progress tracking
+├── task.md         # Epic scope and acceptance criteria
+├── task.md             # Epic breakdown and architecture
+└── result.md         # Epic-level progress tracking
 ```
 
 **Best Practice:** Create task packets for Stories, not for the Epic itself. Epic serves as organizational container.
@@ -166,11 +166,11 @@ python3 scripts/github-integration.py export
 
 ```
 .ai/tasks/local-20260118090000-implement-jwt-tokens/
-├── 00-contract.md         # Requirements, acceptance criteria
-├── 10-plan.md             # Implementation approach
-├── 20-work-log.md         # Daily progress updates
-├── 30-review.md           # Tester/Reviewer feedback
-└── 40-acceptance.md       # Final sign-off
+├── task.md         # Requirements, acceptance criteria
+├── task.md             # Implementation approach
+├── result.md         # Daily progress updates
+├── result.md           # Tester/Reviewer feedback
+└── result.md       # Final sign-off
 ```
 
 **Create with:**
@@ -244,7 +244,7 @@ agent create "Write token tests" --depends-on ${story_id}
 Tasks typically don't get separate task packets. They're tracked within the Story's task packet:
 
 ```markdown
-## 20-work-log.md
+## result.md
 
 ### 2026-01-18 10:00 - Token Generation Function
 
@@ -382,11 +382,11 @@ Use **bugfix workflow**:
 
 ```
 .ai/tasks/local-20260118090000-fix-login-special-chars/
-├── 00-contract.md         # Bug description, reproduction steps
-├── 10-plan.md             # Investigation and fix approach
-├── 20-work-log.md         # Investigation notes, fix implementation
-├── 30-review.md           # Regression testing verification
-└── 40-acceptance.md       # Bug verified fixed
+├── task.md         # Bug description, reproduction steps
+├── task.md             # Investigation and fix approach
+├── result.md         # Investigation notes, fix implementation
+├── result.md           # Regression testing verification
+└── result.md       # Bug verified fixed
 ```
 
 **Create with:**
@@ -666,7 +666,7 @@ agent close bd-x1y2
 ```bash
 /ai-pack test
 # Reviews test coverage, TDD compliance
-# Updates .ai/tasks/.../30-review.md
+# Updates .ai/tasks/.../result.md
 ```
 
 ### 4. Reviewer: Code Review
@@ -674,14 +674,14 @@ agent close bd-x1y2
 ```bash
 /ai-pack review
 # Reviews code quality, standards compliance
-# Updates .ai/tasks/.../30-review.md
+# Updates .ai/tasks/.../result.md
 ```
 
 ### 5. Complete Story
 
 ```bash
 # Sign off in acceptance document
-# .ai/tasks/.../40-acceptance.md
+# .ai/tasks/.../result.md
 ```
 
 **GitHub:**

@@ -52,7 +52,7 @@ IF file_count > 26 THEN
 
 ELSE IF file_count > 14 THEN
   WARN: "Task large (${file_count} files)"
-  REQUIRE: Document decomposition plan in 10-plan.md
+  REQUIRE: Document decomposition plan in task.md
   STATUS: CONDITIONAL PASS with plan
 
 ELSE
@@ -77,7 +77,7 @@ Large batches cause token limit failures, as seen in:
 REQUIRED ACTION:
 1. Decompose task into smaller batches (≤14 files each)
 2. Create separate task packets for each batch
-3. Document dependencies in 10-plan.md
+3. Document dependencies in task.md
 4. Sequence work appropriately
 
 EXAMPLE:
@@ -101,7 +101,7 @@ Estimated files: ${file_count} files
 Recommended limit: ≤14 files per task packet
 
 This batch is larger than ideal. While not blocking, you MUST:
-1. Document decomposition consideration in 10-plan.md
+1. Document decomposition consideration in task.md
 2. Explain why not decomposed further
 3. Create contingency plan for token limit issues
 

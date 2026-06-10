@@ -3,11 +3,11 @@
 Task Packet Lifecycle Tests
 
 Tests that task packets follow the proper lifecycle:
-- Contract creation (00-contract.md)
-- Plan documentation (10-plan.md)
-- Work log updates (20-work-log.md)
-- Review documentation (30-review.md)
-- Acceptance sign-off (40-acceptance.md)
+- Contract creation (task.md)
+- Plan documentation (task.md)
+- Work log updates (result.md)
+- Review documentation (result.md)
+- Acceptance sign-off (result.md)
 - Proper directory structure (.ai/tasks/<beads-id>-<YYYYMMDDHHMMSS>-<short-desc>/)
 - Cross-references between files
 
@@ -99,12 +99,12 @@ class TestTaskPacketStructure(unittest.TestCase):
         print(f"✅ Task packet in correct location: .ai/tasks/")
 
     def test_03_contract_file_created(self):
-        """Test: 00-contract.md file exists"""
+        """Test: task.md file exists"""
         print("\n" + "="*70)
         print("TASK PACKET TEST 3: Contract File")
         print("="*70)
 
-        contract_file = self.task_packet_dir / "00-contract.md"
+        contract_file = self.task_packet_dir / "task.md"
 
         # Create contract
         contract_file.write_text(f"""# Task Contract
@@ -134,12 +134,12 @@ Test that task packet lifecycle works correctly.
         print(f"✅ Contract created: {contract_file}")
 
     def test_04_plan_file_created(self):
-        """Test: 10-plan.md file exists"""
+        """Test: task.md file exists"""
         print("\n" + "="*70)
         print("TASK PACKET TEST 4: Plan File")
         print("="*70)
 
-        plan_file = self.task_packet_dir / "10-plan.md"
+        plan_file = self.task_packet_dir / "task.md"
 
         # Create plan
         plan_file.write_text(f"""# Implementation Plan
@@ -155,14 +155,14 @@ Test-driven development:
 5. Write test for acceptance
 
 ## Steps
-1. Create 00-contract.md
-2. Create 10-plan.md (this file)
-3. Create 20-work-log.md
-4. Create 30-review.md
-5. Create 40-acceptance.md
+1. Create task.md
+2. Create task.md (this file)
+3. Create result.md
+4. Create result.md
+5. Create result.md
 
 ## References
-- Contract: [00-contract.md](00-contract.md)
+- Contract: [task.md](task.md)
 """)
 
         self.assertTrue(
@@ -173,7 +173,7 @@ Test-driven development:
         # Verify cross-reference to contract
         content = plan_file.read_text()
         self.assertIn(
-            "00-contract.md",
+            "task.md",
             content,
             "❌ Plan doesn't reference contract"
         )
@@ -182,12 +182,12 @@ Test-driven development:
         print("✅ Plan references contract")
 
     def test_05_work_log_file_created(self):
-        """Test: 20-work-log.md file exists"""
+        """Test: result.md file exists"""
         print("\n" + "="*70)
         print("TASK PACKET TEST 5: Work Log File")
         print("="*70)
 
-        work_log_file = self.task_packet_dir / "20-work-log.md"
+        work_log_file = self.task_packet_dir / "result.md"
 
         # Create work log
         work_log_file.write_text(f"""# Work Log
@@ -195,8 +195,8 @@ Test-driven development:
 ## Session {datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 ### Completed
-- ✅ Created contract (00-contract.md)
-- ✅ Created plan (10-plan.md)
+- ✅ Created contract (task.md)
+- ✅ Created plan (task.md)
 - ✅ Created work log (this file)
 
 ### In Progress
@@ -207,7 +207,7 @@ Test-driven development:
 - Create acceptance document
 
 ### References
-- Plan: [10-plan.md](10-plan.md)
+- Plan: [task.md](task.md)
 """)
 
         self.assertTrue(
@@ -218,7 +218,7 @@ Test-driven development:
         # Verify references
         content = work_log_file.read_text()
         self.assertIn(
-            "10-plan.md",
+            "task.md",
             content,
             "❌ Work log doesn't reference plan"
         )
@@ -267,7 +267,7 @@ class TestTaskPacketLifecycle(unittest.TestCase):
 
         # Phase 1: Contract
         print("\nPhase 1: Contract Creation")
-        contract = self.task_packet_dir / "00-contract.md"
+        contract = self.task_packet_dir / "task.md"
         contract.write_text("""# Task Contract
 
 **Task:** Implement User Login
@@ -290,7 +290,7 @@ Implement secure user login functionality.
 
         # Phase 2: Plan
         print("\nPhase 2: Plan Documentation")
-        plan = self.task_packet_dir / "10-plan.md"
+        plan = self.task_packet_dir / "task.md"
         plan.write_text("""# Implementation Plan
 
 ## Approach
@@ -309,17 +309,17 @@ Test-driven development with RED-GREEN-REFACTOR.
 - Express.js middleware for auth
 
 ## References
-- Contract: [00-contract.md](00-contract.md)
+- Contract: [task.md](task.md)
 """)
         print(f"  ✅ Plan created")
 
         # Verify cross-reference
-        self.assertIn("00-contract.md", plan.read_text())
+        self.assertIn("task.md", plan.read_text())
         print("  ✅ Plan references contract")
 
         # Phase 3: Work Log
         print("\nPhase 3: Work Log Updates")
-        work_log = self.task_packet_dir / "20-work-log.md"
+        work_log = self.task_packet_dir / "result.md"
         work_log.write_text(f"""# Work Log
 
 ## Session {datetime.now().strftime("%Y-%m-%d %H:%M")}
@@ -344,17 +344,17 @@ Test-driven development with RED-GREEN-REFACTOR.
 - Ready for review
 
 ### References
-- Plan: [10-plan.md](10-plan.md)
+- Plan: [task.md](task.md)
 """)
         print(f"  ✅ Work log created")
 
         # Verify cross-reference
-        self.assertIn("10-plan.md", work_log.read_text())
+        self.assertIn("task.md", work_log.read_text())
         print("  ✅ Work log references plan")
 
         # Phase 4: Review
         print("\nPhase 4: Review Documentation")
-        review = self.task_packet_dir / "30-review.md"
+        review = self.task_packet_dir / "result.md"
         review.write_text(f"""# Review
 
 **Date:** {datetime.now().strftime("%Y-%m-%d %H:%M")}
@@ -382,20 +382,20 @@ Test-driven development with RED-GREEN-REFACTOR.
 ✅ **APPROVED** - Ready for acceptance
 
 ### References
-- Work Log: [20-work-log.md](20-work-log.md)
+- Work Log: [result.md](result.md)
 """)
         print(f"  ✅ Review created")
 
         # Verify verdicts
         content = review.read_text()
         self.assertIn("APPROVED", content)
-        self.assertIn("20-work-log.md", content)
+        self.assertIn("result.md", content)
         print("  ✅ Review contains verdicts")
         print("  ✅ Review references work log")
 
         # Phase 5: Acceptance
         print("\nPhase 5: Acceptance Sign-off")
-        acceptance = self.task_packet_dir / "40-acceptance.md"
+        acceptance = self.task_packet_dir / "result.md"
         acceptance.write_text(f"""# Acceptance
 
 **Date:** {datetime.now().strftime("%Y-%m-%d %H:%M")}
@@ -429,16 +429,16 @@ None - All requirements met as specified
 **Date:** {datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 ### References
-- Contract: [00-contract.md](00-contract.md)
-- Review: [30-review.md](30-review.md)
+- Contract: [task.md](task.md)
+- Review: [result.md](result.md)
 """)
         print(f"  ✅ Acceptance created")
 
         # Verify sign-off
         content = acceptance.read_text()
         self.assertIn("ACCEPTED", content)
-        self.assertIn("00-contract.md", content)
-        self.assertIn("30-review.md", content)
+        self.assertIn("task.md", content)
+        self.assertIn("result.md", content)
         print("  ✅ Acceptance contains sign-off")
         print("  ✅ Acceptance references contract and review")
 
@@ -486,11 +486,11 @@ class TestTaskPacketCrossReferences(unittest.TestCase):
         cls.task_packet_dir.mkdir(parents=True, exist_ok=True)
 
         # Create all files
-        (cls.task_packet_dir / "00-contract.md").write_text("# Contract\n")
-        (cls.task_packet_dir / "10-plan.md").write_text("# Plan\n[Contract](00-contract.md)\n")
-        (cls.task_packet_dir / "20-work-log.md").write_text("# Work Log\n[Plan](10-plan.md)\n")
-        (cls.task_packet_dir / "30-review.md").write_text("# Review\n[Work Log](20-work-log.md)\n")
-        (cls.task_packet_dir / "40-acceptance.md").write_text("# Acceptance\n[Contract](00-contract.md)\n[Review](30-review.md)\n")
+        (cls.task_packet_dir / "task.md").write_text("# Contract\n")
+        (cls.task_packet_dir / "task.md").write_text("# Plan\n[Contract](task.md)\n")
+        (cls.task_packet_dir / "result.md").write_text("# Work Log\n[Plan](task.md)\n")
+        (cls.task_packet_dir / "result.md").write_text("# Review\n[Work Log](result.md)\n")
+        (cls.task_packet_dir / "result.md").write_text("# Acceptance\n[Contract](task.md)\n[Review](result.md)\n")
 
     @classmethod
     def tearDownClass(cls):
@@ -505,11 +505,11 @@ class TestTaskPacketCrossReferences(unittest.TestCase):
         print("CROSS-REFERENCE TEST 1: Plan → Contract")
         print("="*70)
 
-        plan = self.task_packet_dir / "10-plan.md"
+        plan = self.task_packet_dir / "task.md"
         content = plan.read_text()
 
         self.assertIn(
-            "00-contract.md",
+            "task.md",
             content,
             "❌ Plan doesn't reference contract"
         )
@@ -522,11 +522,11 @@ class TestTaskPacketCrossReferences(unittest.TestCase):
         print("CROSS-REFERENCE TEST 2: Work Log → Plan")
         print("="*70)
 
-        work_log = self.task_packet_dir / "20-work-log.md"
+        work_log = self.task_packet_dir / "result.md"
         content = work_log.read_text()
 
         self.assertIn(
-            "10-plan.md",
+            "task.md",
             content,
             "❌ Work log doesn't reference plan"
         )
@@ -539,11 +539,11 @@ class TestTaskPacketCrossReferences(unittest.TestCase):
         print("CROSS-REFERENCE TEST 3: Review → Work Log")
         print("="*70)
 
-        review = self.task_packet_dir / "30-review.md"
+        review = self.task_packet_dir / "result.md"
         content = review.read_text()
 
         self.assertIn(
-            "20-work-log.md",
+            "result.md",
             content,
             "❌ Review doesn't reference work log"
         )
@@ -556,17 +556,17 @@ class TestTaskPacketCrossReferences(unittest.TestCase):
         print("CROSS-REFERENCE TEST 4: Acceptance → Contract + Review")
         print("="*70)
 
-        acceptance = self.task_packet_dir / "40-acceptance.md"
+        acceptance = self.task_packet_dir / "result.md"
         content = acceptance.read_text()
 
         self.assertIn(
-            "00-contract.md",
+            "task.md",
             content,
             "❌ Acceptance doesn't reference contract"
         )
 
         self.assertIn(
-            "30-review.md",
+            "result.md",
             content,
             "❌ Acceptance doesn't reference review"
         )

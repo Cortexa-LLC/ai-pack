@@ -105,7 +105,7 @@ PROCEDURE delegate_to_tester:
       prompt="You are the Tester role from .ai-pack/roles/tester.md.
               Validate TDD compliance and test sufficiency for this work package.
               Focus areas: ${focus_areas}
-              Report findings in .ai/tasks/${task_id}/30-review.md"
+              Report findings in .ai/tasks/${task_id}/result.md"
     )
 
   STEP 3: Wait for Tester validation
@@ -144,7 +144,7 @@ PROCEDURE delegate_to_reviewer:
       prompt="You are the Reviewer role from .ai-pack/roles/reviewer.md.
               Review code quality and standards compliance for this work package.
               Focus areas: ${focus_areas}
-              Report findings in .ai/tasks/${task_id}/30-review.md"
+              Report findings in .ai/tasks/${task_id}/result.md"
     )
 
   STEP 3: Wait for Reviewer validation
@@ -556,7 +556,7 @@ These don't block approval - excellent work!"
 
 All review findings MUST be documented in:
 ```text
-.ai/tasks/${task_id}/30-review.md
+.ai/tasks/${task_id}/result.md
 ```text
 
 **Required Sections:**
@@ -623,21 +623,21 @@ Before marking work complete, verify:
 □ Code changes identified
 □ Tester agent delegated (if code changes present)
 □ Tester validation completed
-□ Tester verdict documented in 30-review.md
+□ Tester verdict documented in result.md
 □ Test issues resolved (if any Critical/Major found)
 □ Tester re-validation completed (if issues found)
 □ Tester final verdict: APPROVED
 
 □ Reviewer agent delegated (if code changes present)
 □ Reviewer validation completed
-□ Reviewer verdict documented in 30-review.md
+□ Reviewer verdict documented in result.md
 □ Code issues resolved (if any Critical/Major found)
 □ Reviewer re-validation completed (if issues found)
 □ Reviewer final verdict: APPROVED
 
 □ Both validations: APPROVED
 □ All blocking issues resolved
-□ Work packet 30-review.md complete
+□ Work packet result.md complete
 □ Ready for acceptance sign-off
 
 IF all checked THEN
@@ -686,7 +686,7 @@ Review performed but findings not documented properly
 
 Response:
 - GATE VIOLATION: "Code Quality Review Gate - Review documentation insufficient"
-- REQUIRE: Complete review documentation in 30-review.md
+- REQUIRE: Complete review documentation in result.md
 - REQUIRE: Clear verdict from both Tester and Reviewer
 ```text
 

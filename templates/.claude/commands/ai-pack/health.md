@@ -46,7 +46,7 @@ test -f .claude/.coordination-checkpoint && echo "OK" || echo "MISSING"
 # Last update time
 stat .claude/.coordination-checkpoint
 
-# Agent status (via Beads)
+# Agent status (via agent CLI)
 /ai-pack agents
 # OR
 agent list --json | jq '.[] | select(.title | startswith("Agent:"))'
@@ -128,7 +128,7 @@ grep -r "Orchestrator\|Coordinator\|Engineer" .ai/tasks/*/20-work-log.md
 
 **Verifies:**
 ```bash
-# Agent status (via Beads)
+# Agent status (via agent CLI)
 agent list --assignee "Engineer-*" --json
 # OR
 /ai-pack agents

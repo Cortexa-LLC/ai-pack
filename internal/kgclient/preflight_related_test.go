@@ -48,9 +48,9 @@ func TestParseRelatedProjects(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// Write to a temp file
+			// Write to a temp file (using task.md format)
 			dir := t.TempDir()
-			path := filepath.Join(dir, "00-contract.md")
+			path := filepath.Join(dir, "task.md")
 			if err := os.WriteFile(path, []byte(tc.content), 0o644); err != nil {
 				t.Fatalf("failed to write temp file: %v", err)
 			}
@@ -72,7 +72,7 @@ func TestParseRelatedProjects(t *testing.T) {
 
 func TestParseRelatedProjectsMissingFile(t *testing.T) {
 	// Should return nil gracefully, not panic.
-	result := ParseRelatedProjects("/nonexistent/path/00-contract.md")
+	result := ParseRelatedProjects("/nonexistent/path/task.md")
 	if result != nil {
 		t.Errorf("expected nil for missing file, got %v", result)
 	}
