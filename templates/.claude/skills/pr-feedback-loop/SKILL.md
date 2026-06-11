@@ -1,18 +1,11 @@
 ---
-name: shepherd-pr
+name: pr-feedback-loop
 description: >
-  Drive an open GitHub PR to merge-ready state by spawning the pr-shepherd agent.
-  Handles CI failures, reviewer threads, and iterates until the PR is approved and
-  all checks pass. Use when a PR needs to be nursed to a green, mergeable state
-  without manual intervention.
-  <example>shepherd PR #42 to merge-ready</example>
-  <example>drive my PR to green</example>
-  <example>fix the CI failures and reviewer comments on PR #15</example>
-  <example>shepherd the current branch's PR until it's approved</example>
-  <example>get my pull request merge-ready</example>
+  Drive the full PR feedback loop — fix threads directly in the branch, push,
+  wait for CI/automated reviewer, repeat until APPROVED with zero open conversations.
 ---
 
-# Shepherd PR
+# PR Feedback Loop
 
 Automates the cycle: **check state → fix threads → fix CI → push → reply + resolve →
 schedule wakeup → repeat** until APPROVED with zero open conversations.
@@ -28,8 +21,8 @@ its verdict via the GitHub Checks API. **No manual reviewer agent is needed.**
 ## Usage
 
 ```
-/ai-pack:shepherd-pr [PR_NUMBER]
-/ai-pack:shepherd-pr [PR_NUMBER] iter=N
+/pr-feedback-loop [PR_NUMBER]
+/pr-feedback-loop [PR_NUMBER] iter=N
 ```
 
 If `PR_NUMBER` is omitted, auto-detect from the current branch.
@@ -300,7 +293,7 @@ After fixing threads and pushing (route B):
 ScheduleWakeup(
   delaySeconds: 270,
   reason: "waiting for CI after push to PR #$PR (iter $((ITER+1))/$MAX_ITER)",
-  prompt: "/ai-pack:shepherd-pr $PR iter=$((ITER+1))"
+  prompt: "/pr-feedback-loop $PR iter=$((ITER+1))"
 )
 ```
 
@@ -311,14 +304,14 @@ For wait-only routes (C, D) — always increment iter to prevent infinite loops 
 ScheduleWakeup(
   delaySeconds: 120,
   reason: "CI still running on PR #$PR (iter $((ITER+1))/$MAX_ITER)",
-  prompt: "/ai-pack:shepherd-pr $PR iter=$((ITER+1))"
+  prompt: "/pr-feedback-loop $PR iter=$((ITER+1))"
 )
 
 # Route D — awaiting verdict
 ScheduleWakeup(
   delaySeconds: 90,
   reason: "waiting for reviewer verdict on PR #$PR (iter $((ITER+1))/$MAX_ITER)",
-  prompt: "/ai-pack:shepherd-pr $PR iter=$((ITER+1))"
+  prompt: "/pr-feedback-loop $PR iter=$((ITER+1))"
 )
 ```
 
@@ -389,7 +382,7 @@ Open threads:
   ...
 
 Last verdict: $VERDICT on ${HEAD_SHA:0:7}
-Next step: review the threads manually or re-run /ai-pack:shepherd-pr $PR
+Next step: review the threads manually or re-run /pr-feedback-loop $PR
 ```
 
 ---
