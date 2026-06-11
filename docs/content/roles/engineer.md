@@ -877,7 +877,7 @@ END WHILE
 Check task packet for commit instructions.
 ```bash
 
-**⚠️ CRITICAL: Beads Task Closure (MANDATORY)**
+**⚠️ CRITICAL: Task Closure (MANDATORY)**
 
 ```bash
 # STEP 1: Verify all work complete (checklist above)
@@ -887,7 +887,7 @@ agent close <task-id>
 
 # STEP 3: THEN update acceptance document
 echo "✅ Task complete" >> .ai/tasks/*/result.md
-echo "Beads Task: <task-id> [CLOSED]" >> .ai/tasks/*/result.md
+echo "Task: <task-id> [CLOSED]" >> .ai/tasks/*/result.md
 
 # STEP 4: Find next work
 agent list --status queued

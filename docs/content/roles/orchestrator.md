@@ -105,7 +105,7 @@ Task packet: .ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/
 
 Without these, agents will execute in the wrong project or fail to find the task packet.
 
-**Example Beads Task Creation:**
+**Example Task Creation:**
 ```bash
 # Good - includes both working directory and task packet path
 agent create "Implement dark mode feature
@@ -233,7 +233,7 @@ STEP 3: MANDATORY - Set dependencies
 
 STEP 4: THEN create task packets for each task
   mkdir .ai/tasks/${task_id}-$(date +%Y%m%d%H%M%S)-subtask-1/
-  echo "**Beads Task:** ${task_id}" >> task.md
+  echo "**Task ID:** ${task_id}" >> task.md
 
 STEP 5: Verify with agent list --status queued (should show only tasks with no dependencies)
 
@@ -2885,7 +2885,7 @@ Documentation is **part of the work**, not part of cleanup:
 - `.beads/tasks/<internal-id>/agent-prompt.txt`
 - `.beads/tasks/<internal-id>/30-results.md` (transient summary)
 
-**Beads Task States:**
+**Task States:**
 
 ```
 closed (default) - Task complete, kept for audit/history

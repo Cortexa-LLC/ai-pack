@@ -11,59 +11,39 @@ from pathlib import Path
 from datetime import datetime
 
 
-def get_file_status(filepath):
-    """Check if file exists and has content beyond template."""
-    if not filepath.exists():
-        return "⏸️", "Not started"
-
-    # Check if file has meaningful content (not just template)
-    try:
-        content = filepath.read_text()
-        # Simple heuristic: >200 chars and not mostly template markers
-        if len(content) > 200 and content.count("[") < 5:
-            return "✅", "Completed"
-        else:
-            return "🔄", "In progress"
-    except:
-        return "⏸️", "Not started"
-
-
 def get_task_progress(task_dir):
-    """Analyze task packet progress."""
+    """Analyze task packet progress (2-file format)."""
     files = {
-        "contract": task_dir / "00-contract.md",
-        "plan": task_dir / "10-plan.md",
-        "work_log": task_dir / "20-work-log.md",
-        "review": task_dir / "30-review.md",
-        "acceptance": task_dir / "40-acceptance.md"
+        "task": task_dir / "task.md",
+        "result": task_dir / "result.md",
     }
 
     progress = {}
     for key, filepath in files.items():
-        icon, status = get_file_status(filepath)
-        progress[key] = {"icon": icon, "status": status, "path": filepath}
+        exists = filepath.exists()
+        progress[key] = {"exists": exists, "path": filepath}
 
     return progress
 
 
-def determine_current_phase(progress):
-    """Determine which phase the task is in."""
-    if progress["acceptance"]["icon"] == "✅":
-        return "Complete", "Task is complete!"
+def determine_phase(progress):
+    """Determine task phase from task.md / result.md existence."""
+    if progress["result"]["exists"]:
+        # Try to extract Status field from result.md
+        try:
+            content = progress["result"]["path"].read_text()
+            for line in content.splitlines():
+                if line.strip().startswith("**Status:**"):
+                    status_value = line.split("**Status:**", 1)[1].strip()
+                    return "Complete", status_value
+        except Exception:
+            pass
+        return "Complete", "result.md present"
 
-    if progress["review"]["icon"] in ["🔄", "✅"]:
-        return "Review", "Code is under review"
+    if progress["task"]["exists"]:
+        return "In Progress", "task.md present, result.md not yet written"
 
-    if progress["work_log"]["icon"] in ["🔄", "✅"]:
-        return "Implementation", "Work in progress"
-
-    if progress["plan"]["icon"] == "✅":
-        return "Ready to Start", "Plan complete, ready for implementation"
-
-    if progress["contract"]["icon"] == "✅":
-        return "Planning", "Contract defined, plan needs completion"
-
-    return "Not Started", "Contract needs to be filled out"
+    return "Not Started", "task.md missing"
 
 
 def show_task_status():
@@ -102,7 +82,7 @@ def show_task_status():
 
     # Display each task
     for task_dir in sorted(task_dirs, reverse=True):
-        # Parse task name
+        # Parse display name from directory name
         task_name = task_dir.name
         if "_" in task_name:
             date_str, name = task_name.split("_", 1)
@@ -113,42 +93,30 @@ def show_task_status():
         print(f"Task: {display_name}")
         print(f"Path: {task_dir}")
 
-        # Get progress
+        # Get progress and phase
         progress = get_task_progress(task_dir)
-        phase, phase_desc = determine_current_phase(progress)
+        phase, phase_desc = determine_phase(progress)
 
-        print(f"Status: {phase}")
+        print(f"Status: {phase} — {phase_desc}")
         print()
-        print("Progress:")
-        print(f"  {progress['contract']['icon']} 00-contract.md   (Requirements)")
-        print(f"  {progress['plan']['icon']} 10-plan.md       (Implementation plan)")
-        print(f"  {progress['work_log']['icon']} 20-work-log.md   (Execution progress)")
-        print(f"  {progress['review']['icon']} 30-review.md     (Quality assurance)")
-        print(f"  {progress['acceptance']['icon']} 40-acceptance.md (Sign-off)")
+        print("Files:")
+        task_icon = "✅" if progress["task"]["exists"] else "⏸️"
+        result_icon = "✅" if progress["result"]["exists"] else "⏸️"
+        print(f"  {task_icon} task.md    (requirements, acceptance criteria)")
+        print(f"  {result_icon} result.md  (written by agent on completion)")
         print()
 
-        # Determine next steps
+        # Next steps
         print("Next Steps:")
         if phase == "Complete":
             print("  ✅ Task complete! Consider archiving to .ai/archive/")
-        elif phase == "Review":
-            print("  - Address review feedback if needed")
-            print("  - Run /ai-pack review to re-validate")
-        elif phase == "Implementation":
-            print("  - Continue implementation")
-            print("  - Update work log regularly")
-            print("  - Run /ai-pack test when ready for validation")
-        elif phase == "Ready to Start":
-            print("  - Choose role: /ai-pack engineer or /ai-pack orchestrate")
-            print("  - Begin implementation following the plan")
-        elif phase == "Planning":
-            print(f"  - Edit {task_dir}/10-plan.md")
-            print("  - Document implementation approach")
-            print("  - Then choose role to begin work")
+        elif phase == "In Progress":
+            print("  - Agent is working; result.md will appear when done")
+            print("  - Monitor via: agent list --running")
         else:
-            print(f"  - Edit {task_dir}/00-contract.md")
-            print("  - Define requirements and acceptance criteria")
-            print(f"  - Then edit {task_dir}/10-plan.md")
+            print(f"  - Edit {task_dir}/task.md")
+            print("  - Fill in: description, files to change, acceptance criteria, constraints")
+            print("  - Then choose role: /ai-pack engineer or /ai-pack orchestrate")
 
         print()
         print("─" * 80)
