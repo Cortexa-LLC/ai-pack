@@ -239,7 +239,7 @@ After CI fixes, do **not** commit yet — include CI fixes in the single thread-
 Read each unresolved thread's full body. Triage by severity prefix:
 
 - **[BLOCKING]** — always fix
-- **[SUGGESTION]** — fix if ≤ 5 lines and obviously correct; otherwise reply with reasoning and resolve
+- **[SUGGESTION]** — fix if reasonable; reply with reasoning if declining
 - No severity prefix (other bots or human reviewers) — fix if straightforward
 
 Do not re-raise issues that are already resolved.
@@ -304,20 +304,22 @@ ScheduleWakeup(
 )
 ```
 
-For wait-only routes (C, D) — always increment iter to prevent infinite loops if CI hangs:
+For route C (CI in progress):
 
 ```
-# Route C — CI pending
 ScheduleWakeup(
   delaySeconds: 120,
   reason: "CI still running on PR #$PR (iter $((ITER+1))/$MAX_ITER)",
   prompt: "/ai-pack:shepherd-pr $PR iter=$((ITER+1))"
 )
+```
 
-# Route D — awaiting verdict
+For route D (CI passed, waiting for reviewer verdict):
+
+```
 ScheduleWakeup(
   delaySeconds: 90,
-  reason: "waiting for reviewer verdict on PR #$PR (iter $((ITER+1))/$MAX_ITER)",
+  reason: "waiting for reviewer to post threads on PR #$PR (iter $((ITER+1))/$MAX_ITER)",
   prompt: "/ai-pack:shepherd-pr $PR iter=$((ITER+1))"
 )
 ```
