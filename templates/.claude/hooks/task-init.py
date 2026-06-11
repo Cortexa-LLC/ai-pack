@@ -2,7 +2,7 @@
 """
 AI-Pack Task Initialization Script
 
-Creates a new task packet with templates from .ai-pack/templates/task-packet/
+Creates a new task packet with task.md template from .ai-pack/templates/task-packet/
 """
 
 import os
@@ -22,7 +22,7 @@ def slugify(text):
 
 
 def create_task_packet(task_name):
-    """Create task packet directory and copy templates."""
+    """Create task packet directory and copy task.md template."""
 
     # Validate task name
     if not task_name:
@@ -36,12 +36,12 @@ def create_task_packet(task_name):
         print(f"❌ Error: Invalid task name '{task_name}'")
         return 1
 
-    # Create task ID with Beads ID placeholder and full timestamp
-    # Format: <beads-id>-<YYYYMMDDHHMMSS>-<short-desc>
-    # Note: Beads ID is assigned by orchestrator; use placeholder when running standalone
-    beads_id = os.environ.get("BEADS_TASK_ID", "local")
+    # Create task ID with placeholder and full timestamp
+    # Format: <task-id>-<YYYYMMDDHHMMSS>-<short-desc>
+    # Note: Task ID is assigned by orchestrator; use placeholder when running standalone
+    task_prefix = os.environ.get("TASK_ID", "local")
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    task_id = f"{beads_id}-{timestamp}-{slug}"
+    task_id = f"{task_prefix}-{timestamp}-{slug}"
 
     # Define paths
     tasks_dir = Path(".ai/tasks")
@@ -65,28 +65,19 @@ def create_task_packet(task_name):
     # Create task directory
     task_dir.mkdir(parents=True, exist_ok=True)
 
-    # Copy templates
+    # Copy task.md template
     try:
-        templates = [
-            "00-contract.md",
-            "10-plan.md",
-            "20-work-log.md",
-            "30-review.md",
-            "40-acceptance.md"
-        ]
+        src = template_dir / "task.md"
+        dst = task_dir / "task.md"
 
-        for template in templates:
-            src = template_dir / template
-            dst = task_dir / template
-
-            if src.exists():
-                shutil.copy2(src, dst)
-                print(f"✅ Created: {dst}")
-            else:
-                print(f"⚠️  Template not found: {src}")
+        if src.exists():
+            shutil.copy2(src, dst)
+            print(f"✅ Created: {dst}")
+        else:
+            print(f"⚠️  Template not found: {src}")
 
     except Exception as e:
-        print(f"❌ Error copying templates: {e}")
+        print(f"❌ Error copying template: {e}")
         return 1
 
     # Success message
@@ -94,16 +85,18 @@ def create_task_packet(task_name):
     print(f"✅ Task packet created: {task_dir}")
     print()
     print("Next steps:")
-    print(f"  1. Edit {task_dir}/00-contract.md")
-    print("     - Define requirements and acceptance criteria")
+    print(f"  1. Edit {task_dir}/task.md")
+    print("     - Describe what to do")
+    print("     - List files to change")
+    print("     - Define acceptance criteria")
+    print("     - Note any constraints")
     print()
-    print(f"  2. Edit {task_dir}/10-plan.md")
-    print("     - Document implementation approach")
-    print()
-    print("  3. Choose your role:")
+    print("  2. Choose your role:")
     print("     - Simple task: /ai-pack engineer")
     print("     - Complex task: /ai-pack orchestrate")
     print("     - Bug investigation: /ai-pack inspect")
+    print()
+    print("  The agent will write result.md when the task is complete.")
     print()
 
     return 0
