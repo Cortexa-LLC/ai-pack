@@ -1,7 +1,7 @@
 {
   "description": "AI-Pack Framework Configuration for Claude Code",
   "_comment_permissions": "defaultMode: acceptEdits — auto-approve Write/Edit/safe Bash. Require approval: git commit/push/merge, rm, destructive operations. gh api graphql:* is intentionally auto-approved for the pr-feedback-loop skill (resolveReviewThread mutation); other mutations are incidental and cannot be blocked at this level of granularity. Scoped REST patterns for PR review reads and thread replies are also included.",
-  "_comment_issue_commands": "gh issue view:* and gh issue list:* are read-only and are used by the Inspector role to look up and cross-reference GitHub issues during bug investigations.",
+  "_comment_issue_commands": "gh issue view:* and gh issue list:* are read-only and are used by the Inspector role to look up and cross-reference GitHub issues during bug investigations. The * wildcard is intentional: gh issue commands auto-scope to the current repo by default (no --repo flag needed); cross-repo reads during investigation are acceptable and limited to repos the token already has access to.",
   "permissions": {
     "allow": [
       "Write(*)",
