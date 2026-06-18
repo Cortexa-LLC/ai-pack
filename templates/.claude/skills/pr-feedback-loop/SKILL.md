@@ -22,36 +22,46 @@ its verdict via the GitHub Checks API. **No manual reviewer agent is needed.**
 
 ```
 /pr-feedback-loop [PR_NUMBER]
-/pr-feedback-loop [PR_NUMBER] iter=N
+/pr-feedback-loop [PR_NUMBER] iter=N wait_iter=N
 ```
 
 If `PR_NUMBER` is omitted, auto-detect from the current branch.
-On wakeup re-entries the prompt will include `iter=N` — parse it but do not show it to the user.
+On wakeup re-entries the prompt will include `iter=N wait_iter=N` — parse them but do not show them to the user.
 
 ---
 
 ## State Machine (per invocation)
 
 ```
-PARSE args → PR number + iter (default 0)
-IF iter >= 10 → ESCALATE and stop (no wakeup)
+PARSE args → PR number + iter (default 0) + wait_iter (default 0)
+MAX_ITER=10 (fix attempts)  MAX_WAIT_ITER=30 (polling rounds)
 
 FETCH state: unresolved threads, CI terminal?, verdict
 
-IF threads == 0 AND CI all-terminal AND verdict == APPROVED:
-  → SUCCESS REPORT — stop, no wakeup
+IF threads == 0 AND THREAD_UNKNOWN == 0 AND CI_UNKNOWN == 0 AND CI all-terminal AND CI_FAILING == 0 AND verdict == APPROVED:
+  → ✅ SUCCESS REPORT — stop, no wakeup        [checked before iter guards]
+
+IF iter >= MAX_ITER → ESCALATE (too many fix attempts) — stop, no wakeup
+IF wait_iter >= MAX_WAIT_ITER → ESCALATE (CI/reviewer stuck) — stop, no wakeup
 
 IF threads > 0:
   → Fix all threads, commit, push, reply, resolve
-  → ScheduleWakeup(270s, reason="waiting for CI after push to PR #N")
+  → ScheduleWakeup(270s, iter=$((ITER+1)), wait_iter=0)
   → stop
 
-IF threads == 0 AND CI has IN_PROGRESS checks:
-  → ScheduleWakeup(120s, reason="CI still running on PR #N")
+IF threads == 0 AND THREAD_UNKNOWN == 0 AND CI_FAILING > 0:
+  → ⛔ CI FAILURE REPORT — stop, no wakeup     [before Route C — fail fast]
+
+IF threads == 0 AND THREAD_UNKNOWN == 0 AND CI_PENDING > 0:
+  → ScheduleWakeup(120s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))
   → stop
 
-IF threads == 0 AND CI all-terminal AND verdict != APPROVED:
-  → ScheduleWakeup(90s, reason="waiting for reviewer to post threads on PR #N")
+IF THREAD_UNKNOWN == 1 OR (threads == 0 AND CI_UNKNOWN == 1):
+  → ScheduleWakeup(120s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))   # retry until fetches succeed
+  → stop
+
+IF threads == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND verdict != APPROVED:
+  → ScheduleWakeup(90s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))
   → stop
 ```
 
@@ -65,11 +75,13 @@ IF threads == 0 AND CI all-terminal AND verdict != APPROVED:
 ## Step 1 — Parse Args and Resolve PR
 
 ```bash
-# Parse PR and iter from args (e.g. "88" or "88 iter=2")
+# Parse PR, iter, and wait_iter from args (e.g. "88 iter=2 wait_iter=5")
 ARGS="${SKILL_ARGS:-}"
 PR=$(echo "$ARGS" | grep -oE '^[0-9]+' || true)
-ITER=$(echo "$ARGS" | grep -oE 'iter=([0-9]+)' | grep -oE '[0-9]+$' || echo "0")
+ITER=$(echo " $ARGS" | grep -oE ' iter=([0-9]+)' | grep -oE '[0-9]+$' || echo "0")
+WAIT_ITER=$(echo "$ARGS" | grep -oE 'wait_iter=([0-9]+)' | grep -oE '[0-9]+$' || echo "0")
 MAX_ITER=10
+MAX_WAIT_ITER=30
 
 if [ -z "$PR" ]; then
   PR=$(gh pr view --json number -q .number 2>/dev/null)
@@ -80,19 +92,12 @@ if [ -z "$PR" ]; then
 fi
 
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-OWNER="${REPO%/*}"
-REPO_NAME="${REPO#*/}"
 BRANCH=$(gh pr view "$PR" --json headRefName -q .headRefName)
 HEAD_SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid)
 
-echo "PR #$PR  iter=$ITER  branch: $BRANCH  HEAD: ${HEAD_SHA:0:7}"
+echo "PR #$PR  iter=$ITER  wait_iter=$WAIT_ITER  branch: $BRANCH  HEAD: ${HEAD_SHA:0:7}"
 
-if [ "$ITER" -ge "$MAX_ITER" ]; then
-  echo "Max iterations ($MAX_ITER) reached — escalating. Review PR #$PR manually."
-  exit 1
-fi
-
-git checkout "$BRANCH"
+git checkout "$BRANCH" || { echo "❌ git checkout $BRANCH failed — aborting"; exit 1; }
 ```
 
 ---
@@ -101,9 +106,10 @@ git checkout "$BRANCH"
 
 ```bash
 # Unresolved review threads (always use first: 100 to avoid truncation)
-THREADS=$(gh api graphql -f query="
+THREAD_UNKNOWN=0
+THREADS_RAW=$(gh api graphql -f query="
 {
-  repository(owner: \"${OWNER}\", name: \"${REPO_NAME}\") {
+  repository(owner: \"${REPO%/*}\", name: \"${REPO#*/}\") {
     pullRequest(number: $PR) {
       reviewThreads(first: 100) {
         nodes {
@@ -115,7 +121,9 @@ THREADS=$(gh api graphql -f query="
       }
     }
   }
-}" | jq '[.data.repository.pullRequest.reviewThreads.nodes[]
+}" 2>/dev/null) \
+  || { echo "⚠️  Thread fetch failed (network/auth) — thread state unknown"; THREAD_UNKNOWN=1; THREADS_RAW='{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[]}}}}}'; }
+THREADS=$(echo "$THREADS_RAW" | jq '[.data.repository.pullRequest.reviewThreads.nodes[]
          | select(.isResolved == false)
          | {threadId:.id, commentId:.comments.nodes[0].databaseId,
             path:.path, line:.line,
@@ -123,35 +131,28 @@ THREADS=$(gh api graphql -f query="
             body:(.comments.nodes | map(.body) | join("\n\n"))}]')
 THREAD_COUNT=$(echo "$THREADS" | jq 'length')
 
-# CI checks — categorise into pending vs. failing
-CHECKS_JSON=$(gh pr checks "$PR" --json name,state)
-CI_PENDING=$(echo "$CHECKS_JSON" | jq '[.[] | select(
-  .state != "SUCCESS" and .state != "FAILURE" and .state != "SKIPPED" and
-  .state != "CANCELLED" and .state != "TIMED_OUT" and .state != "ACTION_REQUIRED" and
-  .state != "STARTUP_FAILURE" and .state != "ERROR" and .state != "NEUTRAL" and
-  .state != "STALE")] | length')
-CI_FAILING=$(echo "$CHECKS_JSON" | jq '[.[] | select(
-  .state == "FAILURE" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED" or
-  .state == "STARTUP_FAILURE" or .state == "ERROR")] | length')
+# CI: fetch once, derive both counts from the same snapshot
+CI_UNKNOWN=0
+CI_JSON=$(gh pr checks "$PR" --json name,state 2>/dev/null) \
+  || { echo "⚠️  CI fetch failed (network/auth) — CI state unknown"; CI_JSON="[]"; CI_UNKNOWN=1; }
+CI_PENDING=$(echo "$CI_JSON" | jq '[.[] | select(.state != "SUCCESS" and .state != "FAILURE" and .state != "SKIPPED" and .state != "CANCELLED" and .state != "TIMED_OUT" and .state != "ACTION_REQUIRED" and .state != "STARTUP_FAILURE" and .state != "ERROR" and .state != "NEUTRAL" and .state != "STALE")] | length')
+CI_FAILING=$(echo "$CI_JSON" | jq '[.[] | select(.state == "FAILURE" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED" or .state == "STARTUP_FAILURE" or .state == "ERROR")] | length')
 
 # Surface WAITING checks — environment approval gate, human action required
-WAITING=$(echo "$CHECKS_JSON" | jq -r '.[] | select(.state == "WAITING") | .name')
+WAITING=$(echo "$CI_JSON" | jq -r '.[] | select(.state == "WAITING") | .name')
 if [ -n "$WAITING" ]; then
   echo "Checks WAITING for environment approval — human action required: $WAITING"
   echo "Shepherd halted — approve pending environment(s) in GitHub ($WAITING), then re-run."
   exit 1
 fi
 
-# Vacuous-true guard: only ALL_OK if there are actually checks and all are green
-ALL_OK=$(echo "$CHECKS_JSON" | jq -r \
-  '(length > 0) and ([.[].state] | all(. == "SUCCESS" or . == "SKIPPED" or . == "NEUTRAL" or . == "STALE" or . == "CANCELLED"))')
+# Latest review verdict on HEAD SHA — uses gh pr view (already allowlisted, avoids REST write surface)
+VERDICT_RAW=$(gh pr view "$PR" --json reviews 2>/dev/null) \
+  || { echo "⚠️  VERDICT fetch failed (network/auth) — defaulting to PENDING"; VERDICT_RAW='{"reviews":[]}'; }
+VERDICT=$(echo "$VERDICT_RAW" | jq -r --arg sha "$HEAD_SHA" \
+    '[.reviews[] | select(.commit.oid == $sha and (.author.login | endswith("[bot]")))] | last | .state // "PENDING"')
 
-# Latest bot review verdict scoped to HEAD commit — uses gh pr view (allowlisted, avoids REST write surface)
-VERDICT=$(gh pr view "$PR" --json reviews \
-  | jq -r --arg sha "$HEAD_SHA" \
-      '[.reviews[] | select(.commit.oid == $sha and (.author.login | endswith("[bot]")))] | last | .state // "PENDING"')
-
-echo "Threads: $THREAD_COUNT  |  CI pending: $CI_PENDING  failing: $CI_FAILING  |  ALL_OK: $ALL_OK  |  Verdict: $VERDICT"
+echo "Threads: $THREAD_COUNT  |  CI pending: $CI_PENDING  failing: $CI_FAILING  |  Verdict: $VERDICT"
 ```
 
 ---
@@ -162,27 +163,53 @@ Evaluate in this order:
 
 **A. Done:**
 ```
-IF THREAD_COUNT == 0 AND ALL_OK == "true" AND CI_PENDING == 0 AND CI_FAILING == 0 AND VERDICT == "APPROVED"
+IF THREAD_COUNT == 0 AND THREAD_UNKNOWN == 0 AND CI_UNKNOWN == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND VERDICT == "APPROVED"
   → print SUCCESS REPORT, stop (no ScheduleWakeup)
+```
+Note: `CI_UNKNOWN==1` or `THREAD_UNKNOWN==1` skips Route A and falls through to Route F to retry — unknown state is not the same as clean state.
+
+**A2. Escalation guards (after Route A so final-iteration approvals succeed):**
+```bash
+if [ "$ITER" -ge "$MAX_ITER" ]; then
+  echo "⚠️  Max fix iterations ($MAX_ITER) reached — escalating. Review PR #$PR manually."
+  exit 1
+fi
+if [ "$WAIT_ITER" -ge "$MAX_WAIT_ITER" ]; then
+  echo "⚠️  Max wait iterations ($MAX_WAIT_ITER) reached — CI or reviewer appears stuck. Review PR #$PR manually."
+  exit 1
+fi
 ```
 
 **B. Threads to fix** (fix immediately regardless of CI state):
 ```
 IF THREAD_COUNT > 0
   → Steps 4–7 (fix CI if also failing, fix threads, commit, push, reply, resolve)
-  → ScheduleWakeup(270s)
+  → ScheduleWakeup(270s, iter=$((ITER+1)), wait_iter=0)   # reset wait counter after each push
+```
+
+**D. CI failed — escalate** (before C — fail fast even while other checks still run):
+```
+IF THREAD_COUNT == 0 AND THREAD_UNKNOWN == 0 AND CI_FAILING > 0
+  → print CI failure report, stop (no ScheduleWakeup)
 ```
 
 **C. Waiting for CI:**
 ```
-IF THREAD_COUNT == 0 AND CI_PENDING > 0
-  → ScheduleWakeup(120s, "CI still running on PR #$PR")
+IF THREAD_COUNT == 0 AND THREAD_UNKNOWN == 0 AND CI_PENDING > 0
+  → ScheduleWakeup(120s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))
 ```
 
-**D. CI done, waiting for reviewer verdict:**
+**F. Fetch failed — retry:**
 ```
-IF THREAD_COUNT == 0 AND CI_PENDING == 0 AND VERDICT != "APPROVED"
-  → ScheduleWakeup(90s, "waiting for reviewer on PR #$PR")
+IF THREAD_UNKNOWN == 1 OR (THREAD_COUNT == 0 AND CI_UNKNOWN == 1)
+  → ScheduleWakeup(120s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))
+```
+Note: covers dead-ends where thread or CI fetch failed — both set PENDING=0/FAILING=0 for their domain, which would otherwise allow silent exits or false Route A success.
+
+**E. CI passed, waiting for reviewer verdict:**
+```
+IF THREAD_COUNT == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND VERDICT != "APPROVED"
+  → ScheduleWakeup(90s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))
 ```
 
 ---
@@ -192,7 +219,7 @@ IF THREAD_COUNT == 0 AND CI_PENDING == 0 AND VERDICT != "APPROVED"
 When on route B and `CI_FAILING > 0`, fix CI failures first before addressing threads.
 
 ```bash
-FAILURES=$(echo "$CHECKS_JSON" | jq -r '.[] | select(
+FAILURES=$(echo "$CI_JSON" | jq -r '.[] | select(
   .state == "FAILURE" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED" or
   .state == "STARTUP_FAILURE" or .state == "ERROR") | .name')
 ```
@@ -248,36 +275,24 @@ engineer (see §Delegation).
 
 ```bash
 git add <changed files>
-if ! git diff --cached --quiet; then
-  git commit -m "fix(pr${PR}): address reviewer feedback — <brief list>"
-  if ! git push origin "$BRANCH"; then
-    echo "Push failed — leaving threads open for next iteration"
-    exit 1
-  fi
-else
-  echo "Nothing to commit — all fixes were reply-only or delegated"
-fi
+git commit -m "fix(pr${PR}): address reviewer feedback — <brief summary>" \
+  || { echo "❌ git commit failed — aborting"; exit 1; }
+git push origin "$BRANCH" || { echo "❌ git push failed — aborting"; exit 1; }
 ```
-
-**Push must succeed before resolving threads.** A push failure exits immediately,
-leaving all threads open so the next iteration retries them.
 
 ---
 
-## Step 7 — Reply and Resolve
+## Step 7 — Reply to Each Thread
 
 ```bash
 NEW_SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid | cut -c1-7)
 
-# For each thread: post reply then resolve immediately (do not batch)
-gh api "repos/${REPO}/pulls/${PR}/comments/${COMMENT_ID}/replies" \
-  -f body="Fixed in ${NEW_SHA} — <one-sentence description>."
-
-gh api graphql -f query="mutation {
-  resolveReviewThread(input: {threadId: \"${THREAD_ID}\"}) {
-    thread { isResolved }
-  }
-}"
+if [ -z "${COMMENT_ID}" ] || [ "${COMMENT_ID}" = "null" ]; then
+  echo "⚠️  Thread $THREAD_ID has no comment ID — skipping reply"
+else
+  gh api "repos/$REPO/pulls/$PR/comments/${COMMENT_ID}/replies" \
+    -f body="Fixed in ${NEW_SHA} — <one-sentence description>."
+fi
 ```
 
 Every thread gets a reply — including declined suggestions (explain why, then resolve).
@@ -285,7 +300,19 @@ Resolve each thread immediately after replying — do not batch.
 
 ---
 
-## Step 8 — Schedule Wakeup
+## Step 8 — Resolve Threads
+
+```bash
+gh api graphql -f query="mutation {
+  resolveReviewThread(input: {threadId: \"$THREAD_ID\"}) {
+    thread { isResolved }
+  }
+}"
+```
+
+---
+
+## Step 9 — Schedule Wakeup
 
 After fixing threads and pushing (route B):
 
@@ -293,27 +320,37 @@ After fixing threads and pushing (route B):
 ScheduleWakeup(
   delaySeconds: 270,
   reason: "waiting for CI after push to PR #$PR (iter $((ITER+1))/$MAX_ITER)",
-  prompt: "/pr-feedback-loop $PR iter=$((ITER+1))"
+  prompt: "/pr-feedback-loop $PR iter=$((ITER+1)) wait_iter=0"
 )
 ```
 
-For route C (CI in progress):
+For route C (CI in progress) — increments wait_iter only, not iter:
 
 ```
 ScheduleWakeup(
   delaySeconds: 120,
-  reason: "CI still running on PR #$PR (iter $((ITER+1))/$MAX_ITER)",
-  prompt: "/pr-feedback-loop $PR iter=$((ITER+1))"
+  reason: "CI still running on PR #$PR (wait $((WAIT_ITER+1))/$MAX_WAIT_ITER)",
+  prompt: "/pr-feedback-loop $PR iter=$ITER wait_iter=$((WAIT_ITER+1))"
 )
 ```
 
-For route D (CI passed, waiting for reviewer verdict):
+For route E (CI passed, waiting for reviewer verdict) — increments wait_iter only:
 
 ```
 ScheduleWakeup(
   delaySeconds: 90,
-  reason: "waiting for reviewer to post threads on PR #$PR (iter $((ITER+1))/$MAX_ITER)",
-  prompt: "/pr-feedback-loop $PR iter=$((ITER+1))"
+  reason: "waiting for reviewer to post threads on PR #$PR (wait $((WAIT_ITER+1))/$MAX_WAIT_ITER)",
+  prompt: "/pr-feedback-loop $PR iter=$ITER wait_iter=$((WAIT_ITER+1))"
+)
+```
+
+For route F (thread or CI fetch failed — retry) — increments wait_iter only:
+
+```
+ScheduleWakeup(
+  delaySeconds: 120,
+  reason: "thread or CI fetch failed on PR #$PR — retrying (wait $((WAIT_ITER+1))/$MAX_WAIT_ITER)",
+  prompt: "/pr-feedback-loop $PR iter=$ITER wait_iter=$((WAIT_ITER+1))"
 )
 ```
 
@@ -366,7 +403,7 @@ If the engineer delegation fails, leave the thread open — it will be retried n
 ### Success
 
 ```
-PR #$PR is ready to merge
+✅ PR #$PR is ready to merge
    Branch:     $BRANCH
    Iterations: $ITER
    Threads:    0 unresolved
@@ -377,14 +414,25 @@ PR #$PR is ready to merge
 ### Max Iterations Reached
 
 ```
-PR #$PR — max iterations ($MAX_ITER) reached without APPROVED
+⚠️  PR #$PR — max iterations ($MAX_ITER) reached without APPROVED
 
 Open threads:
-  - path:line — first line of body
+  • path:line — first line of body
   ...
 
 Last verdict: $VERDICT on ${HEAD_SHA:0:7}
 Next step: review the threads manually or re-run /pr-feedback-loop $PR
+```
+
+### CI Failure (Route D)
+
+```
+⛔ PR #$PR — CI is failing on ${HEAD_SHA:0:7}
+
+Failing checks:
+$(echo "$CI_JSON" | jq -r '.[] | select(.state == "FAILURE" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED") | "  • \(.name) [\(.state)]"')
+
+Next step: investigate CI failures, fix, commit, and re-run /pr-feedback-loop $PR
 ```
 
 ---
@@ -396,8 +444,9 @@ Stop and report (no ScheduleWakeup) if:
 | Condition | Action |
 |-----------|--------|
 | `iter >= MAX_ITER` | Max iterations report above |
+| `wait_iter >= MAX_WAIT_ITER` | CI/reviewer stuck — escalate; Routes C, E, F all increment this counter, so slow reviewer or perpetually-pending CI exhausts it without any fix iteration occurring |
 | Same thread IDs unresolved 2 passes in a row | Report: "Thread stuck — may need human decision" |
-| `CI_FAILING > 0` and no reviewer threads after 2 waits | Report CI failure details; ask user to investigate |
+| `CI_FAILING > 0` | Route D fires immediately — CI failure report, no wakeup |
 | Any check stuck IN_PROGRESS > 10 min | Ask user to check workflow logs |
 | Verdict is `DISMISSED` after 2 passes | Ask user — bot may be broken |
 | `WAITING` check detected | Halt with environment-approval message (handled in Step 2) |
