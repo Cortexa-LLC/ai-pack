@@ -17,8 +17,6 @@
       "Bash(gh api repos/*/pulls/*/comments/*/replies:*)",
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
-      "Bash(gh run watch:*)",
-
       "Bash(gh repo view:*)",
       "Bash(gh issue view:*)",
       "Bash(gh issue list:*)",
