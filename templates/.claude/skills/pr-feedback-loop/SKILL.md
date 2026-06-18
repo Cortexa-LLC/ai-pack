@@ -60,7 +60,7 @@ IF THREAD_UNKNOWN == 1 OR (threads == 0 AND CI_UNKNOWN == 1):
   → ScheduleWakeup(120s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))   # retry until fetches succeed
   → stop
 
-IF threads == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND verdict != APPROVED:
+IF threads == 0 AND THREAD_UNKNOWN == 0 AND CI_UNKNOWN == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND verdict != APPROVED:
   → ScheduleWakeup(90s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))
   → stop
 ```
@@ -209,7 +209,7 @@ Note: covers dead-ends where thread or CI fetch failed — both set PENDING=0/FA
 
 **E. CI passed, waiting for reviewer verdict:**
 ```
-IF THREAD_COUNT == 0 AND CI_UNKNOWN == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND VERDICT != "APPROVED"
+IF THREAD_COUNT == 0 AND THREAD_UNKNOWN == 0 AND CI_UNKNOWN == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND VERDICT != "APPROVED"
   → ScheduleWakeup(90s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))
 ```
 Note: `CI_UNKNOWN==0` guard is explicit — Route F fires first when CI fetch failed, so Route E only runs on confirmed-clean CI.
