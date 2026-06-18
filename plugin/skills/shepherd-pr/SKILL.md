@@ -85,7 +85,7 @@ IF threads == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND verdict != APPROVED:
 # Parse PR, iter, and wait_iter from args (e.g. "88 iter=2 wait_iter=5")
 ARGS="${SKILL_ARGS:-}"
 PR=$(echo "$ARGS" | grep -oE '^[0-9]+' || true)
-ITER=$(echo " $ARGS" | grep -oE ' iter=([0-9]+)' | grep -oE '[0-9]+$' || echo "0")
+ITER=$(echo " $ARGS" | grep -oE ' iter=([0-9]+)' | grep -oE '[0-9]+$' || echo "0")  # leading space prevents matching inside wait_iter=
 WAIT_ITER=$(echo "$ARGS" | grep -oE 'wait_iter=([0-9]+)' | grep -oE '[0-9]+$' || echo "0")
 MAX_ITER=10
 MAX_WAIT_ITER=30
@@ -199,6 +199,7 @@ IF THREAD_COUNT > 0
 IF THREAD_COUNT == 0 AND THREAD_UNKNOWN == 0 AND CI_FAILING > 0
   → print CI failure report, stop (no ScheduleWakeup)
 ```
+Note: `THREAD_UNKNOWN==1` bypasses Route D and falls to Route F. This is intentional — if the thread fetch failed we cannot confirm there are zero threads, so we retry. A real CI failure will still be caught once the network recovers.
 
 **C. Waiting for CI:**
 ```
@@ -215,9 +216,10 @@ Note: covers dead-ends where thread or CI fetch failed — both set PENDING=0/FA
 
 **E. CI passed, waiting for reviewer verdict:**
 ```
-IF THREAD_COUNT == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND VERDICT != "APPROVED"
+IF THREAD_COUNT == 0 AND CI_UNKNOWN == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND VERDICT != "APPROVED"
   → ScheduleWakeup(90s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))
 ```
+Note: `CI_UNKNOWN==0` guard is explicit — Route F fires first when CI fetch failed, so Route E only runs on confirmed-clean CI.
 
 ---
 
@@ -437,7 +439,7 @@ Next step: review the threads manually or re-run /ai-pack:shepherd-pr $PR
 ⛔ PR #$PR — CI is failing on ${HEAD_SHA:0:7}
 
 Failing checks:
-$(echo "$CI_JSON" | jq -r '.[] | select(.state == "FAILURE" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED") | "  • \(.name) [\(.state)]"')
+$(echo "$CI_JSON" | jq -r '.[] | select(.state == "FAILURE" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED" or .state == "STARTUP_FAILURE" or .state == "ERROR") | "  • \(.name) [\(.state)]"')
 
 Next step: investigate CI failures, fix, commit, and re-run /ai-pack:shepherd-pr $PR
 ```
