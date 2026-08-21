@@ -29,7 +29,7 @@ export default function Home(): JSX.Element {
   return (
     <Layout
       title={`Welcome to ${siteConfig.title}`}
-      description="YOUR_PROJECT_DESCRIPTION">
+      description="AI-Pack: a multi-agent workflow framework for Claude Code — agent roles, quality gates, and structured development workflows.">
       <HomepageHeader />
       <main>
         <section className={styles.features}>
