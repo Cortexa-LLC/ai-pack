@@ -1,0 +1,67 @@
+# Planted-defect manifest for the reviewer AUDIT MODE harness (US-201).
+#
+# Parsed by score.py's minimal YAML reader, NOT a full YAML parser.
+# Keep the structure exactly as below when adding a defect:
+#   - two-space indentation per level
+#   - scalar fields as `key: "value"` on one line (no multi-line values)
+#   - detection_patterns as a list of double-quoted regex strings
+# Patterns are matched case-insensitively (Python re.search) against the
+# whole review output. A defect counts as FOUND if any pattern matches.
+# Each description deliberately contains at least one of its own patterns
+# so the --dry-run synthetic review scores 6/6.
+
+defects:
+  - id: D1
+    file: "fixture/api/server.go:44 (vs fixture/cmd/fixturectl/main.go:91,119)"
+    technique: "diff parallel implementations"
+    description: "The CLI insert paths normalize records via store.Normalize before Add, but the API handleCreate path stores raw input, so the two entry points diverge for the same operation."
+    detection_patterns:
+      - "normaliz"
+      - "handleCreate"
+      - "diverg"
+      - "CLI.+API|API.+CLI"
+  - id: D2
+    file: "fixture/store/persist.go:51-53 (comment) vs :73-74 (code)"
+    technique: "falsify doc comments"
+    description: "The doc comment on Load claims a corrupt line is skipped rather than fatal, but parseLine errors abort the whole replay with an error return."
+    detection_patterns:
+      - "corrupt.{0,40}(skip|fatal|abort)"
+      - "parseLine"
+      - "comment.+(claims|says)|says.+(skip|does)"
+      - "abort"
+  - id: D3
+    file: "fixture/store/store_test.go:64-88 (vs fixture/store/persist.go:110)"
+    technique: "what would this test still pass with"
+    description: "TestCompact only asserts on the sidecar compaction log, not on the surviving store contents, so it still passes while Compact drops every later record by the same artist and data is lost."
+    detection_patterns:
+      - "TestCompact"
+      - "compaction log|sidecar"
+      - "data (is )?los[st]|loses? (data|records)|drops? (every |later )?records?"
+      - "asserts? on(ly)? the (log|journal|artifact)"
+  - id: D4
+    file: "fixture/store/query.go:13"
+    technique: "language traps (float equality)"
+    description: "TopRated compares computed float scores with == for the tie-break, so the name tie-break branch is effectively dead code and the ordering of near-equal scores is nondeterministic."
+    detection_patterns:
+      - "TopRated"
+      - "float.{0,30}(==|equality)|==.{0,30}float"
+      - "tie[- ]?break"
+      - "dead (code|branch)"
+  - id: D5
+    file: "fixture/store/query.go:28-30"
+    technique: "language traps / semantic (truncation before filter)"
+    description: "Search truncates the record slice to limit before filtering by query, so matches beyond the cap are silently dropped and a query can return fewer or zero results even when matches exist."
+    detection_patterns:
+      - "truncat"
+      - "(limit|slice[ds]?).{0,40}before.{0,40}(filter|match)"
+      - "beyond the (cap|limit)"
+      - "Search.{0,60}limit"
+  - id: D6
+    file: "fixture/store/persist.go:83-96 with fixture/api/server.go:57-62"
+    technique: "state/failure paths (error after commit + retry)"
+    description: "Append returns the writeChecksum error after the journal write has already committed, and persistWithRetry retries the whole append on any error, duplicating the record in the journal."
+    detection_patterns:
+      - "persistWithRetry"
+      - "writeChecksum.{0,40}(error|fail|retr)"
+      - "duplicat"
+      - "after the (journal )?write|already (committed|durable|written)|non-?idempotent"
