@@ -548,8 +548,7 @@ Research is complete when:
 ## References
 
 - [Standard Workflow](standard.md)
-- [Tool Policy](../gates/20-tool-policy.md) - Using exploration tools
-- [Orchestrator Role](../roles/orchestrator.md) - When to delegate research
+- [Agents](../agents.md) - Choosing an investigation agent (spelunker, inspector)
 
 ---
 
