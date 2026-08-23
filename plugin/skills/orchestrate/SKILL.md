@@ -109,13 +109,11 @@ spelunker (trace) → inspector (root cause) → engineer (fix)
 Use the native **TaskCreate/TaskUpdate** tools to track multi-step work within the
 current session — one task per delegated unit of work, updated as agents complete.
 
-For durable, compaction-proof agent briefs, write a task packet to
-`.ai/tasks/<slug>/`:
-
-- `task.md` — everything the agent needs to do the work (brief, acceptance
-  criteria, context), written by the orchestrator. Fill it out completely — after
-  conversation compaction, `task.md` is the agent's only source of context.
-- `result.md` — written by the agent when done (findings, decisions, blockers).
+The agent's brief lives in its Agent-tool prompt — always fully self-contained.
+Task packets (`.ai/tasks/<slug>/` with `task.md` + `result.md`) are **optional**:
+reach for one only on multi-session work where a brief must outlive any single
+session. If you write one, fill it out completely — never leave template
+placeholders.
 
 ---
 

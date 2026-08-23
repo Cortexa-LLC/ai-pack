@@ -190,6 +190,23 @@ an architectural decision is needed, a breaking change is required, or you've be
 
 ---
 
+## KG Checkpointing — Persist Outcomes
+
+Write implementation outcomes to the KG before finishing. This is how what you did —
+and what you learned — persists beyond this session for future agents.
+
+**When to write:**
+- After completing the implementation (always, before your final report)
+- After discovering a non-obvious constraint, gotcha, or pattern mid-task
+
+**Pattern:**
+```bash
+kg__add_entity({name: "<task-or-feature>", type: "change"})
+kg__add_observation({entity_id: "<id>", content:
+  "Implemented: <what changed and where (file:line)>. Approach: <key decision>.
+   Gotcha: <anything a future agent must know>."})
+```
+
 ## Completion Format
 
 End your response with:

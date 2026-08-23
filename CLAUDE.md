@@ -18,15 +18,16 @@ Sessions in this repo delegate implementation work to the plugin's subagents via
   your session or with each other. Include file paths, acceptance criteria, and context.
 - For parallel work, send multiple `Agent` tool calls in a single message.
 
-## Task Packets
+## Task Packets (optional)
 
-For durable briefs that survive conversation compaction, create a task packet under
-`.ai/tasks/<slug>/`:
+Agent briefs are passed directly in Agent-tool prompts. Task packets under
+`.ai/tasks/<slug>/` are an optional convention for multi-session work where a brief
+must outlive any single session:
 
 - `task.md` — what to do, files to change, acceptance criteria, constraints, context
 - `result.md` — written by the agent when done
 
-Task packets MUST be fully populated — never leave template placeholders.
+If you create one, populate it fully — never leave template placeholders.
 
 **WRONG** (placeholder left in):
 ```
