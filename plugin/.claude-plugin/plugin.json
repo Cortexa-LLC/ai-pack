@@ -1,6 +1,7 @@
 {
   "name": "ai-pack",
-  "version": "2.1.0",
+  "version": "2.2.0",
+  "hooks": "./hooks/hooks.json",
   "description": "Multi-agent engineering system — delegate implementation, architecture, review, and investigation to specialized sub-agents",
   "author": {
     "name": "Bryan Woodruff"
