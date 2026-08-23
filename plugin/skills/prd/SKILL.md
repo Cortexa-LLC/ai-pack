@@ -26,6 +26,17 @@ here, and only the drafting is delegated to the `ai-pack:product-manager` agent.
 
 ## Phase 1 — Interview
 
+**KG first — don't re-ask what's already decided.** Before the first question round:
+
+```bash
+kg__search_knowledge({query: "<feature or product area> decision"})
+```
+
+Recorded scope decisions, rejected features, and fixed metrics are settled ground —
+open the interview by *confirming* them ("last time X was ruled out because Y — still
+true?") rather than re-litigating them as open questions. Interview time goes to what
+the KG doesn't know.
+
 Use the **AskUserQuestion** tool in rounds: **2–4 questions per round**, each with concrete
 multiple-choice options plus an "Other" escape so the owner is never boxed in.
 

@@ -71,6 +71,19 @@ Always use absolute paths for Write/mkdir. Relative paths create nested director
 
 ---
 
+## KG First — Prior Product Decisions
+
+Before drafting, query the KG for what has already been decided:
+
+```bash
+kg__search_knowledge({query: "<feature or product area> decision"})
+kg__search_knowledge({query: "<feature or product area> scope"})
+```
+
+Prior scope decisions, rejected features, and fixed metrics constrain the PRD — a
+requirement that contradicts a recorded decision must cite it and flag the conflict
+under Open Questions, not silently override it.
+
 ## The Boundary: WHAT/WHY, Never HOW
 
 - Requirements describe user-observable behavior and outcomes — never databases,

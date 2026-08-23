@@ -35,6 +35,17 @@ When triggered:
 
 ## Pre-Implementation Checks (skip if Fast Path triggered)
 
+### KG first — one call before any file exploration
+
+```bash
+kg__search_knowledge({query: "<component or feature being changed>"})
+```
+
+Prior decisions, known gotchas, and past findings shape what you read and grep for —
+one KG call can replace two of your three budgeted reads. The KG answers "what do we
+already know about this"; grep answers "where is this string" — query the KG first,
+then explore files with what it told you.
+
 ### Scope assessment
 
 Before writing any code, answer:

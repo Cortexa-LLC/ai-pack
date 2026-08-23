@@ -105,6 +105,19 @@ spelunker (trace) → inspector (root cause) → engineer (fix)
 
 ---
 
+## KG First — Before Decomposing
+
+Before breaking work down, query the KG for each component the task touches:
+
+```bash
+kg__search_knowledge({query: "<component>"})
+```
+
+Prior decisions, known issues, and past findings belong IN the briefs you write —
+an agent brief that omits a recorded gotcha sends the agent off to rediscover it.
+The agents also query the KG themselves, but the orchestrator's search shapes the
+decomposition itself: what to delegate, to whom, and with what warnings.
+
 ## Task Tracking
 
 Use the native **TaskCreate/TaskUpdate** tools to track multi-step work within the
