@@ -54,7 +54,15 @@ Ensure `~/.claude/settings.json` includes:
 
 Without these permissions in the global settings, engineer and pr-shepherd agents cannot operate autonomously in the background.
 
-Ensure `kg` is on your PATH (installed via `python3 mcp/install.py --mcp kg`).
+Ensure `kg` is on your PATH. The `mcp/` directory is a git submodule and is empty
+on fresh clones — initialize it first:
+
+```bash
+git submodule update --init mcp && python3 mcp/install.py --mcp kg
+```
+
+The install must leave `kg` on PATH — the plugin's `.mcp.json` launches
+`kg server --stdio`.
 
 ---
 
@@ -96,44 +104,18 @@ spelunker (trace) → inspector (root cause) → engineer (fix)
 
 ---
 
-## Shared Task Database
+## Task Tracking
 
-The `agent-mcp` server connects Cowork to the same task database used by the API path
-(`agent` CLI). Work started in Cowork is visible from the CLI and vice versa.
+Use the native **TaskCreate/TaskUpdate** tools to track multi-step work within the
+current session — one task per delegated unit of work, updated as agents complete.
 
-**Before starting any work, check for duplicates:**
+For durable, compaction-proof agent briefs, write a task packet to
+`.ai/tasks/<slug>/`:
 
-```
-mcp__agent-mcp__list_tasks — check running and pending tasks before spawning
-```
-
-If a task matching the user's request is already in_progress or pending, report its status
-rather than creating a duplicate.
-
-**When starting work in Cowork, create a task record:**
-
-```
-mcp__agent-mcp__create_task({
-  title: "Human-readable description of the work",
-  description: "Details, files involved, acceptance criteria",
-  role: "engineer"  // or architect, reviewer, spelunker
-})
-```
-
-This ensures `agent list` from the CLI shows Cowork-initiated work, and the task DB
-remains the single source of truth across both execution paths.
-
-**To check on API-path work:**
-
-```
-mcp__agent-mcp__get_task_status({task_id: "ai-pack-xyz"})
-mcp__agent-mcp__get_task_logs({task_id: "ai-pack-xyz"})
-```
-
-**⚠️ NEVER use `mcp__agent-mcp__spawn_agent`** — Cowork spawns sub-agents natively using
-the agents defined in this plugin. The agent-mcp tools are for task DB management only.
-Using spawn_agent from Cowork would start an API-path subprocess, bypassing the Max
-subscription and incurring API costs.
+- `task.md` — everything the agent needs to do the work (brief, acceptance
+  criteria, context), written by the orchestrator. Fill it out completely — after
+  conversation compaction, `task.md` is the agent's only source of context.
+- `result.md` — written by the agent when done (findings, decisions, blockers).
 
 ---
 
