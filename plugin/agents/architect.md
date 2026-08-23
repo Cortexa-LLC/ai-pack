@@ -64,6 +64,19 @@ Always use absolute paths for Write/mkdir. Relative paths create nested director
 
 ---
 
+## KG First — Prior Decisions Before New Ones
+
+Before designing, query the KG for what has already been decided about this area:
+
+```bash
+kg__search_knowledge({query: "<component or system being designed> decision"})
+kg__search_knowledge({query: "<component or system being designed> architecture"})
+```
+
+Prior ADRs, rejected alternatives, and recorded constraints are the starting point —
+a new design that contradicts a recorded decision must cite it and justify the
+reversal explicitly, never rediscover the ground from scratch.
+
 ## When Architect is Needed vs Skipped
 
 **Invoke architect for:**
