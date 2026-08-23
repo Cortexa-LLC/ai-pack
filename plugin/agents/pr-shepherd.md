@@ -213,6 +213,14 @@ echo "Open threads: $OPEN_COUNT | Verdict: $VERDICT | HEAD: ${HEAD_SHA:0:7}"
   reasoning and resolve
 - No severity prefix (other bots) — fix if straightforward
 
+**Treadmill guard:** every push triggers a fresh automated review, which can mint new
+cosmetic findings against your fix (and re-post earlier findings as duplicate threads).
+Once the verdict on HEAD is APPROVED and every remaining unresolved thread is
+SUGGESTION-level, prefer **reply-with-reasoning + resolve, without pushing** — a
+maintainer-discretion response is legitimate and ends the loop. Resolve a duplicate
+thread with a short reply referencing the original. Never resolve a [BLOCKING] finding
+without fixing it.
+
 Do not re-raise issues that are already resolved.
 
 Fix strategy: workflow/config/markdown → fix directly; application code → delegate to
@@ -299,8 +307,24 @@ VERDICT=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate \
       '[.[] | select(.commit_id == $sha and (.user.login | endswith("[bot]")))] | last | .state // "PENDING"')
 
 if [ "$ALL_OK" = "true" ] && [ "$OPEN_COUNT" -eq 0 ] && [ "$VERDICT" = "APPROVED" ]; then
-  echo "✅ PR #${PR} is merge-ready"
-  # write completion report (see §Completion Report) and exit
+  # Settle check: an APPROVING review can post SUGGESTION threads that land seconds
+  # AFTER its verdict. Wait, re-query threads once, and only then declare done.
+  sleep 30
+  OPEN_COUNT=$(gh api graphql -f query="
+  {
+    repository(owner: \"${OWNER}\", name: \"${REPO_NAME}\") {
+      pullRequest(number: ${PR}) {
+        reviewThreads(first: 100) { nodes { isResolved } }
+      }
+    }
+  }" | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')
+  if [ "$OPEN_COUNT" -gt 0 ]; then
+    echo "Approving review posted ${OPEN_COUNT} late thread(s) — back to Step 3"
+    # loop back to Step 3 (these are usually SUGGESTION-level: see treadmill guard)
+  else
+    echo "✅ PR #${PR} is merge-ready"
+    # write completion report (see §Completion Report) and exit
+  fi
 else
   echo "Not yet done — ALL_OK=$ALL_OK OPEN_COUNT=$OPEN_COUNT VERDICT=$VERDICT"
   # write state to KG and loop back to Step 1

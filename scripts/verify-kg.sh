@@ -8,10 +8,14 @@ echo "======================================"
 echo
 
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
-KG="$PROJECT_ROOT/tmp/kg"
-
-if [ ! -f "$KG" ]; then
-    echo "❌ kg binary not found at $KG"
+# Use the system-installed kg (the plugin launches it from PATH); fall back to a
+# repo-local build at tmp/kg if present.
+if command -v kg >/dev/null 2>&1; then
+    KG="$(command -v kg)"
+elif [ -f "$PROJECT_ROOT/tmp/kg" ]; then
+    KG="$PROJECT_ROOT/tmp/kg"
+else
+    echo "❌ kg binary not found on PATH (install: git submodule update --init mcp && python3 mcp/install.py --mcp kg)"
     exit 1
 fi
 
