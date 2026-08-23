@@ -1,7 +1,10 @@
 # Architecture: AI-Pack Cowork Plugin
 
 **Date:** 2026-05-28
-**Status:** Approved — ready for implementation
+**Status:** Historical — implemented and since superseded. `cowork-plugin/` was renamed to
+`plugin/` (2026-06-09), `roles/claude-code/` was removed (2026-08-22), and `plugin/agents/`
+is now the single canonical source of role definitions. Directory paths below have been
+updated to the current `plugin/` name; other details reflect the design at time of writing.
 
 ---
 
@@ -27,7 +30,7 @@ The two execution paths remain independent and coexist:
 | Entry point | `agent engineer <id> --stream` | Cowork desktop app |
 | Orchestration | ai-pack agent server (port 8082) | Cowork native |
 | Agent execution | Claude Code subprocesses | Cowork sub-agents |
-| Role definitions | `roles/*.md` | `cowork-plugin/agents/*.md` |
+| Role definitions | `roles/*.md` | `plugin/agents/*.md` |
 | Cost | API key per turn | Max subscription |
 | MCP role | Drives the agent server | Task DB (read/write); GitHub; KG |
 
@@ -59,7 +62,7 @@ Based on the `anthropics/knowledge-work-plugins` GitHub repository (the canonica
 for Cowork plugin authoring), the plugin follows this layout:
 
 ```
-cowork-plugin/
+plugin/
 ├── .claude-plugin/
 │   └── plugin.json              # Required manifest
 ├── agents/
@@ -206,9 +209,9 @@ Key content to include from `roles/shared/orchestrator-engineer-handoff.md`:
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
-mkdir -p "$PROJECT_ROOT/cowork-plugin/.claude-plugin"
-mkdir -p "$PROJECT_ROOT/cowork-plugin/agents"
-mkdir -p "$PROJECT_ROOT/cowork-plugin/skills/orchestrate"
+mkdir -p "$PROJECT_ROOT/plugin/.claude-plugin"
+mkdir -p "$PROJECT_ROOT/plugin/agents"
+mkdir -p "$PROJECT_ROOT/plugin/skills/orchestrate"
 ```
 
 ### Step 2 — Write plugin.json
@@ -244,7 +247,7 @@ Write `skills/orchestrate/SKILL.md` covering:
 ### Step 6 — Validate
 
 ```bash
-claude plugin validate cowork-plugin/.claude-plugin/plugin.json
+claude plugin validate plugin/.claude-plugin/plugin.json
 ```
 
 If the CLI is unavailable, manually verify:
@@ -257,7 +260,7 @@ If the CLI is unavailable, manually verify:
 
 ```bash
 cd /Users/bryanw/Projects/Vibe/ai-pack
-zip -r /tmp/ai-pack.plugin cowork-plugin/ -x "*.DS_Store"
+zip -r /tmp/ai-pack.plugin plugin/ -x "*.DS_Store"
 cp /tmp/ai-pack.plugin /Users/bryanw/Claude/ai-pack.plugin
 ```
 
@@ -272,7 +275,7 @@ Or drop the `.plugin` file into Cowork's chat to install via the UI.
 
 ## Acceptance Criteria
 
-- [ ] `cowork-plugin/` directory exists at project root with correct structure
+- [ ] `plugin/` directory exists at project root with correct structure
 - [ ] `plugin validate` passes (or manual check confirms all files present and valid)
 - [ ] Engineer agent fires when asked to implement/fix/test something in Cowork
 - [ ] Architect agent fires when asked to design or assess feasibility
@@ -287,7 +290,7 @@ Or drop the `.plugin` file into Cowork's chat to install via the UI.
 
 - The existing agent server (port 8082) and all API-path tooling remain untouched
 - `roles/*.md` (server-format roles) are not modified
-- `roles/claude-code/*.md` (portable roles) are the source; `cowork-plugin/agents/` are copies with frontmatter added
+- `roles/claude-code/*.md` (portable roles) are the source; `plugin/agents/` are copies with frontmatter added
 - The `agent` CLI, task packets, and `.ai/tasks/` workflow are unchanged
 
 ---

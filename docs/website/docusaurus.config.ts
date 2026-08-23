@@ -92,10 +92,6 @@ const config: Config = {
               label: 'Workflows',
               to: '/docs/workflows/bugfix',
             },
-            {
-              label: 'Roles',
-              to: '/docs/roles/archaeologist',
-            },
           ],
         },
         {
