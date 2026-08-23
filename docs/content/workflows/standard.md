@@ -43,7 +43,7 @@ Phase 1: Understanding → Phase 2: Planning → Phase 3: Implementation → Pha
 
 **Tools:**
 - AskUserQuestion - for clarifications
-- Beads (`agent create`, `bd start`, `agent close`) - to track understanding tasks
+- Session task tracking (TaskCreate/TaskUpdate) - to track understanding tasks
 
 **Deliverables:**
 - Clear task description
@@ -209,7 +209,7 @@ docs/
 
 #### 2.4 Execution Strategy Determination (MANDATORY)
 
-**GATE CHECKPOINT:** [Execution Strategy Analysis](../gates/25-execution-strategy.md)
+**GATE CHECKPOINT:** Execution Strategy Analysis
 
 **REQUIREMENT:** Before proceeding to implementation, orchestrator MUST analyze and document execution strategy.
 
@@ -241,7 +241,7 @@ STEP 3: Consider shared context constraints
   ⚠️ COORDINATE: Build ops, coverage merging, migrations
 
 STEP 4: Document strategy decision
-  Write analysis to task packet task.md:
+  Write analysis into the delegation brief (or task packet task.md, if using one):
   - Subtask inventory
   - Independence assessment
   - Strategy choice (PARALLEL/SEQUENTIAL/HYBRID)
@@ -307,7 +307,7 @@ ELSE complete missing analysis
 
 #### 2.5 Artifact Persistence Checkpoint (IF SPECIALISTS USED)
 
-**GATE CHECKPOINT:** [Artifact Persistence Gate](../gates/10-persistence.md#11-artifact-repository-persistence)
+**GATE CHECKPOINT:** Artifact Persistence Gate
 
 **TRIGGER:** Planning involved Product Manager, Architect, or Inspector roles.
 
@@ -541,7 +541,7 @@ npm run test:coverage # verify coverage
 
 #### 4.2 Tester Validation (MANDATORY for Code Changes)
 
-**ENFORCEMENT:** Orchestrator MUST delegate to Tester agent for all work packages involving code changes. Enforced by **[Code Quality Review Gate](../gates/35-code-quality-review.md)**.
+**ENFORCEMENT:** Orchestrator MUST delegate to Tester agent for all work packages involving code changes. Enforced by the code quality review gate.
 
 **Tester Responsibilities:**
 ```text
@@ -606,7 +606,7 @@ END IF
 
 #### 4.4 Reviewer Validation (MANDATORY for Code Changes)
 
-**ENFORCEMENT:** Orchestrator MUST delegate to Reviewer agent for all work packages involving code changes. Enforced by **[Code Quality Review Gate](../gates/35-code-quality-review.md)**.
+**ENFORCEMENT:** Orchestrator MUST delegate to Reviewer agent for all work packages involving code changes. Enforced by the code quality review gate.
 
 **Reviewer Responsibilities:**
 ```text
@@ -872,13 +872,15 @@ For all work packages with code changes:
 - Reviewer validation mandatory for code changes
 - Both must approve before acceptance
 - Work incomplete if either finds blocking issues
-- See [Code Quality Review Gate](../gates/35-code-quality-review.md)
+- Enforced by the code quality review gate
 
 ---
 
-## Task Packet Management
+## Task Packet Management (Optional)
 
-### Throughout Workflow
+Task packets are an optional convention — agent briefs are normally passed directly in agent prompts. Use packets when the work spans multiple sessions and the brief must outlive any one conversation. See [Task Packets](../task-packets.md).
+
+### Throughout Workflow (when using packets)
 
 **Initialize (.ai/tasks/<task-id>-<YYYYMMDDHHMMSS>-<short-desc>/):**
 ```text
@@ -969,16 +971,13 @@ Phase 4 (Review):
 
 **After Product Manager Phase:**
 - PRDs, epics, user stories → `docs/product/[feature-name]/`
-- See [Product Manager Role](../roles/product-manager.md) for details
 
 **After Architect Phase:**
 - Architecture docs, API specs, data models → `docs/architecture/[feature-name]/`
 - ADRs → `docs/adr/`
-- See [Architect Role](../roles/architect.md) for details
 
 **After Bug Fix and Verification:**
 - Bug investigation retrospectives → `docs/investigations/`
-- See [Inspector Role](../roles/inspector.md) for details
 
 ### Why This Matters
 
@@ -1037,14 +1036,10 @@ project-root/
 
 ## References
 
-- [Global Gates](../gates/00-global-gates.md)
-- [Persistence Gates](../gates/10-persistence.md)
-- [Tool Policy](../gates/20-tool-policy.md)
-- [Verification Gates](../gates/30-verification.md)
-- [Orchestrator Role](../roles/orchestrator.md)
-- [Worker Role](../roles/worker.md)
-- [Reviewer Role](../roles/reviewer.md)
-- [Task Packet Templates](../templates/task-packet/)
+- [Agents](../agents.md)
+- [Skills](../skills.md)
+- [Task Packets](../task-packets.md)
+- [Clean Code Standards](../quality/clean-code/00-general-rules.md)
 
 ---
 

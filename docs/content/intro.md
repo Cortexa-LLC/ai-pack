@@ -5,158 +5,43 @@ slug: /
 
 # AI-Pack Documentation
 
-Welcome to **AI-Pack**, a comprehensive AI agent workflow framework for software development.
+**AI-Pack is a Claude Code plugin that turns a single Claude Code session into a coordinated engineering team.**
 
 ## What is AI-Pack?
 
-AI-Pack provides structured processes, quality gates, agent roles, and coding standards for AI agent-based software development. It ensures quality, consistency, and proper governance throughout the development lifecycle.
+AI-Pack ships three things:
 
-## Key Features
+- **Six specialized subagents** — architect, engineer, inspector, pr-shepherd, reviewer, and spelunker. Each is a self-contained role definition with its own tool discipline, quality gates, and reporting format.
+- **Three workflow skills** — orchestrate (decompose and delegate multi-step work), pre-push (review-and-fix loop on local commits), and shepherd-pr (drive a GitHub PR to a green, approved state).
+- **A knowledge-graph MCP server (`kg`)** — persistent, per-project memory that lets agents accumulate and recall findings across sessions.
 
-### 🚦 Quality Gates
-Enforcement rules that govern permitted actions:
-- **Global Gates** - Universal safety and quality rules
-- **TDD Enforcement** - Mandatory test-driven development
-- **Persistence Rules** - File operations and state management
-- **Code Quality Review** - Mandatory validation gates
-- **Architectural Review** - System change oversight
+## Who is it for?
 
-### 👥 Agent Roles
-Specialized agent personas with specific responsibilities:
-- **Orchestrator** - High-level coordination and delegation
-- **Engineer** - Implementation specialist following TDD
-- **Inspector** - Bug investigation and root cause analysis
-- **Strategist** - Market analysis and business strategy
-- **Product Manager** - Product requirements and user stories
-- **Designer** - UX workflows and wireframes
-- **Architect** - Technical design and system architecture
-- **Tester** - Testing validation and TDD compliance
-- **Reviewer** - Code quality and standards compliance
+Anyone using [Claude Code](https://docs.anthropic.com/en/docs/claude-code) on real software projects who wants more than a single generalist assistant: parallel specialists for implementation and review, a repeatable path from "fix this bug" to a merged PR, and project knowledge that survives session boundaries.
 
-### 🔄 Development Workflows
-Structured processes for different types of work:
-- Feature development
-- Bug fixing
-- Code refactoring
-- Research and investigation
+## How it works
 
-### 🤖 Agent-to-Agent (A2A) Workflow
-Production-grade agent spawning system for autonomous task delegation:
-- Specialized agent roles (Engineer, Tester, Reviewer)
-- Fast spawn times (~0.06s average)
-- Automatic task tracking via Beads
-- Full tool access with quality gates
-- Protocol handler support (`agent://` URLs)
-- **Parallel execution** via Go-based A2A server ✅
-- **Real-time streaming** with SSE progress updates ✅
-- **Production infrastructure** with structured logging and metrics ✅
+Claude Code provides the execution loop — the tools, the permission system, and the native `Agent` tool for spawning subagents. AI-Pack provides what runs on top of it:
 
-### 📋 Task Memory System
-Persistent, git-backed task tracking using **[Beads](https://github.com/steveyegge/beads)**:
-- Cross-session memory that survives AI conversation boundaries
-- Git-backed storage in `.beads/issues.jsonl`
-- Full dependency tracking and task graphs
-- Multi-agent coordination with hash-based IDs
+- **Roles.** Each subagent definition constrains a spawned agent to one job (design, implement, investigate, review, shepherd) with clear quality gates and a structured completion report.
+- **Coordination.** The skills package proven multi-agent patterns: the orchestrate skill decomposes work and delegates it to the right roles, with parallel spawns where tasks are independent; pre-push and shepherd-pr run bounded fix-and-verify loops.
+- **Memory.** Subagents share no context with each other or with your main session — every brief must be self-contained. The `kg` knowledge graph fills the gap: agents checkpoint findings into it and pull prior context out of it, so knowledge persists across agents and across sessions.
 
-### 🎯 Clean Code Standards
-Industry-leading coding principles and practices:
-- Universal design principles (SOLID, DRY, YAGNI)
-- Language-specific guidelines (C++, Python, JavaScript/TypeScript, Java, Kotlin, Swift)
-- Testing best practices and TDD workflow
-- Architecture patterns and refactoring techniques
+## Documentation structure
 
-## Quick Start
-
-### 1. Add Framework to Your Project
-
-```bash
-# Add ai-pack as submodule
-cd your-project
-git submodule add https://github.com/Cortexa-LLC/ai-pack .ai-pack
-git submodule update --init --recursive
-
-# Create local workspace
-mkdir -p .ai/tasks
-
-# Initialize Beads for task tracking
-bd init
-
-# Copy bootstrap template
-cp .ai-pack/templates/CLAUDE.md ./CLAUDE.md
-
-# Commit framework setup
-git add .ai-pack .beads/issues.jsonl CLAUDE.md
-git commit -m "Add ai-pack framework and initialize Beads"
-```text
-
-### 2. Claude Code Integration
-
-For native Claude Code integration with slash commands, skills, and hooks:
-
-```bash
-# Run automated setup
-python3 .ai-pack/templates/.claude-setup.py
-
-# Configure permissions for background agents
-# See docs/CLAUDE-CODE-CONFIGURATION.md for details
-```text
-
-### 3. Start Using Tasks
-
-```bash
-# Create a task in Beads
-agent create "Implement user authentication" --priority high
-
-# View available tasks
-agent list --status queued
-
-# Start working on a task
-bd start bd-a1b2
-
-# Mark task complete
-agent close bd-a1b2
-```text
-
-## Documentation Structure
-
-- **[Getting Started](/docs/getting-started)** - Installation and setup guide
-- **[Agent-to-Agent (A2A)](/docs/framework/agent-to-agent)** - Multi-agent workflow system
-- **[Workflows](/docs/workflows/overview)** - Development process guides
-- **[Quality Gates](/docs/gates/overview)** - Enforcement rules and controls
-- **[Clean Code](/docs/quality/clean-code)** - Coding standards and best practices
-
-## Why AI-Pack?
-
-**Structured AI Development:**
-- Clear processes and workflows
-- Quality gates that prevent mistakes
-- Consistent patterns across projects
-
-**Cross-Session Memory:**
-- Tasks persist across AI conversations
-- Git-backed task database
-- Team coordination and dependency tracking
-
-**Quality Governance:**
-- Mandatory code review and testing
-- TDD enforcement with blocking gates
-- Architecture oversight for significant changes
-
-**Knowledge Capture:**
-- Complete history in task packets
-- Decisions and rationale preserved
-- Long-term documentation in `docs/`
+- **[Getting Started](./getting-started.md)** — install the plugin and verify it works
+- **[Agents](./agents.md)** — the six subagents and when to use each
+- **[Skills](./skills.md)** — the three workflow skills and what triggers them
+- **[Knowledge Graph](./knowledge-graph.md)** — persistent project memory via the `kg` MCP server
+- **[Task Packets](./task-packets.md)** — an optional convention for briefs that outlive a session
+- **Workflows** — general engineering process guides: [bugfix](./workflows/bugfix.md), [feature](./workflows/feature.md), [refactor](./workflows/refactor.md), [research](./workflows/research.md), [standard](./workflows/standard.md)
+- **[Clean Code](./quality/clean-code/00-general-rules.md)** — coding standards and best practices agents are held to
 
 ## Support
 
-For questions or discussions:
 - [GitHub Issues](https://github.com/Cortexa-LLC/ai-pack/issues)
 - [GitHub Discussions](https://github.com/Cortexa-LLC/ai-pack/discussions)
 
-## License
+## History
 
-MIT License - Copyright (c) 2025 Cortexa LLC
-
----
-
-**Ready to get started?** Head to the [Getting Started](/docs/getting-started) guide.
+AI-Pack 1.x/2.0 was an API-driven agent server: a Go server running coding agents against the Claude API, with an `agent` CLI, an `agent-mcp` MCP server, and a React GUI. That architecture was deprecated on 2026-08-22 in favor of the plugin model — Claude Code natively provides the execution loop the server used to implement. The server-era code is preserved at tag [`v2.0-server-final`](https://github.com/Cortexa-LLC/ai-pack/releases/tag/v2.0-server-final).
