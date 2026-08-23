@@ -1,1 +1,0 @@
-Run: make setup-kuzu
