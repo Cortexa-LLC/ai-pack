@@ -20,6 +20,7 @@ install-plugin: ## Register marketplace and install the ai-pack plugin into Clau
 	@claude plugin install ai-pack@ai-pack
 	@echo "✅ ai-pack plugin installed"
 
-update-plugin: ## Update the installed ai-pack plugin to latest local version
-	@claude plugin update ai-pack@ai-pack
-	@echo "✅ ai-pack plugin updated"
+update-plugin: ## Force-resync the installed plugin from local source (update is version-gated)
+	@claude plugin uninstall ai-pack@ai-pack || true
+	@claude plugin install ai-pack@ai-pack
+	@echo "✅ ai-pack plugin resynced from local source"
