@@ -1,43 +1,22 @@
-Version: 2.0.0
-Release Date: 2026-01-14
-Codename: Consolidation
+Version: 3.0.0
+Release Date: 2026-08-22
+Codename: Plugin-First
 Status: Stable
-Compatibility: ai-pack 2.x
 
 ## Release Notes
 
-This is a major release that consolidates agent tracking on Beads as the single source of truth, removing the deprecated dual-tracking system.
+Plugin-first — agent-server, agent CLI, and GUI removed; the Claude Code plugin is the
+product. Claude Code natively provides the agent execution loop, so the API-driven Go
+server (port 8082), the `agent` CLI, the `agent-mcp` MCP server, and the React GUI have
+been deleted from the tree. Server era preserved at tag `v2.0-server-final`.
 
-### Breaking Changes
-- ❌ **REMOVED:** `agent-status-tracker.py` - Use Beads instead
-- ❌ **REMOVED:** `.claude/.agent-status.json` tracking
-- ⚠️ **Migration Required:** Use `scripts/migrate-agent-status-to-beads.py`
-
-### New Features
-- ✅ **Single source of truth:** Beads only for all task and agent tracking
-- ✅ **Agent coordination:** Orchestrator creates Beads tasks when spawning agents
-- ✅ **Cross-session persistence:** Agent tasks survive session boundaries
-- ✅ **Real-time monitoring:** `/ai-pack agents` command queries Beads
-- ✅ **Worker integration:** Engineer/Tester/Reviewer roles update Beads tasks
-- ✅ **Git-backed audit trail:** All agent activity tracked in `.beads/issues.jsonl`
-
-### Updated Documentation
-- Orchestrator role: Added Section 2.13 (Agent Registration Protocol)
-- Orchestrator SKILL: Replaced agent-status-tracker with Beads
-- `/ai-pack agents` command: Complete rewrite to query Beads
-- Worker roles: Added Beads update instructions
-- Coordinator SKILL: Updated to use Beads queries
-- Health command: Updated agent status checks
-
-### Migration Path
-Projects using agent-status-tracker.py should migrate:
-1. Ensure Beads initialized: `bd init`
-2. Run migration: `python3 scripts/migrate-agent-status-to-beads.py`
-3. Verify: `/ai-pack agents` or `bd list --assignee "Engineer-*"`
-
-See: MIGRATION.md for complete guide
+### What remains
+- `plugin/` — 6 subagents, 3 skills (orchestrate, pre-push, shepherd-pr), kg MCP config
+- `.claude-plugin/marketplace.json` — local marketplace (`make install-plugin`)
+- `templates/`, `scripts/`, `docs/`, `assets/`
 
 ## Version History
+- 3.0.0 (2026-08-22): Plugin-first — agent-server, agent CLI, and GUI removed; Claude Code plugin is the product. Server era preserved at v2.0-server-final. (BREAKING)
 - 2.0.0 (2026-01-14): Agent tracking consolidation on Beads (BREAKING)
 - 1.1.0 (2026-01-12): Beads integration for task tracking
 - 1.0.0 (2026-01-07): Initial release with AI workflow framework

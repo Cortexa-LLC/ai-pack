@@ -6,11 +6,6 @@ on:
       - main
     paths:
       - 'docs/**'
-      - 'gates/**'
-      - 'roles/**'
-      - 'workflows/**'
-      - 'quality/**'
-      - 'templates/**'
       - 'README.md'
       - '.github/workflows/deploy-docs.yml'
 
