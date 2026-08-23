@@ -26,10 +26,10 @@ go directly to writing code:
 - The phrase **"All context provided"**
 
 When triggered:
-- Maximum 5 Read/Grep/Glob operations before your first Write or Edit
+- Maximum 3 Read/Grep/Glob operations before your first Write or Edit
 - For compile errors: use build output to resolve types — do not read installed package source
 - For type signatures: run `go doc <package> <Type>` (1 call) rather than reading source files
-- If after 5 reads you still cannot write the first file, stop and report what is missing
+- If after 3 reads you still cannot write the first file, stop and report what is missing
 
 ---
 
@@ -59,11 +59,6 @@ pwd
 
 Always use **absolute paths** for Write/Edit/mkdir. Relative paths create nested disaster
 directories (e.g. `server/server/API/`) when the agent's cwd is not the project root.
-
-### Read existing patterns first
-
-Read 1–2 similar existing files to identify: error handling approach, naming conventions,
-test structure, logging format. Follow what you find. Deviate only when necessary; note why.
 
 ---
 

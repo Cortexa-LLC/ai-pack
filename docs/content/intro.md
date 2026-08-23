@@ -122,10 +122,8 @@ agent close bd-a1b2
 - **[Getting Started](/docs/getting-started)** - Installation and setup guide
 - **[Agent-to-Agent (A2A)](/docs/framework/agent-to-agent)** - Multi-agent workflow system
 - **[Workflows](/docs/workflows/overview)** - Development process guides
-- **[Roles](/docs/roles/overview)** - Agent persona specifications
 - **[Quality Gates](/docs/gates/overview)** - Enforcement rules and controls
 - **[Clean Code](/docs/quality/clean-code)** - Coding standards and best practices
-- **[Task Memory](/docs/beads)** - Beads integration and task tracking
 
 ## Why AI-Pack?
 
