@@ -45,3 +45,8 @@ python3 .ai-pack/scripts/reset-submodule.py
 
 **Note:** Prefer Python (`.py`) over Bash (`.sh`) for new scripts (cross-platform).
 Document any new script in this README.
+
+## Migration from 2.x
+
+- **`uninstall-server.sh`** — machine-level removal of the 2.x agent-server: stops launchd/systemd services, removes service definitions, `/usr/local/bin/{agent,agent-mcp,agent-server}`, and the `agent-mcp` MCP registration. Archives `~/.ai-pack/tasks.db` first. `--dry-run` previews; `--purge` also removes `~/.ai-pack` and `~/.claude/performance_grades`. Never touches `~/.claude/metrics`, per-project `.ai/`, or the `kg` binary.
+- **`uninstall-project.sh`** — run from a consumer project's root to remove 2.x integration: the `.ai-pack` submodule, `.claude/commands/ai-pack/`, task hooks, rules, template skills/scripts, and their `settings.json` hook registrations (backed up first). Preserves `.ai/` and flags — but never edits — `CLAUDE.md`. `--dry-run` previews.
