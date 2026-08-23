@@ -73,9 +73,9 @@ Agents can persist findings to the [knowledge graph](./knowledge-graph.md), so w
 
 ## reviewer
 
-**What it does:** Code review focused on quality, security, and best practices. Produces structured findings with severity levels, ending in an APPROVED or CHANGES REQUIRED verdict.
+**What it does:** Code review with a senior engineer's adversarial stance — the diff is treated as a claim to falsify, not a change to summarize: touched comments are testable claims, added tests get asked what they'd still pass with, sibling entry points are checked for half-applied fixes, and design quality is judged alongside correctness and security. Produces structured findings with severity levels, ending in an APPROVED or CHANGES REQUIRED verdict.
 
-**When to use:** You want a second-opinion review of code changes, a PR review, or a security audit of a module. The [pre-push skill](./skills.md#pre-push) uses it automatically against local commits.
+**When to use:** You want a second-opinion review of code changes, a PR review, or a security review of a module. The [pre-push skill](./skills.md#pre-push) uses it automatically against local commits. For whole-project reviews, say "audit" or "adversarial" (or name no diff) to trigger **audit mode**: reading restrictions lift and seven deeper techniques engage — falsifying doc-comment invariants, minimal reproductions (findings tiered Reproduced vs Read-only), diffing parallel entry points, hollow-test analysis, language-trap checks, wire-boundary namespace verification, and probing state the code didn't create.
 
 **Examples:**
 - "review the authentication handler for security issues"
