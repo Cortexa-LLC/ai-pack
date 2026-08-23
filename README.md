@@ -66,9 +66,9 @@ Three skills in `plugin/skills/` package multi-agent workflows:
 
 ---
 
-## Task Packets
+## Task Packets (optional)
 
-For durable, compaction-proof briefs, orchestration uses a two-file convention under `.ai/tasks/<slug>/` in the consuming project:
+Agent briefs are passed directly in Agent-tool prompts. For multi-session work where a brief must outlive any single session, an optional two-file convention under `.ai/tasks/<slug>/` is available:
 
 - `task.md` — the orchestrator's brief: what to do, files to change, acceptance criteria, constraints, context. Fully populated, never template placeholders.
 - `result.md` — written by the agent when done: findings, decisions, blockers.
@@ -96,6 +96,25 @@ mcp/               Git submodule providing the kg binary
 ```
 
 ---
+
+## Migrating from 2.x (server era)
+
+The 3.x plugin needs **no per-project integration** — no submodule, no hooks, no copied commands. Install it once (`make install-plugin`) and it works in every project; the knowledge graph creates `.ai/knowledge.db` per project automatically on first use.
+
+If you previously integrated the 2.x server, two cleanup scripts remove exactly what the old installer placed (both support `--dry-run`):
+
+```bash
+# Once per machine: stop services, remove binaries and MCP registration
+# (archives your task history first; --purge also removes ~/.ai-pack)
+bash scripts/uninstall-server.sh
+
+# Once per integrated project, from that project's root: remove the
+# .ai-pack submodule, ai-pack slash commands, hooks, rules, and template
+# skills — preserving .ai/ (knowledge graph + task history) and your CLAUDE.md
+bash /path/to/ai-pack/scripts/uninstall-project.sh
+```
+
+After cleanup, review the project's `CLAUDE.md` by hand if it was copied from the 2.x template — the scripts flag it but never edit it.
 
 ## History
 
