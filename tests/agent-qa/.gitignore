@@ -1,0 +1,6 @@
+# Harness run artifacts
+results/
+# Runtime files the fixture CLI writes into its own directory
+fixture/records.db
+fixture/records.db.sum
+fixture/records.db.log

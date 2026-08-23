@@ -112,14 +112,21 @@ jobs:
           WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
                    6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
                    11: "eleven", 12: "twelve"}
+          # Each entry: label -> (count, noun regex). The count word must sit
+          # within two words of the noun ("seven subagents", "four workflow
+          # skills") so an unrelated "seven"/"four" elsewhere cannot false-pass.
           counts = {
-              "subagents (plugin/agents/*.md)":
+              "subagents (plugin/agents/*.md)": (
                   len(list(pathlib.Path("plugin/agents").glob("*.md"))),
-              "skills (plugin/skills/*/SKILL.md)":
+                  r"(?:sub)?agents?\b",
+              ),
+              "skills (plugin/skills/*/SKILL.md)": (
                   len(list(pathlib.Path("plugin/skills").glob("*/SKILL.md"))),
+                  r"skills?\b",
+              ),
           }
           docs = ["docs/content/intro.md", "README.md"]
-          for label, count in counts.items():
+          for label, (count, noun) in counts.items():
               word = WORDS.get(count)
               if word is None:
                   errors.append(
@@ -127,12 +134,13 @@ jobs:
                       "release-consistency — extend WORDS in .github/workflows/ci.yml."
                   )
                   continue
+              pattern = rf"\b{word}\b(?:\s+\w+){{0,2}}\s+{noun}"
               for doc in docs:
                   text = pathlib.Path(doc).read_text().lower()
-                  if not re.search(rf"\b{word}\b", text):
+                  if not re.search(pattern, text):
                       errors.append(
-                          f"{doc}: expected the word '{word}' — the tree has "
-                          f"{count} {label}; update the doc's counts."
+                          f"{doc}: expected '{word}' next to the {label.split(' ')[0]} "
+                          f"wording — the tree has {count} {label}; update the doc's counts."
                       )
 
           if errors:

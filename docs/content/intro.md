@@ -11,8 +11,8 @@ slug: /
 
 AI-Pack ships three things:
 
-- **Six specialized subagents** — architect, engineer, inspector, pr-shepherd, reviewer, and spelunker. Each is a self-contained role definition with its own tool discipline, quality gates, and reporting format.
-- **Three workflow skills** — orchestrate (decompose and delegate multi-step work), pre-push (review-and-fix loop on local commits), and shepherd-pr (drive a GitHub PR to a green, approved state).
+- **Seven specialized subagents** — architect, engineer, inspector, pr-shepherd, product-manager, reviewer, and spelunker. Each is a self-contained role definition with its own tool discipline, quality gates, and reporting format.
+- **Four workflow skills** — orchestrate (decompose and delegate multi-step work), prd (product-discovery interview producing a PRD), pre-push (review-and-fix loop on local commits), and shepherd-pr (drive a GitHub PR to a green, approved state).
 - **A knowledge-graph MCP server (`kg`)** — persistent, per-project memory that lets agents accumulate and recall findings across sessions.
 
 ## Who is it for?
