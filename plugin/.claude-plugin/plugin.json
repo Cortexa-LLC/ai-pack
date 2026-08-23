@@ -1,8 +1,17 @@
 {
   "name": "ai-pack",
-  "version": "0.1.0",
+  "version": "2.1.0",
   "description": "Multi-agent engineering system — delegate implementation, architecture, review, and investigation to specialized sub-agents",
   "author": {
     "name": "Bryan Woodruff"
-  }
+  },
+  "homepage": "https://github.com/Cortexa-LLC/ai-pack",
+  "repository": "https://github.com/Cortexa-LLC/ai-pack",
+  "license": "MIT",
+  "keywords": [
+    "agents",
+    "orchestration",
+    "code-review",
+    "knowledge-graph"
+  ]
 }
