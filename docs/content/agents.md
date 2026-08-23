@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # Agents
 
-AI-Pack ships six specialized subagents in `plugin/agents/`. Each is a self-contained role definition — its own tool discipline, quality gates, and reporting format — spawned via Claude Code's native `Agent` tool as `ai-pack:<name>`.
+AI-Pack ships seven specialized subagents in `plugin/agents/`. Each is a self-contained role definition — its own tool discipline, quality gates, and reporting format — spawned via Claude Code's native `Agent` tool as `ai-pack:<name>`.
 
 ## How agents are spawned
 
@@ -60,6 +60,17 @@ Agents can persist findings to the [knowledge graph](./knowledge-graph.md), so w
 - "drive PR #15 until it's green and all threads are resolved"
 - "fix the CI failures on my PR and address the reviewer comments"
 
+## product-manager
+
+**What it does:** Product requirements — turns discovery transcripts, briefs, or meeting notes into a PRD: problem statement, target users, measurable success metrics, scope with explicit non-goals, and epics broken into user stories with testable acceptance criteria. The product manager defines *what* and *why*; the [architect](#architect) defines *how*. PRDs land in `docs/product/` of the consumer project.
+
+**When to use:** A feature needs its requirements defined before design or implementation, and you already have the raw material (a transcript, brief, or notes). It is non-interactive — it works from context supplied in the prompt and never invents missing requirements; gaps become explicit open questions for the product owner. For interactive requirements gathering, use the [prd skill](./skills.md#prd), which interviews you in the main session and then delegates drafting to this agent.
+
+**Examples:**
+- "write a PRD for the notification system from this discovery transcript"
+- "break this feature brief into epics and user stories"
+- "turn these meeting notes into requirements with acceptance criteria"
+
 ## reviewer
 
 **What it does:** Code review focused on quality, security, and best practices. Produces structured findings with severity levels, ending in an APPROVED or CHANGES REQUIRED verdict.
@@ -90,5 +101,6 @@ Agents can persist findings to the [knowledge graph](./knowledge-graph.md), so w
 | Files need to change | engineer |
 | Complex bug, unclear root cause | inspector |
 | PR blocked on CI or review threads | pr-shepherd |
+| Requirements need defining before design | product-manager |
 | Second opinion on code quality/security | reviewer |
 | "How does X work?" / unfamiliar code | spelunker |

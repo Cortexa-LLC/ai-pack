@@ -23,6 +23,7 @@ Choose the right agent for each job:
 | **reviewer** | Code review, security checks, quality gates — AFTER engineering, before merging |
 | **spelunker** | Investigation when root cause or implementation path is unclear — BEFORE engineering |
 | **inspector** | Complex bug root cause analysis when the bug is non-obvious or multi-module |
+| **product-manager** | Requirements/PRD work — turning supplied briefs or transcripts into PRDs, epics, user stories — BEFORE architect (works from supplied context; the /prd skill is the interactive path) |
 
 ---
 

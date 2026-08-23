@@ -4,7 +4,7 @@ sidebar_position: 4
 
 # Skills
 
-AI-Pack ships three workflow skills in `plugin/skills/`. Each packages a multi-agent workflow: it decides which [agents](./agents.md) to spawn, in what order, and when to stop. Skills trigger automatically when your request matches, or explicitly via `/ai-pack:<skill>`.
+AI-Pack ships four workflow skills in `plugin/skills/`. Each packages a multi-agent workflow: it decides which [agents](./agents.md) to spawn, in what order, and when to stop. Skills trigger automatically when your request matches, or explicitly via `/ai-pack:<skill>`.
 
 ## orchestrate
 
@@ -18,6 +18,18 @@ AI-Pack ships three workflow skills in `plugin/skills/`. Each packages a multi-a
 - "investigate why requests are timing out then fix the root cause"
 
 **What it looks like when running:** The session breaks your request into tasks, picks the right agent for each (spelunker or inspector to understand, architect to design, engineer to build, reviewer to check), and spawns them via the `Agent` tool with fully self-contained briefs. Independent tasks are spawned in parallel in a single message; dependent tasks wait for their inputs. Results flow back to the orchestrating session, which stitches them into the next brief or the final summary.
+
+## prd
+
+**What it does:** Runs a product discovery interview and produces a PRD in `docs/product/` of your project. The interview happens in the main session — spawned subagents cannot ask you questions — and the drafting is delegated to the [product-manager agent](./agents.md#product-manager).
+
+**What triggers it:**
+
+- "create a PRD for the notification system"
+- "help me spec this feature"
+- "interview me about the requirements for billing export"
+
+**What it looks like when running:** The session interviews you in short rounds of multiple-choice questions (with an "Other" escape) covering the problem, target users, scope and explicit non-goals, constraints, measurable success metrics, priorities, and risks — skipping what you have already answered and stopping when further rounds would not change the PRD. It then compiles the transcript into a self-contained brief and spawns the product-manager agent to draft the PRD to `docs/product/prd-<slug>.md`. Finally it presents the draft's summary and open questions back to you for one round of corrections before delivering the finished document.
 
 ## pre-push
 

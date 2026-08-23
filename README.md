@@ -6,7 +6,7 @@
 
 **A Claude Code plugin providing a coordinated team of specialized subagents.**
 
-AI-Pack turns a Claude Code session into an engineering team. It ships six specialized subagents (architect, engineer, inspector, pr-shepherd, reviewer, spelunker), three workflow skills (orchestrate, pre-push, shepherd-pr), and a knowledge-graph MCP server (`kg`) that gives agents persistent memory of your codebase. Claude Code provides the execution loop; AI-Pack provides the roles, the coordination patterns, and the memory.
+AI-Pack turns a Claude Code session into an engineering team. It ships seven specialized subagents (architect, engineer, inspector, pr-shepherd, product-manager, reviewer, spelunker), four workflow skills (orchestrate, prd, pre-push, shepherd-pr), and a knowledge-graph MCP server (`kg`) that gives agents persistent memory of your codebase. Claude Code provides the execution loop; AI-Pack provides the roles, the coordination patterns, and the memory.
 
 ---
 
@@ -36,7 +36,7 @@ After installation, restart Claude Code. The subagents are available via the `Ag
 
 ## The Agents
 
-Six subagents live in `plugin/agents/`. Each is a self-contained role definition with its own tool discipline, quality gates, and reporting format.
+Seven subagents live in `plugin/agents/`. Each is a self-contained role definition with its own tool discipline, quality gates, and reporting format.
 
 | Agent | What it does | Example invocation |
 |-------|--------------|--------------------|
@@ -44,6 +44,7 @@ Six subagents live in `plugin/agents/`. Each is a self-contained role definition
 | **engineer** | Implementation: writes code, fixes bugs, creates tests | "implement the authentication feature" |
 | **inspector** | Root-cause analysis for complex bugs; produces a fix specification | "investigate why the payment processor occasionally returns 500" |
 | **pr-shepherd** | Drives a GitHub PR to merge-ready: watches CI, fixes failures, answers reviewer threads | "shepherd PR #42 to merge-ready" |
+| **product-manager** | Product requirements: PRDs with measurable goals, non-goals, epics, and user stories with testable acceptance criteria | "write a PRD for the notification system from this discovery transcript" |
 | **reviewer** | Code review: quality, security, best practices, structured findings with severities | "review the auth handler for security issues" |
 | **spelunker** | Codebase investigation: traces execution paths, maps dependencies, answers "how does X work" | "trace the execution path for this failing test" |
 
@@ -58,9 +59,10 @@ self-contained prompt — subagents share no memory with your session.
 
 ## The Skills
 
-Three skills in `plugin/skills/` package multi-agent workflows:
+Four skills in `plugin/skills/` package multi-agent workflows:
 
 - **orchestrate** — decomposes engineering work and delegates it to the subagents. Triggers on multi-step requests like "build this feature end to end" or "investigate why X is broken then fix it".
+- **prd** — product discovery interview in the main session (subagents cannot question the user), then delegates PRD drafting to the product-manager agent. The finished PRD lands in `docs/product/`. Triggers on "create a PRD" or "help me spec this feature".
 - **pre-push** — review-and-fix loop on local commits before pushing. Spawns a reviewer against the local diff; if issues are found, spawns an engineer to fix them, amends, and re-reviews until approved. Triggers on "review my commits before I push".
 - **shepherd-pr** — drives an open GitHub PR to a green, approved, mergeable state by spawning the pr-shepherd agent. Triggers on "shepherd PR #42" or "drive my PR to green".
 
@@ -73,7 +75,7 @@ Agent briefs are passed directly in Agent-tool prompts. For multi-session work w
 - `task.md` — the orchestrator's brief: what to do, files to change, acceptance criteria, constraints, context. Fully populated, never template placeholders.
 - `result.md` — written by the agent when done: findings, decisions, blockers.
 
-Templates live in `templates/task-packet/`. Additional document templates (ADRs, incident reports, investigations, security docs) are in `templates/`.
+Templates live in `templates/task-packet/`. Additional document templates (ADRs, incident reports, investigations, security docs, PRDs) are in `templates/`.
 
 ---
 
@@ -88,7 +90,7 @@ Templates live in `templates/task-packet/`. Additional document templates (ADRs,
 ```
 plugin/            The product: agents/, skills/, .mcp.json
 .claude-plugin/    Local marketplace definition (marketplace.json)
-templates/         ADR, incident, investigation, security, task-packet templates
+templates/         ADR, incident, investigation, security, task-packet, PRD templates
 scripts/           Billing checkers, kg verification, submodule reset
 docs/              Docusaurus documentation site (docs/website)
 assets/            Logos and banners
