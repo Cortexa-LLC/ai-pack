@@ -69,6 +69,79 @@ jobs:
             || { echo "Server-era reference found in plugin/"; exit 1; }
           echo "No server-era references in plugin/"
 
+  release-consistency:
+    name: Release consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version, changelog, and docs-count consistency
+        run: |
+          python3 - <<'EOF'
+          import json, pathlib, re, sys
+
+          errors = []
+
+          # (a) plugin.json is the single source of truth; VERSION mirrors it.
+          plugin_version = json.loads(
+              pathlib.Path("plugin/.claude-plugin/plugin.json").read_text()
+          )["version"]
+          version_file = pathlib.Path("VERSION").read_text().strip()
+          if plugin_version != version_file:
+              errors.append(
+                  f"Version mismatch: plugin/.claude-plugin/plugin.json says "
+                  f"'{plugin_version}' but VERSION says '{version_file}'. "
+                  "plugin.json is the source of truth — update VERSION to match."
+              )
+
+          # (b) CHANGELOG.md must have a heading for the current version.
+          changelog = pathlib.Path("CHANGELOG.md")
+          if not changelog.exists():
+              errors.append("CHANGELOG.md is missing — every release needs an entry.")
+          elif not re.search(
+              rf"^##\s+\[?{re.escape(plugin_version)}\]?\b",
+              changelog.read_text(),
+              re.MULTILINE,
+          ):
+              errors.append(
+                  f"CHANGELOG.md has no '## [{plugin_version}]' heading — add an "
+                  "entry for the version in plugin/.claude-plugin/plugin.json."
+              )
+
+          # (c) Docs must state the actual agent/skill counts (spelled out).
+          WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
+                   6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
+                   11: "eleven", 12: "twelve"}
+          counts = {
+              "subagents (plugin/agents/*.md)":
+                  len(list(pathlib.Path("plugin/agents").glob("*.md"))),
+              "skills (plugin/skills/*/SKILL.md)":
+                  len(list(pathlib.Path("plugin/skills").glob("*/SKILL.md"))),
+          }
+          docs = ["docs/content/intro.md", "README.md"]
+          for label, count in counts.items():
+              word = WORDS.get(count)
+              if word is None:
+                  errors.append(
+                      f"{count} {label} exceeds the number-word map in "
+                      "release-consistency — extend WORDS in .github/workflows/ci.yml."
+                  )
+                  continue
+              for doc in docs:
+                  text = pathlib.Path(doc).read_text().lower()
+                  if not re.search(rf"\b{word}\b", text):
+                      errors.append(
+                          f"{doc}: expected the word '{word}' — the tree has "
+                          f"{count} {label}; update the doc's counts."
+                      )
+
+          if errors:
+              print("\n".join(errors))
+              sys.exit(1)
+          print(f"Release consistency OK: version {plugin_version}, "
+                f"changelog entry present, docs counts match ({counts})")
+          EOF
+
   docs-build:
     name: Docs site builds
     runs-on: ubuntu-latest
