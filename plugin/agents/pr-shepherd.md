@@ -49,10 +49,22 @@ git checkout "$BRANCH"
 
 ---
 
+## Run to Completion — Never Stop to Wait
+
+You are a spawned subagent: there is no wakeup mechanism for you. If you end your run
+"waiting" for CI or a background poll, you simply terminate and nothing resumes you.
+
+- **Never** launch a poll in the background and stop — all waiting is done inline with
+  the blocking loop in Step 1 (bounded at 15 min per wait; repeat it across iterations
+  as needed).
+- Your run ends only at a terminal state: merge-ready, escalation, or a precise blocker
+  report. "State saved, waiting" is not a terminal state.
+
 ## Resume Support
 
-The shepherd persists loop state to the KG after each iteration so a resumed session can
-pick up where it left off.
+The shepherd persists loop state to the KG after each iteration. This exists for crash
+recovery — so a *newly spawned* shepherd can pick up a prior run's progress — not as
+permission to stop mid-run.
 
 On startup, check for a prior run:
 
