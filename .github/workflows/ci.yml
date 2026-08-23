@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate-plugin:
+    name: Validate plugin structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate JSON manifests
+        run: |
+          python3 -m json.tool .claude-plugin/marketplace.json > /dev/null
+          python3 -m json.tool plugin/.claude-plugin/plugin.json > /dev/null
+          python3 -m json.tool plugin/.mcp.json > /dev/null
+          echo "All manifests are valid JSON"
+
+      - name: Validate agent definitions
+        run: |
+          python3 - <<'EOF'
+          import pathlib, re, sys
+
+          errors = []
+          agents = sorted(pathlib.Path("plugin/agents").glob("*.md"))
+          if not agents:
+              errors.append("plugin/agents/ contains no agent definitions")
+          for f in agents:
+              text = f.read_text()
+              m = re.match(r"\A---\n(.*?)\n---\n", text, re.DOTALL)
+              if not m:
+                  errors.append(f"{f}: missing YAML frontmatter")
+                  continue
+              fm = m.group(1)
+              for field in ("name:", "description:"):
+                  if field not in fm:
+                      errors.append(f"{f}: frontmatter missing '{field.rstrip(':')}'")
+              body = text[m.end():]
+              if len(body.strip()) < 100:
+                  errors.append(f"{f}: agent body suspiciously short")
+
+          skills = sorted(pathlib.Path("plugin/skills").glob("*/SKILL.md"))
+          if not skills:
+              errors.append("plugin/skills/ contains no skills")
+          for f in skills:
+              text = f.read_text()
+              m = re.match(r"\A---\n(.*?)\n---\n", text, re.DOTALL)
+              if not m:
+                  errors.append(f"{f}: missing YAML frontmatter")
+                  continue
+              for field in ("name:", "description:"):
+                  if field not in m.group(1):
+                      errors.append(f"{f}: frontmatter missing '{field.rstrip(':')}'")
+
+          if errors:
+              print("\n".join(errors))
+              sys.exit(1)
+          print(f"Validated {len(agents)} agents, {len(skills)} skills")
+          EOF
+
+      - name: Check for server-era regressions
+        run: |
+          # The agent CLI, agent-mcp MCP tools, and server ports must not
+          # reappear in the plugin layer (history notes in docs are fine).
+          ! grep -rnE "mcp__agent-mcp__|localhost:808[02]|agent (create|engineer|reviewer|spelunker) " plugin/ \
+            || { echo "Server-era reference found in plugin/"; exit 1; }
+          echo "No server-era references in plugin/"
+
+  docs-build:
+    name: Docs site builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: docs/website/package-lock.json
+      - name: Build Docusaurus site
+        working-directory: docs/website
+        run: |
+          npm ci
+          npm run build

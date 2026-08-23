@@ -15,9 +15,6 @@
 **/.nuxt/
 **/.output/
 
-# Beads task tracking (transient/supporting data, not project source)
-.beads/
-**/.beads/
 **/*.log
 **/tmp/
 **/temp/
@@ -47,10 +44,6 @@ docs/website/package-lock.json
 **/*.zip
 **/*.tar.gz
 **/*.bin
-
-# Go build artifacts
-**/*.test
-**/*.out
 
 # Coverage reports
 **/coverage/
