@@ -1,9 +1,0 @@
-{
-  "api": {
-    "mode": "direct",
-    "proxy": {
-      "base_url": ""
-    }
-  },
-  "mcp_servers": []
-}
