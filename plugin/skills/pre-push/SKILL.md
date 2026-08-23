@@ -17,6 +17,15 @@ This skill runs a reviewer→engineer→amend loop against the local commits tha
 not yet been pushed to `origin/main`. It halts when the reviewer approves or after
 5 iterations, whichever comes first.
 
+Agents are spawned natively with Claude Code's built-in `Agent` tool, using the
+plugin's subagents (`ai-pack:reviewer`, `ai-pack:engineer`). Each spawn in this
+loop depends on the previous step's result, so **always pass
+`run_in_background: false`** — wait for each agent to finish before continuing.
+
+Sub-agents have **no shared memory** with this conversation. Every prompt must be
+fully self-contained: include the working directory, the diff scope, and complete
+instructions in the prompt itself.
+
 ---
 
 ### Before You Start
@@ -31,6 +40,8 @@ git log --oneline origin/main..HEAD  # show commits to be reviewed
 
 If there are no commits ahead of `origin/main`, stop and tell the user there is
 nothing to push.
+
+Set the iteration counter: `ITER = 1`.
 
 ---
 
@@ -51,40 +62,36 @@ git log --oneline "$BASE"..HEAD
 
 ---
 
-### Step 2 — Create a reviewer task and spawn the reviewer
+### Step 2 — Spawn the reviewer
 
-Create a task packet directory for this review iteration. Use a short slug that
-includes the iteration number (e.g. `pre-push-review-iter-1`):
+Spawn the `ai-pack:reviewer` subagent with the `Agent` tool and
+`run_in_background: false`. The prompt must be self-contained:
 
-```bash
-TASK_DIR=".ai/tasks/pre-push-review-iter-${ITER}"
-mkdir -p "$TASK_DIR"
+```text
+Agent({
+  subagent_type: "ai-pack:reviewer",
+  description: "Pre-push review iteration <ITER>",
+  run_in_background: false,
+  prompt: "Review the local commits on branch <branch> in <absolute working
+  directory> that have not been pushed to origin/main.
+
+  Diff scope: run `git diff <BASE>..HEAD` (BASE = <merge-base SHA>) to obtain
+  the exact diff under review. The commits in scope are:
+  <paste output of git log --oneline BASE..HEAD>
+
+  Review the diff for correctness, quality, security, and style. Return your
+  results in your final message as:
+  1. A verdict line: `Verdict: APPROVE`, `Verdict: REQUEST CHANGES`, or
+     `Verdict: BLOCK`
+  2. A numbered list of findings, each with file path, line reference, severity,
+     and a concrete description of the problem and the expected fix.
+
+  Do not modify any files. Do not push."
+})
 ```
 
-Write `$TASK_DIR/task.md` with:
-- The diff (or a note that it can be obtained with `git diff "$BASE"..HEAD`)
-- The commit list
-- Instruction: "Review this diff for correctness, quality, security, and style.
-  Produce a verdict of APPROVE, REQUEST CHANGES, or BLOCK with inline findings."
-
-Create the task using the `agent` CLI and note the task ID:
-
-```bash
-TID=$(agent create "Review local commits before push
-
-Working directory: $(pwd)
-Task packet: $TASK_DIR
-
-Review the diff in task.md for correctness, quality, security, and
-style. Produce a verdict of APPROVE, REQUEST CHANGES, or BLOCK with
-inline findings." --json | jq -r '.id')
-```
-
-Spawn the reviewer agent and stream its output:
-
-```bash
-agent reviewer "$TID" --stream
-```
+If the diff is small enough, paste it directly into the prompt instead of the
+`git diff` instruction — the reviewer then needs zero exploration.
 
 Wait for the agent to complete.
 
@@ -92,12 +99,11 @@ Wait for the agent to complete.
 
 ### Step 3 — Parse the verdict
 
-Read the review output. The reviewer writes its verdict to `$TASK_DIR/result.md`
-and also prints the verdict line to stdout. Look for one of:
+Read the reviewer's final message. Look for one of:
 
-- `**APPROVE**` or `Verdict: APPROVE`
-- `**REQUEST CHANGES**` or `Verdict: REQUEST CHANGES`
-- `**BLOCK**` or `Verdict: BLOCK`
+- `Verdict: APPROVE`
+- `Verdict: REQUEST CHANGES`
+- `Verdict: BLOCK`
 
 If the verdict is **APPROVE**:
 
@@ -112,36 +118,40 @@ Stop. Do not loop further.
 
 ### Step 4 — If verdict is REQUEST CHANGES or BLOCK
 
-Extract the list of findings from the reviewer output (the numbered issues listed
-under the verdict). These become the brief for the engineer.
+Extract the numbered findings from the reviewer's final message. These become the
+brief for the engineer.
 
-Create an engineer task:
+Spawn the `ai-pack:engineer` subagent with the `Agent` tool and
+`run_in_background: false`, embedding the findings verbatim in the prompt:
 
-```bash
-ENG_DIR=".ai/tasks/pre-push-fix-iter-${ITER}"
-mkdir -p "$ENG_DIR"
+```text
+Agent({
+  subagent_type: "ai-pack:engineer",
+  description: "Fix pre-push findings iter <ITER>",
+  run_in_background: false,
+  prompt: "All context provided. Working directory: <absolute working directory>,
+  branch <branch>.
+
+  A pre-push code review of the local commits (diff scope:
+  `git diff <BASE>..HEAD`) produced the findings below. Fix ALL of them.
+
+  ## Reviewer findings
+  <paste the numbered findings verbatim from the reviewer's final message>
+
+  ## Constraints
+  - The code is in the working directory; edit files in place.
+  - Do NOT commit, amend, or push — only make and stage the changes
+    (`git add -u` at most).
+  - If a finding cannot be fixed (e.g. a design concern), skip it and say so
+    explicitly in your final message.
+
+  ## Acceptance criteria
+  - Build and tests pass for the affected packages.
+  - Every finding is either fixed or explicitly reported as not auto-fixable."
+})
 ```
 
-Write `$ENG_DIR/task.md` with:
-- The reviewer findings (copy verbatim from reviewer output)
-- Instruction: "Fix all findings listed above. The code is in the working
-  directory. Do not push — only make and stage the changes."
-
-Create and spawn the engineer:
-
-```bash
-ETID=$(agent create "Fix pre-push review findings (iteration ${ITER})
-
-Working directory: $(pwd)
-Task packet: $ENG_DIR
-
-Fix all findings listed in task.md. Do not push. Stage all changes
-when done." --json | jq -r '.id')
-
-agent engineer "$ETID" --stream
-```
-
-Wait for the engineer to complete.
+Wait for the engineer to complete. Note any findings it reported as not fixable.
 
 ---
 
@@ -197,3 +207,6 @@ Do **not** push. Leave the branch in its current state for the user to inspect.
   concerns). If the engineer reports it cannot fix a finding, record it in the
   summary and continue the loop — the reviewer may downgrade it to a warning on
   the next pass.
+- Because each iteration's reviewer and engineer are fresh agents with no memory
+  of previous iterations, always re-state the full context (branch, diff scope,
+  findings) in every prompt.
