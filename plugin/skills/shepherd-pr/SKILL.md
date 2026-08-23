@@ -173,7 +173,11 @@ Evaluate in this order:
 **A. Done:**
 ```
 IF THREAD_COUNT == 0 AND THREAD_UNKNOWN == 0 AND CI_UNKNOWN == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND VERDICT == "APPROVED"
-  → print SUCCESS REPORT, stop (no ScheduleWakeup)
+  → settle check: sleep 30, re-run the thread query from Step 2 once
+    (an APPROVING review can post SUGGESTION threads seconds AFTER its verdict)
+  → IF threads still 0: print SUCCESS REPORT, stop (no ScheduleWakeup)
+  → ELSE: treat as Route B this same pass (late threads are usually
+    SUGGESTION-level — see the treadmill guard in Step 5)
 ```
 Note: `CI_UNKNOWN==1` or `THREAD_UNKNOWN==1` skips Route A and falls through to Route F to retry — unknown state is not the same as clean state.
 
@@ -272,6 +276,14 @@ Read each unresolved thread's full body. Triage by severity prefix:
 - **[BLOCKING]** — always fix
 - **[SUGGESTION]** — fix if reasonable; reply with reasoning if declining
 - No severity prefix (other bots or human reviewers) — fix if straightforward
+
+**Treadmill guard:** every push triggers a fresh automated review, which can mint new
+cosmetic findings against your fix (and re-post earlier findings as duplicate threads).
+Once the verdict on HEAD is APPROVED and every remaining unresolved thread is
+SUGGESTION-level, prefer **reply-with-reasoning + resolve, without pushing** — that is
+a legitimate maintainer response and it ends the cycle. Resolve a duplicate thread with
+a short reply referencing the original. Never resolve a [BLOCKING] finding without
+fixing it.
 
 Do not re-raise issues that are already resolved.
 
