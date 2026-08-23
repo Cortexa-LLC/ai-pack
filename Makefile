@@ -1,5 +1,5 @@
 .PHONY: test test-short test-coverage build build-gui codegen-gui clean clean-all sonarqube help
-.PHONY: install install-agent install-agent-mcp uninstall uninstall-agent setup-mcp install-mcp cowork-plugin install-cowork-plugin update-cowork-plugin clean-cowork-plugin
+.PHONY: install install-agent install-agent-mcp uninstall uninstall-agent setup-mcp install-mcp install-plugin update-plugin
 .PHONY: start-server start-gui start-all stop-server stop-gui stop-all restart-server restart-gui restart-all
 .PHONY: setup-services uninstall-services status-services
 .PHONY: setup-launchd uninstall-launchd status-launchd
@@ -158,26 +158,17 @@ uninstall-agent: ## Uninstall agent binaries from /usr/local/bin
 	@echo "✅ Agent binaries uninstalled"
 
 # ============================================================================
-# COWORK PLUGIN
+# CLAUDE CODE PLUGIN (plugin/ — installed from source via local marketplace)
 # ============================================================================
 
-cowork-plugin: ## Package the Cowork plugin into dist/ai-pack.plugin
-	@mkdir -p dist
-	@zip -r dist/ai-pack.plugin cowork-plugin/ -x "*.DS_Store"
-	@echo "✅ Cowork plugin packaged: dist/ai-pack.plugin"
-
-install-cowork-plugin: ## Register marketplace and install Cowork plugin into Claude Code (run once)
+install-plugin: ## Register marketplace and install the ai-pack plugin into Claude Code (run once)
 	@claude plugin marketplace add $(PROJECT_ROOT) 2>/dev/null || true
 	@claude plugin install ai-pack@ai-pack
-	@echo "✅ Cowork plugin installed"
+	@echo "✅ ai-pack plugin installed"
 
-update-cowork-plugin: ## Update the installed Cowork plugin to latest local version
+update-plugin: ## Update the installed ai-pack plugin to latest local version
 	@claude plugin update ai-pack@ai-pack
-	@echo "✅ Cowork plugin updated"
-
-clean-cowork-plugin: ## Remove the packaged Cowork plugin artifact
-	@rm -f dist/ai-pack.plugin
-	@echo "✅ dist/ai-pack.plugin removed"
+	@echo "✅ ai-pack plugin updated"
 
 # ============================================================================
 # START/STOP TARGETS (via launchctl on macOS, systemd on Linux)
