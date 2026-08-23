@@ -633,7 +633,6 @@ A feature is complete when:
 ## References
 
 - [Standard Workflow](standard.md) - Base workflow
-- [Engineering Standards](../quality/engineering-standards.md)
 - [Design Principles](../quality/clean-code/01-design-principles.md)
 - [SOLID Principles](../quality/clean-code/02-solid-principles.md)
 - [Testing Guidelines](../quality/clean-code/04-testing.md)

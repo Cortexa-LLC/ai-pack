@@ -4,335 +4,105 @@ sidebar_position: 2
 
 # Getting Started
 
-This guide will help you integrate AI-Pack into your project.
+Install the AI-Pack plugin into Claude Code, set up the knowledge-graph server, and run your first multi-agent workflow.
 
 ## Prerequisites
 
-- Git
-- Python 3.8+ (for Claude Code hooks)
-- Node.js 20+ (for Docusaurus documentation)
-- [Beads](https://github.com/steveyegge/beads) task tracker (optional but recommended)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed and working
+- Git (to clone the repo and initialize the `mcp` submodule)
+- Python 3 (used by the `kg` installer)
 
 ## Installation
 
-### 1. Add AI-Pack as a Submodule
+### 1. Clone the repo
 
 ```bash
-cd your-project
-git submodule add https://github.com/Cortexa-LLC/ai-pack .ai-pack
-git submodule update --init --recursive
-```text
+git clone https://github.com/Cortexa-LLC/ai-pack.git
+cd ai-pack
+```
 
-This creates a read-only `.ai-pack/` directory containing the framework.
-
-### 2. Create Local Workspace
+### 2. Install the plugin
 
 ```bash
-# Create task workspace (temporary)
-mkdir -p .ai/tasks
+make install-plugin
+```
 
-# Create permanent documentation directory
-mkdir -p docs/{market,product,design,architecture,adr,investigations,archaeology,incidents}
-```text
+This registers the local marketplace with Claude Code and installs `ai-pack@ai-pack`. It is a one-time step; the plugin then works in any project you open with Claude Code.
 
-### 3. Initialize Beads (Recommended)
+### 3. Set up the `kg` knowledge-graph server
 
-Beads provides persistent, git-backed task tracking:
+The plugin's `.mcp.json` launches a `kg` MCP server that gives agents persistent memory. `kg` is a standalone binary provided by the `mcp` git submodule:
 
 ```bash
-# Install Beads (macOS/Linux)
-curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+git submodule update --init mcp
+python3 mcp/install.py --mcp kg
+```
 
-# Windows PowerShell
-irm https://raw.githubusercontent.com/steveyegge/beads/main/install.ps1 | iex
+See [Knowledge Graph](./knowledge-graph.md) for what it does and how agents use it.
 
-# Initialize in your project
-bd init
-```text
+### 4. Restart Claude Code
 
-### 4. Copy Bootstrap Template
+Close and reopen Claude Code so the plugin and MCP server load.
 
-```bash
-cp .ai-pack/templates/CLAUDE.md ./CLAUDE.md
-```text
+## Verify the installation
 
-Edit `CLAUDE.md` with project-specific details:
-- Project name
-- Technology stack
-- Key files and directories
-- Special considerations
+**Agents.** In a Claude Code session, the six subagents should be available to the `Agent` tool as `ai-pack:*` subagent types: `ai-pack:architect`, `ai-pack:engineer`, `ai-pack:inspector`, `ai-pack:pr-shepherd`, `ai-pack:reviewer`, `ai-pack:spelunker`. Ask Claude to "list the available subagent types" if you want to confirm.
 
-### 5. Commit Framework Setup
+**Knowledge graph.** From a terminal:
 
 ```bash
-git add .ai-pack .beads/issues.jsonl CLAUDE.md
-git commit -m "Add ai-pack framework and initialize Beads"
+claude mcp list
+```
+
+The output should include the `kg` server. You can also run `scripts/verify-kg.sh` from the ai-pack repo.
+
+**Skills.** The three skills appear as `/ai-pack:orchestrate`, `/ai-pack:pre-push`, and `/ai-pack:shepherd-pr`, and also trigger automatically on matching requests.
+
+## First use
+
+Open Claude Code in any project and describe work in plain language — the skills and agents pick it up:
+
+**Drive a PR to merge-ready:**
+
 ```text
+shepherd PR #42 to merge-ready
+```
 
-## Claude Code Integration (Optional)
+This triggers the shepherd-pr skill, which spawns the pr-shepherd agent to watch CI, fix failures, and address reviewer threads until the PR is green and approved.
 
-For native Claude Code integration with slash commands, skills, and hooks:
+**Multi-step engineering work:**
 
-### 1. Run Setup Script
+```text
+investigate why the login flow intermittently fails, then fix it
+```
+
+This triggers the orchestrate skill, which decomposes the request — an inspector agent finds the root cause, then an engineer agent implements the fix with tests.
+
+**Check your commits before pushing:**
+
+```text
+review my commits before I push
+```
+
+This triggers the pre-push skill: a reviewer agent examines your local diff, and if issues are found, an engineer agent fixes them and amends the commit, looping until the review passes.
+
+## Updating
+
+After pulling changes to the ai-pack repo:
 
 ```bash
-python3 .ai-pack/templates/.claude-setup.py
-```text
+make update-plugin
+```
 
-This creates:
-- `.claude/commands/ai-pack/` - Slash commands
-- `.claude/skills/` - Auto-triggered roles
-- `.claude/rules/` - Modular enforcement rules
-- `.claude/hooks/` - Python enforcement scripts
-- `.claude/settings.json` - Hook configuration
+## Next steps
 
-### 2. Configure Permissions
-
-Background agents need file operation permissions. The setup script creates `.claude/settings.json` with safe defaults:
-
-```json
-{
-  "description": "AI-Pack Framework Configuration for Claude Code",
-  "permissions": {
-    "allow": [
-      "Write(*)",
-      "Edit(*)",
-      "Bash(mkdir:*)",
-      "Bash(cp:*)",
-      "Bash(mv:*)",
-      "Bash(ls:*)",
-      "Bash(cat:*)",
-      "Bash(git pull:*)",
-      "Bash(git fetch:*)",
-      "Bash(git status:*)",
-      "Bash(git diff:*)",
-      "Bash(git log:*)",
-      "Bash(npm:*)",
-      "Bash(dotnet:*)",
-      "Bash(pytest:*)"
-    ],
-    "deny": [
-      "Bash(rm -rf /*)",
-      "Bash(git push --force*)",
-      "Bash(sudo rm*)"
-    ],
-    "defaultMode": "acceptEdits"
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "description": "Start ai-pack monitoring timers",
-        "hooks": [{
-          "type": "command",
-          "command": "python3 .claude/hooks/session-start.py"
-        }]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "description": "Enforce task packet gate",
-        "hooks": [{
-          "type": "command",
-          "command": "python3 .claude/hooks/check-task-packet.py"
-        }]
-      }
-    ]
-  }
-}
-```text
-
-**Key Changes from Old Config:**
-- `defaultMode: "acceptEdits"` (not `"bypassPermissions"`) - More granular control
-- Explicit allow list for safe Bash commands
-- Explicit deny list for dangerous operations
-- Session hooks for monitoring timers
-
-**Security Note:** This configuration balances safety with productivity. Destructive operations still require approval.
-
-See [Claude Code Configuration](./claude-code-configuration.md) for complete details.
-
-### 3. Restart Claude Code
-
-Close and reopen Claude Code for settings to take effect.
-
-## Directory Structure
-
-After setup, your project will have:
-
-```text
-your-project/
-├── .ai-pack/                    # Git submodule (read-only)
-│   ├── quality/                 # Clean code standards
-│   ├── gates/                   # Quality gates
-│   ├── roles/                   # Agent roles
-│   ├── workflows/               # Development workflows
-│   └── templates/               # Task-packet templates
-│
-├── .beads/                      # task memory (committed)
-│   ├── issues.jsonl             # Git-tracked task database
-│   └── *.db                     # Local cache (git-ignored)
-│
-├── .ai/                         # Local workspace (temporary)
-│   ├── tasks/                   # Active task packets
-│   └── repo-overrides.md        # Project-specific rules
-│
-├── docs/                        # Permanent documentation
-│   ├── market/                  # Market requirements (Strategist)
-│   ├── product/                 # Product requirements (Product Manager)
-│   ├── design/                  # UX design (Designer)
-│   ├── architecture/            # Technical design (Architect)
-│   ├── adr/                     # Architecture Decision Records
-│   ├── investigations/          # Bug retrospectives (Inspector)
-│   ├── archaeology/             # Legacy code investigations (Archaeologist)
-│   └── incidents/               # Production incidents (Spelunker)
-│
-├── .claude/                     # Claude Code integration (optional)
-│   ├── commands/ai-pack/        # Slash commands
-│   ├── skills/                  # Auto-triggered roles
-│   ├── rules/                   # Modular rules
-│   ├── hooks/                   # Enforcement scripts
-│   └── settings.json            # Configuration
-│
-└── CLAUDE.md                    # Bootstrap instructions
-```text
-
-## Basic Usage
-
-### Working with Tasks
-
-```bash
-# Create a task
-agent create "Implement user authentication" --priority high
-
-# List available tasks (no blocking dependencies)
-agent list --status queued
-
-# Start working on a task
-bd start bd-a1b2
-
-# View task details
-agent show bd-a1b2
-
-# Mark task complete
-agent close bd-a1b2
-
-# Add dependency (task Y depends on task X)
-bd dep add bd-x bd-y
-```text
-
-### Creating Task Packets
-
-For structured task tracking:
-
-```bash
-# Create task directory
-TASK_ID=$(date +%Y-%m-%d)_feature-name
-mkdir -p .ai/tasks/$TASK_ID
-
-# Copy templates
-cp .ai-pack/templates/task-packet/task.md .ai/tasks/$TASK_ID/
-cp .ai-pack/templates/task-packet/task.md .ai/tasks/$TASK_ID/
-cp .ai-pack/templates/task-packet/result.md .ai/tasks/$TASK_ID/
-cp .ai-pack/templates/task-packet/result.md .ai/tasks/$TASK_ID/
-cp .ai-pack/templates/task-packet/result.md .ai/tasks/$TASK_ID/
-```text
-
-Or use the Claude Code command:
-
-```text
-/ai-pack task-init feature-name
-```text
-
-### Following the Workflow
-
-1. **Track** - Mark task in progress: `bd start bd-a1b2`
-2. **Define** - Fill out `task.md` with requirements
-3. **Plan** - Create implementation plan in `task.md`
-4. **Execute** - Implement while updating `result.md`
-5. **Review** - Conduct review, document in `result.md`
-6. **Accept** - Complete acceptance checklist in `result.md`
-7. **Complete** - Mark done: `agent close bd-a1b2`
-8. **Next** - Find next task: `agent list --status queued`
-
-## Available Slash Commands (Claude Code)
-
-After setup, these commands are available:
-
-- `/ai-pack task-init <name>` - Create task packet
-- `/ai-pack task-status` - Check progress
-- `/ai-pack orchestrate` - Assume Orchestrator role
-- `/ai-pack engineer` - Assume Engineer role
-- `/ai-pack test` - Validate tests (MANDATORY)
-- `/ai-pack review` - Code review (MANDATORY)
-- `/ai-pack inspect` - Bug investigation
-- `/ai-pack architect` - Architecture design
-- `/ai-pack designer` - UX workflows
-- `/ai-pack strategist` - Market analysis
-- `/ai-pack product-manager` - Product requirements
-- `/ai-pack help` - Show all commands
-
-## Next Steps
-
-- **[Agent-to-Agent (A2A)](./framework/agent-to-agent)** - Learn about the multi-agent workflow system
-- **[Workflows](./workflows/overview)** - Learn about development processes
-- **[Roles](./roles/overview)** - Understand agent personas
-- **[Quality Gates](./gates/overview)** - Review enforcement rules
-- **[Clean Code](./quality/clean-code)** - Study coding standards
-- **[Beads Integration](./quality/tooling/beads-integration)** - Deep dive into task tracking
-
-## Updating AI-Pack
-
-To get the latest framework updates:
-
-```bash
-cd .ai-pack
-git pull origin main
-cd ..
-git add .ai-pack
-git commit -m "Update ai-pack framework"
-```text
-
-For Claude Code integration updates:
-
-```bash
-python3 .ai-pack/templates/.claude-update.py
-git add .claude/
-git commit -m "Update ai-pack Claude Code integration"
-```text
-
-## Troubleshooting
-
-### Background Agents Cannot Write Files
-
-If agents fail with permission errors:
-
-1. Check `.claude/settings.json` has correct permissions
-2. Verify `defaultMode: "bypassPermissions"` is set
-3. Restart Claude Code
-
-### Task Packet Gate Blocking Work
-
-If the hook blocks implementation:
-
-1. Create task packet: `/ai-pack task-init <name>`
-2. Fill out `task.md` at minimum
-3. Try again
-
-### Beads Command Not Found
-
-Install Beads:
-
-```bash
-# macOS/Linux
-curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
-
-# Windows
-irm https://raw.githubusercontent.com/steveyegge/beads/main/install.ps1 | iex
-```text
+- **[Agents](./agents.md)** — what each subagent does and when to use it
+- **[Skills](./skills.md)** — the three workflow skills in detail
+- **[Knowledge Graph](./knowledge-graph.md)** — persistent project memory
+- **[Task Packets](./task-packets.md)** — optional convention for multi-session briefs
 
 ## Support
 
 - [GitHub Issues](https://github.com/Cortexa-LLC/ai-pack/issues)
 - [GitHub Discussions](https://github.com/Cortexa-LLC/ai-pack/discussions)
-- [Claude Code Documentation](https://code.claude.com/docs)
-- [Beads Documentation](https://github.com/steveyegge/beads)
+- [Claude Code Documentation](https://docs.anthropic.com/en/docs/claude-code)

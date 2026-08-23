@@ -41,8 +41,8 @@ The Bugfix Workflow is specialized for identifying, analyzing, and fixing defect
 IF bug is complex AND root cause unclear AND reproducible locally THEN
   Orchestrator delegates to Inspector
   Inspector conducts static code investigation and retrospective
-  Inspector creates task packet for Engineer
-  Orchestrator delegates to Engineer with task packet
+  Inspector produces retrospective + fix specification for Engineer
+  Orchestrator delegates to Engineer with the fix specification
 END IF
 ```text
 
@@ -593,7 +593,6 @@ A bugfix is complete when:
 - [Standard Workflow](standard.md)
 - [Refactoring Guide](../quality/clean-code/03-refactoring.md)
 - [Testing Guidelines](../quality/clean-code/04-testing.md)
-- [Verification Gates](../gates/30-verification.md)
 
 ---
 
