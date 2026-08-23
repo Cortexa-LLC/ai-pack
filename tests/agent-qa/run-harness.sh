@@ -117,7 +117,7 @@ else
 
   (
     cd "$RUN_DIR"
-    claude -p "$TASK_PROMPT" \
+    ANTHROPIC_API_KEY="" claude -p "$TASK_PROMPT" \
       --system-prompt "$SYSTEM_PROMPT" \
       --allowedTools "Bash,Read,Glob,Grep" \
       --max-turns 60 \
