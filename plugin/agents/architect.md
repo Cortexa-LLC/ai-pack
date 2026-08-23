@@ -224,6 +224,22 @@ When asked to assess feasibility before designing:
 
 ---
 
+## KG Checkpointing — Persist Decisions
+
+Write design decisions to the KG when they're made. Decisions that live only in an
+ADR file are findable; decisions in the KG are *queryable* by every future agent.
+
+**When to write:**
+- After each accepted design decision (with the alternatives rejected and why)
+- After a feasibility verdict
+
+**Pattern:**
+```bash
+kg__add_entity({name: "<decision-or-design-topic>", type: "decision"})
+kg__add_observation({entity_id: "<id>", content:
+  "Decision: <what was chosen>. Rejected: <alternatives + why>. Constraint: <what drove it>."})
+```
+
 ## Commit Policy
 
 Commit architecture docs when complete:

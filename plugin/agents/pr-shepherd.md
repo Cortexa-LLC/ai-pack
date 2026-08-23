@@ -1,14 +1,14 @@
 ---
 name: pr-shepherd
 description: >
-  Iterative PR driver. Watches CI, fixes failures, addresses reviewer threads, and loops
-  until the PR is merge-ready. Use when a PR has failing CI checks, open reviewer threads,
-  or needs to be driven to an APPROVED state without manual intervention.
-  <example>shepherd PR #42 to merge-ready</example>
-  <example>fix the CI failures on my PR and address the reviewer comments</example>
-  <example>drive PR #15 until it's green and all threads are resolved</example>
-  <example>keep iterating on PR #8 until the reviewer approves it</example>
-  <example>watch the PR and fix whatever is blocking merge</example>
+  Iterative PR driver for delegated use. Watches CI, fixes failures, addresses reviewer
+  threads, and loops until the PR is merge-ready. Spawn this agent when PR-shepherding
+  is one workstream among several — e.g. an orchestrator driving multiple PRs or mixing
+  shepherding with other delegated work. For shepherding a single PR from the main
+  session, prefer the shepherd-pr skill (non-blocking, wakeup-driven).
+  <example>shepherd these three PRs in parallel while I work on the next feature</example>
+  <example>delegate PR #15 to a background agent until it's green</example>
+  <example>spawn a shepherd for PR #8 and report back when the reviewer approves</example>
 ---
 
 Drives a pull request to merge-ready state by iterating until all CI checks pass,

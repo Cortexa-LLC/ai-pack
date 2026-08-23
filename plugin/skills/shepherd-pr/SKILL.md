@@ -1,10 +1,12 @@
 ---
 name: shepherd-pr
 description: >
-  Drive an open GitHub PR to merge-ready state by spawning the pr-shepherd agent.
-  Handles CI failures, reviewer threads, and iterates until the PR is approved and
-  all checks pass. Use when a PR needs to be nursed to a green, mergeable state
-  without manual intervention.
+  Drive an open GitHub PR to merge-ready state via a non-blocking state machine:
+  one pass per invocation (check state → fix threads → fix CI → push → reply),
+  then a scheduled wakeup until the PR is approved and all checks pass. This is
+  the preferred entry point for shepherding a PR from the main session; spawn the
+  ai-pack:pr-shepherd agent instead only when delegating PR-shepherding as one
+  background workstream among several.
   <example>shepherd PR #42 to merge-ready</example>
   <example>drive my PR to green</example>
   <example>fix the CI failures and reviewer comments on PR #15</example>
