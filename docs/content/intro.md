@@ -30,8 +30,8 @@ Claude Code provides the execution loop — the tools, the permission system, an
 ## Documentation structure
 
 - **[Getting Started](./getting-started.md)** — install the plugin and verify it works
-- **[Agents](./agents.md)** — the six subagents and when to use each
-- **[Skills](./skills.md)** — the three workflow skills and what triggers them
+- **[Agents](./agents.md)** — the seven subagents and when to use each
+- **[Skills](./skills.md)** — the four workflow skills and what triggers them
 - **[Knowledge Graph](./knowledge-graph.md)** — persistent project memory via the `kg` MCP server
 - **[Task Packets](./task-packets.md)** — an optional convention for briefs that outlive a session
 - **Workflows** — general engineering process guides: [bugfix](./workflows/bugfix.md), [feature](./workflows/feature.md), [refactor](./workflows/refactor.md), [research](./workflows/research.md), [standard](./workflows/standard.md)
