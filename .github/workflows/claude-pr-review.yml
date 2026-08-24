@@ -6,21 +6,27 @@
 #     reachable from a fork's attacker-controlled code or prompt content.
 #   - Runs only for same-repo, non-draft PRs. Fork and draft PRs skip cleanly.
 #   - Advisory only: this is NOT a required status check; it posts a review
-#     comment and inline comments, and its jobs never turn a PR red.
+#     comment and inline comments. A missing secret makes the review job skip
+#     cleanly; a runtime failure (expired/revoked token, action error, timeout)
+#     is non-blocking — the review job sets `continue-on-error: true`, so the
+#     workflow run still reports success.
 #
 # Provisioning (one-time, maintainer, subscription-funded — no metered API key):
+#   0. Install the Claude GitHub App (https://github.com/apps/claude) on this
+#      repository — the action exchanges OIDC against the app installation for
+#      its GitHub token (that is why the review job needs `id-token: write`).
 #   1. Locally: `claude setup-token`
 #      (mints a long-lived OAuth token from the Claude subscription)
 #   2. `gh secret set CLAUDE_CODE_OAUTH_TOKEN`
 #      (paste the token; store as a repo Actions secret)
 #   Until the secret exists, the `gate` job reports has-token=false and the
-#   review job skips — never fails. Rotate by re-running both steps.
+#   review job skips — never fails. Rotate by re-running steps 1–2.
 
 name: Claude PR Review
 
 on:
   pull_request:
-    types: [opened, synchronize, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 concurrency:
   group: claude-pr-review-${{ github.event.pull_request.number }}
@@ -58,6 +64,9 @@ jobs:
     needs: gate
     if: needs.gate.outputs.has-token == 'true'
     runs-on: ubuntu-latest
+    # Advisory guarantee: a runtime failure (expired/revoked token, action
+    # error, timeout) must not turn the PR red.
+    continue-on-error: true
     timeout-minutes: 20
     permissions:
       contents: read
@@ -72,6 +81,9 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # One review comment per PR, updated on each synchronize, instead of
+          # a new comment per push.
+          use_sticky_comment: true
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}

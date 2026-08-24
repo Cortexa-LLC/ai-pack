@@ -101,13 +101,20 @@ mcp/               Git submodule providing the kg binary
 
 ## Automated PR Review
 
-Every pull request gets an advisory review from Claude via
+Once provisioned, every same-repo, non-draft pull request gets an advisory review
+from Claude via
 [`anthropics/claude-code-action`](https://github.com/anthropics/claude-code-action)
 (`.github/workflows/claude-pr-review.yml`). The review adopts the ai-pack reviewer
 role's adversarial stance (`plugin/agents/reviewer.md`) and posts findings as PR
-comments with severity levels. It is advisory only — not a required status check.
+comments with severity levels. It is advisory only — not a required status check,
+and a runtime failure never turns the PR red.
 
 **Provisioning** (one-time, subscription-funded; no metered API key):
+
+1. Install the [Claude GitHub App](https://github.com/apps/claude) on the
+   repository — the action exchanges OIDC against the app installation for its
+   GitHub token.
+2. Mint and store the OAuth token:
 
 ```bash
 claude setup-token                        # mint a long-lived OAuth token locally
@@ -115,7 +122,7 @@ gh secret set CLAUDE_CODE_OAUTH_TOKEN     # store it as a repo Actions secret
 ```
 
 Until the secret exists, the review job skips cleanly (never a red check). Rotate
-the token by re-running both commands.
+the token by re-running step 2.
 
 **Fork posture:** the workflow triggers on `pull_request` only (never
 `pull_request_target`) and runs only for same-repo, non-draft PRs, so the OAuth
