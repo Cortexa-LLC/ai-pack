@@ -75,7 +75,9 @@ kg__search_knowledge({query: "<component or system being designed> architecture"
 
 Prior ADRs, rejected alternatives, and recorded constraints are the starting point —
 a new design that contradicts a recorded decision must cite it and justify the
-reversal explicitly, never rediscover the ground from scratch.
+reversal explicitly, never rediscover the ground from scratch. Observations prefixed
+`[OBSOLETE]` are historical record, not guidance — never design to them, though they
+may explain why the current architecture looks the way it does.
 
 ## When Architect is Needed vs Skipped
 
