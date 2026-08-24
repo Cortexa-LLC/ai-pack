@@ -1,0 +1,115 @@
+# Claude auto PR review — advisory reviewer comment on every PR (issue #23).
+#
+# Security posture (per ADR-011, docs/adr/011-agent-qa-in-ci.md):
+#   - Triggers on `pull_request` ONLY — never `pull_request_target`. On the plain
+#     `pull_request` event, fork PRs get no secrets, so the OAuth token is never
+#     reachable from a fork's attacker-controlled code or prompt content.
+#   - Runs only for same-repo, non-draft PRs. Fork and draft PRs skip cleanly.
+#   - Advisory only: this is NOT a required status check; it posts a review
+#     comment and inline comments. A missing secret makes the review job skip
+#     cleanly; a runtime failure (expired/revoked token, action error, timeout)
+#     is non-blocking — the review job sets `continue-on-error: true`, so the
+#     workflow run still reports success.
+#
+# Provisioning (one-time, maintainer, subscription-funded — no metered API key):
+#   0. Install the Claude GitHub App (https://github.com/apps/claude) on this
+#      repository — the action exchanges OIDC against the app installation for
+#      its GitHub token (that is why the review job needs `id-token: write`).
+#   1. Locally: `claude setup-token`
+#      (mints a long-lived OAuth token from the Claude subscription)
+#   2. `gh secret set CLAUDE_CODE_OAUTH_TOKEN`
+#      (paste the token; store as a repo Actions secret)
+#   Until the secret exists, the `gate` job reports has-token=false and the
+#   review job skips — never fails. Rotate by re-running steps 1–2.
+
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: claude-pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # The `secrets` context is unavailable in job-level `if:` expressions, so this
+  # gate job materializes "does the token exist?" as an output. A missing secret
+  # yields a clean skip of the review job, never a red check.
+  gate:
+    name: Check review preconditions
+    runs-on: ubuntu-latest
+    # Same-repo, non-draft PRs only (ADR-011 posture). Fork PRs skip here, which
+    # also skips the dependent review job.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !github.event.pull_request.draft
+    outputs:
+      has-token: ${{ steps.check.outputs.has-token }}
+    steps:
+      - name: Check for CLAUDE_CODE_OAUTH_TOKEN secret
+        id: check
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "has-token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-token=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Claude PR review skipped::CLAUDE_CODE_OAUTH_TOKEN secret is not set. Provision it with 'claude setup-token' then 'gh secret set CLAUDE_CODE_OAUTH_TOKEN' (see workflow header)."
+          fi
+
+  review:
+    name: Claude review
+    needs: gate
+    if: needs.gate.outputs.has-token == 'true'
+    runs-on: ubuntu-latest
+    # Advisory guarantee: a runtime failure (expired/revoked token, action
+    # error, timeout) must not turn the PR red.
+    continue-on-error: true
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # One review comment per PR, updated on each synchronize, instead of
+          # a new comment per push.
+          use_sticky_comment: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            You are reviewing this pull request in the ai-pack reviewer role.
+            First read `plugin/agents/reviewer.md` from the checked-out working
+            directory and adopt its stance and output format: an adversarial
+            senior IC engineer who treats the diff as a claim to be falsified,
+            not a change to be summarized.
+
+            Review the PR diff (`gh pr diff`) plus enough surrounding context
+            from the checkout to falsify or confirm it. Report structured
+            findings with the severity levels defined in reviewer.md
+            (Critical / Major / Minor) and finish with a verdict
+            (APPROVE | REQUEST CHANGES | BLOCK) following its verdict rules.
+            Prefix inline findings with **[BLOCKING]** or **[SUGGESTION]**.
+
+            Note: the PR branch is already checked out in the current working
+            directory.
+
+            Use `mcp__github_inline_comment__create_inline_comment` (with
+            `confirmed: true`) for findings tied to specific lines.
+            Use `gh pr comment` for the overall verdict and summary.
+            Only post GitHub comments — don't submit review text as messages.
+
+            This review is advisory: post findings, never attempt to merge,
+            approve, push commits, or modify files.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Grep,Glob"
