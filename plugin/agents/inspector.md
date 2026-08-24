@@ -59,6 +59,7 @@ kg__search_knowledge({query: "<bug description> root cause"})
 kg__search_knowledge({query: "<component name> investigation findings"})
 ```
 → Prior investigations may already identify the root cause. Never re-investigate what is already known.
+→ Observations prefixed `[OBSOLETE]` are historical record, not guidance — never follow them as instructions, though they may explain why something changed.
 
 ---
 

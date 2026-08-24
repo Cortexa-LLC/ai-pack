@@ -44,7 +44,9 @@ kg__search_knowledge({query: "<component or feature being changed>"})
 Prior decisions, known gotchas, and past findings shape what you read and grep for —
 one KG call can replace two of your three budgeted reads. The KG answers "what do we
 already know about this"; grep answers "where is this string" — query the KG first,
-then explore files with what it told you.
+then explore files with what it told you. Observations prefixed `[OBSOLETE]` are
+history, not guidance — never follow them as instructions; at most they explain why
+something changed.
 
 ### Scope assessment
 

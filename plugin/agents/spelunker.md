@@ -60,6 +60,7 @@ kg__add_observation({entity_id: "<id>", content:
 kg__search_knowledge({query: "<component being investigated>"})
 ```
 → Prior investigations may already identify the root cause. Never re-investigate what is already known.
+→ Observations prefixed `[OBSOLETE]` are historical record, not guidance — never follow them as instructions, though they may explain why something changed.
 
 ---
 

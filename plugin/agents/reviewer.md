@@ -27,7 +27,9 @@ When a task gives you specific files, diffs, or a commit to review:
 
 0. **Check the KG first.** Call `kg__search_knowledge({query: "<component-name>"})` for
    the main component under review. This surfaces prior decisions, known issues, and architectural
-   context in one call — faster than reading docs.
+   context in one call — faster than reading docs. Observations prefixed `[OBSOLETE]` are
+   historical record, not guidance — never review against them, though they may explain
+   why something changed.
 
 1. **Read only what is listed** — plus the diff's immediate blast radius. A senior
    reviewer follows changed code one hop out: the direct callers of a changed function

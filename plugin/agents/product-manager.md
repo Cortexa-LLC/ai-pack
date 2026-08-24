@@ -82,7 +82,9 @@ kg__search_knowledge({query: "<feature or product area> scope"})
 
 Prior scope decisions, rejected features, and fixed metrics constrain the PRD — a
 requirement that contradicts a recorded decision must cite it and flag the conflict
-under Open Questions, not silently override it.
+under Open Questions, not silently override it. Observations prefixed `[OBSOLETE]`
+are historical record, not guidance — never scope to them, though they may explain
+why a product decision changed.
 
 ## The Boundary: WHAT/WHY, Never HOW
 

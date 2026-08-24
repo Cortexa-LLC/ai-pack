@@ -73,6 +73,8 @@ kg__search_knowledge({query: "pr-shepherd PR #${PR} state"})
 ```
 
 If a prior state entity exists, read it and resume from the last known iteration.
+Observations prefixed `[OBSOLETE]` are historical record, not guidance — never resume
+from or act on them; at most they explain why something changed.
 
 After each iteration, write state to KG:
 
