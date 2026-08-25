@@ -98,6 +98,13 @@ jobs:
           # reviewer prompt from the trusted base ref without pulling the full
           # history on every review.
           fetch-depth: 1
+          # Don't write the workflow token into .git/config: the review model
+          # gets a Read tool over the checkout, and a persisted credential
+          # would be a readable secret inside the working tree. The later
+          # `git fetch origin "$BASE_SHA"` works unauthenticated because this
+          # repo is public; if the repo ever goes private that fetch fails
+          # fast and visibly (set -e, advisory — the PR stays green).
+          persist-credentials: false
 
       # The reviewer-app secrets may not be provisioned yet. Same technique as
       # the gate job: materialize secret presence via step-level env, then
@@ -129,10 +136,20 @@ jobs:
         with:
           node-version: '22'
 
+      # setup-node's built-in `cache: npm` hard-fails without a lockfile
+      # ("Dependencies lock file is not found") and this repo has none, so the
+      # npm cache dir is cached manually, keyed on the pinned CLI version —
+      # rotating the pin below naturally invalidates the cache.
+      - name: Cache npm downloads
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.npm
+          key: npm-cache-claude-code-2.1.245-${{ runner.os }}
+
       - name: Install Claude Code
         # Pinned so a breaking or compromised npm release can't silently take
         # effect on the runner. Rotate the pin manually after verifying the new
-        # version locally.
+        # version locally (and update the cache key above).
         run: npm install -g @anthropic-ai/claude-code@2.1.245
 
       - name: Run PR review
@@ -180,23 +197,30 @@ jobs:
           fi
           # Strip the YAML frontmatter; the body is the system prompt. Only the
           # first two '---' fences count — body horizontal rules print through
-          # (same pattern as tests/agent-qa/run-harness.sh).
-          SYSTEM=$(awk 'f==2 {print} /^---$/ && f<2 {f++}' /tmp/reviewer.md)
+          # (same pattern as tests/agent-qa/run-harness.sh). Written to a temp
+          # file (not a CLI argument) so the persona never appears in the
+          # runner's process argument list.
+          SYSTEM_FILE=$(mktemp)
+          trap 'rm -f "$SYSTEM_FILE"' EXIT
+          awk 'f==2 {print} /^---$/ && f<2 {f++}' /tmp/reviewer.md > "$SYSTEM_FILE"
           # awk exits 0 even when reviewer.md has no closing frontmatter fence,
-          # which would leave SYSTEM empty and run claude with no persona.
-          [ -n "$SYSTEM" ] || { echo "::error title=Empty system prompt::reviewer.md has no parseable frontmatter — refusing to run the review with an empty system prompt."; exit 1; }
+          # which would leave the system prompt empty and run claude with no
+          # persona.
+          [ -s "$SYSTEM_FILE" ] || { echo "::error title=Empty system prompt::reviewer.md has no parseable frontmatter — refusing to run the review with an empty system prompt."; exit 1; }
 
           # Fetch existing review threads so the reviewer doesn't duplicate
           # them on subsequent pushes.
           OWNER="${REPO%/*}"
           REPO_NAME="${REPO#*/}"
-          # Comment bodies are truncated to 200 chars, flattened to a single
-          # line (CR/LF -> space), and have '<' replaced with U+2039: a body
-          # line reading 'EOF' would otherwise terminate the unquoted heredoc
-          # below early, and a literal '</external-data>' in a body could
-          # break out of the data-boundary block in the prompt. A failed fetch
-          # degrades to "(none)" — with a visible warning, since silent loss
-          # of dedup context re-raises every prior finding on each push.
+          # Comment bodies are truncated to 200 chars, then sanitized by two
+          # independent transforms: (1) CR/LF flattened to spaces, forcing
+          # each thread onto one "[OPEN]/[RESOLVED]"-prefixed line so no body
+          # line can read 'EOF' and terminate the unquoted heredoc below
+          # early; (2) '<' replaced with U+2039 so a literal
+          # '</external-data>' cannot close the data-boundary block in the
+          # prompt. A failed fetch degrades to "(none)" — with a visible
+          # warning, since silent loss of dedup context re-raises every prior
+          # finding on each push.
           if ! EXISTING_THREADS=$(gh api graphql -f query='
           {
             repository(owner: '"\"${OWNER}\""', name: '"\"${REPO_NAME}\""') {
@@ -271,10 +295,16 @@ jobs:
           # untrusted input to the model, and this step's env holds
           # CLAUDE_CODE_OAUTH_TOKEN and GH_TOKEN — an unrestricted Bash tool
           # would let a prompt-injection payload in the diff exfiltrate them.
+          # Model pin: like the npm pin above, rotate manually after verifying
+          # the new model name locally — a retired model name fails this step
+          # with a CLI error (advisory: continue-on-error keeps the PR green).
+          # Read/Glob are path-scoped to the checkout so an injected prompt
+          # cannot read files outside the working tree (runner home, tool
+          # config, credential caches).
           claude -p "$PROMPT" \
             --model claude-sonnet-4-6 \
-            --system-prompt "$SYSTEM" \
-            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(git diff:*),Bash(git log:*),Read,Glob,Grep" \
+            --system-prompt-file "$SYSTEM_FILE" \
+            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(git diff:*),Bash(git log:*),Read(./**),Glob(./**),Grep" \
             --max-turns 15 \
             --output-format text
 
