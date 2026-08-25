@@ -157,8 +157,10 @@ jobs:
             echo "reviewer.md not on base branch — using PR branch (bootstrap)"
             cp plugin/agents/reviewer.md /tmp/reviewer.md
           fi
-          # Strip the YAML frontmatter; the body is the system prompt.
-          SYSTEM=$(awk 'BEGIN{f=0} /^---$/{f++; next} f>=2{print}' /tmp/reviewer.md)
+          # Strip the YAML frontmatter; the body is the system prompt. Only the
+          # first two '---' fences count — body horizontal rules print through
+          # (same pattern as tests/agent-qa/run-harness.sh).
+          SYSTEM=$(awk 'f==2 {print} /^---$/ && f<2 {f++}' /tmp/reviewer.md)
 
           # Fetch existing review threads so the reviewer doesn't duplicate
           # them on subsequent pushes.
@@ -184,8 +186,10 @@ jobs:
               + " — " + ((.comments.nodes[0].body // "")[0:200])
             ] | join("\n")
           ' 2>/dev/null || echo "(none)")
-          [ -n "$EXISTING_THREADS" ] || EXISTING_THREADS="(none)"
 
+          # Note: the YAML block scalar strips this step's 10-space indentation,
+          # so the heredoc lines below reach the shell at column 0 — the prompt
+          # carries no leading whitespace.
           PROMPT=$(cat <<EOF
           Review pull request #${PR_NUMBER} in ${REPO}.
 
@@ -225,8 +229,8 @@ jobs:
           claude -p "$PROMPT" \
             --model claude-sonnet-4-6 \
             --system-prompt "$SYSTEM" \
-            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Read,Glob,Grep" \
-            --max-turns 65 \
+            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(git diff:*),Bash(git log:*),Read,Glob,Grep" \
+            --max-turns 30 \
             --output-format text
 
           # Deliberately no verdict-based exit code here: this workflow is
