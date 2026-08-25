@@ -1,7 +1,7 @@
 # Claude auto PR review — advisory reviewer comment on every PR (issues #23, #26).
 #
-# Pattern (ported from Cortexa-LLC/harvana, replacing anthropics/claude-code-action
-# which required the Claude GitHub App to be installed on the repo — issue #26):
+# Pattern (replaces anthropics/claude-code-action, which required the Claude
+# GitHub App to be installed on the repo — issue #26):
 #   - npm-install the claude CLI and run `claude -p` directly.
 #   - Model auth via CLAUDE_CODE_OAUTH_TOKEN (subscription-funded, minted with
 #     `claude setup-token`); ANTHROPIC_API_KEY is explicitly blanked so it can
@@ -22,7 +22,7 @@
 #     reachable from a fork's attacker-controlled code or prompt content.
 #   - Runs only for same-repo, non-draft PRs. Fork and draft PRs skip cleanly.
 #   - Advisory only: this is NOT a required status check and does NOT gate merge
-#     on the review verdict (deliberate divergence from harvana). A missing
+#     on the review verdict (a deliberate choice for this repo). A missing
 #     secret makes the review job skip cleanly; a runtime failure (expired/
 #     revoked token, timeout) is non-blocking — the review job sets
 #     `continue-on-error: true`, so the workflow run still reports success.
@@ -125,7 +125,10 @@ jobs:
           node-version: '22'
 
       - name: Install Claude Code
-        run: npm install -g @anthropic-ai/claude-code
+        # Pinned so a breaking or compromised npm release can't silently take
+        # effect on the runner. Rotate the pin manually after verifying the new
+        # version locally.
+        run: npm install -g @anthropic-ai/claude-code@2.1.245
 
       - name: Run PR review
         env:
@@ -141,7 +144,6 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REPO: ${{ github.repository }}
         run: |
           # Load the reviewer system prompt from the base branch (trusted ref)
@@ -215,12 +217,17 @@ jobs:
           EOF
           )
 
+          # Bash is scoped to the exact commands the review needs (fetch the
+          # diff, read PR metadata/context, post the one review). PR content is
+          # untrusted input to the model, and this step's env holds
+          # CLAUDE_CODE_OAUTH_TOKEN and GH_TOKEN — an unrestricted Bash tool
+          # would let a prompt-injection payload in the diff exfiltrate them.
           claude -p "$PROMPT" \
             --model claude-sonnet-4-6 \
             --system-prompt "$SYSTEM" \
-            --allowedTools "Bash,Read,Glob,Grep" \
+            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Read,Glob,Grep" \
             --max-turns 65 \
             --output-format text
 
-          # Deliberately no verdict-based exit code here: unlike harvana, this
-          # workflow is advisory and never acts as a merge gate (ADR-011).
+          # Deliberately no verdict-based exit code here: this workflow is
+          # advisory and never acts as a merge gate (ADR-011).
