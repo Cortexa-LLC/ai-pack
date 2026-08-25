@@ -43,7 +43,7 @@ On wakeup re-entries the prompt will include `iter=N wait_iter=N` — parse them
 
 ```
 PARSE args → PR number + iter (default 0) + wait_iter (default 0)
-MAX_ITER=10 (fix attempts)  MAX_WAIT_ITER=30 (polling rounds)
+MAX_ITER=10 (fix attempts — safety cap, convergence-gated; see A2)  MAX_WAIT_ITER=30 (polling rounds)
 
 FETCH state: unresolved threads, CI terminal?, verdict
 
@@ -192,6 +192,15 @@ if [ "$WAIT_ITER" -ge "$MAX_WAIT_ITER" ]; then
   exit 1
 fi
 ```
+
+**Convergence rule:** the budget is generous by design — clean convergence against a
+thorough automated reviewer routinely takes more than 5 fix rounds, so never escalate
+before iteration 5 on "too many rounds" grounds. If the reviewer re-raises the same
+findings unchanged on 2 consecutive passes, stop then regardless of `iter` — report
+**"stuck"** with an analysis of the repeated findings (a stall, not a failure). If the
+`MAX_ITER` guard fires while rounds were still converging (each round's findings fewer
+or smaller than the last), say so in the report and recommend re-running
+`/ai-pack:shepherd-pr $PR` to continue.
 
 **B. Threads to fix** (fix immediately regardless of CI state):
 ```
@@ -444,6 +453,7 @@ Open threads:
   ...
 
 Last verdict: $VERDICT on ${HEAD_SHA:0:7}
+Convergence: <still converging — re-run to continue | stalled — same findings re-raised, see analysis>
 Next step: review the threads manually or re-run /ai-pack:shepherd-pr $PR
 ```
 
@@ -469,6 +479,7 @@ Stop and report (no ScheduleWakeup) if:
 | `iter >= MAX_ITER` | Max iterations report above |
 | `wait_iter >= MAX_WAIT_ITER` | CI/reviewer stuck — escalate; Routes C, E, F all increment this counter, so slow reviewer or perpetually-pending CI exhausts it without any fix iteration occurring |
 | Same thread IDs unresolved 2 passes in a row | Report: "Thread stuck — may need human decision" |
+| Same findings re-raised unchanged 2 passes in a row | Non-converging — "stuck" report with analysis of the repeated findings (see A2 convergence rule); a stall, not a failure |
 | `CI_FAILING > 0` | Route D fires immediately — CI failure report, no wakeup |
 | `Claude PR Review` check stuck IN_PROGRESS > 10 min | Ask user to check workflow logs |
 | Verdict is `DISMISSED` after 2 passes | Ask user — bot may be broken |
