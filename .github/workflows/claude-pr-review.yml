@@ -1,26 +1,42 @@
-# Claude auto PR review — advisory reviewer comment on every PR (issue #23).
+# Claude auto PR review — advisory reviewer comment on every PR (issues #23, #26).
+#
+# Pattern (ported from Cortexa-LLC/harvana, replacing anthropics/claude-code-action
+# which required the Claude GitHub App to be installed on the repo — issue #26):
+#   - npm-install the claude CLI and run `claude -p` directly.
+#   - Model auth via CLAUDE_CODE_OAUTH_TOKEN (subscription-funded, minted with
+#     `claude setup-token`); ANTHROPIC_API_KEY is explicitly blanked so it can
+#     never shadow the OAuth token.
+#   - GitHub identity via actions/create-github-app-token (org reviewer app).
+#     If the app secrets are absent the workflow degrades to `github.token`
+#     and reviews post as github-actions[bot].
+#   - System prompt is the ai-pack reviewer role (plugin/agents/reviewer.md),
+#     loaded from the BASE branch ref so a PR cannot tamper with the prompt
+#     that reviews it.
+#   - Existing review threads are fetched via GraphQL and fed into the prompt
+#     so repeated pushes don't re-raise the same findings.
+#   - The claude run itself posts ONE review on the PR via gh.
 #
 # Security posture (per ADR-011, docs/adr/011-agent-qa-in-ci.md):
 #   - Triggers on `pull_request` ONLY — never `pull_request_target`. On the plain
 #     `pull_request` event, fork PRs get no secrets, so the OAuth token is never
 #     reachable from a fork's attacker-controlled code or prompt content.
 #   - Runs only for same-repo, non-draft PRs. Fork and draft PRs skip cleanly.
-#   - Advisory only: this is NOT a required status check; it posts a review
-#     comment and inline comments. A missing secret makes the review job skip
-#     cleanly; a runtime failure (expired/revoked token, action error, timeout)
-#     is non-blocking — the review job sets `continue-on-error: true`, so the
-#     workflow run still reports success.
+#   - Advisory only: this is NOT a required status check and does NOT gate merge
+#     on the review verdict (deliberate divergence from harvana). A missing
+#     secret makes the review job skip cleanly; a runtime failure (expired/
+#     revoked token, timeout) is non-blocking — the review job sets
+#     `continue-on-error: true`, so the workflow run still reports success.
 #
 # Provisioning (one-time, maintainer, subscription-funded — no metered API key):
-#   0. Install the Claude GitHub App (https://github.com/apps/claude) on this
-#      repository — the action exchanges OIDC against the app installation for
-#      its GitHub token (that is why the review job needs `id-token: write`).
 #   1. Locally: `claude setup-token`
 #      (mints a long-lived OAuth token from the Claude subscription)
 #   2. `gh secret set CLAUDE_CODE_OAUTH_TOKEN`
 #      (paste the token; store as a repo Actions secret)
-#   Until the secret exists, the `gate` job reports has-token=false and the
-#   review job skips — never fails. Rotate by re-running steps 1–2.
+#   3. Optional, for proper bot identity: set CORTEXA_LLC_REVIEWER_APP_ID and
+#      CORTEXA_LLC_REVIEWER_PRIVATE_KEY (shared from the org reviewer app).
+#      Without them, reviews post as github-actions[bot].
+#   Until the OAuth secret exists, the `gate` job reports has-token=false and
+#   the review job skips — never fails. Rotate by re-running steps 1–2.
 
 name: Claude PR Review
 
@@ -64,52 +80,147 @@ jobs:
     needs: gate
     if: needs.gate.outputs.has-token == 'true'
     runs-on: ubuntu-latest
-    # Advisory guarantee: a runtime failure (expired/revoked token, action
-    # error, timeout) must not turn the PR red.
+    # Advisory guarantee: a runtime failure (expired/revoked token, CLI error,
+    # timeout) must not turn the PR red.
     continue-on-error: true
     timeout-minutes: 20
     permissions:
       contents: read
       pull-requests: write
-      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          # Full history so `git show "$BASE_SHA:..."` can read the reviewer
+          # prompt from the trusted base ref.
+          fetch-depth: 0
 
-      - name: Run Claude review
-        uses: anthropics/claude-code-action@v1
+      # The reviewer-app secrets may not be provisioned yet. Same technique as
+      # the gate job: materialize secret presence via step-level env, then
+      # conditionally mint the app token. When absent, GH_TOKEN falls back to
+      # github.token and reviews post as github-actions[bot].
+      - name: Check for reviewer app credentials
+        id: appcheck
+        env:
+          APP_ID: ${{ secrets.CORTEXA_LLC_REVIEWER_APP_ID }}
+          APP_KEY: ${{ secrets.CORTEXA_LLC_REVIEWER_PRIVATE_KEY }}
+        run: |
+          if [ -n "$APP_ID" ] && [ -n "$APP_KEY" ]; then
+            echo "has-app-creds=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-app-creds=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Reviewer app not configured::CORTEXA_LLC_REVIEWER_APP_ID / CORTEXA_LLC_REVIEWER_PRIVATE_KEY not set — review will post as github-actions[bot]."
+          fi
+
+      - name: Get reviewer bot token
+        id: app-token
+        if: steps.appcheck.outputs.has-app-creds == 'true'
+        uses: actions/create-github-app-token@v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # One review comment per PR, updated on each synchronize, instead of
-          # a new comment per push.
-          use_sticky_comment: true
-          prompt: |
-            REPO: ${{ github.repository }}
-            PR NUMBER: ${{ github.event.pull_request.number }}
+          app-id: ${{ secrets.CORTEXA_LLC_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.CORTEXA_LLC_REVIEWER_PRIVATE_KEY }}
 
-            You are reviewing this pull request in the ai-pack reviewer role.
-            First read `plugin/agents/reviewer.md` from the checked-out working
-            directory and adopt its stance and output format: an adversarial
-            senior IC engineer who treats the diff as a claim to be falsified,
-            not a change to be summarized.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
-            Review the PR diff (`gh pr diff`) plus enough surrounding context
-            from the checkout to falsify or confirm it. Report structured
-            findings with the severity levels defined in reviewer.md
-            (Critical / Major / Minor) and finish with a verdict
-            (APPROVE | REQUEST CHANGES | BLOCK) following its verdict rules.
-            Prefix inline findings with **[BLOCKING]** or **[SUGGESTION]**.
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
 
-            Note: the PR branch is already checked out in the current working
-            directory.
+      - name: Run PR review
+        env:
+          # Max-subscription OAuth token (claude setup-token) — replaces the
+          # metered ANTHROPIC_API_KEY so reviews carry no per-PR API cost.
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Explicitly blank: Claude Code prefers ANTHROPIC_API_KEY over the
+          # OAuth token — blanking it prevents any environment-inherited key
+          # from shadowing the subscription token.
+          ANTHROPIC_API_KEY: ""
+          # App token when the reviewer app is configured; github.token
+          # otherwise (skipped step ⇒ empty output ⇒ fallback).
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Load the reviewer system prompt from the base branch (trusted ref)
+          # so the PR under review cannot tamper with the prompt that reviews
+          # it. Fall back to the PR checkout only if the file is absent on base
+          # (bootstrapping).
+          if git show "${BASE_SHA}:plugin/agents/reviewer.md" \
+               > /tmp/reviewer.md 2>/dev/null; then
+            echo "Loaded reviewer.md from base branch (trusted)"
+          else
+            echo "reviewer.md not on base branch — using PR branch (bootstrap)"
+            cp plugin/agents/reviewer.md /tmp/reviewer.md
+          fi
+          # Strip the YAML frontmatter; the body is the system prompt.
+          SYSTEM=$(awk 'BEGIN{f=0} /^---$/{f++; next} f>=2{print}' /tmp/reviewer.md)
 
-            Use `mcp__github_inline_comment__create_inline_comment` (with
-            `confirmed: true`) for findings tied to specific lines.
-            Use `gh pr comment` for the overall verdict and summary.
-            Only post GitHub comments — don't submit review text as messages.
+          # Fetch existing review threads so the reviewer doesn't duplicate
+          # them on subsequent pushes.
+          OWNER="${REPO%/*}"
+          REPO_NAME="${REPO#*/}"
+          EXISTING_THREADS=$(gh api graphql -f query='
+          {
+            repository(owner: '"\"${OWNER}\""', name: '"\"${REPO_NAME}\""') {
+              pullRequest(number: '"${PR_NUMBER}"') {
+                reviewThreads(first: 100) {
+                  nodes {
+                    isResolved path line
+                    comments(first: 1) { nodes { body } }
+                  }
+                }
+              }
+            }
+          }' --jq '
+            [.data.repository.pullRequest.reviewThreads.nodes[] |
+              (if .isResolved then "[RESOLVED]" else "[OPEN]" end)
+              + " " + (.path // "general")
+              + ":" + ((.line // 0) | tostring)
+              + " — " + ((.comments.nodes[0].body // "")[0:200])
+            ] | join("\n")
+          ' 2>/dev/null || echo "(none)")
+          [ -n "$EXISTING_THREADS" ] || EXISTING_THREADS="(none)"
 
-            This review is advisory: post findings, never attempt to merge,
-            approve, push commits, or modify files.
-          claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Grep,Glob"
+          PROMPT=$(cat <<EOF
+          Review pull request #${PR_NUMBER} in ${REPO}.
+
+          You are the ai-pack reviewer: an adversarial senior IC engineer. Treat
+          the diff as a claim to be falsified, not a change to be summarized.
+
+          Steps:
+          1. Fetch the diff with \`gh pr diff ${PR_NUMBER}\` and read enough
+             surrounding context from the checked-out working tree (the PR
+             branch is already checked out) to falsify or confirm it.
+          2. Produce structured findings with the severity levels defined in
+             your system prompt (Critical / Major / Minor).
+          3. Post exactly ONE review on the PR using gh, for example:
+             gh pr review ${PR_NUMBER} --comment --body "..."
+             Choose the verdict from your findings:
+               - any Critical finding  -> --request-changes
+               - only Major/Minor      -> --comment
+               - no findings of note   -> --approve
+             Put all findings in that single review body, grouped by severity,
+             each with file:line and a concrete fix. Do not post additional
+             comments or extra reviews.
+
+          Previously raised review threads on this PR — do NOT re-raise these
+          issues (only flag them if they remain unfixed AND are Critical):
+          ${EXISTING_THREADS}
+
+          This review is advisory: post the review, but never attempt to merge,
+          approve settings, push commits, or modify files.
+          EOF
+          )
+
+          claude -p "$PROMPT" \
+            --model claude-sonnet-4-6 \
+            --system-prompt "$SYSTEM" \
+            --allowedTools "Bash,Read,Glob,Grep" \
+            --max-turns 65 \
+            --output-format text
+
+          # Deliberately no verdict-based exit code here: unlike harvana, this
+          # workflow is advisory and never acts as a merge gate (ADR-011).
