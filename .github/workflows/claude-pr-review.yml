@@ -171,7 +171,11 @@ jobs:
                > /tmp/reviewer.md 2>/dev/null; then
             echo "Loaded reviewer.md from base branch (trusted)"
           else
-            echo "reviewer.md not on base branch — using PR branch (bootstrap)"
+            # Security-relevant degradation: the PR branch can tamper with its
+            # own copy of the prompt, so surface this as a run annotation, not
+            # just a buried log line. Only the first PR that introduces
+            # reviewer.md on a fresh repo should ever hit this path.
+            echo "::warning title=Bootstrap fallback::reviewer.md not on base branch — using the PR-branch copy. The system prompt is NOT from a trusted ref for this run."
             cp plugin/agents/reviewer.md /tmp/reviewer.md
           fi
           # Strip the YAML frontmatter; the body is the system prompt. Only the
@@ -222,7 +226,9 @@ jobs:
 
           # Note: the YAML block scalar strips this step's 10-space indentation,
           # so the heredoc lines below reach the shell at column 0 — the prompt
-          # carries no leading whitespace.
+          # carries no leading whitespace. Corollary: any line added to this
+          # heredoc MUST be indented exactly 10 spaces in the YAML source, or
+          # the difference becomes literal leading whitespace in the prompt.
           PROMPT=$(cat <<EOF
           Review pull request #${PR_NUMBER} in ${REPO}.
 
@@ -269,7 +275,7 @@ jobs:
             --model claude-sonnet-4-6 \
             --system-prompt "$SYSTEM" \
             --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(git diff:*),Bash(git log:*),Read,Glob,Grep" \
-            --max-turns 30 \
+            --max-turns 15 \
             --output-format text
 
           # Deliberately no verdict-based exit code here: this workflow is
