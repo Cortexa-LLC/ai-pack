@@ -88,7 +88,10 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      # Actions pinned to commit SHAs (same supply-chain posture as the pinned
+      # npm CLI below): a retag upstream can't change what runs here. Rotate by
+      # re-resolving the tag via `gh api repos/<owner>/<repo>/git/ref/tags/<tag>`.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # Full history so `git show "$BASE_SHA:..."` can read the reviewer
           # prompt from the trusted base ref.
@@ -114,13 +117,13 @@ jobs:
       - name: Get reviewer bot token
         id: app-token
         if: steps.appcheck.outputs.has-app-creds == 'true'
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
         with:
           app-id: ${{ secrets.CORTEXA_LLC_REVIEWER_APP_ID }}
           private-key: ${{ secrets.CORTEXA_LLC_REVIEWER_PRIVATE_KEY }}
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
 
@@ -146,6 +149,11 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           REPO: ${{ github.repository }}
         run: |
+          # Fail fast and visibly (continue-on-error above keeps the PR green).
+          # Without this, a failed bootstrap cp would leave SYSTEM empty and
+          # claude would run with no system prompt.
+          set -euo pipefail
+
           # Load the reviewer system prompt from the base branch (trusted ref)
           # so the PR under review cannot tamper with the prompt that reviews
           # it. Fall back to the PR checkout only if the file is absent on base
@@ -166,7 +174,13 @@ jobs:
           # them on subsequent pushes.
           OWNER="${REPO%/*}"
           REPO_NAME="${REPO#*/}"
-          EXISTING_THREADS=$(gh api graphql -f query='
+          # Comment bodies are truncated to 200 chars and flattened to a single
+          # line (CR/LF -> space): a body line reading 'EOF' would otherwise
+          # terminate the unquoted heredoc below early, silently truncating the
+          # prompt. A failed fetch degrades to "(none)" — with a visible
+          # warning, since silent loss of dedup context re-raises every prior
+          # finding on each push.
+          if ! EXISTING_THREADS=$(gh api graphql -f query='
           {
             repository(owner: '"\"${OWNER}\""', name: '"\"${REPO_NAME}\""') {
               pullRequest(number: '"${PR_NUMBER}"') {
@@ -183,9 +197,14 @@ jobs:
               (if .isResolved then "[RESOLVED]" else "[OPEN]" end)
               + " " + (.path // "general")
               + ":" + ((.line // 0) | tostring)
-              + " — " + ((.comments.nodes[0].body // "")[0:200])
+              + " — " + ((.comments.nodes[0].body // "")[0:200]
+                          | gsub("\r"; " ") | gsub("\n"; " "))
             ] | join("\n")
-          ' 2>/dev/null || echo "(none)")
+          '); then
+            echo "::warning title=Review-thread fetch failed::gh api graphql could not list existing review threads (token scope? schema change?). Dedup context unavailable — the reviewer may re-raise previously flagged findings."
+            EXISTING_THREADS="(none)"
+          fi
+          [ -n "$EXISTING_THREADS" ] || EXISTING_THREADS="(none)"
 
           # Note: the YAML block scalar strips this step's 10-space indentation,
           # so the heredoc lines below reach the shell at column 0 — the prompt
