@@ -153,8 +153,24 @@ jobs:
       - name: Install Claude Code
         # Pinned so a breaking or compromised npm release can't silently take
         # effect on the runner. Rotate the pin manually after verifying the new
-        # version locally (and update the cache key above).
-        run: npm install -g @anthropic-ai/claude-code@2.1.245
+        # version locally (and update the cache key above and the integrity
+        # hash below: `npm view @anthropic-ai/claude-code@<ver> dist.integrity`).
+        #
+        # The registry metadata is asserted against an integrity hash recorded
+        # at pin time; npm itself then verifies the downloaded tarball against
+        # that same registry metadata during install. Residual risk: the view
+        # and the install are separate registry requests (TOCTOU), so a
+        # registry that answers them inconsistently could still slip a
+        # different tarball past this check.
+        run: |
+          set -euo pipefail
+          EXPECTED_INTEGRITY="sha512-+7baJddJXZukgd6AgC7xStHGsMTVHDPlRcAoqTSPx2NQ+QwKGtvCZQLgbnKuhjkwq9v9vKvYwIhLOwGiE77mVQ=="
+          ACTUAL_INTEGRITY=$(npm view @anthropic-ai/claude-code@2.1.245 dist.integrity)
+          if [ "$ACTUAL_INTEGRITY" != "$EXPECTED_INTEGRITY" ]; then
+            echo "::error title=npm integrity mismatch::@anthropic-ai/claude-code@2.1.245 registry integrity changed since the pin was recorded — refusing to install."
+            exit 1
+          fi
+          npm install -g @anthropic-ai/claude-code@2.1.245
 
       - name: Run PR review
         env:
@@ -322,6 +338,14 @@ jobs:
           # context. Secrets exist only in process env: persist-credentials:
           # false keeps them off disk, and Bash stays command-scoped so the
           # env cannot be dumped.
+          #
+          # Deny-rule prefix syntax (do NOT "fix" these patterns): '//' is the
+          # CLI's filesystem-absolute prefix and '~' is expanded by the CLI
+          # itself (not bash — it never sees these strings unquoted). Both
+          # verified: Read(//etc/**) and Read(~/.zshrc) deny their targets,
+          # while single-slash Read(/etc/**) does NOT match /etc/hosts — a
+          # single leading slash means settings-relative, so rewriting
+          # //proc/** as /proc/** would silently kill the rule.
           claude -p "$PROMPT" \
             --model claude-sonnet-4-6 \
             --system-prompt-file "$SYSTEM_FILE" \
