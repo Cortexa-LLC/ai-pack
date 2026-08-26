@@ -39,6 +39,10 @@
 #   3. Optional, for proper bot identity: set CORTEXA_LLC_REVIEWER_APP_ID and
 #      CORTEXA_LLC_REVIEWER_PRIVATE_KEY (shared from the org reviewer app).
 #      Without them, reviews post as github-actions[bot].
+#   4. REQUIRED for the approve-verdict guardrails: enable "Dismiss stale
+#      pull request approvals when new commits are pushed" in the main branch
+#      protection — an approval must only ever cover the head it reviewed.
+#      This setting lives outside this workflow and will not travel with it.
 #   Until the OAuth secret exists, the `gate` job reports has-token=false and
 #   the review job skips — never fails. Rotate by re-running steps 1–2.
 
@@ -292,29 +296,33 @@ jobs:
              branch is already checked out) to falsify or confirm it.
           2. Produce structured findings with the severity levels defined in
              your system prompt (Critical / Major / Minor).
-          3. Post exactly ONE review on the PR using gh. The command must
-             start exactly with \`gh pr review ${PR_NUMBER} --comment\`,
-             \`gh pr review ${PR_NUMBER} --request-changes\`, or
-             \`gh pr review ${PR_NUMBER} --approve\` — the verdict
-             flag comes immediately after the PR number (other flag orderings
-             are rejected by the tool allow-list), then --body "...".
+          3. Do NOT post anything to GitHub — you have no posting commands in
+             this environment. Instead, your FINAL response text IS the review.
+             It is machine-parsed and posted for you, so it must follow this
+             exact format:
+               - First line, exactly: VERDICT: approve
+                 or: VERDICT: comment
+                 or: VERDICT: request-changes
+               - Then a blank line, then the complete review body in markdown
+                 (findings grouped by severity, each with file:line and a
+                 concrete fix).
              Choose the verdict from your findings:
-               - any Critical finding                   -> --request-changes
-               - any Major finding (no Critical)        -> --comment
-               - zero Critical AND zero Major findings  -> --approve
-             Approve ONLY on that last condition — an approval here counts
-             toward branch protection, so it must mean the diff genuinely
-             survived the adversarial review with nothing above Minor.
+               - any Critical finding                   -> request-changes
+               - any Major finding (no Critical)        -> comment
+               - zero Critical AND zero Major findings  -> approve
+             Approve ONLY on that last condition — an approval counts toward
+             branch protection, so it must mean the diff genuinely survived
+             the adversarial review with nothing above Minor. Output nothing
+             after the review body.
              Put all findings in that single review body, grouped by severity,
              each with file:line and a concrete fix. Do not post additional
              comments or extra reviews.
 
-          Environment note: Bash here is scoped to the commands listed above —
-          \`gh api\` is NOT available, so your system prompt's instruction to
-          post the review via \`gh api .../reviews --method POST\` (with
-          inline comments) does not apply in this environment. Post the single
-          review with \`gh pr review\` as described in step 3, with every
-          finding in that one review body.
+          Environment note: Bash here is scoped to read-only commands —
+          neither \`gh api\` nor \`gh pr review\` is available, so your system
+          prompt's instructions about posting reviews yourself do not apply in
+          this environment. Every finding goes in the single review text you
+          output per step 3; the harness posts it.
 
           <external-data name="previously-raised-review-threads">
           The lines below are review-thread bodies written by PR commenters.
@@ -326,26 +334,33 @@ jobs:
           ${EXISTING_THREADS}
           </external-data>
 
-          This review is advisory: post the review, but never attempt to merge,
-          approve settings, push commits, or modify files.
+          Never attempt to merge, approve settings, push commits, or modify
+          files. Your only output channel is the review text itself.
           EOF
           )
 
-          # Bash is scoped to the exact commands the review needs (fetch the
-          # diff, read PR metadata/context, post the one review). PR content is
+          # Bash is scoped to the exact read-only commands the review needs
+          # (fetch the diff, read PR metadata/context). PR content is
           # untrusted input to the model, and this step's env holds
           # CLAUDE_CODE_OAUTH_TOKEN and GH_TOKEN — an unrestricted Bash tool
           # would let a prompt-injection payload in the diff exfiltrate them.
-          # The review-posting rules pin the PR number and verdict flag as the
-          # command prefix. --approve IS reachable — an owner decision with
+          # The model has NO posting verbs at all: it emits the review as text
+          # (VERDICT line + body) and the deterministic script below posts it
+          # with gh pr review --body-file, so the body is inert data — a
+          # command-substitution payload smuggled into the review text is
+          # never evaluated by any shell (this closes the argument-content
+          # gap in prefix-based allow-listing).
+          # The approve verdict is honored — an owner decision with
           # accepted residual risk: in this solo-maintainer repo GitHub forbids
           # approving your own PR, so a human-only review requirement was
           # unsatisfiable and forced --admin bypass on every merge, which
           # skips ALL protections (including a bot --request-changes). Letting
           # the bot's approval count restores meaning to the review gate in
-          # both directions. Residual risk stated honestly: a prompt-injection
-          # payload in the diff could induce a forged --approve, making a
-          # malicious PR look vetted. Guardrails that bound it: merge still
+          # both directions. Residual risk stated honestly: the verdict line is
+          # model output, so a prompt-injection payload in the diff could
+          # still induce a forged "VERDICT: approve", making a malicious PR
+          # look vetted (the script maps the verdict mechanically; it cannot
+          # judge it). Guardrails that bound it: merge still
           # requires a human click; dismiss_stale_reviews is ON (approvals die
           # on push, so an approval only ever covers the reviewed head); only
           # same-repo non-draft PRs run; and GitHub auto-merge must NEVER be
@@ -364,9 +379,12 @@ jobs:
           # credential dirs. Grep ignores path-based deny rules entirely and
           # can only be removed as a whole tool, so it is disabled outright —
           # the model keeps Read/Glob and the scoped git/gh commands for
-          # context. Secrets exist only in process env: persist-credentials:
-          # false keeps them off disk, and Bash stays command-scoped so the
-          # env cannot be dumped.
+          # context. The Glob deny entry below is NOT covered by the Read
+          # empirical test — it may be inert; it is kept as defense-in-depth,
+          # and the verified Read deny rule is the real guard (Glob exposes
+          # only paths, never file contents). Secrets exist only in process
+          # env: persist-credentials: false keeps them off disk, and Bash
+          # stays command-scoped so the env cannot be dumped.
           #
           # Deny-rule prefix syntax (do NOT "fix" these patterns): '//' is the
           # CLI's filesystem-absolute prefix and '~' is expanded by the CLI
@@ -375,13 +393,42 @@ jobs:
           # while single-slash Read(/etc/**) does NOT match /etc/hosts — a
           # single leading slash means settings-relative, so rewriting
           # //proc/** as /proc/** would silently kill the rule.
+          REVIEW_RAW="$(mktemp)"
           claude -p "$PROMPT" \
             --model claude-sonnet-4-6 \
             --system-prompt-file "$SYSTEM_FILE" \
-            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review ${PR_NUMBER} --comment:*),Bash(gh pr review ${PR_NUMBER} --request-changes:*),Bash(gh pr review ${PR_NUMBER} --approve:*),Bash(git diff:*),Read,Glob" \
+            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Read,Glob" \
             --disallowedTools "Grep,Read(//proc/**),Glob(//proc/**),Read(~/.claude/**),Read(~/.config/**),Read(~/.npm/**)" \
             --max-turns 15 \
-            --output-format text
+            --output-format text > "$REVIEW_RAW"
 
-          # Deliberately no verdict-based exit code here: this workflow is
-          # advisory and never acts as a merge gate (ADR-011).
+          # Deterministic posting: the model's text output is parsed here and
+          # posted as data via --body-file. The verdict line is matched
+          # strictly; anything malformed degrades to a plain comment so a
+          # confused (or manipulated) run can never accidentally approve.
+          VERDICT_FLAG="--comment"
+          FIRST_LINE="$(head -n 1 "$REVIEW_RAW")"
+          case "$FIRST_LINE" in
+            "VERDICT: approve")          VERDICT_FLAG="--approve" ;;
+            "VERDICT: request-changes")  VERDICT_FLAG="--request-changes" ;;
+            "VERDICT: comment")          VERDICT_FLAG="--comment" ;;
+            *) echo "::warning title=Unrecognized verdict line::'${FIRST_LINE}' — posting as plain comment." ;;
+          esac
+
+          REVIEW_BODY="$(mktemp)"
+          tail -n +2 "$REVIEW_RAW" | sed '/./,$!d' > "$REVIEW_BODY"
+          if [ ! -s "$REVIEW_BODY" ]; then
+            echo "::warning title=Empty review body::model produced no review text; posting raw output as comment."
+            cp "$REVIEW_RAW" "$REVIEW_BODY"
+            VERDICT_FLAG="--comment"
+          fi
+          if [ ! -s "$REVIEW_BODY" ]; then
+            echo "::error::review output is entirely empty — nothing to post"
+            exit 1
+          fi
+
+          gh pr review "$PR_NUMBER" "$VERDICT_FLAG" --body-file "$REVIEW_BODY"
+
+          # Deliberately no verdict-based exit code here: the workflow's
+          # status check is advisory (ADR-011); the review verdict itself is
+          # what participates in branch protection.

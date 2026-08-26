@@ -130,6 +130,11 @@ gh secret set CLAUDE_CODE_OAUTH_TOKEN     # store it as a repo Actions secret
    without them, the workflow degrades gracefully and reviews post as
    `github-actions[bot]`.
 
+3. Required for the approve-verdict guardrails: enable **"Dismiss stale pull
+   request approvals when new commits are pushed"** in the main branch's
+   protection settings, so an approval only ever covers the head it reviewed.
+   This lives in branch protection, not in the workflow file.
+
 Until the OAuth secret exists, the review job skips cleanly (never a red check).
 Rotate the token by re-running step 1.
 
