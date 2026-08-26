@@ -171,6 +171,9 @@ jobs:
             exit 1
           fi
           npm install -g @anthropic-ai/claude-code@2.1.245
+          # Post-install assertion on what actually landed (independent of
+          # the two registry round-trips above).
+          claude --version | grep -F "2.1.245" || { echo "::error title=Wrong CLI version installed::claude --version does not report the pinned 2.1.245."; exit 1; }
 
       - name: Run PR review
         env:
@@ -285,12 +288,17 @@ jobs:
              branch is already checked out) to falsify or confirm it.
           2. Produce structured findings with the severity levels defined in
              your system prompt (Critical / Major / Minor).
-          3. Post exactly ONE review on the PR using gh, for example:
-             gh pr review ${PR_NUMBER} --comment --body "..."
+          3. Post exactly ONE review on the PR using gh. The command must
+             start exactly with \`gh pr review ${PR_NUMBER} --comment\` or
+             \`gh pr review ${PR_NUMBER} --request-changes\` — the verdict
+             flag comes immediately after the PR number (other flag orderings
+             are rejected by the tool allow-list), then --body "...".
              Choose the verdict from your findings:
                - any Critical finding  -> --request-changes
-               - only Major/Minor      -> --comment
-               - no findings of note   -> --approve
+               - anything else         -> --comment
+             Approving is not available in this environment: for a clean PR,
+             post a --comment review whose body states verdict APPROVE and
+             lists no findings.
              Put all findings in that single review body, grouped by severity,
              each with file:line and a concrete fix. Do not post additional
              comments or extra reviews.
@@ -322,6 +330,10 @@ jobs:
           # untrusted input to the model, and this step's env holds
           # CLAUDE_CODE_OAUTH_TOKEN and GH_TOKEN — an unrestricted Bash tool
           # would let a prompt-injection payload in the diff exfiltrate them.
+          # The review-posting rules pin the PR number and verdict flag as the
+          # command prefix: --approve is deliberately unreachable, so an
+          # injected prompt cannot plant a bot approval in the review record
+          # (which a future branch-protection rule might count).
           # Model pin: like the npm pin above, rotate manually after verifying
           # the new model name locally — a retired model name fails this step
           # with a CLI error (advisory: continue-on-error keeps the PR green).
@@ -349,7 +361,7 @@ jobs:
           claude -p "$PROMPT" \
             --model claude-sonnet-4-6 \
             --system-prompt-file "$SYSTEM_FILE" \
-            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(git diff:*),Bash(git log:*),Read,Glob" \
+            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review ${PR_NUMBER} --comment:*),Bash(gh pr review ${PR_NUMBER} --request-changes:*),Bash(git diff:*),Read,Glob" \
             --disallowedTools "Grep,Read(//proc/**),Glob(//proc/**),Read(~/.claude/**),Read(~/.config/**),Read(~/.npm/**)" \
             --max-turns 15 \
             --output-format text
