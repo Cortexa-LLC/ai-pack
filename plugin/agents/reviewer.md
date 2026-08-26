@@ -292,7 +292,7 @@ gh api repos/${REPO}/pulls/<PR>/reviews \
 EOF
 ```
 
-**Never use `gh pr review --approve` / `--request-changes`** — those cannot carry inline comments.
+**Prefer the `gh api …/reviews --method POST` form above** — `gh pr review --approve` / `--request-changes` cannot carry inline comments. Exception: in restricted environments where `gh api` is not an allowed tool (e.g. the CI review workflow, which scopes Bash to `gh pr review`), post one consolidated `gh pr review` instead, with every finding in the single review body.
 
 ### Inline Comment Format
 
