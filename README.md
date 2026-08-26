@@ -108,8 +108,12 @@ installation is required. The system prompt is the ai-pack reviewer role
 (`plugin/agents/reviewer.md`), loaded from the base branch so a PR cannot tamper
 with the prompt that reviews it; existing review threads are fed back in so
 repeated pushes don't re-raise the same findings. Claude posts one review per run
-with severity-graded findings. It is advisory only — not a required status check,
-and a runtime failure never turns the PR red.
+with severity-graded findings and a verdict: approve (zero Critical and zero
+Major findings), comment, or request changes. The verdict participates in branch
+protection — the bot's approval satisfies the required review, and its
+request-changes blocks merge — while the workflow's status check itself stays
+advisory (a runtime failure never turns the PR red). Merging always remains a
+human action; GitHub auto-merge must never be enabled on this repository.
 
 **Provisioning** (one-time, subscription-funded; no metered API key):
 

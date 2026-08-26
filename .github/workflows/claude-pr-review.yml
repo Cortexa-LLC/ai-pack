@@ -21,11 +21,15 @@
 #     `pull_request` event, fork PRs get no secrets, so the OAuth token is never
 #     reachable from a fork's attacker-controlled code or prompt content.
 #   - Runs only for same-repo, non-draft PRs. Fork and draft PRs skip cleanly.
-#   - Advisory only: this is NOT a required status check and does NOT gate merge
-#     on the review verdict (a deliberate choice for this repo). A missing
+#   - The workflow's STATUS CHECK is advisory: not required, and a missing
 #     secret makes the review job skip cleanly; a runtime failure (expired/
 #     revoked token, timeout) is non-blocking — the review job sets
 #     `continue-on-error: true`, so the workflow run still reports success.
+#     The REVIEW VERDICT, however, does participate in branch protection:
+#     the bot's --approve satisfies the required-review rule and its
+#     --request-changes blocks merge (owner decision — see the rationale
+#     beside the tool allow-list below). Merging always remains a human act;
+#     never enable GitHub auto-merge on this repo.
 #
 # Provisioning (one-time, maintainer, subscription-funded — no metered API key):
 #   1. Locally: `claude setup-token`
@@ -289,16 +293,18 @@ jobs:
           2. Produce structured findings with the severity levels defined in
              your system prompt (Critical / Major / Minor).
           3. Post exactly ONE review on the PR using gh. The command must
-             start exactly with \`gh pr review ${PR_NUMBER} --comment\` or
-             \`gh pr review ${PR_NUMBER} --request-changes\` — the verdict
+             start exactly with \`gh pr review ${PR_NUMBER} --comment\`,
+             \`gh pr review ${PR_NUMBER} --request-changes\`, or
+             \`gh pr review ${PR_NUMBER} --approve\` — the verdict
              flag comes immediately after the PR number (other flag orderings
              are rejected by the tool allow-list), then --body "...".
              Choose the verdict from your findings:
-               - any Critical finding  -> --request-changes
-               - anything else         -> --comment
-             Approving is not available in this environment: for a clean PR,
-             post a --comment review whose body states verdict APPROVE and
-             lists no findings.
+               - any Critical finding                   -> --request-changes
+               - any Major finding (no Critical)        -> --comment
+               - zero Critical AND zero Major findings  -> --approve
+             Approve ONLY on that last condition — an approval here counts
+             toward branch protection, so it must mean the diff genuinely
+             survived the adversarial review with nothing above Minor.
              Put all findings in that single review body, grouped by severity,
              each with file:line and a concrete fix. Do not post additional
              comments or extra reviews.
@@ -331,9 +337,20 @@ jobs:
           # CLAUDE_CODE_OAUTH_TOKEN and GH_TOKEN — an unrestricted Bash tool
           # would let a prompt-injection payload in the diff exfiltrate them.
           # The review-posting rules pin the PR number and verdict flag as the
-          # command prefix: --approve is deliberately unreachable, so an
-          # injected prompt cannot plant a bot approval in the review record
-          # (which a future branch-protection rule might count).
+          # command prefix. --approve IS reachable — an owner decision with
+          # accepted residual risk: in this solo-maintainer repo GitHub forbids
+          # approving your own PR, so a human-only review requirement was
+          # unsatisfiable and forced --admin bypass on every merge, which
+          # skips ALL protections (including a bot --request-changes). Letting
+          # the bot's approval count restores meaning to the review gate in
+          # both directions. Residual risk stated honestly: a prompt-injection
+          # payload in the diff could induce a forged --approve, making a
+          # malicious PR look vetted. Guardrails that bound it: merge still
+          # requires a human click; dismiss_stale_reviews is ON (approvals die
+          # on push, so an approval only ever covers the reviewed head); only
+          # same-repo non-draft PRs run; and GitHub auto-merge must NEVER be
+          # enabled on this repo — auto-merge is the one feature that would
+          # turn a forged approval into an unattended merge.
           # Model pin: like the npm pin above, rotate manually after verifying
           # the new model name locally — a retired model name fails this step
           # with a CLI error (advisory: continue-on-error keeps the PR green).
@@ -361,7 +378,7 @@ jobs:
           claude -p "$PROMPT" \
             --model claude-sonnet-4-6 \
             --system-prompt-file "$SYSTEM_FILE" \
-            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review ${PR_NUMBER} --comment:*),Bash(gh pr review ${PR_NUMBER} --request-changes:*),Bash(git diff:*),Read,Glob" \
+            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review ${PR_NUMBER} --comment:*),Bash(gh pr review ${PR_NUMBER} --request-changes:*),Bash(gh pr review ${PR_NUMBER} --approve:*),Bash(git diff:*),Read,Glob" \
             --disallowedTools "Grep,Read(//proc/**),Glob(//proc/**),Read(~/.claude/**),Read(~/.config/**),Read(~/.npm/**)" \
             --max-turns 15 \
             --output-format text
