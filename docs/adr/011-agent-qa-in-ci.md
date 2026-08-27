@@ -1,7 +1,10 @@
 # ADR-011: Agent-QA Harness Results in CI for Prompt-Change PRs
 
 **Date:** 2026-08-23
-**Status:** Proposed
+**Status:** Accepted — implemented in `.github/workflows/agent-qa.yml` (issue #17).
+Phase 2 active from day one: `tests/agent-qa/BASELINE.md` (issue #15) recorded the
+6/6 real-run baseline before the gate landed, so the audit leg's verdict is enforced
+at `--threshold 4` with no advisory interlude.
 **Deciders:** Bryan Woodruff
 **Refs:** US-203 (docs/product/prd-framework-strengthening.md), issue #17; depends on issue #15 (recorded real-run baseline)
 

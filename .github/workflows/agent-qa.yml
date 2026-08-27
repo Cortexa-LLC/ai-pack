@@ -1,0 +1,385 @@
+# Agent QA — reviewer AUDIT MODE harness gate on prompt-change PRs (ADR-011,
+# docs/adr/011-agent-qa-in-ci.md; issue #17, US-203).
+#
+# One required branch-protection check — "Agent QA / gate" (the `gate` job
+# below) — fed by two legs that only run when a PR touches prompt content
+# (plugin/agents/**, plugin/skills/**, tests/agent-qa/**):
+#
+#   - dry-run leg: `run-harness.sh --dry-run`, deterministic and free.
+#     Validates prompt extraction, the AUDIT MODE anchor, and manifest
+#     self-consistency (--require-all, must be 6/6). Enforced on every
+#     prompt-change PR (US-202 smoke tier).
+#   - audit leg (real run): installs the pinned claude CLI, runs the harness
+#     for real (`--threshold 4`), uploads review-output.txt as an artifact,
+#     and upserts one sticky per-defect score comment on the PR.
+#     Subscription-funded via CLAUDE_CODE_OAUTH_TOKEN (`claude setup-token`;
+#     see tests/agent-qa/README.md for provisioning/rotation). Same-repo,
+#     non-draft PRs only.
+#
+# PHASE 2 IS ACTIVE (ADR-011 WBS step 6): tests/agent-qa/BASELINE.md records
+# the first real-run baseline (6/6, 2026-08-25), so the audit leg's verdict
+# is enforced — a real-run score below --threshold 4 fails the gate. Ratchet
+# to --threshold 5 after five consecutive CI runs score >=5/6 (update the
+# ADR's status notes and BASELINE.md when changing it).
+#
+# Security posture (per ADR-011, same as claude-pr-review.yml):
+#   - Triggers on `pull_request` ONLY — never `pull_request_target`. On the
+#     plain `pull_request` event fork PRs get no secrets, so the OAuth token
+#     is never reachable from a fork's attacker-controlled prompt content
+#     (the harness feeds the PR's reviewer.md to `claude` with Bash allowed —
+#     exactly the exfiltration vector pull_request_target would open).
+#   - Fork PRs: the audit leg auto-skips and the gate passes with a notice.
+#     The maintainer reviews the diff, pushes the branch into this repo (or
+#     runs workflow_dispatch on it) to execute the funded leg from trusted
+#     context. Deliberate posture, not a gap.
+#   - Actions pinned to commit SHAs resolved from upstream tags
+#     (`gh api repos/actions/<name>/git/ref/tags/<tag>`); npm CLI pinned to
+#     an exact version with a registry-integrity assertion.
+#   - Missing CLAUDE_CODE_OAUTH_TOKEN: the audit leg skips cleanly with a
+#     notice; it never fails the gate. Rotate via `claude setup-token` +
+#     `gh secret set CLAUDE_CODE_OAUTH_TOKEN`.
+#
+# Quota controls: per-PR concurrency with cancel-in-progress, draft PRs
+# skipped, 30-minute audit timeout. Unrelated PRs pass the gate trivially in
+# the `changes` job (no workflow-level paths: filter — a required check must
+# report on every PR or unrelated PRs hang on "Expected").
+#
+# Branch protection (owner-only, lives outside this file): add
+# "Agent QA / gate" to main's required status checks.
+
+name: Agent QA
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: >-
+          Ref to run the harness on (branch, tag, or SHA in this repo).
+          Empty = the ref the workflow was dispatched on. Used for the
+          manual fork-PR path: push the fork branch into this repo, then
+          dispatch on it.
+        required: false
+        type: string
+
+concurrency:
+  group: agent-qa-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Change detection. A required check must report on every PR, so instead of
+  # a workflow-level paths: filter this job decides whether the PR touches
+  # prompt content; when it doesn't, both legs skip and `gate` passes
+  # trivially. workflow_dispatch always counts as a prompt change (the whole
+  # point of dispatching is to force a run).
+  changes:
+    name: Detect prompt changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      prompt-change: ${{ steps.detect.outputs.prompt-change }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        if: github.event_name == 'pull_request'
+        with:
+          # Full history so origin/<base> exists for the merge-base diff.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Diff against merge base
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "manual dispatch — treating as a prompt change"
+            echo "prompt-change=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD")
+          printf 'changed files:\n%s\n' "$CHANGED"
+          if printf '%s\n' "$CHANGED" \
+               | grep -qE '^(plugin/agents/|plugin/skills/|tests/agent-qa/)'; then
+            echo "prompt-change=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prompt-change=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Agent QA::no prompt-content changes (plugin/agents/, plugin/skills/, tests/agent-qa/) — gate passes trivially."
+          fi
+
+  # Deterministic leg — enforced on every prompt-change PR. Free, seconds,
+  # no secrets, no network beyond checkout.
+  dry-run:
+    name: Harness dry run
+    needs: changes
+    if: needs.changes.outputs.prompt-change == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # Empty on pull_request events -> default (the PR merge ref).
+          ref: ${{ inputs.ref || '' }}
+          persist-credentials: false
+      - name: Run harness dry run (must score 6/6)
+        run: ./tests/agent-qa/run-harness.sh --dry-run
+
+  # Subscription-funded leg — real harness run. Same-repo non-draft PRs and
+  # manual dispatches only; the plain pull_request event gives fork PRs no
+  # secrets, so this job never sees the token in a fork context anyway.
+  # Phase 2: NO continue-on-error — the "Enforce audit verdict" step fails
+  # this job (and thereby the gate) when the score is below threshold.
+  audit:
+    name: Reviewer audit (real run)
+    needs: changes
+    if: >-
+      needs.changes.outputs.prompt-change == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.pull_request.head.repo.full_name == github.repository &&
+        !github.event.pull_request.draft))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # The `secrets` context is unavailable in job-level `if:` expressions,
+      # so materialize "does the token exist?" as a step output; every later
+      # step is conditioned on it. A missing secret is a clean skip with a
+      # notice — never a red check.
+      - name: Check for CLAUDE_CODE_OAUTH_TOKEN secret
+        id: token
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "has-token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-token=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Agent QA real run skipped::CLAUDE_CODE_OAUTH_TOKEN secret is not set. Provision it with 'claude setup-token' then 'gh secret set CLAUDE_CODE_OAUTH_TOKEN' (see tests/agent-qa/README.md)."
+          fi
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        if: steps.token.outputs.has-token == 'true'
+        with:
+          ref: ${{ inputs.ref || '' }}
+          # The audited model gets Bash/Read over (a temp copy of) the tree;
+          # never persist a credential it could reach.
+          persist-credentials: false
+
+      - name: Set up Go
+        if: steps.token.outputs.has-token == 'true'
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          # The fixture is a Go module the audited reviewer builds and tests.
+          go-version-file: tests/agent-qa/fixture/go.mod
+          cache: false
+
+      - name: Set up Node
+        if: steps.token.outputs.has-token == 'true'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      # No lockfile in this repo, so cache the npm dir manually, keyed on the
+      # pinned CLI version (same pattern and pin as claude-pr-review.yml —
+      # rotate both together).
+      - name: Cache npm downloads
+        if: steps.token.outputs.has-token == 'true'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.npm
+          key: npm-cache-claude-code-${{ runner.os }}-${{ runner.arch }}-2.1.245
+          restore-keys: |
+            npm-cache-claude-code-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install Claude Code
+        if: steps.token.outputs.has-token == 'true'
+        # Pinned so a breaking or compromised npm release can't silently take
+        # effect. Rotate after verifying the new version locally; update the
+        # cache key above and the integrity hash below
+        # (`npm view @anthropic-ai/claude-code@<ver> dist.integrity`).
+        run: |
+          set -euo pipefail
+          EXPECTED_INTEGRITY="sha512-+7baJddJXZukgd6AgC7xStHGsMTVHDPlRcAoqTSPx2NQ+QwKGtvCZQLgbnKuhjkwq9v9vKvYwIhLOwGiE77mVQ=="
+          ACTUAL_INTEGRITY=$(npm view @anthropic-ai/claude-code@2.1.245 dist.integrity)
+          if [ "$ACTUAL_INTEGRITY" != "$EXPECTED_INTEGRITY" ]; then
+            echo "::error title=npm integrity mismatch::@anthropic-ai/claude-code@2.1.245 registry integrity changed since the pin was recorded — refusing to install."
+            exit 1
+          fi
+          npm install -g @anthropic-ai/claude-code@2.1.245
+          claude --version | grep -F "2.1.245" || { echo "::error title=Wrong CLI version installed::claude --version does not report the pinned 2.1.245."; exit 1; }
+
+      - name: Run harness (real, --threshold 4)
+        id: run
+        if: steps.token.outputs.has-token == 'true'
+        env:
+          # Max-subscription OAuth token (claude setup-token) — no metered
+          # API cost. The harness additionally blanks ANTHROPIC_API_KEY on
+          # its own claude invocation; blanking it here too keeps any
+          # environment-inherited key from ever shadowing the OAuth token.
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ""
+        run: |
+          set -euo pipefail
+          # Capture the exit code instead of failing here: the score comment
+          # and artifact must publish even for a failing run. The verdict is
+          # enforced by the last step of this job (Phase 2).
+          rc=0
+          ./tests/agent-qa/run-harness.sh \
+            --threshold 4 \
+            --output "$RUNNER_TEMP/agent-qa" \
+            --summary "$RUNNER_TEMP/agent-qa/summary.json" || rc=$?
+          echo "exit-code=$rc" >> "$GITHUB_OUTPUT"
+          echo "harness exit code: $rc"
+
+      - name: Upload review output
+        if: steps.token.outputs.has-token == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: agent-qa-review-output
+          path: ${{ runner.temp }}/agent-qa/
+          if-no-files-found: warn
+
+      - name: Upsert sticky score comment
+        if: >-
+          steps.token.outputs.has-token == 'true' &&
+          github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SUMMARY_JSON: ${{ runner.temp }}/agent-qa/summary.json
+        run: |
+          set -euo pipefail
+          # Recorded baseline, read from the file of record rather than
+          # hardcoded here (BASELINE.md is the ratchet's paper trail).
+          BASELINE_LINE=$(grep -m1 '^## Score:' tests/agent-qa/BASELINE.md \
+            | sed 's/^## Score: *//') || BASELINE_LINE="(no baseline recorded)"
+          export BASELINE_LINE
+
+          BODY_FILE=$(mktemp)
+          python3 - "$BODY_FILE" <<'PYEOF'
+          import json, os, sys
+
+          body_path = sys.argv[1]
+          summary_path = os.environ["SUMMARY_JSON"]
+          run_url = os.environ["RUN_URL"]
+          baseline = os.environ["BASELINE_LINE"]
+
+          lines = ["<!-- agent-qa-score -->", "## Agent QA — reviewer audit score", ""]
+          if os.path.exists(summary_path):
+              with open(summary_path, encoding="utf-8") as fh:
+                  s = json.load(fh)
+              score, total, threshold = s["score"], s["total"], s["threshold"]
+              lines += [
+                  "| Defect | Technique | Result |",
+                  "|---|---|---|",
+              ]
+              for defect_id, d in s["per_defect"].items():
+                  mark = "FOUND" if d["result"] == "found" else "**MISSED**"
+                  lines.append(f"| {defect_id} | {d['technique']} | {mark} |")
+              lines += [
+                  "",
+                  f"**SCORE: {score}/{total}** (gate threshold: {threshold};"
+                  f" recorded baseline: {baseline})",
+              ]
+              if score < threshold:
+                  lines += ["", f"**FAIL** — below the enforced threshold ({threshold}/{total});"
+                                " the `Agent QA / gate` check fails (ADR-011 Phase 2)."]
+              elif score < 5:
+                  lines += ["", "**Warning** — score is below both the recorded baseline"
+                                " and the 5/6 PRD target: passing, but worth a look."]
+          else:
+              lines += [
+                  "The real harness run failed before producing a score summary"
+                  " — see the run log.",
+              ]
+          lines += [
+              "",
+              f"Full review output: [workflow run artifact `agent-qa-review-output`]({run_url})",
+              "",
+              "_Planted-defect harness `tests/agent-qa/`;"
+              " policy: docs/adr/011-agent-qa-in-ci.md._",
+          ]
+          with open(body_path, "w", encoding="utf-8") as fh:
+              fh.write("\n".join(lines) + "\n")
+          PYEOF
+
+          COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --paginate \
+            --jq '[.[] | select(.body | contains("<!-- agent-qa-score -->"))][0].id // empty' \
+            | head -n 1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$COMMENT_ID" \
+              -F body=@"$BODY_FILE" > /dev/null
+            echo "updated sticky comment $COMMENT_ID"
+          else
+            gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+              -F body=@"$BODY_FILE" > /dev/null
+            echo "created sticky comment"
+          fi
+
+      # Phase 2 (ADR-011 WBS step 6): the audit verdict is enforced — this is
+      # the step that was `continue-on-error` in Phase 1's design.
+      - name: Enforce audit verdict
+        if: steps.token.outputs.has-token == 'true'
+        env:
+          EXIT_CODE: ${{ steps.run.outputs.exit-code }}
+        run: |
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error title=Agent QA score below threshold::the real harness run scored below --threshold 4 (or failed to run) — see the sticky PR comment and the agent-qa-review-output artifact."
+            exit 1
+          fi
+          echo "audit verdict: pass"
+
+  # THE required check: register "Agent QA / gate" in branch protection.
+  # Fails iff the dry-run leg failed or (Phase 2) the audit leg failed;
+  # passes with a notice when the PR is not a prompt change or when the
+  # audit leg skipped (fork/draft — funded run happens via the manual path).
+  gate:
+    name: gate
+    needs: [changes, dry-run, audit]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Evaluate gate
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          PROMPT_CHANGE: ${{ needs.changes.outputs.prompt-change }}
+          DRYRUN_RESULT: ${{ needs.dry-run.result }}
+          AUDIT_RESULT: ${{ needs.audit.result }}
+        run: |
+          echo "changes: $CHANGES_RESULT (prompt-change=$PROMPT_CHANGE)"
+          echo "dry-run: $DRYRUN_RESULT"
+          echo "audit:   $AUDIT_RESULT"
+
+          if [ "$CHANGES_RESULT" != "success" ]; then
+            echo "::error title=Agent QA gate::change detection did not succeed ($CHANGES_RESULT)."
+            exit 1
+          fi
+          if [ "$PROMPT_CHANGE" != "true" ]; then
+            echo "::notice title=Agent QA gate::not a prompt change — gate passes."
+            exit 0
+          fi
+          if [ "$DRYRUN_RESULT" != "success" ]; then
+            echo "::error title=Agent QA gate::harness dry run failed ($DRYRUN_RESULT) — the deterministic 6/6 self-check is enforced on every prompt-change PR."
+            exit 1
+          fi
+          case "$AUDIT_RESULT" in
+            success)
+              echo "gate: dry run and audit passed." ;;
+            skipped)
+              echo "::notice title=Agent QA gate::real-run leg skipped (fork or draft PR — no secrets on the plain pull_request event). Maintainer path: push the branch into this repo or run workflow_dispatch on it." ;;
+            *)
+              # Phase 2: the audit verdict is enforced.
+              echo "::error title=Agent QA gate::reviewer audit failed ($AUDIT_RESULT) — score below threshold or run failure. See the sticky PR comment and artifact."
+              exit 1 ;;
+          esac

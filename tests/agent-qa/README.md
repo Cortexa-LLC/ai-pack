@@ -86,7 +86,53 @@ and `SCORE: n/6 (xx%)`, exiting 0 iff `n >= threshold`.
 
 ## CI integration
 
-Deferred pending architect input (US-203). The harness is designed for it —
-deterministic dry-run for smoke coverage, exit-code gate for real runs — but
-when and where real (quota-consuming) runs happen in CI is an open design
-question.
+Implemented per [ADR-011](../../docs/adr/011-agent-qa-in-ci.md) (issue #17):
+`.github/workflows/agent-qa.yml` publishes one required branch-protection
+check, **`Agent QA / gate`**, with two legs behind change detection.
+
+**Change detection.** PRs that touch none of `plugin/agents/**`,
+`plugin/skills/**`, or `tests/agent-qa/**` pass the gate trivially. There is
+deliberately no workflow-level `paths:` filter — a required check must report
+on every PR or unrelated PRs hang on "Expected".
+
+**Dry-run leg** (every prompt-change PR, always enforced). Runs
+`./run-harness.sh --dry-run`: prompt extraction, the AUDIT MODE anchor, and
+manifest self-consistency, scored with `--require-all` (must be 6/6).
+Deterministic, free, seconds.
+
+**Real-run leg** (same-repo, non-draft prompt-change PRs). Installs the
+pinned `claude` CLI, runs `./run-harness.sh --threshold 4 --summary ...`,
+uploads `review-output.txt` (plus the JSON summary) as the
+`agent-qa-review-output` artifact, and upserts one sticky PR comment
+(marker `<!-- agent-qa-score -->`) with the per-defect table, `SCORE: n/6`,
+and the recorded baseline. Quota controls: per-PR concurrency with
+cancel-in-progress, draft PRs skipped, 30-minute timeout.
+
+**Threshold policy — Phase 2 is active.** [BASELINE.md](BASELINE.md) records
+the first real-run baseline (6/6, 2026-08-25), so per ADR-011 the real-run
+verdict is enforced: a score below **4/6** fails the gate (the 4/6 floor
+absorbs a single flaky miss from the 5/6 PRD target). The comment warns when
+the score is below both the baseline and 5/6. Ratchet: raise to
+`--threshold 5` after five consecutive CI runs score ≥5/6, recording the
+change in the ADR's status notes and BASELINE.md.
+
+**Fork PRs.** The workflow triggers on plain `pull_request` only — never
+`pull_request_target` — so fork PRs get no secrets and the real-run leg
+auto-skips (the gate passes with a notice). This is deliberate: the harness
+feeds the PR's `reviewer.md` to `claude` with Bash allowed, so a malicious
+fork prompt could exfiltrate any reachable secret. Maintainer path for fork
+contributions: review the diff, push the branch into this repo (or run
+`workflow_dispatch` on it), and the funded leg executes from trusted context.
+
+**Funding and rotation.** The real run is subscription-funded via the
+`CLAUDE_CODE_OAUTH_TOKEN` repo secret; `ANTHROPIC_API_KEY` stays blanked so
+no metered key can shadow it. Provision/rotate:
+
+```bash
+claude setup-token                      # mints a long-lived OAuth token locally
+gh secret set CLAUDE_CODE_OAUTH_TOKEN   # paste it; stored as a repo Actions secret
+```
+
+Until the secret exists the real-run leg skips with a notice — it never
+fails the gate. Registration of the required check itself lives in branch
+protection (owner-only), not in the workflow file.

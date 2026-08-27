@@ -1,10 +1,9 @@
 # Reviewer AUDIT MODE — Real-Run Baseline
 
 First real (non-dry-run) execution of the planted-defect harness (US-201 / issue #15).
-This is the baseline required to unlock Phase 2 of ADR-011's CI gate: the gate itself
-(`agent-qa.yml`, ADR-011 WBS steps 1–5, tracked as issue #17) is not yet implemented.
-Once it is, the real-run leg will enforce `--threshold 4`, ratcheting to 5 after five
-consecutive ≥5/6 runs.
+This is the baseline that unlocked Phase 2 of ADR-011's CI gate: the gate
+(`.github/workflows/agent-qa.yml`, issue #17) is implemented with Phase 2 active — the
+real-run leg enforces `--threshold 4`, ratcheting to 5 after five consecutive ≥5/6 runs.
 
 ## Run record
 

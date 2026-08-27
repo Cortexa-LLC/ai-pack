@@ -9,6 +9,7 @@ Exit status: 0 when found-count >= threshold, 1 otherwise.
 """
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -110,6 +111,13 @@ def main():
         action="store_true",
         help="print a synthetic review built from the manifest descriptions and exit",
     )
+    parser.add_argument(
+        "--summary",
+        metavar="FILE",
+        help="also write a machine-readable JSON summary of the scored run "
+        '({"score", "total", "threshold", "per_defect"}) to FILE; '
+        "exit-code semantics are unchanged (ADR-011 WBS step 1)",
+    )
     args = parser.parse_args()
 
     defects = parse_defects(args.defects)
@@ -132,11 +140,17 @@ def main():
 
     found = 0
     rows = []
+    per_defect = {}
     for d in defects:
         pattern = first_match(d, text)
         if pattern is not None:
             found += 1
         rows.append((d["id"], d["technique"], "FOUND" if pattern else "MISSED", pattern or "-"))
+        per_defect[d["id"]] = {
+            "technique": d["technique"],
+            "result": "found" if pattern else "missed",
+            "matched_pattern": pattern,
+        }
 
     id_w = max(len(r[0]) for r in rows + [("ID",)])
     tech_w = max(len(r[1]) for r in rows + [("", "TECHNIQUE")])
@@ -147,6 +161,21 @@ def main():
     total = len(defects)
     pct = round(100 * found / total)
     print(f"SCORE: {found}/{total} ({pct}%)")
+
+    if args.summary:
+        with open(args.summary, "w", encoding="utf-8") as fh:
+            json.dump(
+                {
+                    "score": found,
+                    "total": total,
+                    "threshold": threshold,
+                    "per_defect": per_defect,
+                },
+                fh,
+                indent=2,
+            )
+            fh.write("\n")
+
     return 0 if found >= threshold else 1
 
 
