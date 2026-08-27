@@ -15,10 +15,11 @@ OUTPUT_DIR="$SCRIPT_DIR/results"
 TASK_PROMPT="Perform a full adversarial audit of this whole project."
 DRY_RUN=0
 THRESHOLD=""
+SUMMARY=""
 
 usage() {
   cat <<'EOF'
-Usage: run-harness.sh [--dry-run] [--output <dir>] [--threshold <n>]
+Usage: run-harness.sh [--dry-run] [--output <dir>] [--threshold <n>] [--summary <file>]
 
 Runs the ai-pack reviewer agent's AUDIT MODE against the planted-defect
 fixture (tests/agent-qa/fixture/) and scores which of the six documented
@@ -33,6 +34,9 @@ defects (defects.yaml) the review found.
   --threshold <n>  Minimum found-count for exit 0, passed to score.py
                    (default: 4). Real runs only; the dry run always
                    requires all defects.
+  --summary <file> Also write score.py's machine-readable JSON summary
+                   ({"score", "total", "threshold", "per_defect"}) to
+                   <file>. Used by CI (ADR-011); exit codes unchanged.
   -h, --help       Show this help.
 
 NOTE: a real run (without --dry-run) invokes the claude CLI, consumes
@@ -52,6 +56,9 @@ while [ $# -gt 0 ]; do
     --threshold)
       [ $# -ge 2 ] || { echo "error: --threshold requires a number argument" >&2; exit 2; }
       THRESHOLD="$2"; shift ;;
+    --summary)
+      [ $# -ge 2 ] || { echo "error: --summary requires a file argument" >&2; exit 2; }
+      SUMMARY="$2"; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "error: unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -92,7 +99,8 @@ if [ "$DRY_RUN" -eq 1 ]; then
   echo "synthetic review written to $REVIEW_OUT"
   # The synthetic review is built from the manifest's own descriptions, so it
   # must find every defect: score with --require-all, not the default gate.
-  python3 "$SCRIPT_DIR/score.py" --defects "$DEFECTS" --review "$REVIEW_OUT" --require-all
+  python3 "$SCRIPT_DIR/score.py" --defects "$DEFECTS" --review "$REVIEW_OUT" --require-all \
+    ${SUMMARY:+--summary "$SUMMARY"}
 else
   command -v claude >/dev/null 2>&1 || { echo "error: claude CLI not found on PATH" >&2; exit 1; }
   echo "== real run: this consumes Claude subscription quota and takes several minutes =="
@@ -124,5 +132,6 @@ else
       --output-format text
   ) > "$REVIEW_OUT"
   echo "review written to $REVIEW_OUT"
-  python3 "$SCRIPT_DIR/score.py" --defects "$DEFECTS" --review "$REVIEW_OUT" ${THRESHOLD:+--threshold "$THRESHOLD"}
+  python3 "$SCRIPT_DIR/score.py" --defects "$DEFECTS" --review "$REVIEW_OUT" \
+    ${THRESHOLD:+--threshold "$THRESHOLD"} ${SUMMARY:+--summary "$SUMMARY"}
 fi
