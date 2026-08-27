@@ -25,11 +25,13 @@
 #     secret makes the review job skip cleanly; a runtime failure (expired/
 #     revoked token, timeout) is non-blocking — the review job sets
 #     `continue-on-error: true`, so the workflow run still reports success.
-#     The REVIEW VERDICT, however, does participate in branch protection:
-#     the bot's --approve satisfies the required-review rule and its
-#     --request-changes blocks merge (owner decision — see the rationale
-#     beside the tool allow-list below). Merging always remains a human act;
-#     never enable GitHub auto-merge on this repo.
+#     The REVIEW VERDICT, however, does participate in branch protection —
+#     via the required "Claude verdict" status check (last job below), which
+#     fails only on a request-changes verdict. GitHub ignores App approvals
+#     for required-review counts, so the review REQUIREMENT itself is removed
+#     from main's protection; the verdict check replaces it (owner decision —
+#     see the rationale beside the tool allow-list below). Merging always
+#     remains a human act; never enable GitHub auto-merge on this repo.
 #
 # Provisioning (one-time, maintainer, subscription-funded — no metered API key):
 #   1. Locally: `claude setup-token`
@@ -39,10 +41,13 @@
 #   3. Optional, for proper bot identity: set CORTEXA_LLC_REVIEWER_APP_ID and
 #      CORTEXA_LLC_REVIEWER_PRIVATE_KEY (shared from the org reviewer app).
 #      Without them, reviews post as github-actions[bot].
-#   4. REQUIRED for the approve-verdict guardrails: enable "Dismiss stale
-#      pull request approvals when new commits are pushed" in the main branch
-#      protection — an approval must only ever cover the head it reviewed.
-#      This setting lives outside this workflow and will not travel with it.
+#   4. Branch protection (lives outside this workflow, will not travel with
+#      it): add the "Claude verdict" check to main's required status checks.
+#      In a solo-maintainer repo also REMOVE any required-approving-review
+#      rule — GitHub ignores App approvals for that count, so it can only be
+#      satisfied by admin bypass, which defeats every protection at once.
+#      Staleness is handled by the check itself: it reads only the review on
+#      the current head.
 #   Until the OAuth secret exists, the `gate` job reports has-token=false and
 #   the review job skips — never fails. Rotate by re-running steps 1–2.
 
@@ -310,10 +315,9 @@ jobs:
                - any Critical finding                   -> request-changes
                - any Major finding (no Critical)        -> comment
                - zero Critical AND zero Major findings  -> approve
-             Approve ONLY on that last condition — an approval counts toward
-             branch protection, so it must mean the diff genuinely survived
-             the adversarial review with nothing above Minor. Output nothing
-             after the review body.
+             Approve ONLY on that last condition — a request-changes verdict
+             blocks merge via a required status check, so the verdict must
+             mean exactly what it says. Output nothing after the review body.
              Put all findings in that single review body, grouped by severity,
              each with file:line and a concrete fix. Do not post additional
              comments or extra reviews.
@@ -429,6 +433,43 @@ jobs:
 
           gh pr review "$PR_NUMBER" "$VERDICT_FLAG" --body-file "$REVIEW_BODY"
 
-          # Deliberately no verdict-based exit code here: the workflow's
-          # status check is advisory (ADR-011); the review verdict itself is
-          # what participates in branch protection.
+          # Deliberately no verdict-based exit code here: the review job stays
+          # advisory (continue-on-error). Merge gating happens in the separate
+          # "Claude verdict" job below, which is the required status check.
+
+  # The merge gate. GitHub does not count GitHub-App approvals toward a
+  # required-approving-review rule (observed empirically: the bot's APPROVED
+  # review left reviewDecision at REVIEW_REQUIRED), so in this solo-maintainer
+  # repo the review REQUIREMENT is replaced by this required status check:
+  # it fails only when the latest review on the current head is
+  # CHANGES_REQUESTED. A clean or absent review passes — missing token,
+  # skipped reviewer, or a runtime failure never blocks merge (advisory
+  # spirit preserved); only an explicit request-changes verdict does.
+  verdict:
+    name: Claude verdict
+    needs: [gate, review]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      REPO: ${{ github.repository }}
+      IS_FORK_OR_DRAFT: ${{ github.event.pull_request.head.repo.full_name != github.repository || github.event.pull_request.draft }}
+    steps:
+      - name: Fail on request-changes verdict
+        run: |
+          if [ "$IS_FORK_OR_DRAFT" = "true" ]; then
+            echo "fork or draft PR — no automated review runs; verdict gate passes trivially"
+            exit 0
+          fi
+          STATE=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+            --jq '[.[] | select(.commit_id == env.HEAD_SHA)] | last | .state // "NONE"')
+          echo "latest review state on $HEAD_SHA: $STATE"
+          if [ "$STATE" = "CHANGES_REQUESTED" ]; then
+            echo "::error title=Reviewer requested changes::the automated review on $HEAD_SHA requested changes — address the findings or push a fix to trigger a fresh review."
+            exit 1
+          fi
+          echo "no blocking verdict — gate passes"

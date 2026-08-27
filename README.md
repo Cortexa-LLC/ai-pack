@@ -110,10 +110,12 @@ with the prompt that reviews it; existing review threads are fed back in so
 repeated pushes don't re-raise the same findings. Claude posts one review per run
 with severity-graded findings and a verdict: approve (zero Critical and zero
 Major findings), comment, or request changes. The verdict participates in branch
-protection — the bot's approval satisfies the required review, and its
-request-changes blocks merge — while the workflow's status check itself stays
-advisory (a runtime failure never turns the PR red). Merging always remains a
-human action; GitHub auto-merge must never be enabled on this repository.
+protection through the required **Claude verdict** status check, which fails
+only on a request-changes verdict (GitHub ignores App approvals for
+required-review counts, so a review requirement cannot express this). The
+review job itself stays advisory — a runtime failure or missing token never
+turns the PR red or blocks merge. Merging always remains a human action;
+GitHub auto-merge must never be enabled on this repository.
 
 **Provisioning** (one-time, subscription-funded; no metered API key):
 
@@ -130,10 +132,12 @@ gh secret set CLAUDE_CODE_OAUTH_TOKEN     # store it as a repo Actions secret
    without them, the workflow degrades gracefully and reviews post as
    `github-actions[bot]`.
 
-3. Required for the approve-verdict guardrails: enable **"Dismiss stale pull
-   request approvals when new commits are pushed"** in the main branch's
-   protection settings, so an approval only ever covers the head it reviewed.
-   This lives in branch protection, not in the workflow file.
+3. Branch protection (lives outside the workflow file): add **Claude verdict**
+   to main's required status checks. In a solo-maintainer repository, also
+   remove any required-approving-review rule — GitHub does not count App
+   approvals toward it, so it can only ever be satisfied by admin bypass.
+   The check reads only the review on the current head, so stale verdicts
+   never gate.
 
 Until the OAuth secret exists, the review job skips cleanly (never a red check).
 Rotate the token by re-running step 1.
