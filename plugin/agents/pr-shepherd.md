@@ -72,9 +72,8 @@ You are a spawned subagent: there is no wakeup mechanism for you. If you end you
   termination with the job unfinished.
 - Ending your turn is permitted **only** at a true exit condition: merge-ready, the
   iteration budget genuinely exhausted (see §Iteration Budget), or blocked on an action
-  only the owner can take.
-- Your run ends only at a terminal state: merge-ready, escalation, or a precise blocker
-  report. "State saved, waiting" is not a terminal state.
+  only the owner can take — each reported precisely. "State saved, waiting" is none of
+  these; it is not a terminal state.
 
 ## Iteration Budget
 
@@ -87,8 +86,13 @@ suggests — clean convergence routinely needs more than 5 rounds.
   or smaller each round.
 - Stop early only on: a clean verdict (merge-ready), a blocker requiring owner action,
   or **two consecutive non-converging rounds** (the reviewer re-raises the same findings
-  unchanged). Report that last case as **"stuck"** — with an analysis of the repeated
-  findings and why they keep recurring — not as a failure.
+  unchanged). Detect this by comparing each round's Critical/Major findings against the
+  previous round's: within a run you already hold both in context (the loop is one
+  continuous turn), and after a crash-resume the prior round's findings are in the KG
+  state line (`Findings:` field below) and the full review history is refetchable via
+  `gh api "repos/$REPO/pulls/$PR/reviews"`. Report the non-converging case as
+  **"stuck"** — with an analysis of the repeated findings and why they keep recurring —
+  not as a failure.
 
 ## Resume Support
 
@@ -111,7 +115,7 @@ After each iteration, write state to KG:
 ```bash
 kg__add_entity({name: "pr-shepherd PR #${PR} state", type: "topic"})  # once, reuse id
 kg__add_observation({entity_id: "<id>", content:
-  "Iteration: <N> | Last action: <brief> | CI: <SUCCESS|FAILURE|RUNNING> | Open threads: <count>"})
+  "Iteration: <N> | Last action: <brief> | CI: <SUCCESS|FAILURE|RUNNING> | Open threads: <count> | Findings: <short titles of open Critical/Major findings, or none>"})
 ```
 
 ---
@@ -362,7 +366,7 @@ else
   # write state to KG and loop back to Step 1
   # once, reuse id
   kg__add_observation({entity_id: "<state-entity-id>", content:
-    "Iteration: <N> | Last action: <brief> | CI: <SUCCESS|FAILURE|RUNNING> | Open threads: <count>"})
+    "Iteration: <N> | Last action: <brief> | CI: <SUCCESS|FAILURE|RUNNING> | Open threads: <count> | Findings: <short titles of open Critical/Major findings, or none>"})
 fi
 ```
 

@@ -194,13 +194,19 @@ fi
 ```
 
 **Convergence rule:** the budget is generous by design — clean convergence against a
-thorough automated reviewer routinely takes more than 5 fix rounds, so never escalate
-before iteration 5 on "too many rounds" grounds. If the reviewer re-raises the same
-findings unchanged on 2 consecutive passes, stop then regardless of `iter` — report
-**"stuck"** with an analysis of the repeated findings (a stall, not a failure). If the
-`MAX_ITER` guard fires while rounds were still converging (each round's findings fewer
-or smaller than the last), say so in the report and recommend re-running
-`/ai-pack:shepherd-pr $PR` to continue.
+thorough automated reviewer routinely takes more than 5 fix rounds; 5 is the minimum
+meaningful budget, so keep `MAX_ITER` at least that high. If the reviewer re-raises the
+same findings unchanged on 2 consecutive passes, stop then regardless of `iter` —
+report **"stuck"** with an analysis of the repeated findings (a stall, not a failure).
+Detecting this needs no cross-wakeup state: the full review history is durable on
+GitHub — fetch it read-only with `gh api "repos/$REPO/pulls/$PR/reviews"`, take the
+bot's two most recent reviews (`jq '[.[] | select(.user.type == "Bot")] | .[-2:]'`),
+and compare their Critical/Major findings; identical finding sets on both means
+non-converging. (Fewer than two bot reviews yet = trivially still converging. Use this
+REST endpoint, not `$VERDICT_RAW`: GraphQL logins drop the `[bot]` suffix and carry no
+type field, so bot filtering there is unreliable.) If the `MAX_ITER` guard fires while rounds were still converging
+(each round's findings fewer or smaller than the last), say so in the report and
+recommend re-running `/ai-pack:shepherd-pr $PR` to continue.
 
 **B. Threads to fix** (fix immediately regardless of CI state):
 ```
@@ -479,7 +485,7 @@ Stop and report (no ScheduleWakeup) if:
 | `iter >= MAX_ITER` | Max iterations report above |
 | `wait_iter >= MAX_WAIT_ITER` | CI/reviewer stuck — escalate; Routes C, E, F all increment this counter, so slow reviewer or perpetually-pending CI exhausts it without any fix iteration occurring |
 | Same thread IDs unresolved 2 passes in a row | Report: "Thread stuck — may need human decision" |
-| Same findings re-raised unchanged 2 passes in a row | Non-converging — "stuck" report with analysis of the repeated findings (see A2 convergence rule); a stall, not a failure |
+| Same findings re-raised unchanged 2 passes in a row (compare the bot's last two reviews via `gh api "repos/$REPO/pulls/$PR/reviews"` — see A2 convergence rule) | Non-converging — "stuck" report with analysis of the repeated findings; a stall, not a failure |
 | `CI_FAILING > 0` | Route D fires immediately — CI failure report, no wakeup |
 | `Claude PR Review` check stuck IN_PROGRESS > 10 min | Ask user to check workflow logs |
 | Verdict is `DISMISSED` after 2 passes | Ask user — bot may be broken |
