@@ -102,27 +102,45 @@ mcp/               Git submodule providing the kg binary
 ## Automated PR Review
 
 Once provisioned, every same-repo, non-draft pull request gets an advisory review
-from Claude via
-[`anthropics/claude-code-action`](https://github.com/anthropics/claude-code-action)
-(`.github/workflows/claude-pr-review.yml`). The review adopts the ai-pack reviewer
-role's adversarial stance (`plugin/agents/reviewer.md`) and posts findings as PR
-comments with severity levels. It is advisory only — not a required status check,
-and a runtime failure never turns the PR red.
+from Claude (`.github/workflows/claude-pr-review.yml`). The workflow installs the
+Claude Code CLI on the runner and runs `claude -p` directly — no GitHub App
+installation is required. The system prompt is the ai-pack reviewer role
+(`plugin/agents/reviewer.md`), loaded from the base branch so a PR cannot tamper
+with the prompt that reviews it; existing review threads are fed back in so
+repeated pushes don't re-raise the same findings. Claude posts one review per run
+with severity-graded findings and a verdict: approve (zero Critical and zero
+Major findings), comment, or request changes. The verdict participates in branch
+protection through the required **Claude verdict** status check, which fails
+only on a request-changes verdict (GitHub ignores App approvals for
+required-review counts, so a review requirement cannot express this). The
+review job itself stays advisory — a runtime failure or missing token never
+turns the PR red or blocks merge. Merging always remains a human action;
+GitHub auto-merge must never be enabled on this repository.
 
 **Provisioning** (one-time, subscription-funded; no metered API key):
 
-1. Install the [Claude GitHub App](https://github.com/apps/claude) on the
-   repository — the action exchanges OIDC against the app installation for its
-   GitHub token.
-2. Mint and store the OAuth token:
+1. Mint and store the OAuth token:
 
 ```bash
 claude setup-token                        # mint a long-lived OAuth token locally
 gh secret set CLAUDE_CODE_OAUTH_TOKEN     # store it as a repo Actions secret
 ```
 
-Until the secret exists, the review job skips cleanly (never a red check). Rotate
-the token by re-running step 2.
+2. Optional — proper bot identity: set `CORTEXA_LLC_REVIEWER_APP_ID` and
+   `CORTEXA_LLC_REVIEWER_PRIVATE_KEY` (credentials of the org's reviewer GitHub
+   App) as repo Actions secrets. With them, reviews post as the reviewer bot;
+   without them, the workflow degrades gracefully and reviews post as
+   `github-actions[bot]`.
+
+3. Branch protection (lives outside the workflow file): add **Claude verdict**
+   to main's required status checks. In a solo-maintainer repository, also
+   remove any required-approving-review rule — GitHub does not count App
+   approvals toward it, so it can only ever be satisfied by admin bypass.
+   The check reads only the review on the current head, so stale verdicts
+   never gate.
+
+Until the OAuth secret exists, the review job skips cleanly (never a red check).
+Rotate the token by re-running step 1.
 
 **Fork posture:** the workflow triggers on `pull_request` only (never
 `pull_request_target`) and runs only for same-repo, non-draft PRs, so the OAuth
