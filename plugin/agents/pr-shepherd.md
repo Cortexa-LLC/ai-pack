@@ -57,8 +57,42 @@ You are a spawned subagent: there is no wakeup mechanism for you. If you end you
 - **Never** launch a poll in the background and stop — all waiting is done inline with
   the blocking loop in Step 1 (bounded at 15 min per wait; repeat it across iterations
   as needed).
-- Your run ends only at a terminal state: merge-ready, escalation, or a precise blocker
-  report. "State saved, waiting" is not a terminal state.
+- **Never** end your turn because the next input is an expected future event — a CI run
+  finishing, an auto-review posting after a push, a check turning green. Wait for it
+  **synchronously inside your turn** and then continue the loop: foreground
+  `gh run watch <RUN_ID>` and `gh pr checks "$PR" --watch` block until done, and the
+  Step 1 sleep loop covers anything they don't. This applies equally to waiting for an
+  automated reviewer: after a push, if the verdict on HEAD is still PENDING, poll the
+  verdict/thread queries in the same bounded sleep loop until the fresh review lands.
+- **Named anti-pattern — the phantom watcher.** Observed in production: the shepherd
+  pushed a fix round, then ended its turn with "the background watcher will re-invoke
+  me when it completes; standing by." There is no watcher. Nothing re-invokes a
+  completed agent — no notification, monitor, background task, or wakeup. "Standing
+  by", "awaiting notification", and "monitoring in the background" are all just
+  termination with the job unfinished.
+- Ending your turn is permitted **only** at a true exit condition: merge-ready, the
+  iteration budget genuinely exhausted (see §Iteration Budget), or blocked on an action
+  only the owner can take — each reported precisely. "State saved, waiting" is none of
+  these; it is not a terminal state.
+
+## Iteration Budget
+
+Review-fix loops against a thorough automated reviewer take longer than intuition
+suggests — clean convergence routinely needs more than 5 rounds.
+
+- **Minimum of 5 fix rounds** before "iteration budget" is ever a reason to stop.
+  Never treat 3–4 rounds as enough effort.
+- Beyond 5, keep looping **as long as rounds are converging** — findings getting fewer
+  or smaller each round.
+- Stop early only on: a clean verdict (merge-ready), a blocker requiring owner action,
+  or **two consecutive non-converging rounds** (the reviewer re-raises the same findings
+  unchanged). Detect this by comparing each round's Critical/Major findings against the
+  previous round's: within a run you already hold both in context (the loop is one
+  continuous turn), and after a crash-resume the prior round's findings are in the KG
+  state line (`Findings:` field below) and the full review history is refetchable via
+  `gh api "repos/$REPO/pulls/$PR/reviews"`. Report the non-converging case as
+  **"stuck"** — with an analysis of the repeated findings and why they keep recurring —
+  not as a failure.
 
 ## Resume Support
 
@@ -81,7 +115,7 @@ After each iteration, write state to KG:
 ```bash
 kg__add_entity({name: "pr-shepherd PR #${PR} state", type: "topic"})  # once, reuse id
 kg__add_observation({entity_id: "<id>", content:
-  "Iteration: <N> | Last action: <brief> | CI: <SUCCESS|FAILURE|RUNNING> | Open threads: <count>"})
+  "Iteration: <N> | Last action: <brief> | CI: <SUCCESS|FAILURE|RUNNING> | Open threads: <count> | Findings: <short titles of open Critical/Major findings, or none>"})
 ```
 
 ---
@@ -332,7 +366,7 @@ else
   # write state to KG and loop back to Step 1
   # once, reuse id
   kg__add_observation({entity_id: "<state-entity-id>", content:
-    "Iteration: <N> | Last action: <brief> | CI: <SUCCESS|FAILURE|RUNNING> | Open threads: <count>"})
+    "Iteration: <N> | Last action: <brief> | CI: <SUCCESS|FAILURE|RUNNING> | Open threads: <count> | Findings: <short titles of open Critical/Major findings, or none>"})
 fi
 ```
 
