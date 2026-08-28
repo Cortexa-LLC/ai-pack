@@ -12,8 +12,10 @@
 #   - System prompt is the ai-pack reviewer role (plugin/agents/reviewer.md),
 #     loaded from the BASE branch ref so a PR cannot tamper with the prompt
 #     that reviews it.
-#   - Existing review threads are fetched via GraphQL and fed into the prompt
-#     so repeated pushes don't re-raise the same findings.
+#   - The bodies of prior reviews are fetched via GraphQL and fed into the
+#     prompt so repeated pushes don't re-raise the same findings. (Review
+#     THREADS are useless here: posting via `gh pr review --body-file` creates
+#     a body with no inline comments, hence no threads.)
 #   - The claude run itself posts ONE review on the PR via gh.
 #
 # Security posture (per ADR-011, docs/adr/011-agent-qa-in-ci.md):
@@ -572,17 +574,47 @@ jobs:
           # That is fail-open on the only check enforcing a request-changes
           # block, and it gets more likely the longer a PR is iterated — i.e.
           # exactly on the PRs that need the gate most.
-          STATE=$(gh api graphql -f query='
-          {
-            repository(owner: '"\"${OWNER}\""', name: '"\"${REPO_NAME}\""') {
-              pullRequest(number: '"${PR_NUMBER}"') {
-                reviews(last: 100) { nodes { state commit { oid } } }
+          # `last: 100` is still a cap, and saying otherwise would repeat the
+          # mistake this PR fixes. It is a far weaker one though: because the
+          # window is anchored to the NEWEST reviews and the review we want is
+          # on the current head, it can only fall out of the window if more than
+          # 100 reviews exist that are newer than it — i.e. >100 reviews on this
+          # same head commit. The old REST bug triggered at >30 reviews on the
+          # PR in total, in any distribution.
+          #
+          # Guarded, because `set -euo pipefail` (added in this step) makes an
+          # unguarded command substitution abort the step on any transient API
+          # error — rate limit, network blip, schema change — turning the
+          # required check red with no explanation. Retry a few times, then fail
+          # CLOSED with a distinct message: "cannot determine the review state"
+          # is a different fact from "no review exists", and the gate must not
+          # pass blind on either.
+          STATE=""
+          for attempt in 1 2 3; do
+            if STATE=$(gh api graphql -f query='
+            {
+              repository(owner: '"\"${OWNER}\""', name: '"\"${REPO_NAME}\""') {
+                pullRequest(number: '"${PR_NUMBER}"') {
+                  reviews(last: 100) { nodes { state commit { oid } } }
+                }
               }
-            }
-          }' --jq '
-            [.data.repository.pullRequest.reviews.nodes[]
-              | select(.commit.oid == env.HEAD_SHA) | .state] | last // "NONE"
-          ')
+            }' --jq '
+              [.data.repository.pullRequest.reviews.nodes[]
+                | select(.commit.oid == env.HEAD_SHA) | .state] | last // "NONE"
+            '); then
+              break
+            fi
+            STATE=""
+            echo "::warning title=Review-state fetch failed::attempt ${attempt}/3 querying review state — retrying."
+            # Not `[ ... ] && sleep`: as a bare statement that list returns
+            # non-zero on the final attempt, which is needlessly close to a
+            # set -e edge case.
+            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 5)); fi
+          done
+          if [ -z "$STATE" ]; then
+            echo "::error title=Cannot determine review state::gh api graphql failed 3 times, so the gate cannot tell whether the reviewer requested changes. Failing closed rather than passing blind — re-run this job, or push a commit to retrigger."
+            exit 1
+          fi
           echo "latest review state on $HEAD_SHA: $STATE  (review job: ${REVIEW_RESULT}, token: ${HAS_TOKEN})"
 
           if [ "$STATE" = "CHANGES_REQUESTED" ]; then
