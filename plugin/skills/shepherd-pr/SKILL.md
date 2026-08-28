@@ -156,11 +156,14 @@ if [ -n "$WAITING" ]; then
   exit 1
 fi
 
-# Latest review verdict on HEAD SHA — uses gh pr view (already allowlisted, avoids REST write surface)
-VERDICT_RAW=$(gh pr view "$PR" --json reviews 2>/dev/null) \
-  || { echo "⚠️  VERDICT fetch failed (network/auth) — defaulting to PENDING"; VERDICT_RAW='{"reviews":[]}'; }
+# Latest review verdict on HEAD SHA — REST, NOT `gh pr view --json reviews`: that field
+# is GraphQL-backed and reports app logins WITHOUT the `[bot]` suffix (`cortexa-llc-reviewer`)
+# and carries no type field, so a bot filter there never matches an app-posted review.
+# REST exposes `.user.type == "Bot"`; `--paginate` merges pages into one array.
+VERDICT_RAW=$(gh api "repos/$REPO/pulls/$PR/reviews" --paginate 2>/dev/null) \
+  || { echo "⚠️  VERDICT fetch failed (network/auth) — defaulting to PENDING"; VERDICT_RAW='[]'; }
 VERDICT=$(echo "$VERDICT_RAW" | jq -r --arg sha "$HEAD_SHA" \
-    '[.reviews[] | select(.commit.oid == $sha and (.author.login | endswith("[bot]")))] | last | .state // "PENDING"')
+    '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .state // "PENDING"')
 
 echo "Threads: $THREAD_COUNT  |  CI pending: $CI_PENDING  failing: $CI_FAILING  |  Verdict: $VERDICT"
 ```
@@ -205,8 +208,7 @@ bot's two most recent reviews (`jq '[.[] | select(.user.type == "Bot")] | .[-2:]
 and compare their Critical/Major findings; substantially the same finding sets on both
 — same file:line anchors with equivalent descriptions, regardless of exact wording —
 means non-converging. (Fewer than two bot reviews yet = trivially still converging.
-Use this REST endpoint, not `$VERDICT_RAW`: GraphQL logins drop the `[bot]` suffix and
-carry no type field, so bot filtering there is unreliable.)
+`$VERDICT_RAW` from Step 2 is this same REST payload, so reuse it instead of re-fetching.)
 
 If the `MAX_ITER` guard fires while rounds were still converging (each round's
 findings fewer or smaller than the last), say so in the report and recommend

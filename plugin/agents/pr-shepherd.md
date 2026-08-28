@@ -231,11 +231,13 @@ THREADS=$(gh api graphql -f query="
 
 OPEN_COUNT=$(echo "$THREADS" | jq length)
 
-# Scope verdict to HEAD commit — avoids stale APPROVED from a prior round
+# Scope verdict to HEAD commit — avoids stale APPROVED from a prior round.
+# Match bots on `.user.type` (REST), never on a `[bot]` login suffix: the suffix
+# exists in REST but is absent from GraphQL/`gh pr view --json reviews` logins.
 HEAD_SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid)
 VERDICT=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate \
   | jq -r --arg sha "$HEAD_SHA" \
-      '[.[] | select(.commit_id == $sha and (.user.login | endswith("[bot]")))] | last | .state // "PENDING"')
+      '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .state // "PENDING"')
 
 echo "Open threads: $OPEN_COUNT | Verdict: $VERDICT | HEAD: ${HEAD_SHA:0:7}"
 ```
@@ -340,7 +342,7 @@ OPEN_COUNT=$(gh api graphql -f query="
 
 VERDICT=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate \
   | jq -r --arg sha "$HEAD_SHA" \
-      '[.[] | select(.commit_id == $sha and (.user.login | endswith("[bot]")))] | last | .state // "PENDING"')
+      '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .state // "PENDING"')
 
 if [ "$ALL_OK" = "true" ] && [ "$OPEN_COUNT" -eq 0 ] && [ "$VERDICT" = "APPROVED" ]; then
   # Settle check: an APPROVING review can post SUGGESTION threads that land seconds
