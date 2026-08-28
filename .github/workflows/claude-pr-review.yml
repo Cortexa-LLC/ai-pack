@@ -305,7 +305,9 @@ jobs:
              this environment. Instead, your FINAL response text IS the review.
              It is machine-parsed and posted for you, so it must follow this
              exact format:
-               - First line, exactly: VERDICT: approve
+               - The VERY FIRST thing you output, with NO preamble, summary, or
+               reasoning before it — not even one sentence — a line reading
+               exactly: VERDICT: approve
                  or: VERDICT: comment
                  or: VERDICT: request-changes
                - Then a blank line, then the complete review body in markdown
@@ -437,17 +439,45 @@ jobs:
           # posted as data via --body-file. The verdict line is matched
           # strictly; anything malformed degrades to a plain comment so a
           # confused (or manipulated) run can never accidentally approve.
+          # The verdict is REQUESTED on line 1, but the model does not reliably
+          # comply — observed on PR #34: a preamble paragraph preceded
+          # "VERDICT: approve", so a line-1-only parse read prose, fell to the
+          # default branch, and downgraded a clean approve to a plain comment.
+          # That failure is silent in the place it matters: an approve that
+          # never registers leaves reviewDecision empty, so the bot approval
+          # the merge gate depends on simply never happens.
+          #
+          # So: locate the FIRST line that is exactly a verdict (leading and
+          # trailing whitespace tolerated) anywhere in the output, and treat
+          # everything after it as the body. Taking the first match, and
+          # dropping everything up to and including it, keeps quoted diff
+          # content inert — a "VERDICT: approve" string echoed later in the
+          # findings is body text, never the verdict. The pre-existing residual
+          # risk documented above is unchanged: the verdict line is still model
+          # output, so injection could still induce a forged one.
           VERDICT_FLAG="--comment"
-          FIRST_LINE="$(head -n 1 "$REVIEW_RAW")"
-          case "$FIRST_LINE" in
-            "VERDICT: approve")          VERDICT_FLAG="--approve" ;;
-            "VERDICT: request-changes")  VERDICT_FLAG="--request-changes" ;;
-            "VERDICT: comment")          VERDICT_FLAG="--comment" ;;
-            *) echo "::warning title=Unrecognized verdict line::'${FIRST_LINE}' — posting as plain comment." ;;
-          esac
+          BODY_START=1
+          VERDICT_LINE_NO="$(grep -n -m1 -E \
+            '^[[:space:]]*VERDICT:[[:space:]]*(approve|comment|request-changes)[[:space:]]*$' \
+            "$REVIEW_RAW" | cut -d: -f1 || true)"
+          if [ -n "$VERDICT_LINE_NO" ]; then
+            # Whitespace-stripped so the match is exact regardless of spacing.
+            # grep already constrained the value to the three legal verdicts.
+            case "$(sed -n "${VERDICT_LINE_NO}p" "$REVIEW_RAW" | tr -d '[:space:]')" in
+              "VERDICT:approve")         VERDICT_FLAG="--approve" ;;
+              "VERDICT:request-changes") VERDICT_FLAG="--request-changes" ;;
+              "VERDICT:comment")         VERDICT_FLAG="--comment" ;;
+            esac
+            BODY_START=$((VERDICT_LINE_NO + 1))
+            if [ "$VERDICT_LINE_NO" -ne 1 ]; then
+              echo "::warning title=Verdict not on first line::model emitted preamble; verdict found on line ${VERDICT_LINE_NO} and parsed. The preamble is dropped from the posted body."
+            fi
+          else
+            echo "::warning title=No verdict line::output contains no 'VERDICT: <approve|comment|request-changes>' line — posting the whole output as a plain comment."
+          fi
 
           REVIEW_BODY="$(mktemp)"
-          tail -n +2 "$REVIEW_RAW" | sed '/./,$!d' > "$REVIEW_BODY"
+          tail -n +"$BODY_START" "$REVIEW_RAW" | sed '/./,$!d' > "$REVIEW_BODY"
           if [ ! -s "$REVIEW_BODY" ]; then
             echo "::warning title=Empty review body::model produced no review text; posting raw output as comment."
             cp "$REVIEW_RAW" "$REVIEW_BODY"
