@@ -447,20 +447,47 @@ jobs:
           # never registers leaves reviewDecision empty, so the bot approval
           # the merge gate depends on simply never happens.
           #
-          # So: locate the FIRST line that is exactly a verdict (leading and
-          # trailing whitespace tolerated) anywhere in the output, and treat
-          # everything after it as the body. Taking the first match, and
-          # dropping everything up to and including it, keeps quoted diff
-          # content inert — a "VERDICT: approve" string echoed later in the
-          # findings is body text, never the verdict. The pre-existing residual
-          # risk documented above is unchanged: the verdict line is still model
-          # output, so injection could still induce a forged one.
+          # So: locate the line that is exactly a verdict (leading and trailing
+          # whitespace tolerated) anywhere in the output, and treat everything
+          # after it as the body.
+          #
+          # Scanning beyond line 1 would, on its own, WIDEN the injection
+          # surface rather than leave it unchanged: under the old parser a
+          # forged verdict had to occupy line 1, whereas a positional scan lets
+          # a verdict-shaped line quoted from the diff win simply by appearing
+          # before the model's real verdict. The ambiguity rule below removes
+          # that: a forged line necessarily produces a SECOND match, and
+          # multiple matches can never resolve to --approve. So the reachable
+          # outcomes are strictly safer than the line-1 parser, not merely
+          # equivalent —
+          #   0 matches  -> --comment, whole output posted
+          #   1 match    -> that verdict, body is everything after it
+          #   2+ matches -> ambiguous: --request-changes if ANY match requests
+          #                 changes (never lose a block), else --comment
+          #                 (never gain an approve). Whole output is posted so
+          #                 a human can see what made it ambiguous.
+          # A legitimate review that quotes a verdict line is downgraded to a
+          # comment by this rule. That is the intended direction of failure.
+          #
+          # Unchanged by any of this: the verdict is model output, so injection
+          # that steers the model's OWN verdict is still possible — that is the
+          # pre-existing risk documented above, and it is not what this rule
+          # addresses.
+          VERDICT_RE='^[[:space:]]*VERDICT:[[:space:]]*(approve|comment|request-changes)[[:space:]]*$'
           VERDICT_FLAG="--comment"
           BODY_START=1
-          VERDICT_LINE_NO="$(grep -n -m1 -E \
-            '^[[:space:]]*VERDICT:[[:space:]]*(approve|comment|request-changes)[[:space:]]*$' \
-            "$REVIEW_RAW" | cut -d: -f1 || true)"
-          if [ -n "$VERDICT_LINE_NO" ]; then
+          # grep -c prints 0 and exits 1 on no match; keep the count, drop the status.
+          MATCH_COUNT="$(grep -c -E "$VERDICT_RE" "$REVIEW_RAW" || true)"
+          MATCH_COUNT="${MATCH_COUNT:-0}"
+          VERDICT_LINE_NO="$(grep -n -m1 -E "$VERDICT_RE" "$REVIEW_RAW" | cut -d: -f1 || true)"
+          if [ -z "$VERDICT_LINE_NO" ]; then
+            echo "::warning title=No verdict line::output contains no 'VERDICT: <approve|comment|request-changes>' line — posting the whole output as a plain comment."
+          elif [ "$MATCH_COUNT" -gt 1 ]; then
+            if grep -q -E '^[[:space:]]*VERDICT:[[:space:]]*request-changes[[:space:]]*$' "$REVIEW_RAW"; then
+              VERDICT_FLAG="--request-changes"
+            fi
+            echo "::warning title=Ambiguous verdict::${MATCH_COUNT} verdict-shaped lines in the output (quoted diff content, or a confused run). Refusing to approve on ambiguity — posting as ${VERDICT_FLAG#--} with the full output as the body."
+          else
             # Whitespace-stripped so the match is exact regardless of spacing.
             # grep already constrained the value to the three legal verdicts.
             case "$(sed -n "${VERDICT_LINE_NO}p" "$REVIEW_RAW" | tr -d '[:space:]')" in
@@ -472,8 +499,6 @@ jobs:
             if [ "$VERDICT_LINE_NO" -ne 1 ]; then
               echo "::warning title=Verdict not on first line::model emitted preamble; verdict found on line ${VERDICT_LINE_NO} and parsed. The preamble is dropped from the posted body."
             fi
-          else
-            echo "::warning title=No verdict line::output contains no 'VERDICT: <approve|comment|request-changes>' line — posting the whole output as a plain comment."
           fi
 
           REVIEW_BODY="$(mktemp)"
