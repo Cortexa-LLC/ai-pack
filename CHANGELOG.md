@@ -9,6 +9,28 @@ truth for the current version. The `VERSION` file is a one-line mirror of it, an
 CI (`release-consistency`) fails if they disagree or if this file lacks an entry
 for the manifest version.
 
+## [3.2.0] — 2026-08-27
+
+### Fixed
+
+- **Plugin failed to load entirely** — `plugin.json` declared
+  `"hooks": "./hooks/hooks.json"`, but the loader already loads that standard
+  path automatically. The duplicate registration was rejected outright:
+  `claude plugin list` reported `✘ failed to load` with "Duplicate hooks file
+  detected". Removing the key restores `✔ enabled`. `manifest.hooks` is only
+  for *additional* hook files beyond the standard path — do not re-add it.
+
+### Added
+
+- **KG-first directive for the main session** (`plugin/hooks/kg-first-directive.py`,
+  wired as a `SessionStart` hook). The KG-first rule was written into every
+  `plugin/agents/*.md` role, so it reached subagents only — a session doing work
+  inline never saw it, despite being the role that reads the most raw file content.
+  The hook injects the directive at session start for every source (startup,
+  resume, clear, compact, fork), so it also survives compaction. It covers the
+  write half too: record what changed after landing work, since the graph is only
+  worth reading because earlier sessions wrote to it.
+
 ## [3.1.1] — 2026-08-27
 
 ### Fixed
