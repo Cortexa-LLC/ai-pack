@@ -69,7 +69,6 @@ htmlcov/
 
 # Unused Python packages
 ai_pack/
-.beads/
 
 # Internal/corporate-specific configurations (not for public repo)
 setup-*-env.sh
