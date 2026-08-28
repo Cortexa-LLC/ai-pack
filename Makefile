@@ -38,6 +38,11 @@ verify-hooks: ## Check installed hooks are present, valid, and runnable (+ print
 	echo "Installed plugin: ai-pack $$VERSION_NOW"; \
 	[ -d "$$CACHE" ] || { echo "❌ not installed at $$CACHE — run 'make update-plugin'"; exit 1; }; \
 	python3 -c "import json,sys;d=json.load(open('$$CACHE/hooks/hooks.json'));print('  hooks.json valid, events:', ', '.join(d['hooks']))"; \
+	python3 -c "import json,sys;h=json.load(open('plugin/.claude-plugin/plugin.json')).get('hooks');sys.exit(0) if not h else (print('  ❌ plugin.json declares hooks=%r — the standard hooks/hooks.json is auto-loaded; re-declaring it makes the loader reject the WHOLE plugin. manifest.hooks is only for ADDITIONAL files.' % h) or sys.exit(1))"; \
+	echo "  ✅ plugin.json does not re-declare the standard hooks file"; \
+	STATUS=$$(claude plugin list 2>/dev/null | grep -A3 "ai-pack@ai-pack" | grep -o "Status: .*" | head -1); \
+	echo "  $$STATUS"; \
+	case "$$STATUS" in *"enabled"*) ;; *) echo "  ❌ plugin is not enabled — run 'claude plugin list' for the loader error"; exit 1 ;; esac; \
 	for s in $$CACHE/hooks/*.py; do \
 	  out=$$(echo '{}' | python3 "$$s" 2>/tmp/vh.err); rc=$$?; \
 	  [ $$rc -eq 0 ] || { echo "  ❌ $$(basename $$s) exited $$rc"; cat /tmp/vh.err; exit 1; }; \

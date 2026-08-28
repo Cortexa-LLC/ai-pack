@@ -11,6 +11,15 @@ for the manifest version.
 
 ## [3.2.0] — 2026-08-27
 
+### Fixed
+
+- **Plugin failed to load entirely** — `plugin.json` declared
+  `"hooks": "./hooks/hooks.json"`, but the loader already loads that standard
+  path automatically. The duplicate registration was rejected outright:
+  `claude plugin list` reported `✘ failed to load` with "Duplicate hooks file
+  detected". Removing the key restores `✔ enabled`. `manifest.hooks` is only
+  for *additional* hook files beyond the standard path — do not re-add it.
+
 ### Added
 
 - **KG-first directive for the main session** (`plugin/hooks/kg-first-directive.py`,
