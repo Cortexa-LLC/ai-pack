@@ -55,6 +55,9 @@ try:
 except Exception:
     pass  # never break the session over a directive
 
+# NOTHING may be added between the try/except above and this line: code
+# placed here would run outside the guard and could break the session,
+# violating the hook contract.
 # _exit rather than sys.exit: skips atexit's flush of a possibly-broken stdout,
 # which is the traceback path above. Safe only because the flush above is
 # explicit — a bare os._exit() here would drop the buffered directive entirely.
