@@ -9,6 +9,25 @@ truth for the current version. The `VERSION` file is a one-line mirror of it, an
 CI (`release-consistency`) fails if they disagree or if this file lacks an entry
 for the manifest version.
 
+## [3.2.1] — 2026-08-28
+
+### Fixed
+
+- **shepherd-pr: the review verdict never matched an app-posted review** (issue #31).
+  The skill read the verdict from `gh pr view --json reviews`, whose GraphQL-backed
+  `author.login` reports app logins **without** the `[bot]` suffix
+  (`cortexa-llc-reviewer`, not `cortexa-llc-reviewer[bot]`) and carries no type
+  field — so the `endswith("[bot]")` filter matched nothing and the verdict was
+  always `PENDING`. Route A ("done") could therefore never fire: an approved PR
+  kept scheduling wakeups until `MAX_WAIT_ITER` escalated it as "reviewer stuck".
+  The verdict now comes from the REST reviews endpoint filtered on
+  `.user.type == "Bot"` — the same source and predicate the A2 convergence check
+  already used. Verified against a real approved PR: the old filter returned
+  `PENDING`, the new one returns `APPROVED`.
+- **pr-shepherd agent: same predicate hardened.** Both of its verdict queries were
+  already on REST (where the `[bot]` suffix does exist, so they worked), but they
+  now match on `.user.type` too, so the two code paths cannot drift apart again.
+
 ## [3.2.0] — 2026-08-27
 
 ### Fixed
