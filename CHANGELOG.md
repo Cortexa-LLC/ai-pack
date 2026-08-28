@@ -9,6 +9,31 @@ truth for the current version. The `VERSION` file is a one-line mirror of it, an
 CI (`release-consistency`) fails if they disagree or if this file lacks an entry
 for the manifest version.
 
+## [3.1.1] — 2026-08-27
+
+### Fixed
+
+- **pr-shepherd: the "phantom watcher" termination bug** — the agent could end its
+  turn after pushing a fix round, claiming a background watcher would re-invoke it.
+  Nothing re-invokes a completed agent. All waiting is now synchronous and inline
+  (foreground `gh run watch` / `gh pr checks --watch` plus the bounded sleep loop),
+  and the anti-pattern is named and documented.
+
+### Changed
+
+- **Convergence-gated iteration budget** for the pr-shepherd role and the
+  `shepherd-pr` skill — a 5-round minimum before "budget exhausted" is a valid stop,
+  continued looping while rounds converge, and a distinct **stuck** report when the
+  reviewer re-raises the same findings on two consecutive passes.
+- **`[OBSOLETE]` KG observations are history, not guidance** — architect, engineer,
+  inspector, pr-shepherd, product-manager, reviewer, and spelunker now treat them as
+  historical record rather than instructions to follow.
+- **reviewer**: `gh pr review --approve` / `--request-changes` is no longer forbidden
+  outright. The `gh api …/reviews --method POST` form stays preferred because it
+  carries inline comments, with a documented exception for restricted environments
+  (the CI review workflow scopes Bash to `gh pr review`) — post one consolidated
+  review there instead.
+
 ## [3.1.0] — 2026-08-23
 
 ### Added

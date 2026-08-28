@@ -1,6 +1,6 @@
 {
   "name": "ai-pack",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "hooks": "./hooks/hooks.json",
   "description": "Multi-agent engineering system — delegate implementation, architecture, review, and investigation to specialized sub-agents",
   "author": {
