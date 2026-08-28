@@ -398,13 +398,40 @@ jobs:
           # single leading slash means settings-relative, so rewriting
           # //proc/** as /proc/** would silently kill the rule.
           REVIEW_RAW="$(mktemp)"
-          claude -p "$PROMPT" \
+          CLAUDE_ERR="$(mktemp)"
+          # Failure here must be LOUD, not silent. Under `set -e` a nonzero
+          # exit would abort the step with no annotation, and continue-on-error
+          # above would still report the run green — so an expired token, a
+          # retired model name, or a timeout would look identical to a healthy
+          # run that simply had nothing to say, with no review ever posted.
+          # `if !` is exempt from set -e, so the exit status is caught here and
+          # re-surfaced as a run annotation (annotations render even on a
+          # continue-on-error job, which is what preserves the advisory posture
+          # while removing the silence). stderr is captured rather than
+          # discarded so the cause is in the step log.
+          if ! claude -p "$PROMPT" \
             --model claude-sonnet-4-6 \
             --system-prompt-file "$SYSTEM_FILE" \
             --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Read,Glob" \
             --disallowedTools "Grep,Read(//proc/**),Glob(//proc/**),Read(~/.claude/**),Read(~/.config/**),Read(~/.npm/**)" \
             --max-turns 15 \
-            --output-format text > "$REVIEW_RAW"
+            --output-format text > "$REVIEW_RAW" 2> "$CLAUDE_ERR"; then
+            echo "----- claude stderr -----"
+            cat "$CLAUDE_ERR" || true
+            echo "-------------------------"
+            # Annotation titles/messages must stay single-line; the log above
+            # carries the full stderr.
+            echo "::error title=Claude review CLI failed::claude -p exited nonzero — NO review was posted on this PR. Last stderr line: $(tail -n 1 "$CLAUDE_ERR" | tr -d '\r\n')"
+            exit 1
+          fi
+          # The other silent mode: exit 0 with nothing on stdout. Caught here
+          # so it cannot reach the posting logic as an empty review. (The
+          # empty-body guards further down are now belt-and-braces.)
+          if [ ! -s "$REVIEW_RAW" ]; then
+            cat "$CLAUDE_ERR" || true
+            echo "::error title=Claude review produced no output::claude -p exited 0 but wrote nothing to stdout — NO review was posted on this PR."
+            exit 1
+          fi
 
           # Deterministic posting: the model's text output is parsed here and
           # posted as data via --body-file. The verdict line is matched
