@@ -23,13 +23,17 @@
 #     `pull_request` event, fork PRs get no secrets, so the OAuth token is never
 #     reachable from a fork's attacker-controlled code or prompt content.
 #   - Runs only for same-repo, non-draft PRs. Fork and draft PRs skip cleanly.
-#   - The workflow's STATUS CHECK is advisory: not required, and a missing
-#     secret makes the review job skip cleanly; a runtime failure (expired/
-#     revoked token, timeout) is non-blocking — the review job sets
-#     `continue-on-error: true`, so the workflow run still reports success.
-#     The REVIEW VERDICT, however, does participate in branch protection —
-#     via the required "Claude verdict" status check (last job below), which
-#     fails only on a request-changes verdict. GitHub ignores App approvals
+#   - The REVIEW JOB's own status check is advisory: not required, and a
+#     missing secret makes it skip cleanly; it sets `continue-on-error: true`,
+#     so even a runtime failure leaves the workflow run reporting success.
+#     The REVIEW VERDICT is not advisory — it participates in branch
+#     protection via the required "Claude verdict" status check (last job
+#     below), which fails on a request-changes verdict AND on a review that
+#     was expected but never arrived (see that job's comment for the full
+#     table). A runtime failure of the review job therefore does NOT keep the
+#     PR green: the review check stays green, and the verdict check goes red.
+#     What stays advisory is provisioning — an unprovisioned or skipped
+#     reviewer blocks nobody. GitHub ignores App approvals
 #     for required-review counts, so the review REQUIREMENT itself is removed
 #     from main's protection; the verdict check replaces it (owner decision —
 #     see the rationale beside the tool allow-list below). Merging always
@@ -537,10 +541,25 @@ jobs:
   # required-approving-review rule (observed empirically: the bot's APPROVED
   # review left reviewDecision at REVIEW_REQUIRED), so in this solo-maintainer
   # repo the review REQUIREMENT is replaced by this required status check:
-  # it fails only when the latest review on the current head is
-  # CHANGES_REQUESTED. A clean or absent review passes — missing token,
-  # skipped reviewer, or a runtime failure never blocks merge (advisory
-  # spirit preserved); only an explicit request-changes verdict does.
+  # it fails when the latest review on the current head is CHANGES_REQUESTED,
+  # and ALSO when a review was expected but never arrived.
+  #
+  # That second case is deliberately NOT advisory. The review job is
+  # continue-on-error, so a CLI crash, an exhausted turn budget, or a timeout
+  # leaves the run green with nothing posted; treating that as "clean" let the
+  # reviewer stop reviewing entirely with no check going red. So:
+  #
+  #   CHANGES_REQUESTED                        -> block
+  #   no review, and one was expected          -> block (review job ran, token
+  #                                               present, not skipped/cancelled)
+  #   no review, and none was expected         -> pass (no token, fork, draft,
+  #                                               or the review job skipped)
+  #   review-state query itself failed 3x      -> block, with a distinct error
+  #   any other verdict (approve/comment)      -> pass
+  #
+  # What remains advisory is provisioning, not execution: an unprovisioned or
+  # deliberately skipped reviewer never blocks anyone. A reviewer that was
+  # supposed to run and silently did not is a failure, and is treated as one.
   verdict:
     name: Claude verdict
     needs: [gate, review]
