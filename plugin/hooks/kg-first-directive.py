@@ -20,6 +20,7 @@ file reads that cost more.
 Rule, as with the spawn logger: a hook must never break a session — exit 0 no
 matter what, and print nothing on failure.
 """
+import os
 import sys
 
 DIRECTIVE = """\
@@ -45,8 +46,16 @@ This applies to THIS session, not only to subagents you spawn.
   graph is only worth reading because previous sessions wrote to it."""
 
 try:
-    print(DIRECTIVE)
+    sys.stdout.write(DIRECTIVE + "\n")
+    # Flush INSIDE the guard: a broken pipe surfaces here, where it is caught,
+    # rather than during interpreter shutdown where it would print a traceback
+    # to stderr. Losing the directive on a broken pipe is the correct outcome;
+    # emitting noise into the session is not.
+    sys.stdout.flush()
 except Exception:
     pass  # never break the session over a directive
 
-sys.exit(0)
+# _exit rather than sys.exit: skips atexit's flush of a possibly-broken stdout,
+# which is the traceback path above. Safe only because the flush above is
+# explicit — a bare os._exit() here would drop the buffered directive entirely.
+os._exit(0)
