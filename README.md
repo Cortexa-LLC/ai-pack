@@ -12,25 +12,44 @@ AI-Pack turns a Claude Code session into an engineering team. It ships seven spe
 
 ## Quick Start
 
-**Prerequisites:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed and working.
+**Prerequisites:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed and working. macOS or Linux.
 
-```bash
-# 1. Clone the repo
-git clone https://github.com/Cortexa-LLC/ai-pack.git
-cd ai-pack
+In any Claude Code session:
 
-# 2. Install the plugin into Claude Code
-make install-plugin      # registers the local marketplace, installs ai-pack@ai-pack
-
-# 3. Set up the kg knowledge-graph server (used by plugin/.mcp.json)
-git submodule update --init mcp
-python3 mcp/install.py --mcp kg
-
-# Later: pull changes, then refresh the installed plugin
-make update-plugin
+```
+/plugin marketplace add Cortexa-LLC/ai-pack
+/plugin install ai-pack@ai-pack
 ```
 
-After installation, restart Claude Code. The subagents are available via the `Agent` tool as `ai-pack:<name>`, and the skills trigger automatically or via `/ai-pack:<skill>`.
+Restart Claude Code when prompted. That's it — no clone, no toolchain, no terminal
+steps. The subagents are then available via the `Agent` tool as `ai-pack:<name>`, and
+the skills trigger automatically or via `/ai-pack:<skill>`.
+
+To update later: `/plugin marketplace update ai-pack`.
+
+### The knowledge graph is optional
+
+The `kg` server gives agents persistent memory, and the plugin resolves it on its own
+(see [Knowledge Graph](#knowledge-graph)). If it can't be found, **everything still
+works** — agents simply run without persistent memory, silently. Nothing errors and no
+setup step is required to get value from the plugin. Check `/mcp` or `/plugin` →
+Errors to see kg's status.
+
+Today kg is found only if it is already on your `PATH` or named by `$AI_PACK_KG`; the
+automatic download activates once prebuilt releases are published (see
+[ADR-010](docs/adr/010-no-clone-install.md)). To install it now, build from source at
+[Cortexa-LLC/mcp](https://github.com/Cortexa-LLC/mcp) and put the binary on `PATH`.
+
+### Developing ai-pack itself
+
+Contributors work from a clone; this is not the user path.
+
+```bash
+git clone https://github.com/Cortexa-LLC/ai-pack.git
+cd ai-pack
+make install-plugin      # registers the LOCAL checkout as a marketplace
+make update-plugin       # force-resync the installed copy after editing plugin/
+```
 
 ---
 
@@ -81,7 +100,31 @@ Templates live in `templates/task-packet/`. Additional document templates (ADRs,
 
 ## Knowledge Graph
 
-`plugin/.mcp.json` launches the `kg` MCP server (`kg server --stdio`), which indexes your codebase into a persistent knowledge graph. Agents query it for file context, entity relationships, and accumulated observations across sessions. `kg` is a standalone binary installed from the [`mcp` submodule](https://github.com/Cortexa-LLC/mcp) (see Quick Start). Verify the installation with `scripts/verify-kg.sh`.
+`plugin/.mcp.json` launches `kg` — an MCP server that indexes your codebase into a
+persistent knowledge graph. Agents query it for file context, entity relationships, and
+observations accumulated across sessions.
+
+**The plugin finds kg for you.** `plugin/bin/kg-launch.sh` resolves a binary in this
+order, and the first hit wins:
+
+1. `$AI_PACK_KG`, if set — explicit override, and the air-gapped escape hatch.
+2. `kg` on `PATH` — a source build always beats the pinned release, so contributors
+   keep testing their own binary.
+3. `~/.ai-pack/bin/kg-<version>/kg` — a previously downloaded copy.
+4. Download the release pinned in `plugin/kg.lock.json`, verify its `sha256`, cache it.
+
+Step 4 is inert until prebuilt kg releases exist — `kg.lock.json` ships with an empty
+pin, so today the launcher uses steps 1–2 only. See
+[ADR-010](docs/adr/010-no-clone-install.md) for the full design.
+
+**Absence is not an error.** If no binary is found, the launcher exits non-zero with one
+diagnostic line, Claude Code lists kg under `/plugin` → Errors, and the session runs
+without `kg__*` tools. Every agent and skill treats that as a defined, silent
+degradation: KG steps are skipped, nothing is retried, and the absence is not reported
+as a problem. The knowledge graph is an accelerator, never a dependency.
+
+Verify a local install with `scripts/verify-kg.sh`. To clear the download cache, remove
+`~/.ai-pack/bin/`.
 
 ---
 

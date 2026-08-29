@@ -37,6 +37,13 @@ open the interview by *confirming* them ("last time X was ruled out because Y �
 true?") rather than re-litigating them as open questions. Interview time goes to what
 the KG doesn't know.
 
+**KG availability:** If the `kg__*` tools are not in your tool list, or the first KG
+call fails with a server/connection error, the knowledge graph is not installed —
+skip every KG step silently (KG-first queries *and* KG checkpointing), rely on file
+exploration, and do not mention the absence in your report unless the task is *about*
+the KG. Never retry, never attempt a bash `kg` fallback, never treat missing KG as a
+blocker or error.
+
 Use the **AskUserQuestion** tool in rounds: **2–4 questions per round**, each with concrete
 multiple-choice options plus an "Other" escape so the owner is never boxed in.
 
