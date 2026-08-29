@@ -245,17 +245,21 @@ OPEN_COUNT=$(echo "$THREADS" | jq length)
 # Match bots on `.user.type` (REST), never on a `[bot]` login suffix: the suffix
 # exists in REST but is absent from GraphQL/`gh pr view --json reviews` logins.
 HEAD_SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid)
-VERDICT=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate \
-  | jq -r --arg sha "$HEAD_SHA" \
-      '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .state // "PENDING"')
 
 # Findings do not only arrive as inline threads. A reviewer that posts with
 # `gh pr review --body-file` submits a SINGLE top-level body and cannot attach line
 # comments, so reviewThreads is empty and every finding lives in the body. Reading
 # OPEN_COUNT alone makes that reviewer invisible: the count is permanently 0 and the
-# findings are never seen. Fetch the body from the same REST payload.
-REVIEW_BODY=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate \
-  | jq -r --arg sha "$HEAD_SHA" \
+# findings are never seen.
+#
+# Fetch the payload ONCE and derive both values from that snapshot. Two separate
+# calls open a race: a review landing between them leaves VERDICT and REVIEW_BODY
+# describing different reviews, and BODY_FINDINGS is then computed from mismatched
+# state.
+VERDICT_RAW=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate)
+VERDICT=$(echo "$VERDICT_RAW" | jq -r --arg sha "$HEAD_SHA" \
+      '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .state // "PENDING"')
+REVIEW_BODY=$(echo "$VERDICT_RAW" | jq -r --arg sha "$HEAD_SHA" \
       '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .body // ""')
 BODY_FINDINGS=0
 if [ "$VERDICT" != "APPROVED" ] && [ "$VERDICT" != "PENDING" ] && [ "${#REVIEW_BODY}" -gt 40 ]; then
@@ -363,9 +367,19 @@ OPEN_COUNT=$(gh api graphql -f query="
   }
 }" | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')
 
-VERDICT=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate \
-  | jq -r --arg sha "$HEAD_SHA" \
+# Re-derive verdict AND body from one fresh snapshot. Reusing Step 3's
+# BODY_FINDINGS here would evaluate pre-push state: if the push triggered a fast
+# approval, the stale value still says "findings outstanding" and costs a wasted
+# loop.
+VERDICT_RAW=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate)
+VERDICT=$(echo "$VERDICT_RAW" | jq -r --arg sha "$HEAD_SHA" \
       '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .state // "PENDING"')
+REVIEW_BODY=$(echo "$VERDICT_RAW" | jq -r --arg sha "$HEAD_SHA" \
+      '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .body // ""')
+BODY_FINDINGS=0
+if [ "$VERDICT" != "APPROVED" ] && [ "$VERDICT" != "PENDING" ] && [ "${#REVIEW_BODY}" -gt 40 ]; then
+  BODY_FINDINGS=1
+fi
 
 if [ "$ALL_OK" = "true" ] && [ "$OPEN_COUNT" -eq 0 ] && [ "$BODY_FINDINGS" -eq 0 ] && [ "$VERDICT" = "APPROVED" ]; then
   # Settle check: an APPROVING review can post SUGGESTION threads that land seconds
@@ -388,9 +402,25 @@ if [ "$ALL_OK" = "true" ] && [ "$OPEN_COUNT" -eq 0 ] && [ "$BODY_FINDINGS" -eq 0
   fi
 else
   echo "Not yet done — ALL_OK=$ALL_OK OPEN_COUNT=$OPEN_COUNT BODY_FINDINGS=$BODY_FINDINGS VERDICT=$VERDICT"
-  # A COMMENTED or CHANGES_REQUESTED verdict is TERMINAL: the review ran and reached a
-  # conclusion, and it will not become APPROVED without a new push. Act on its
-  # findings (threads or body) — never wait for it to change on its own.
+
+  # TERMINAL VERDICT, NOTHING ACTIONABLE — stop, do not loop. COMMENTED and
+  # CHANGES_REQUESTED mean the review ran and reached a conclusion; neither becomes
+  # APPROVED without a new push. With no threads and no body findings there is
+  # nothing left to fix, so looping back to Step 1 just re-reads the same finished
+  # review until MAX_WAIT_ITER escalates it as "reviewer appears stuck" — which is
+  # the exact behavior this rule exists to prevent.
+  # (Route G in plugin/skills/shepherd-pr/SKILL.md is the same exit condition.)
+  if [ "$ALL_OK" = "true" ] && [ "$OPEN_COUNT" -eq 0 ] && [ "$BODY_FINDINGS" -eq 0 ] \
+     && { [ "$VERDICT" = "COMMENTED" ] || [ "$VERDICT" = "CHANGES_REQUESTED" ]; }; then
+    echo "🔎 PR #${PR} — the reviewer concluded but did not approve (${VERDICT} on ${HEAD_SHA:0:7})"
+    echo "Nothing actionable remains; this verdict will not change without a new push."
+    # write the Reviewed-Not-Approved report (verdict, quoted review body, CI state)
+    # and EXIT — do not loop, no further automated event is coming.
+    exit 0
+  fi
+
+  # Otherwise there IS work: act on the findings (threads and/or body) — never wait
+  # for a concluded verdict to change on its own.
   # write state to KG and loop back to Step 1
   # once, reuse id
   kg__add_observation({entity_id: "<state-entity-id>", content:

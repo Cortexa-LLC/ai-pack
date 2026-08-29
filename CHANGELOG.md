@@ -25,9 +25,9 @@ for the manifest version.
   landed in `CI_FAILING`, firing Route D's "CI is failing — investigate CI failures"
   on a PR whose builds were all green and whose real signal was a review finding.
   `CI_FAILING` now excludes the gate check by name (`REVIEW_GATE_CHECK`, overridable
-  for consumer repos), while it still counts toward `CI_PENDING`, where "the review
-  is running" is exactly what it means. Genuine build failures alongside the gate are
-  still caught.
+  for consumer repos). While the gate is running it counts toward `CI_PENDING`; once
+  it reaches `FAILURE` it falls out of both counts and its signal is carried entirely
+  by `VERDICT`. Genuine build failures alongside the gate are still caught.
 - **A concluded review was polled as if it might change** (issue #41, item 5). Route A
   terminated only on `APPROVED`, so a `COMMENTED` head fell through to the wait route
   and polled 30 × 90s ≈ 45 minutes before escalating as "reviewer appears stuck" —
@@ -41,8 +41,11 @@ for the manifest version.
 - Step 5 handles both finding shapes; Steps 7–8 no longer assume every finding lives
   in a resolvable thread — a body-posting reviewer gets one disposition comment per
   round, since it offers nothing to reply to or resolve.
-- `plugin/agents/pr-shepherd.md` carries the same corrections, so the agent and skill
-  variants cannot drift apart on what counts as done.
+- `plugin/agents/pr-shepherd.md` carries all three corrections, including an explicit
+  terminal-verdict exit mirroring Route G — without it the agent variant kept looping
+  on a concluded review until `MAX_WAIT_ITER`, reproducing item 5 in the half of the
+  stack the first pass left behind. Its Done Check also re-derives the verdict and
+  body from one fresh snapshot rather than reusing pre-push state.
 
 ## [3.3.1] — 2026-08-29
 

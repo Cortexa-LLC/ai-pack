@@ -154,8 +154,12 @@ CI_JSON=$(gh pr checks "$PR" --json name,state 2>/dev/null) \
 # The review gate check FAILS BY DESIGN when the reviewer requests changes — that is
 # the gate working, not broken CI. Counting it as a CI failure sends Route D's "fix
 # CI" report at exactly the moment the real signal is a review finding. Exclude it
-# from CI_FAILING by name; VERDICT already carries its meaning. It stays in
-# CI_PENDING, where "the review is still running" is exactly what it means.
+# from CI_FAILING by name; VERDICT already carries its meaning. While the gate is
+# still running it counts toward CI_PENDING, which is exactly right — "the review
+# has not finished". Once it reaches FAILURE it falls out of BOTH counts (the
+# CI_PENDING query excludes FAILURE by state), and its signal is carried entirely
+# by VERDICT. That is deliberate, not an oversight: a gate whose only meaning is
+# "the reviewer said no" must not also read as a broken build.
 # Override in a consumer repo whose gate check is named differently (issue #30).
 REVIEW_GATE_CHECK="${REVIEW_GATE_CHECK:-Claude verdict}"
 CI_PENDING=$(echo "$CI_JSON" | jq '[.[] | select(.state != "SUCCESS" and .state != "FAILURE" and .state != "SKIPPED" and .state != "CANCELLED" and .state != "TIMED_OUT" and .state != "ACTION_REQUIRED" and .state != "STARTUP_FAILURE" and .state != "ERROR" and .state != "NEUTRAL" and .state != "STALE")] | length')
