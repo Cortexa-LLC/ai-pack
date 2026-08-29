@@ -102,7 +102,9 @@ jobs:
     # Advisory guarantee: a runtime failure (expired/revoked token, CLI error,
     # timeout) must not turn the PR red.
     continue-on-error: true
-    timeout-minutes: 20
+    # 30, not 20: --max-turns was raised to 120 and the two bound the same run.
+    # At the observed ~6s/turn, 120 turns is ~12 minutes, well inside this.
+    timeout-minutes: 30
     permissions:
       contents: read
       pull-requests: write
@@ -429,36 +431,100 @@ jobs:
           # continue-on-error job, which is what preserves the advisory posture
           # while removing the silence). stderr is captured rather than
           # discarded so the cause is in the step log.
-          # --max-turns below is an UNDOCUMENTED dependency: it stopped appearing in
-          # `claude --help` as of CLI 2.1.231 but still parses (issue #32). This is the
-          # second site that passes it, alongside tests/agent-qa/run-harness.sh -- change
-          # both when a supported turn-cap flag lands. If the CLI drops it, the
-          # invocation exits nonzero and the `if !` guard surfaces the stderr verbatim,
-          # so the failure is loud rather than a silently-lost cap.
-          # Keep this comment OUTSIDE the command: a comment between backslash-continued
-          # lines ends the command there, and the remaining flags then run as their own
-          # (nonexistent) command.
-          if ! claude -p "$PROMPT" \
+          # --output-format json, not text (issue #41). `text` emits the final
+          # assistant message and nothing else, so a run that ends WITHOUT a final
+          # message — most commonly exhausting --max-turns — exits non-zero with
+          # BOTH streams empty. The stderr capture added in PR #35 cannot help
+          # there: there is no stderr to capture. Observed live in the mcp port as
+          # ~3 minutes of work, exit 1, and nothing to explain it. The json
+          # envelope always carries subtype / is_error / num_turns, which names
+          # the cause.
+          RAW_JSON="$(mktemp)"
+          # --max-turns 120, not 15. Sized from four real runs in the mcp port,
+          # which show turn count tracks how far the reviewer WANDERS rather than
+          # how big the diff is:
+          #
+          #   lines  turns  outcome
+          #     584     24  approved
+          #   2,704     35  posted a review     <- largest diff, fewest turns
+          #     848     41  hit the cap
+          #     989     41  hit the cap
+          #
+          # Two of four stopped exactly AT the cap, not near it, so the true
+          # ceiling is unknown and a snug cap is the wrong shape. Treat it as a
+          # runaway guard, not a budget: reviews run on a subscription OAuth
+          # token so total_cost_usd is notional, and the binding limit is the
+          # job's timeout-minutes. Exceeding the cap yields NO review rather than
+          # a short one, and the job is continue-on-error — so before this change
+          # the reviewer could stop posting on every PR with nothing going red.
+          # num_turns is logged on every run: if reviews start landing near 120,
+          # raise it rather than wondering why the reviewer went quiet.
+          #
+          # --max-turns is also an UNDOCUMENTED dependency — absent from
+          # `claude --help` since CLI 2.1.231 but still parsing (issue #32). This
+          # is the second site that passes it, alongside
+          # tests/agent-qa/run-harness.sh; change both when a supported turn-cap
+          # flag lands.
+          #
+          # Keep these comments OUTSIDE the command: a comment between
+          # backslash-continued lines ends the command there, and the remaining
+          # flags then run as their own (nonexistent) command.
+          set +e
+          claude -p "$PROMPT" \
             --model claude-sonnet-4-6 \
             --system-prompt-file "$SYSTEM_FILE" \
             --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Read,Glob" \
             --disallowedTools "Grep,Read(//proc/**),Read(~/.claude/**),Read(~/.config/**),Read(~/.npm/**)" \
-            --max-turns 15 \
-            --output-format text > "$REVIEW_RAW" 2> "$CLAUDE_ERR"; then
-            echo "----- claude stderr -----"
+            --max-turns 120 \
+            --output-format json > "$RAW_JSON" 2> "$CLAUDE_ERR"
+          CLAUDE_RC=$?
+          set -e
+
+          # Log the envelope on EVERY run, healthy or not, so the turn budget is
+          # visible while things work rather than only after they break. Never log
+          # the review text — that gets posted.
+          echo "run envelope: $(jq -c '{subtype, is_error, num_turns, duration_ms, total_cost_usd}' "$RAW_JSON" 2>/dev/null || echo '<unparseable json>')"
+
+          # A non-zero exit and an is_error envelope are independent failure
+          # signals; either one is fatal. Defaulting IS_ERROR to true on
+          # unparseable json fails closed.
+          IS_ERROR="$(jq -r '.is_error // false' "$RAW_JSON" 2>/dev/null || echo true)"
+          if [ "$CLAUDE_RC" -ne 0 ] || [ "$IS_ERROR" = "true" ]; then
+            # Actions masks registered secrets in log output, so
+            # CLAUDE_CODE_OAUTH_TOKEN / GH_TOKEN cannot surface in these dumps.
+            echo "::group::claude stderr"
             cat "$CLAUDE_ERR" || true
-            echo "-------------------------"
-            # Annotation titles/messages must stay single-line; the log above
-            # carries the full stderr.
-            echo "::error title=Claude review CLI failed::claude -p exited nonzero — NO review was posted on this PR. Last stderr line: $(tail -n 1 "$CLAUDE_ERR" | tr -d '\r\n')"
+            echo "::endgroup::"
+            echo "::group::claude raw json"
+            cat "$RAW_JSON" || true
+            echo "::endgroup::"
+            SUBTYPE="$(jq -r '.subtype // "unknown"' "$RAW_JSON" 2>/dev/null || echo unknown)"
+            TURNS="$(jq -r '.num_turns // "?"' "$RAW_JSON" 2>/dev/null || echo '?')"
+            # Annotation titles/messages must stay single-line.
+            case "$SUBTYPE" in
+              error_max_turns|error_during_execution)
+                echo "::error title=Reviewer hit the turn cap::run ended as '${SUBTYPE}' after ${TURNS} turns with no final message — NO review was posted. Raise --max-turns (currently 120)." ;;
+              *)
+                echo "::error title=Claude review CLI failed::claude -p exited ${CLAUDE_RC}, subtype '${SUBTYPE}' — NO review was posted on this PR. See the grouped output above." ;;
+            esac
             exit 1
           fi
-          # The other silent mode: exit 0 with nothing on stdout. Caught here
-          # so it cannot reach the posting logic as an empty review. (The
-          # empty-body guards further down are now belt-and-braces.)
-          if [ ! -s "$REVIEW_RAW" ]; then
-            cat "$CLAUDE_ERR" || true
-            echo "::error title=Claude review produced no output::claude -p exited 0 but wrote nothing to stdout — NO review was posted on this PR."
+
+          # A clean run can still carry warnings worth seeing (e.g. permission
+          # rules the CLI declined to apply).
+          if [ -s "$CLAUDE_ERR" ]; then
+            echo "::group::claude stderr (non-fatal)"
+            cat "$CLAUDE_ERR"
+            echo "::endgroup::"
+          fi
+
+          jq -r '.result' "$RAW_JSON" > "$REVIEW_RAW"
+
+          # The remaining silent mode: a healthy envelope whose .result is empty
+          # or null. Caught here so it cannot reach the posting logic as an empty
+          # review. (The empty-body guards further down are now belt-and-braces.)
+          if [ ! -s "$REVIEW_RAW" ] || [ "$(cat "$REVIEW_RAW")" = "null" ]; then
+            echo "::error title=Claude review produced no output::the run reported success but .result was empty — NO review was posted on this PR."
             exit 1
           fi
 
