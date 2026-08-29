@@ -156,7 +156,7 @@ assert_max_turns_supported() {
 if command -v claude >/dev/null 2>&1; then
   assert_max_turns_supported
 else
-  echo "note: claude CLI not on PATH -- skipping the --max-turns support probe (issue #32)."
+  echo "note: claude CLI not on PATH -- skipping the --max-turns support probe (issue #32)." >&2
 fi
 
 mkdir -p "$OUTPUT_DIR"
