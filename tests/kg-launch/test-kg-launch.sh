@@ -48,6 +48,16 @@ write_lock() {
 EOF
 }
 
+# Mirrors kg-launch.sh's sha256_of(): shasum is absent on minimal Linux images
+# (no Perl), where sha256sum is the one that exists.
+digest_of() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | cut -d' ' -f1
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  fi
+}
+
 platform() {
   _os=$(uname -s); _arch=$(uname -m)
   case "$_os" in Darwin) _os=darwin ;; Linux) _os=linux ;; esac
@@ -192,7 +202,14 @@ mkdir -p "$RELEASE/stage"
 make_stub_kg "$RELEASE/stage/kg" bootstrapped
 TARBALL="kg-v9.9.9-$(platform).tar.gz"
 tar -czf "$RELEASE/$TARBALL" -C "$RELEASE/stage" kg
-DIGEST=$(shasum -a 256 "$RELEASE/$TARBALL" | cut -d' ' -f1)
+DIGEST=$(digest_of "$RELEASE/$TARBALL")
+# Without this guard an absent checksum tool yields an empty DIGEST (the suite runs
+# without `set -e`), the lock encodes it, and every bootstrap sub-test below fails
+# with "not a 64-character hex digest" -- a true failure reported as the wrong bug.
+if [ ${#DIGEST} -ne 64 ]; then
+  bad "test prerequisite" "could not compute a sha256 for the fixture tarball (no shasum or sha256sum?)"
+  echo; echo "passed $PASS, failed $FAIL"; exit 1
+fi
 
 # The launcher requires an https base_url, so point it at a file:// URL by
 # temporarily relaxing only that check -- everything else runs unmodified.

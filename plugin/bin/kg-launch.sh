@@ -157,6 +157,8 @@ case "$BASE_URL" in
   https://*) : ;;
   *) give_up "kg.lock.json base_url must be an https URL; got '$BASE_URL'." ;;
 esac
+# Tolerate a trailing slash rather than building ".../download//v1.2.3/...".
+BASE_URL="${BASE_URL%/}"
 if [ -z "$SHA256" ]; then
   give_up "kg.lock.json pins no sha256 for this platform ($PLATFORM)."
 fi
