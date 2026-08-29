@@ -8,9 +8,12 @@ echo "======================================"
 echo
 
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
-# Mirror plugin/bin/kg-launch.sh's resolution order so this script verifies the same
-# binary the plugin would actually launch: $AI_PACK_KG, then PATH, then the bootstrap
-# cache. The repo-local tmp/kg build stays last as a contributor convenience.
+# Follows plugin/bin/kg-launch.sh's resolution order -- $AI_PACK_KG, then PATH, then
+# the bootstrap cache -- with one deliberate difference: the launcher opens the exact
+# version pinned in kg.lock.json, while this script takes the first cached version it
+# finds. With several versions cached those can differ, so treat this as a developer
+# convenience rather than a faithful simulation of what the plugin will launch.
+# The repo-local tmp/kg build stays last, also for contributors.
 if [ -n "${AI_PACK_KG:-}" ] && [ -x "${AI_PACK_KG}" ]; then
     KG="$AI_PACK_KG"
 elif command -v kg >/dev/null 2>&1; then
