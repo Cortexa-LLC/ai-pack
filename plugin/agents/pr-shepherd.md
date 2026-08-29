@@ -44,6 +44,11 @@ REPO=<owner>/<repo>
 OWNER="${REPO%/*}"
 REPO_NAME="${REPO#*/}"
 BRANCH=$(gh pr view "$PR" --json headRefName -q .headRefName)
+# Name of the CI check that mirrors the auto-reviewer's verdict. It FAILS BY DESIGN
+# when the reviewer requests changes — that is the gate working, not broken CI — so
+# every CI-health query below excludes it by name and lets VERDICT carry its meaning.
+# Override in a consumer repo whose gate check is named differently (issue #30).
+REVIEW_GATE_CHECK="${REVIEW_GATE_CHECK:-Claude verdict}"
 git checkout "$BRANCH"
 ```
 
@@ -136,7 +141,10 @@ kg__add_observation({entity_id: "<id>", content:
 4. Fix threads       — BLOCKING: must fix; SUGGESTION: fix if ≤ 5 lines
 5. Commit + push     — one commit covering all thread fixes this iteration
 6. Reply + resolve   — post reply (with $NEW_SHA) then resolve each thread
-7. Done check        — all SUCCESS + 0 open threads + verdict == APPROVED
+7. Done check        — all SUCCESS + 0 open threads + no body findings + verdict == APPROVED
+                       (two things that are NOT failures: the review gate check fails
+                       BY DESIGN on changes-requested, and COMMENTED/CHANGES_REQUESTED
+                       are terminal verdicts — fix their findings, never poll them)
    YES → write report, exit
    NO  → write state, go to step 1
 ```
@@ -164,8 +172,11 @@ fi
 ## Step 2 — Fix CI Failures
 
 ```bash
+# Exclude $REVIEW_GATE_CHECK: a changes-requested verdict makes it FAILURE by design,
+# and diagnosing it as broken CI burns an iteration on a check that is working.
+REVIEW_GATE_CHECK="${REVIEW_GATE_CHECK:-Claude verdict}"
 FAILURES=$(gh pr checks "$PR" --json name,state \
-  | jq -r '.[] | select(.state == "FAILURE" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED" or .state == "STARTUP_FAILURE" or .state == "ERROR") | .name')
+  | jq -r --arg gate "$REVIEW_GATE_CHECK" '.[] | select(.name != $gate) | select(.state == "FAILURE" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED" or .state == "STARTUP_FAILURE" or .state == "ERROR") | .name')
 ```
 
 For each failure, get the run log. `--workflow` expects the workflow filename (e.g.
@@ -242,11 +253,28 @@ OPEN_COUNT=$(echo "$THREADS" | jq length)
 # Match bots on `.user.type` (REST), never on a `[bot]` login suffix: the suffix
 # exists in REST but is absent from GraphQL/`gh pr view --json reviews` logins.
 HEAD_SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid)
-VERDICT=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate \
-  | jq -r --arg sha "$HEAD_SHA" \
-      '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .state // "PENDING"')
 
-echo "Open threads: $OPEN_COUNT | Verdict: $VERDICT | HEAD: ${HEAD_SHA:0:7}"
+# Findings do not only arrive as inline threads. A reviewer that posts with
+# `gh pr review --body-file` submits a SINGLE top-level body and cannot attach line
+# comments, so reviewThreads is empty and every finding lives in the body. Reading
+# OPEN_COUNT alone makes that reviewer invisible: the count is permanently 0 and the
+# findings are never seen.
+#
+# Fetch the payload ONCE and derive both values from that snapshot. Two separate
+# calls open a race: a review landing between them leaves VERDICT and REVIEW_BODY
+# describing different reviews, and BODY_FINDINGS is then computed from mismatched
+# state.
+VERDICT_RAW=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate)
+VERDICT=$(echo "$VERDICT_RAW" | jq -r --arg sha "$HEAD_SHA" \
+      '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .state // "PENDING"')
+REVIEW_BODY=$(echo "$VERDICT_RAW" | jq -r --arg sha "$HEAD_SHA" \
+      '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .body // ""')
+BODY_FINDINGS=0
+if [ "$VERDICT" != "APPROVED" ] && [ "$VERDICT" != "PENDING" ] && [ "${#REVIEW_BODY}" -gt 40 ]; then
+  BODY_FINDINGS=1
+fi
+
+echo "Open threads: $OPEN_COUNT | Body findings: $BODY_FINDINGS | Verdict: $VERDICT | HEAD: ${HEAD_SHA:0:7}"
 ```
 
 ---
@@ -320,9 +348,15 @@ Resolve each thread immediately after replying — do not batch.
 ```bash
 CHECKS_JSON=$(gh pr checks "$PR" --json name,state)
 
-# Guard against vacuous-true when checks array is empty
-ALL_OK=$(echo "$CHECKS_JSON" | jq -r \
-  '(length > 0) and ([.[].state] | all(. == "SUCCESS" or . == "SKIPPED" or . == "NEUTRAL" or . == "STALE" or . == "CANCELLED"))')
+# Guard against vacuous-true when checks array is empty.
+# Exclude $REVIEW_GATE_CHECK by name: on a CHANGES_REQUESTED verdict that check is in
+# FAILURE by design, so counting it would pin ALL_OK=false and the terminal-verdict
+# exit below — whose guard is ALL_OK=true — could never fire for the very verdict it
+# exists to handle. VERDICT already carries the gate's meaning.
+REVIEW_GATE_CHECK="${REVIEW_GATE_CHECK:-Claude verdict}"
+ALL_OK=$(echo "$CHECKS_JSON" | jq -r --arg gate "$REVIEW_GATE_CHECK" \
+  '(length > 0) and ([.[] | select(.name != $gate) | .state]
+   | all(. == "SUCCESS" or . == "SKIPPED" or . == "NEUTRAL" or . == "STALE" or . == "CANCELLED"))')
 
 # Surface ERROR-state checks (external gates — cannot auto-fix)
 UNFIXABLE=$(echo "$CHECKS_JSON" | jq -r '.[] | select(.state == "ERROR") | .name')
@@ -347,11 +381,21 @@ OPEN_COUNT=$(gh api graphql -f query="
   }
 }" | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')
 
-VERDICT=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate \
-  | jq -r --arg sha "$HEAD_SHA" \
+# Re-derive verdict AND body from one fresh snapshot. Reusing Step 3's
+# BODY_FINDINGS here would evaluate pre-push state: if the push triggered a fast
+# approval, the stale value still says "findings outstanding" and costs a wasted
+# loop.
+VERDICT_RAW=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate)
+VERDICT=$(echo "$VERDICT_RAW" | jq -r --arg sha "$HEAD_SHA" \
       '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .state // "PENDING"')
+REVIEW_BODY=$(echo "$VERDICT_RAW" | jq -r --arg sha "$HEAD_SHA" \
+      '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .body // ""')
+BODY_FINDINGS=0
+if [ "$VERDICT" != "APPROVED" ] && [ "$VERDICT" != "PENDING" ] && [ "${#REVIEW_BODY}" -gt 40 ]; then
+  BODY_FINDINGS=1
+fi
 
-if [ "$ALL_OK" = "true" ] && [ "$OPEN_COUNT" -eq 0 ] && [ "$VERDICT" = "APPROVED" ]; then
+if [ "$ALL_OK" = "true" ] && [ "$OPEN_COUNT" -eq 0 ] && [ "$BODY_FINDINGS" -eq 0 ] && [ "$VERDICT" = "APPROVED" ]; then
   # Settle check: an APPROVING review can post SUGGESTION threads that land seconds
   # AFTER its verdict. Wait, re-query threads once, and only then declare done.
   sleep 30
@@ -371,7 +415,30 @@ if [ "$ALL_OK" = "true" ] && [ "$OPEN_COUNT" -eq 0 ] && [ "$VERDICT" = "APPROVED
     # write completion report (see §Completion Report) and exit
   fi
 else
-  echo "Not yet done — ALL_OK=$ALL_OK OPEN_COUNT=$OPEN_COUNT VERDICT=$VERDICT"
+  echo "Not yet done — ALL_OK=$ALL_OK OPEN_COUNT=$OPEN_COUNT BODY_FINDINGS=$BODY_FINDINGS VERDICT=$VERDICT"
+
+  # TERMINAL VERDICT, NOTHING ACTIONABLE — stop, do not loop. COMMENTED and
+  # CHANGES_REQUESTED mean the review ran and reached a conclusion; neither becomes
+  # APPROVED without a new push. With no threads and no body findings there is
+  # nothing left to fix, so looping back to Step 1 just re-reads the same finished
+  # review until MAX_WAIT_ITER escalates it as "reviewer appears stuck" — which is
+  # the exact behavior this rule exists to prevent.
+  # The verdict test is the COMPLEMENT of the two handled states, not a list:
+  # APPROVED exits above and PENDING is the wait case, so DISMISSED — or any state
+  # not recognised here — is terminal-with-nothing-to-do and belongs on this exit
+  # rather than falling through to the loop.
+  # (Route G in plugin/skills/shepherd-pr/SKILL.md is the same exit condition.)
+  if [ "$ALL_OK" = "true" ] && [ "$OPEN_COUNT" -eq 0 ] && [ "$BODY_FINDINGS" -eq 0 ] \
+     && [ "$VERDICT" != "APPROVED" ] && [ "$VERDICT" != "PENDING" ]; then
+    echo "🔎 PR #${PR} — the reviewer concluded but did not approve (${VERDICT} on ${HEAD_SHA:0:7})"
+    echo "Nothing actionable remains; this verdict will not change without a new push."
+    # write the Reviewed-Not-Approved report (verdict, quoted review body, CI state)
+    # and EXIT — do not loop, no further automated event is coming.
+    exit 0
+  fi
+
+  # Otherwise there IS work: act on the findings (threads and/or body) — never wait
+  # for a concluded verdict to change on its own.
   # write state to KG and loop back to Step 1
   # once, reuse id
   kg__add_observation({entity_id: "<state-entity-id>", content:

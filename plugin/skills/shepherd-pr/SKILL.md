@@ -45,34 +45,40 @@ On wakeup re-entries the prompt will include `iter=N wait_iter=N` — parse them
 PARSE args → PR number + iter (default 0) + wait_iter (default 0)
 MAX_ITER=10 (fix attempts — safety cap, convergence-gated; see A2)  MAX_WAIT_ITER=30 (polling rounds)
 
-FETCH state: unresolved threads, CI terminal?, verdict
+FETCH state: unresolved threads, review body, CI terminal?, verdict
+  ACTIONABLE = threads > 0 OR body findings on a non-approved verdict
+  CI_FAILING excludes the review gate check (it fails BY DESIGN on changes-requested)
 
-IF threads == 0 AND THREAD_UNKNOWN == 0 AND CI_UNKNOWN == 0 AND CI all-terminal AND CI_FAILING == 0 AND verdict == APPROVED:
+IF ACTIONABLE == 0 AND THREAD_UNKNOWN == 0 AND CI_UNKNOWN == 0 AND CI all-terminal AND CI_FAILING == 0 AND verdict == APPROVED:
   → ✅ SUCCESS REPORT — stop, no wakeup        [checked before iter guards]
 
 IF iter >= MAX_ITER → ESCALATE (too many fix attempts) — stop, no wakeup
 IF wait_iter >= MAX_WAIT_ITER → ESCALATE (CI/reviewer stuck) — stop, no wakeup
 IF same bot findings re-raised 2 consecutive passes → STUCK REPORT — stop, no wakeup  [see A2 convergence rule]
 
-IF threads > 0:
-  → Fix all threads, commit, push, reply, resolve
+IF ACTIONABLE == 1:
+  → Fix findings (threads and/or review body), commit, push, reply, resolve
   → ScheduleWakeup(270s, iter=$((ITER+1)), wait_iter=0)
   → stop
 
-IF threads == 0 AND THREAD_UNKNOWN == 0 AND CI_FAILING > 0:
+IF ACTIONABLE == 0 AND THREAD_UNKNOWN == 0 AND CI_FAILING > 0:
   → ⛔ CI FAILURE REPORT — stop, no wakeup     [before Route C — fail fast]
 
-IF threads == 0 AND THREAD_UNKNOWN == 0 AND CI_PENDING > 0:
+IF ACTIONABLE == 0 AND THREAD_UNKNOWN == 0 AND CI_PENDING > 0:
   → ScheduleWakeup(120s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))
   → stop
 
-IF THREAD_UNKNOWN == 1 OR (threads == 0 AND CI_UNKNOWN == 1):
+IF THREAD_UNKNOWN == 1 OR (ACTIONABLE == 0 AND CI_UNKNOWN == 1):
   → ScheduleWakeup(120s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))   # retry until fetches succeed
   → stop
 
-IF threads == 0 AND THREAD_UNKNOWN == 0 AND CI_UNKNOWN == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND verdict != APPROVED:
-  → ScheduleWakeup(90s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))
+IF ACTIONABLE == 0 AND THREAD_UNKNOWN == 0 AND CI_UNKNOWN == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND verdict == PENDING:
+  → ScheduleWakeup(90s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))    # review not posted yet
   → stop
+
+IF ACTIONABLE == 0 AND ... AND verdict is neither APPROVED nor PENDING:
+  → 🔎 REVIEWED-NOT-APPROVED REPORT — stop, no wakeup   [terminal verdict, nothing to act on]
+                                                        [complement, not a list: catches DISMISSED too]
 ```
 
 **Delay rationale:**
@@ -145,8 +151,20 @@ THREAD_COUNT=$(echo "$THREADS" | jq 'length')
 CI_UNKNOWN=0
 CI_JSON=$(gh pr checks "$PR" --json name,state 2>/dev/null) \
   || { echo "⚠️  CI fetch failed (network/auth) — CI state unknown"; CI_JSON="[]"; CI_UNKNOWN=1; }
+
+# The review gate check FAILS BY DESIGN when the reviewer requests changes — that is
+# the gate working, not broken CI. Counting it as a CI failure sends Route D's "fix
+# CI" report at exactly the moment the real signal is a review finding. Exclude it
+# from CI_FAILING by name; VERDICT already carries its meaning. While the gate is
+# still running it counts toward CI_PENDING, which is exactly right — "the review
+# has not finished". Once it reaches FAILURE it falls out of BOTH counts (the
+# CI_PENDING query excludes FAILURE by state), and its signal is carried entirely
+# by VERDICT. That is deliberate, not an oversight: a gate whose only meaning is
+# "the reviewer said no" must not also read as a broken build.
+# Override in a consumer repo whose gate check is named differently (issue #30).
+REVIEW_GATE_CHECK="${REVIEW_GATE_CHECK:-Claude verdict}"
 CI_PENDING=$(echo "$CI_JSON" | jq '[.[] | select(.state != "SUCCESS" and .state != "FAILURE" and .state != "SKIPPED" and .state != "CANCELLED" and .state != "TIMED_OUT" and .state != "ACTION_REQUIRED" and .state != "STARTUP_FAILURE" and .state != "ERROR" and .state != "NEUTRAL" and .state != "STALE")] | length')
-CI_FAILING=$(echo "$CI_JSON" | jq '[.[] | select(.state == "FAILURE" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED" or .state == "STARTUP_FAILURE" or .state == "ERROR")] | length')
+CI_FAILING=$(echo "$CI_JSON" | jq --arg gate "$REVIEW_GATE_CHECK" '[.[] | select(.name != $gate) | select(.state == "FAILURE" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED" or .state == "STARTUP_FAILURE" or .state == "ERROR")] | length')
 
 # Surface WAITING checks — environment approval gate, human action required
 WAITING=$(echo "$CI_JSON" | jq -r '.[] | select(.state == "WAITING") | .name')
@@ -165,7 +183,28 @@ VERDICT_RAW=$(gh api "repos/$REPO/pulls/$PR/reviews" --paginate 2>/dev/null) \
 VERDICT=$(echo "$VERDICT_RAW" | jq -r --arg sha "$HEAD_SHA" \
     '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .state // "PENDING"')
 
-echo "Threads: $THREAD_COUNT  |  CI pending: $CI_PENDING  failing: $CI_FAILING  |  Verdict: $VERDICT"
+# Findings do not only arrive as inline threads. A reviewer that posts with
+# `gh pr review --body-file` submits a SINGLE top-level review body and cannot
+# attach line comments, so reviewThreads is empty and every finding lives in the
+# body. Keying the state machine on THREAD_COUNT alone makes those reviewers
+# invisible: THREAD_COUNT is permanently 0, the fix route never fires, and the
+# shepherd waits out its polling budget next to a review full of findings.
+REVIEW_BODY=$(echo "$VERDICT_RAW" | jq -r --arg sha "$HEAD_SHA" \
+    '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .body // ""')
+
+# A body is actionable when the verdict is not an approval and the body has
+# substance. An APPROVED review's body may still hold nits, but approval is a
+# terminal success — do not reopen it (the treadmill guard in Step 5 explains why).
+BODY_FINDINGS=0
+if [ "$VERDICT" != "APPROVED" ] && [ "$VERDICT" != "PENDING" ] && [ "${#REVIEW_BODY}" -gt 40 ]; then
+  BODY_FINDINGS=1
+fi
+
+# One actionable-work signal for the router, from either source.
+ACTIONABLE=0
+if [ "$THREAD_COUNT" -gt 0 ] || [ "$BODY_FINDINGS" -eq 1 ]; then ACTIONABLE=1; fi
+
+echo "Threads: $THREAD_COUNT  |  body findings: $BODY_FINDINGS  |  CI pending: $CI_PENDING  failing: $CI_FAILING  |  Verdict: $VERDICT"
 ```
 
 ---
@@ -176,7 +215,7 @@ Evaluate in this order:
 
 **A. Done:**
 ```
-IF THREAD_COUNT == 0 AND THREAD_UNKNOWN == 0 AND CI_UNKNOWN == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND VERDICT == "APPROVED"
+IF ACTIONABLE == 0 AND THREAD_UNKNOWN == 0 AND CI_UNKNOWN == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND VERDICT == "APPROVED"
   → settle check: sleep 30, re-run the thread query from Step 2 once
     (an APPROVING review can post SUGGESTION threads seconds AFTER its verdict)
   → IF threads still 0: print SUCCESS REPORT, stop (no ScheduleWakeup)
@@ -214,39 +253,75 @@ If the `MAX_ITER` guard fires while rounds were still converging (each round's
 findings fewer or smaller than the last), say so in the report and recommend
 re-running `/ai-pack:shepherd-pr $PR` to continue.
 
-**B. Threads to fix** (fix immediately regardless of CI state):
+**B. Findings to fix** (fix immediately regardless of CI state):
 ```
-IF THREAD_COUNT > 0
-  → Steps 4–7 (fix CI if also failing, fix threads, commit, push, reply, resolve)
+IF ACTIONABLE == 1          # inline threads, a review body, or both
+  → Steps 4–8 (fix CI if also failing, fix findings, commit, push, reply, resolve)
   → ScheduleWakeup(270s, iter=$((ITER+1)), wait_iter=0)   # reset wait counter after each push
 ```
+`ACTIONABLE` deliberately covers both shapes of reviewer. A thread-posting reviewer
+sets `THREAD_COUNT > 0`; a body-posting reviewer sets `BODY_FINDINGS == 1` with
+`THREAD_COUNT == 0`. Routing on `THREAD_COUNT` alone is what made the second kind
+invisible — see Step 2.
 
 **D. CI failed — escalate** (before C — fail fast even while other checks still run):
 ```
-IF THREAD_COUNT == 0 AND THREAD_UNKNOWN == 0 AND CI_FAILING > 0
+IF ACTIONABLE == 0 AND THREAD_UNKNOWN == 0 AND CI_FAILING > 0
   → print CI failure report, stop (no ScheduleWakeup)
 ```
+`CI_FAILING` excludes `$REVIEW_GATE_CHECK` by construction (Step 2). That check fails
+by design when the reviewer requests changes, and counting it here produced the exact
+wrong instruction: "CI is failing — investigate CI failures" on a PR whose builds were
+all green and whose real signal was a review finding. A `CHANGES_REQUESTED` verdict
+belongs to Route B, not Route D.
 Note: `THREAD_UNKNOWN==1` bypasses Route D and falls to Route F. This is intentional — if the thread fetch failed we cannot confirm there are zero threads, so we retry. A real CI failure will still be caught once the network recovers.
 
 **C. Waiting for CI:**
 ```
-IF THREAD_COUNT == 0 AND THREAD_UNKNOWN == 0 AND CI_PENDING > 0
+IF ACTIONABLE == 0 AND THREAD_UNKNOWN == 0 AND CI_PENDING > 0
   → ScheduleWakeup(120s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))
 ```
 
 **F. Fetch failed — retry:**
 ```
-IF THREAD_UNKNOWN == 1 OR (THREAD_COUNT == 0 AND CI_UNKNOWN == 1)
+IF THREAD_UNKNOWN == 1 OR (ACTIONABLE == 0 AND CI_UNKNOWN == 1)
   → ScheduleWakeup(120s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))
 ```
 Note: covers dead-ends where thread or CI fetch failed — both set PENDING=0/FAILING=0 for their domain, which would otherwise allow silent exits or false Route A success.
 
-**E. CI passed, waiting for reviewer verdict:**
+**E. CI passed, waiting for the reviewer to run:**
 ```
-IF THREAD_COUNT == 0 AND THREAD_UNKNOWN == 0 AND CI_UNKNOWN == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND VERDICT != "APPROVED"
+IF ACTIONABLE == 0 AND THREAD_UNKNOWN == 0 AND CI_UNKNOWN == 0 AND CI_PENDING == 0 AND CI_FAILING == 0 AND VERDICT == "PENDING"
   → ScheduleWakeup(90s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))
 ```
 Note: `CI_UNKNOWN==0` guard is explicit — Route F fires first when CI fetch failed, so Route E only runs on confirmed-clean CI.
+
+**Only `PENDING` waits here.** `COMMENTED` and `CHANGES_REQUESTED` are *terminal
+verdicts* — the review ran and reached a conclusion, and neither becomes `APPROVED`
+without a new push. Waiting on them burns the entire polling budget
+(30 × 90s ≈ 45 minutes) beside a finished review, then escalates as "reviewer appears
+stuck" when nothing was stuck at all. Those verdicts carry findings, so they route to
+B via `BODY_FINDINGS`; the only case that lands here is a review that has not been
+posted for this HEAD yet.
+
+**G. Reviewed, nothing actionable, but not approved:**
+```
+IF ACTIONABLE == 0 AND THREAD_UNKNOWN == 0 AND CI_UNKNOWN == 0 AND CI_PENDING == 0 AND CI_FAILING == 0
+   AND VERDICT is not APPROVED and not PENDING
+  → print REVIEWED-NOT-APPROVED REPORT, stop (no ScheduleWakeup)
+```
+Reached when the reviewer concluded but left nothing this skill can act on — a
+`COMMENTED` verdict with an empty or trivial body, or findings already dispositioned.
+Report the verdict, quote the body, and hand the decision to the human. Do **not**
+schedule a wakeup: no further automated event is coming.
+
+The guard is the **complement** of the two handled states, not a list of
+`COMMENTED`/`CHANGES_REQUESTED`. `APPROVED` exits at Route A and `PENDING` waits at
+Route E; every other value — `DISMISSED`, or any state this skill does not
+recognise — is terminal-with-nothing-to-do and belongs here. Enumerating the two
+known verdicts instead would let `DISMISSED` match no route at all and exit silently
+with neither a wakeup nor a report, which is the one outcome the state machine must
+never produce.
 
 ---
 
@@ -290,9 +365,23 @@ After CI fixes, do **not** commit yet — include CI fixes in the single thread-
 
 ---
 
-## Step 5 — Fix Threads (route B)
+## Step 5 — Fix Findings (route B)
 
-Read each unresolved thread's full body. Triage by severity prefix:
+Findings arrive in one of two shapes, and a PR can carry both. Handle whichever is
+present.
+
+**Shape 1 — inline threads** (`THREAD_COUNT > 0`). Read each unresolved thread's full
+body, triage, fix, then reply and resolve per Steps 7–8.
+
+**Shape 2 — a review body** (`BODY_FINDINGS == 1`). The reviewer posted with
+`gh pr review --body-file`, which submits one top-level body and cannot attach line
+comments, so there is nothing to reply to or resolve. `$REVIEW_BODY` from Step 2 holds
+the whole review: parse its findings out of the body text and triage them the same way.
+Because there is no thread to resolve, the disposition goes in a single PR comment
+after the push (Step 7), naming each finding and what you did about it. A finding you
+decline still gets a line — silence reads as an oversight.
+
+Triage by severity prefix:
 
 - **[BLOCKING]** — always fix
 - **[SUGGESTION]** — fix if reasonable; reply with reasoning if declining
@@ -326,11 +415,15 @@ git push origin "$BRANCH" || { echo "❌ git push failed — aborting"; exit 1; 
 
 ---
 
-## Step 7 — Reply to Each Thread
+## Step 7 — Reply
 
 ```bash
 NEW_SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid | cut -c1-7)
+```
 
+**If the findings came from threads** — reply in each thread:
+
+```bash
 if [ -z "${COMMENT_ID}" ] || [ "${COMMENT_ID}" = "null" ]; then
   echo "⚠️  Thread $THREAD_ID has no comment ID — skipping reply"
 else
@@ -342,9 +435,29 @@ fi
 Every thread gets a reply — including declined suggestions (explain why, then resolve).
 Resolve each thread immediately after replying — do not batch.
 
+**If the findings came from a review body** — there is no thread to reply into, so post
+one PR comment covering the round:
+
+```bash
+gh pr comment "$PR" --body "$(cat <<EOF
+Addressed in ${NEW_SHA}:
+
+- <finding> — fixed, <one sentence>
+- <finding> — declined, <why>
+EOF
+)"
+```
+
+One comment per round, not one per finding. Declined findings are listed with the
+reasoning; a body-posting reviewer has no resolve affordance, so the comment is the
+only record that a finding was considered.
+
 ---
 
 ## Step 8 — Resolve Threads
+
+Only applies to inline threads; skip when the round's findings came from a review body
+(there is nothing to resolve — the Step 7 comment is the disposition record).
 
 ```bash
 gh api graphql -f query="mutation {
@@ -451,7 +564,8 @@ If the engineer delegation fails, leave the thread open — it will be retried n
    Branch:     $BRANCH
    Iterations: $ITER
    Threads:    0 unresolved
-   CI:         all green
+   Body:       no outstanding findings
+   CI:         all green (excluding $REVIEW_GATE_CHECK, which tracks the verdict)
    Verdict:    APPROVED on ${HEAD_SHA:0:7}
 ```
 
@@ -486,6 +600,25 @@ Next step: resolve the repeated findings manually (or dispute them on the PR), t
 re-run /ai-pack:shepherd-pr $PR
 ```
 
+### Reviewed, Not Approved (Route G)
+
+```
+🔎 PR #$PR — the reviewer concluded but did not approve
+
+Verdict:  $VERDICT on ${HEAD_SHA:0:7}
+Threads:  0 unresolved
+CI:       all green
+
+Review body:
+  <quote the review, or "empty">
+
+Nothing here is actionable by this skill — the verdict is terminal and will not
+become APPROVED without a new push. Decide whether to address the comments, dispute
+them, or merge as-is.
+```
+
+Do not schedule a wakeup for this state: no further automated event is coming.
+
 ### CI Failure (Route D)
 
 ```
@@ -506,10 +639,11 @@ Stop and report (no ScheduleWakeup) if:
 | Condition | Action |
 |-----------|--------|
 | `iter >= MAX_ITER` | Max iterations report above |
-| `wait_iter >= MAX_WAIT_ITER` | CI/reviewer stuck — escalate; Routes C, E, F all increment this counter, so slow reviewer or perpetually-pending CI exhausts it without any fix iteration occurring |
+| `wait_iter >= MAX_WAIT_ITER` | CI/reviewer stuck — escalate; Routes C, E, F all increment this counter, so slow reviewer or perpetually-pending CI exhausts it without any fix iteration occurring. Route E now waits only on `PENDING`, so a concluded-but-unapproved review no longer burns the budget |
 | Same thread IDs unresolved 2 passes in a row | Report: "Thread stuck — may need human decision" |
 | Same findings re-raised unchanged 2 passes in a row (compare the bot's last two reviews via `gh api "repos/$REPO/pulls/$PR/reviews"` — see A2 convergence rule) | Non-converging — Stuck (Non-Converging) report above, with analysis of the repeated findings; a stall, not a failure |
-| `CI_FAILING > 0` | Route D fires immediately — CI failure report, no wakeup |
+| `CI_FAILING > 0` (excludes `$REVIEW_GATE_CHECK`) | Route D fires immediately — CI failure report, no wakeup |
+| Verdict `COMMENTED` / `CHANGES_REQUESTED` with nothing actionable left | Route G — Reviewed, Not Approved report above; terminal, no wakeup (never poll a concluded review) |
 | `Claude PR Review` check stuck IN_PROGRESS > 10 min | Ask user to check workflow logs |
 | Verdict is `DISMISSED` after 2 passes | Ask user — bot may be broken |
 | `WAITING` check detected | Halt with environment-approval message (handled in Step 2) |

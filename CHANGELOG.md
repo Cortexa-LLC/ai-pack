@@ -9,6 +9,55 @@ truth for the current version. The `VERSION` file is a one-line mirror of it, an
 CI (`release-consistency`) fails if they disagree or if this file lacks an entry
 for the manifest version.
 
+## [3.4.0] — 2026-08-29
+
+### Fixed
+
+- **The shepherd could not see findings from a body-posting reviewer** (issue #41,
+  item 3). The state machine keyed entirely on `THREAD_COUNT` from `reviewThreads`,
+  but a reviewer posting via `gh pr review --body-file` submits a single top-level
+  review body and *cannot* attach line comments. `THREAD_COUNT` was therefore always
+  0, the fix route never fired, and the shepherd waited out its polling budget beside
+  a review full of findings. Step 2 now also reads the review body from the same REST
+  payload, and routing keys on `ACTIONABLE` — threads, a review body, or both.
+- **A by-design verdict failure was reported as broken CI** (issue #41, item 4). The
+  review gate check fails deliberately when the reviewer requests changes, but it
+  landed in `CI_FAILING`, firing Route D's "CI is failing — investigate CI failures"
+  on a PR whose builds were all green and whose real signal was a review finding.
+  `CI_FAILING` now excludes the gate check by name (`REVIEW_GATE_CHECK`, overridable
+  for consumer repos). While the gate is running it counts toward `CI_PENDING`; once
+  it reaches `FAILURE` it falls out of both counts and its signal is carried entirely
+  by `VERDICT`. Genuine build failures alongside the gate are still caught.
+- **A concluded review was polled as if it might change** (issue #41, item 5). Route A
+  terminated only on `APPROVED`, so a `COMMENTED` head fell through to the wait route
+  and polled 30 × 90s ≈ 45 minutes before escalating as "reviewer appears stuck" —
+  though nothing was stuck and the findings were sitting in the review body. Route E
+  now waits only on `PENDING`; `COMMENTED` and `CHANGES_REQUESTED` are treated as
+  terminal, routing to the fix path when they carry findings and to a new Route G
+  ("Reviewed, Not Approved") when they do not.
+
+### Changed
+
+- Step 5 handles both finding shapes; Steps 7–8 no longer assume every finding lives
+  in a resolvable thread — a body-posting reviewer gets one disposition comment per
+  round, since it offers nothing to reply to or resolve.
+- `plugin/agents/pr-shepherd.md` carries all three corrections, including an explicit
+  terminal-verdict exit mirroring Route G — without it the agent variant kept looping
+  on a concluded review until `MAX_WAIT_ITER`, reproducing item 5 in the half of the
+  stack the first pass left behind. Its Done Check also re-derives the verdict and
+  body from one fresh snapshot rather than reusing pre-push state.
+- The agent excludes `$REVIEW_GATE_CHECK` from **both** of its CI-health queries, not
+  just the skill's. Step 2's `FAILURES` had been diagnosing the gate's by-design
+  failure as broken CI, and — worse — Step 7's `ALL_OK` counted it too, pinning
+  `ALL_OK=false` on every changes-requested head. Since the terminal-verdict exit is
+  guarded on `ALL_OK=true`, that exit could never fire for `CHANGES_REQUESTED`, the
+  primary verdict it was written for, and the agent fell back to the loop it was
+  meant to replace.
+- Both variants test the terminal verdict as the complement of `APPROVED` and
+  `PENDING` rather than enumerating `COMMENTED`/`CHANGES_REQUESTED`, so a `DISMISSED`
+  or otherwise unrecognised verdict reports and stops instead of matching no route
+  and exiting silently.
+
 ## [3.3.1] — 2026-08-29
 
 ### Fixed
