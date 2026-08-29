@@ -116,8 +116,13 @@ leg has no `claude` and skips the probe by design.
 
 There is no supported replacement to adopt yet — as of CLI 2.1.236 the documented
 flag list has no turn cap at all (`--max-budget-usd` caps spend, not turns). When one
-lands, swap it in at all three sites in `run-harness.sh`: the real-run `claude`
-invocation, the dry-run diagnostic `printf` that echoes the command, and the probe.
+lands, swap it in at all three sites in `run-harness.sh` — the real-run `claude`
+invocation, the dry-run diagnostic `printf` that echoes the command, and the probe —
+**and** at the fourth site outside this directory: the `claude -p` call in
+`.github/workflows/claude-pr-review.yml`, which passes `--max-turns 15` and carries the
+same undocumented dependency. That one is already loud if the flag disappears (the CLI
+exits nonzero and the workflow re-surfaces its stderr as a run annotation), but it still
+has to be changed in the same pass.
 
 ## CI integration
 

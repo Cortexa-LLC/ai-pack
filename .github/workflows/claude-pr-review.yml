@@ -434,6 +434,12 @@ jobs:
             --system-prompt-file "$SYSTEM_FILE" \
             --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Read,Glob" \
             --disallowedTools "Grep,Read(//proc/**),Read(~/.claude/**),Read(~/.config/**),Read(~/.npm/**)" \
+            # --max-turns is an UNDOCUMENTED dependency: it stopped appearing in
+            # `claude --help` as of CLI 2.1.231 but still parses (issue #32). This is
+            # the second site that passes it, alongside tests/agent-qa/run-harness.sh --
+            # change both when a supported turn-cap flag lands. If the CLI drops it,
+            # the invocation exits nonzero and the `if !` below surfaces the stderr
+            # line verbatim, so the failure is loud rather than a silently-lost cap.
             --max-turns 15 \
             --output-format text > "$REVIEW_RAW" 2> "$CLAUDE_ERR"; then
             echo "----- claude stderr -----"
