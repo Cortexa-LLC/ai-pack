@@ -106,6 +106,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so origin/<base> exists for the merge-base diff below.
+          fetch-depth: 0
+
+      - name: Plugin changes must bump the manifest version
+        # Plugin updates are version-gated on plugin/.claude-plugin/plugin.json:
+        # `/plugin marketplace update` only re-fetches when the version increases.
+        # So a PR that edits plugin/ without bumping produces a version number that
+        # denotes two different trees, and the change can never reach anyone who
+        # already installed that version. This happened once (PR #43 shipped a
+        # kg.lock.json fix inside 3.3.0's tree) -- the other three checks all passed,
+        # because "a CHANGELOG heading exists for the manifest version" stays true
+        # when the manifest never changed.
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          BASE_SHA=$(git merge-base HEAD FETCH_HEAD)
+          CHANGED=$(git diff --name-only "$BASE_SHA" HEAD)
+
+          PLUGIN_CHANGED=$(echo "$CHANGED" | grep '^plugin/' || true)
+          if [ -z "$PLUGIN_CHANGED" ]; then
+            echo "No plugin/ changes — version bump not required."
+            exit 0
+          fi
+          if echo "$CHANGED" | grep -qx 'plugin/.claude-plugin/plugin.json'; then
+            echo "plugin/ changed and the manifest was updated with it."
+            exit 0
+          fi
+
+          echo "::error title=Plugin change without a version bump::This PR modifies plugin/ but does not change plugin/.claude-plugin/plugin.json. Plugin updates are version-gated, so installed users would never receive this change. Bump the version (and mirror it to VERSION, with a CHANGELOG entry)."
+          echo "plugin/ files changed without a manifest bump:"
+          echo "$PLUGIN_CHANGED" | sed 's/^/  /'
+          exit 1
 
       - name: Version, changelog, and docs-count consistency
         run: |
