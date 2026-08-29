@@ -84,6 +84,46 @@ and `SCORE: n/6 (xx%)`, exiting 0 iff `n >= threshold`.
 3. Map it to a named technique in reviewer.md's AUDIT MODE section.
 4. Verify: `./run-harness.sh --dry-run` scores N/N.
 
+## CLI flag dependency (`--max-turns`)
+
+The harness caps the agent under test with `--max-turns 60`. That flag stopped
+appearing in `claude --help` as of CLI 2.1.231 but still parses, which makes it an
+**undocumented dependency**: the day the CLI drops it, the turn cap silently
+disappears (or the run errors mid-flight) with nothing obvious to point at.
+
+`run-harness.sh` therefore probes the flag before every run — dry or real. The probe
+pairs `--max-turns` with a deliberately invalid flag and reads back which one the CLI
+names as unknown; the CLI reports the first unrecognized option, and `--max-turns`
+comes first, so being named means it is gone. Parsing rejects the invalid flag before
+a session starts, so the probe costs no quota and no network.
+
+The probe self-tests first: it runs the same check against a control flag that cannot
+possibly exist and requires it to come back rejected. A probe that reports *everything*
+as accepted has silently become a no-op, and its clean bill of health on `--max-turns`
+would mean nothing — so a failed self-test downgrades to a warning instead of a
+false all-clear.
+
+| Probe outcome | Behavior |
+|---|---|
+| Flag accepted | Silent; run proceeds |
+| Flag rejected as unknown | `error:` naming the CLI version and the fix, exit 1 |
+| Neither error seen | `warning:`, run proceeds |
+| Self-test failed | `warning:`, check skipped rather than trusted |
+| `claude` not on PATH | `note:`, probe skipped (keeps `--dry-run` toolchain-free) |
+
+In CI this surfaces on the real-run leg, which installs the pinned CLI. The dry-run
+leg has no `claude` and skips the probe by design.
+
+There is no supported replacement to adopt yet — as of CLI 2.1.236 the documented
+flag list has no turn cap at all (`--max-budget-usd` caps spend, not turns). When one
+lands, swap it in at all three sites in `run-harness.sh` — the real-run `claude`
+invocation, the dry-run diagnostic `printf` that echoes the command, and the probe —
+**and** at the fourth site outside this directory: the `claude -p` call in
+`.github/workflows/claude-pr-review.yml`, which passes `--max-turns 15` and carries the
+same undocumented dependency. That one is already loud if the flag disappears (the CLI
+exits nonzero and the workflow re-surfaces its stderr as a run annotation), but it still
+has to be changed in the same pass.
+
 ## CI integration
 
 Implemented per [ADR-011](../../docs/adr/011-agent-qa-in-ci.md) (issue #17):

@@ -61,6 +61,38 @@ jobs:
           print(f"Validated {len(agents)} agents, {len(skills)} skills")
           EOF
 
+      - name: Check workflow run blocks for broken line continuations
+        run: |
+          # A comment between backslash-continued lines silently truncates the
+          # command: bash joins the `\<newline>`, hits `#`, and ends the logical
+          # line there -- the remaining flags then run as their own (nonexistent)
+          # command. `bash -n` does NOT catch this; the text is valid syntax. It
+          # shipped once already, breaking every PR review until it was found.
+          python3 - <<'PYEOF'
+          import pathlib, sys, yaml
+
+          bad = []
+          for wf in sorted(pathlib.Path(".github/workflows").glob("*.yml")):
+              doc = yaml.safe_load(wf.read_text())
+              for jname, job in (doc.get("jobs") or {}).items():
+                  for step in job.get("steps", []) or []:
+                      run = step.get("run")
+                      if not isinstance(run, str):
+                          continue
+                      lines = run.split("\n")
+                      for i, line in enumerate(lines[:-1]):
+                          if line.rstrip().endswith("\\") and lines[i + 1].lstrip().startswith("#"):
+                              bad.append(
+                                  f"{wf}: job {jname}, step {step.get('name')!r}: a comment "
+                                  f"on a continued line breaks the command:\n"
+                                  f"      {line.strip()}\n      {lines[i + 1].strip()}"
+                              )
+          if bad:
+              print("\n".join(bad))
+              sys.exit(1)
+          print("no comments inside backslash continuations")
+          PYEOF
+
       - name: Check for server-era regressions
         run: |
           # The agent CLI, agent-mcp MCP tools, and server ports must not

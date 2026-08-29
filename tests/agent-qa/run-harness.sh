@@ -85,6 +85,80 @@ if ! printf '%s' "$SYSTEM_PROMPT" | grep -q "AUDIT MODE"; then
   exit 1
 fi
 
+# --- CLI flag support probe (issue #32) -------------------------------------
+# The harness caps the agent under test with `--max-turns`. That flag stopped
+# appearing in `claude --help` as of CLI 2.1.231 but still parses, so it is an
+# undocumented dependency: the day the CLI drops it, the turn cap silently
+# disappears (or the invocation errors mid-run) with nothing to point at.
+#
+# The probe pairs the flag under test with a deliberately invalid one. The CLI
+# reports the FIRST unrecognized option and the flag under test comes first, so
+# "unknown option '--max-turns'" means it is gone. Argument parsing rejects the
+# invalid flag before any session starts, so this costs no quota and no network.
+#
+# There is no supported replacement to switch to yet: as of 2.1.236 the flag list
+# has no turn cap at all (`--max-budget-usd` caps spend, not turns). When one
+# lands, swap it in here and in the two invocations below.
+PROBE_FLAG="--ai-pack-flag-support-probe"
+CONTROL_FLAG="--ai-pack-flag-support-control"
+
+# 0 = accepted, 1 = rejected as unknown, 2 = indeterminate.
+# An explicit prompt argument keeps $flag in option position regardless of whether
+# -p/--print ever becomes value-taking; the probe flag trails it so that whichever
+# option the CLI names first is the answer.
+cli_flag_status() {
+  local flag="$1" value="${2-}" out
+  out=$(ANTHROPIC_API_KEY="" claude -p "probe" "$flag" ${value:+"$value"} "$PROBE_FLAG" 2>&1 || true)
+  case "$out" in
+    *"unknown option '$flag'"*)       return 1 ;;
+    *"unknown option '$PROBE_FLAG'"*) return 0 ;;
+    *)                                return 2 ;;
+  esac
+}
+
+# Self-test the probe before trusting its verdict. A flag that certainly does not
+# exist must come back "rejected"; if it comes back "accepted", the mechanism itself
+# has broken (argument-order semantics changed, say) and a clean bill of health on
+# --max-turns would be meaningless. This is the guard against the probe silently
+# degrading into an always-passes no-op.
+probe_mechanism_works() {
+  local rc=0
+  cli_flag_status "$CONTROL_FLAG" || rc=$?
+  [ "$rc" -eq 1 ]
+}
+
+assert_max_turns_supported() {
+  if ! probe_mechanism_works; then
+    echo "warning: the --max-turns support probe failed its own self-test -- a flag that" >&2
+    echo "         cannot exist ($CONTROL_FLAG) was not reported as unknown, so the CLI's" >&2
+    echo "         argument handling no longer matches what the probe assumes. Skipping the" >&2
+    echo "         check rather than trusting it; see issue #32." >&2
+    return 0
+  fi
+
+  local rc=0
+  cli_flag_status --max-turns 60 || rc=$?
+  case "$rc" in
+    0) ;;
+    1)
+      echo "error: this claude CLI ($(claude --version 2>/dev/null || echo 'version unknown')) no longer accepts --max-turns." >&2
+      echo "       The harness relied on it to cap the agent under test at 60 turns; without a cap a" >&2
+      echo "       runaway review would burn quota unbounded, so the harness refuses to run." >&2
+      echo "       Fix: replace --max-turns in tests/agent-qa/run-harness.sh with the CLI's current" >&2
+      echo "       turn-cap flag (check 'claude --help'), then update this probe. See issue #32." >&2
+      exit 1 ;;
+    *)
+      echo "warning: could not determine whether this claude CLI still accepts --max-turns" >&2
+      echo "         (the probe produced neither expected error). Proceeding; see issue #32." >&2 ;;
+  esac
+}
+
+if command -v claude >/dev/null 2>&1; then
+  assert_max_turns_supported
+else
+  echo "note: claude CLI not on PATH -- skipping the --max-turns support probe (issue #32)." >&2
+fi
+
 mkdir -p "$OUTPUT_DIR"
 REVIEW_OUT="$OUTPUT_DIR/review-output.txt"
 

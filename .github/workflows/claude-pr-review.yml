@@ -429,6 +429,15 @@ jobs:
           # continue-on-error job, which is what preserves the advisory posture
           # while removing the silence). stderr is captured rather than
           # discarded so the cause is in the step log.
+          # --max-turns below is an UNDOCUMENTED dependency: it stopped appearing in
+          # `claude --help` as of CLI 2.1.231 but still parses (issue #32). This is the
+          # second site that passes it, alongside tests/agent-qa/run-harness.sh -- change
+          # both when a supported turn-cap flag lands. If the CLI drops it, the
+          # invocation exits nonzero and the `if !` guard surfaces the stderr verbatim,
+          # so the failure is loud rather than a silently-lost cap.
+          # Keep this comment OUTSIDE the command: a comment between backslash-continued
+          # lines ends the command there, and the remaining flags then run as their own
+          # (nonexistent) command.
           if ! claude -p "$PROMPT" \
             --model claude-sonnet-4-6 \
             --system-prompt-file "$SYSTEM_FILE" \
