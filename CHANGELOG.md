@@ -9,6 +9,37 @@ truth for the current version. The `VERSION` file is a one-line mirror of it, an
 CI (`release-consistency`) fails if they disagree or if this file lacks an entry
 for the manifest version.
 
+## [3.3.1] — 2026-08-29
+
+### Fixed
+
+- **The kg download URL would have 404'd on the first real release.** The launcher
+  builds `<base_url>/<version>/kg-<version>-<platform>.tar.gz`, and GitHub renders a
+  slash-containing tag as path separators — tag `kg/v1.2.3` serves its assets from
+  `.../releases/download/kg/v1.2.3/`. The shipped `base_url` omitted the `kg`
+  segment, so it would have requested `.../releases/download/v1.2.3/...`. The tag is
+  now split correctly across the two lock fields, and `docs/RELEASING.md` step 2
+  spells out both halves. No user-visible change: the pin is still empty.
+- **`scripts/verify-kg.sh` overclaimed parity with the launcher.** It said it mirrors
+  the resolution order, but the launcher opens the exact version pinned in
+  `kg.lock.json` while the script takes the first cached version it finds. The
+  comment now states the difference.
+- **The KG-availability block is formatted consistently** across all seven agents.
+  `inspector.md` and `spelunker.md` used an inline arrow form; they now use the same
+  standalone paragraph as the others. Wording was already identical.
+
+  These three shipped in 3.3.0's tree without a version bump, so `3.3.0` briefly
+  denoted two different plugin trees and a version-gated `/plugin marketplace update`
+  could not deliver them. This release restores the invariant; `release-consistency`
+  now fails any PR that changes `plugin/` without bumping the manifest.
+
+### Changed
+
+- **`release-consistency` gained a fourth check**: a PR touching `plugin/` must also
+  change `plugin/.claude-plugin/plugin.json`. Plugin updates are version-gated, so an
+  unbumped change to `plugin/` can never reach an installed user — previously nothing
+  caught that.
+
 ## [3.3.0] — 2026-08-29
 
 ### Added
