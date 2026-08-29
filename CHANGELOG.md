@@ -46,6 +46,17 @@ for the manifest version.
   on a concluded review until `MAX_WAIT_ITER`, reproducing item 5 in the half of the
   stack the first pass left behind. Its Done Check also re-derives the verdict and
   body from one fresh snapshot rather than reusing pre-push state.
+- The agent excludes `$REVIEW_GATE_CHECK` from **both** of its CI-health queries, not
+  just the skill's. Step 2's `FAILURES` had been diagnosing the gate's by-design
+  failure as broken CI, and — worse — Step 7's `ALL_OK` counted it too, pinning
+  `ALL_OK=false` on every changes-requested head. Since the terminal-verdict exit is
+  guarded on `ALL_OK=true`, that exit could never fire for `CHANGES_REQUESTED`, the
+  primary verdict it was written for, and the agent fell back to the loop it was
+  meant to replace.
+- Both variants test the terminal verdict as the complement of `APPROVED` and
+  `PENDING` rather than enumerating `COMMENTED`/`CHANGES_REQUESTED`, so a `DISMISSED`
+  or otherwise unrecognised verdict reports and stops instead of matching no route
+  and exiting silently.
 
 ## [3.3.1] — 2026-08-29
 

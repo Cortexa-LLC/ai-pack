@@ -44,6 +44,11 @@ REPO=<owner>/<repo>
 OWNER="${REPO%/*}"
 REPO_NAME="${REPO#*/}"
 BRANCH=$(gh pr view "$PR" --json headRefName -q .headRefName)
+# Name of the CI check that mirrors the auto-reviewer's verdict. It FAILS BY DESIGN
+# when the reviewer requests changes — that is the gate working, not broken CI — so
+# every CI-health query below excludes it by name and lets VERDICT carry its meaning.
+# Override in a consumer repo whose gate check is named differently (issue #30).
+REVIEW_GATE_CHECK="${REVIEW_GATE_CHECK:-Claude verdict}"
 git checkout "$BRANCH"
 ```
 
@@ -167,8 +172,11 @@ fi
 ## Step 2 — Fix CI Failures
 
 ```bash
+# Exclude $REVIEW_GATE_CHECK: a changes-requested verdict makes it FAILURE by design,
+# and diagnosing it as broken CI burns an iteration on a check that is working.
+REVIEW_GATE_CHECK="${REVIEW_GATE_CHECK:-Claude verdict}"
 FAILURES=$(gh pr checks "$PR" --json name,state \
-  | jq -r '.[] | select(.state == "FAILURE" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED" or .state == "STARTUP_FAILURE" or .state == "ERROR") | .name')
+  | jq -r --arg gate "$REVIEW_GATE_CHECK" '.[] | select(.name != $gate) | select(.state == "FAILURE" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED" or .state == "STARTUP_FAILURE" or .state == "ERROR") | .name')
 ```
 
 For each failure, get the run log. `--workflow` expects the workflow filename (e.g.
@@ -340,9 +348,15 @@ Resolve each thread immediately after replying — do not batch.
 ```bash
 CHECKS_JSON=$(gh pr checks "$PR" --json name,state)
 
-# Guard against vacuous-true when checks array is empty
-ALL_OK=$(echo "$CHECKS_JSON" | jq -r \
-  '(length > 0) and ([.[].state] | all(. == "SUCCESS" or . == "SKIPPED" or . == "NEUTRAL" or . == "STALE" or . == "CANCELLED"))')
+# Guard against vacuous-true when checks array is empty.
+# Exclude $REVIEW_GATE_CHECK by name: on a CHANGES_REQUESTED verdict that check is in
+# FAILURE by design, so counting it would pin ALL_OK=false and the terminal-verdict
+# exit below — whose guard is ALL_OK=true — could never fire for the very verdict it
+# exists to handle. VERDICT already carries the gate's meaning.
+REVIEW_GATE_CHECK="${REVIEW_GATE_CHECK:-Claude verdict}"
+ALL_OK=$(echo "$CHECKS_JSON" | jq -r --arg gate "$REVIEW_GATE_CHECK" \
+  '(length > 0) and ([.[] | select(.name != $gate) | .state]
+   | all(. == "SUCCESS" or . == "SKIPPED" or . == "NEUTRAL" or . == "STALE" or . == "CANCELLED"))')
 
 # Surface ERROR-state checks (external gates — cannot auto-fix)
 UNFIXABLE=$(echo "$CHECKS_JSON" | jq -r '.[] | select(.state == "ERROR") | .name')
@@ -409,9 +423,13 @@ else
   # nothing left to fix, so looping back to Step 1 just re-reads the same finished
   # review until MAX_WAIT_ITER escalates it as "reviewer appears stuck" — which is
   # the exact behavior this rule exists to prevent.
+  # The verdict test is the COMPLEMENT of the two handled states, not a list:
+  # APPROVED exits above and PENDING is the wait case, so DISMISSED — or any state
+  # not recognised here — is terminal-with-nothing-to-do and belongs on this exit
+  # rather than falling through to the loop.
   # (Route G in plugin/skills/shepherd-pr/SKILL.md is the same exit condition.)
   if [ "$ALL_OK" = "true" ] && [ "$OPEN_COUNT" -eq 0 ] && [ "$BODY_FINDINGS" -eq 0 ] \
-     && { [ "$VERDICT" = "COMMENTED" ] || [ "$VERDICT" = "CHANGES_REQUESTED" ]; }; then
+     && [ "$VERDICT" != "APPROVED" ] && [ "$VERDICT" != "PENDING" ]; then
     echo "🔎 PR #${PR} — the reviewer concluded but did not approve (${VERDICT} on ${HEAD_SHA:0:7})"
     echo "Nothing actionable remains; this verdict will not change without a new push."
     # write the Reviewed-Not-Approved report (verdict, quoted review body, CI state)

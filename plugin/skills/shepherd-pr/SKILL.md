@@ -76,8 +76,9 @@ IF ACTIONABLE == 0 AND THREAD_UNKNOWN == 0 AND CI_UNKNOWN == 0 AND CI_PENDING ==
   → ScheduleWakeup(90s, iter=$ITER, wait_iter=$((WAIT_ITER+1)))    # review not posted yet
   → stop
 
-IF ACTIONABLE == 0 AND ... AND verdict is COMMENTED or CHANGES_REQUESTED:
+IF ACTIONABLE == 0 AND ... AND verdict is neither APPROVED nor PENDING:
   → 🔎 REVIEWED-NOT-APPROVED REPORT — stop, no wakeup   [terminal verdict, nothing to act on]
+                                                        [complement, not a list: catches DISMISSED too]
 ```
 
 **Delay rationale:**
@@ -306,13 +307,21 @@ posted for this HEAD yet.
 **G. Reviewed, nothing actionable, but not approved:**
 ```
 IF ACTIONABLE == 0 AND THREAD_UNKNOWN == 0 AND CI_UNKNOWN == 0 AND CI_PENDING == 0 AND CI_FAILING == 0
-   AND VERDICT is COMMENTED or CHANGES_REQUESTED
+   AND VERDICT is not APPROVED and not PENDING
   → print REVIEWED-NOT-APPROVED REPORT, stop (no ScheduleWakeup)
 ```
 Reached when the reviewer concluded but left nothing this skill can act on — a
 `COMMENTED` verdict with an empty or trivial body, or findings already dispositioned.
 Report the verdict, quote the body, and hand the decision to the human. Do **not**
 schedule a wakeup: no further automated event is coming.
+
+The guard is the **complement** of the two handled states, not a list of
+`COMMENTED`/`CHANGES_REQUESTED`. `APPROVED` exits at Route A and `PENDING` waits at
+Route E; every other value — `DISMISSED`, or any state this skill does not
+recognise — is terminal-with-nothing-to-do and belongs here. Enumerating the two
+known verdicts instead would let `DISMISSED` match no route at all and exit silently
+with neither a wakeup nor a report, which is the one outcome the state machine must
+never produce.
 
 ---
 
