@@ -67,11 +67,21 @@ release_lock() {
   LOCK_HELD=""
 }
 
+# Same reasoning as release_lock, for the download scratch directory: exec never
+# runs the EXIT trap, so a successful bootstrap would otherwise strand the
+# downloaded tarball (tens of MB) in TMPDIR forever.
+discard_tmp() {
+  [ -n "${TMP_DIR-}" ] || return 0
+  rm -rf "$TMP_DIR"
+  TMP_DIR=""
+}
+
 # exec the resolved binary, or -- under --fetch-only -- just confirm and stop.
 run_kg() {
   _bin="$1"
   shift
   release_lock
+  discard_tmp
   if [ "$FETCH_ONLY" -eq 1 ]; then
     exit 0
   fi
@@ -134,10 +144,15 @@ if [ -z "$KG_VERSION" ] || [ -z "$BASE_URL" ]; then
   give_up "kg.lock.json has no pinned release yet, so there is nothing to download."
 fi
 
-case "$KG_VERSION" in
-  v[0-9]*) : ;;
-  *) give_up "kg.lock.json version '$KG_VERSION' is not a vX.Y.Z tag -- refusing to build a download URL from it." ;;
-esac
+# A glob's `*` matches `/` too, so `v[0-9]*` would admit `v1/../../etc` and let a
+# poisoned lock file steer CACHE_DIR and LOCK_DIR outside the cache root. Strip the
+# leading `v` and require what remains to be digits and dots and nothing else --
+# no separators, no expansion characters, no whitespace.
+_ver_rest=${KG_VERSION#v}
+if [ "$_ver_rest" = "$KG_VERSION" ] || [ -z "$_ver_rest" ] \
+   || [ -n "$(printf '%s' "$_ver_rest" | tr -d '0-9.')" ]; then
+  give_up "kg.lock.json version '$KG_VERSION' is not a vX.Y.Z tag -- refusing to build a download URL from it."
+fi
 case "$BASE_URL" in
   https://*) : ;;
   *) give_up "kg.lock.json base_url must be an https URL; got '$BASE_URL'." ;;
@@ -205,7 +220,7 @@ fi
 
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/kg-bootstrap.XXXXXX") || give_up "could not create a temp directory for the kg download."
 cleanup() {
-  rm -rf "$TMP_DIR"
+  discard_tmp
   release_lock
 }
 trap cleanup EXIT INT TERM

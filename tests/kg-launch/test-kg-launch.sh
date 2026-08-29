@@ -159,6 +159,14 @@ if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "is not a vX.Y.Z tag" && [ ! 
 else
   bad "version validation" "rc=$rc out=$out"
 fi
+# A glob's `*` matches `/`, so this is the shape that would escape the cache root.
+write_lock "v1/../../../etc" "https://example.invalid/dl" "$(printf '%064d' 0)"
+out=$(run_launcher server --stdio); rc=$?
+if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "is not a vX.Y.Z tag"; then
+  ok "a version containing path separators is refused (no cache-root escape)"
+else
+  bad "version traversal" "rc=$rc out=$out"
+fi
 write_lock "v1.2.3" "http://example.invalid/dl" "$(printf '%064d' 0)"
 out=$(run_launcher server --stdio); rc=$?
 if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "must be an https URL"; then
@@ -207,6 +215,14 @@ if [ ! -d "$FAKE_HOME/.ai-pack/bin/.lock-kg-v9.9.9" ]; then
   ok "bootstrap releases its mkdir lock on the way out"
 else
   bad "lock cleanup" "lock directory survived a successful bootstrap"
+fi
+# Same exec-skips-the-trap hazard as the lock: the download scratch dir has to be
+# removed explicitly or every successful bootstrap strands a tarball in TMPDIR.
+leaked=$(find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'kg-bootstrap.*' -newer "$PLUGIN_ROOT/kg.lock.json" 2>/dev/null | head -n 1)
+if [ -z "$leaked" ]; then
+  ok "bootstrap removes its download scratch directory on the way out"
+else
+  bad "tmpdir cleanup" "scratch directory survived a successful bootstrap: $leaked"
 fi
 
 # Same artifact, wrong digest: must refuse and must not populate the cache.

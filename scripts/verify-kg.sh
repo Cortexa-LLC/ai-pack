@@ -15,8 +15,9 @@ if [ -n "${AI_PACK_KG:-}" ] && [ -x "${AI_PACK_KG}" ]; then
     KG="$AI_PACK_KG"
 elif command -v kg >/dev/null 2>&1; then
     KG="$(command -v kg)"
-elif [ -n "$(ls -d "${AI_PACK_HOME:-$HOME/.ai-pack}"/bin/kg-*/kg 2>/dev/null | head -n 1)" ]; then
-    KG="$(ls -d "${AI_PACK_HOME:-$HOME/.ai-pack}"/bin/kg-*/kg 2>/dev/null | head -n 1)"
+elif CACHED_KG="$(ls -d "${AI_PACK_HOME:-$HOME/.ai-pack}"/bin/kg-*/kg 2>/dev/null | head -n 1)" \
+     && [ -n "$CACHED_KG" ]; then
+    KG="$CACHED_KG"
 elif [ -f "$PROJECT_ROOT/tmp/kg" ]; then
     KG="$PROJECT_ROOT/tmp/kg"
 else
