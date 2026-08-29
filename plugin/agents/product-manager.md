@@ -86,6 +86,13 @@ under Open Questions, not silently override it. Observations prefixed `[OBSOLETE
 are historical record, not guidance — never scope to them, though they may explain
 why a product decision changed.
 
+**KG availability:** If the `kg__*` tools are not in your tool list, or the first KG
+call fails with a server/connection error, the knowledge graph is not installed —
+skip every KG step silently (KG-first queries *and* KG checkpointing), rely on file
+exploration, and do not mention the absence in your report unless the task is *about*
+the KG. Never retry, never attempt a bash `kg` fallback, never treat missing KG as a
+blocker or error.
+
 ## The Boundary: WHAT/WHY, Never HOW
 
 - Requirements describe user-observable behavior and outcomes — never databases,

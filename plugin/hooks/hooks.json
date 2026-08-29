@@ -17,6 +17,10 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/kg-first-directive.py\""
+          },
+          {
+            "type": "command",
+            "command": "sh -c '\"${CLAUDE_PLUGIN_ROOT}/bin/kg-launch.sh\" --fetch-only >/dev/null 2>&1 &'"
           }
         ]
       }

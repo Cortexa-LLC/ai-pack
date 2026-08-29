@@ -1,0 +1,6 @@
+{
+  "_comment": "Pin for the prebuilt kg binary that plugin/bin/kg-launch.sh downloads (ADR-010). No kg release exists yet, so the pin is intentionally empty: the launcher still resolves kg from AI_PACK_KG or PATH, and its download path exits cleanly into the documented graceful degradation. To populate: cut a kg release, then record its tag, the release download base, and the per-platform sha256 of each kg-<tag>-<platform>.tar.gz. See docs/RELEASING.md.",
+  "version": "",
+  "base_url": "https://github.com/Cortexa-LLC/mcp/releases/download",
+  "sha256": {}
+}

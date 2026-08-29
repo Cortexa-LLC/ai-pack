@@ -9,6 +9,43 @@ truth for the current version. The `VERSION` file is a one-line mirror of it, an
 CI (`release-consistency`) fails if they disagree or if this file lacks an entry
 for the manifest version.
 
+## [3.3.0] — 2026-08-29
+
+### Added
+
+- **No-clone install path** (issue #18, ADR-010). The documented install is now two
+  slash commands — `/plugin marketplace add Cortexa-LLC/ai-pack` then
+  `/plugin install ai-pack@ai-pack` — with no clone, no submodule, and no toolchain.
+  The clone-based flow moves to a "Developing ai-pack itself" section.
+- **Self-resolving kg launcher** (`plugin/bin/kg-launch.sh`). `plugin/.mcp.json` now
+  launches the plugin's own script instead of a bare `kg`. It resolves, in order:
+  `$AI_PACK_KG`, `kg` on `PATH`, a cached download under `~/.ai-pack/bin/`, then the
+  checksum-pinned release named in `plugin/kg.lock.json`. A `SessionStart` hook warms
+  the cache in the background via `--fetch-only`. Lock values are validated before
+  use — a version that is not a `vX.Y.Z` tag, a non-`https` base URL, or a malformed
+  digest all fail closed rather than fetching something unverified.
+- **`plugin/kg.lock.json`** — the kg pin. It ships **empty** because no kg release
+  exists yet, which the launcher handles by design: resolution falls back to
+  `$AI_PACK_KG` and `PATH`, and the download path exits cleanly into graceful
+  degradation. `docs/RELEASING.md` documents populating it.
+- **Launcher test suite** (`tests/kg-launch/test-kg-launch.sh`) — 16 behavioral tests
+  over resolution order, lock validation, checksum verification, cache writes,
+  `--fetch-only`, and the offline path. The bootstrap tests build a real tarball and
+  serve it over `file://`, so the suite needs no network.
+
+### Changed
+
+- **KG absence is now a defined contract, not undefined behavior.** All seven agents
+  and the orchestrate/prd skills carry a verbatim "KG availability" block: if the
+  `kg__*` tools are missing or the first call fails, skip every KG step silently,
+  never retry, never shell out to `kg`, and never report the absence as a problem.
+  Previously no agent file said anything about a missing KG.
+- The orchestrate skill's clone-era setup instructions (`git submodule update` +
+  `python3 mcp/install.py`) are gone — they broke under a marketplace install, which
+  never fetches submodules.
+- `scripts/verify-kg.sh` mirrors the launcher's resolution order and its not-found
+  message describes the launcher rather than the retired submodule step.
+
 ## [3.2.1] — 2026-08-28
 
 ### Fixed

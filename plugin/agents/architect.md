@@ -79,6 +79,13 @@ reversal explicitly, never rediscover the ground from scratch. Observations pref
 `[OBSOLETE]` are historical record, not guidance — never design to them, though they
 may explain why the current architecture looks the way it does.
 
+**KG availability:** If the `kg__*` tools are not in your tool list, or the first KG
+call fails with a server/connection error, the knowledge graph is not installed —
+skip every KG step silently (KG-first queries *and* KG checkpointing), rely on file
+exploration, and do not mention the absence in your report unless the task is *about*
+the KG. Never retry, never attempt a bash `kg` fallback, never treat missing KG as a
+blocker or error.
+
 ## When Architect is Needed vs Skipped
 
 **Invoke architect for:**

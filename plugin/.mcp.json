@@ -2,7 +2,7 @@
   "mcpServers": {
     "kg": {
       "type": "stdio",
-      "command": "kg",
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/kg-launch.sh",
       "args": ["server", "--stdio"]
     }
   }

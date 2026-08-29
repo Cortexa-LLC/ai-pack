@@ -8,14 +8,25 @@ echo "======================================"
 echo
 
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
-# Use the system-installed kg (the plugin launches it from PATH); fall back to a
-# repo-local build at tmp/kg if present.
-if command -v kg >/dev/null 2>&1; then
+# Mirror plugin/bin/kg-launch.sh's resolution order so this script verifies the same
+# binary the plugin would actually launch: $AI_PACK_KG, then PATH, then the bootstrap
+# cache. The repo-local tmp/kg build stays last as a contributor convenience.
+if [ -n "${AI_PACK_KG:-}" ] && [ -x "${AI_PACK_KG}" ]; then
+    KG="$AI_PACK_KG"
+elif command -v kg >/dev/null 2>&1; then
     KG="$(command -v kg)"
+elif CACHED_KG="$(ls -d "${AI_PACK_HOME:-$HOME/.ai-pack}"/bin/kg-*/kg 2>/dev/null | head -n 1)" \
+     && [ -n "$CACHED_KG" ] && [ -x "$CACHED_KG" ]; then
+    KG="$CACHED_KG"
 elif [ -f "$PROJECT_ROOT/tmp/kg" ]; then
     KG="$PROJECT_ROOT/tmp/kg"
 else
-    echo "❌ kg binary not found on PATH (install: git submodule update --init mcp && python3 mcp/install.py --mcp kg)"
+    echo "❌ kg binary not found."
+    echo "   The plugin resolves kg via \$AI_PACK_KG, then PATH, then its download cache"
+    echo "   (${AI_PACK_HOME:-$HOME/.ai-pack}/bin/). None of those hold one."
+    echo "   Build it from source (https://github.com/Cortexa-LLC/mcp) and put it on PATH,"
+    echo "   or set AI_PACK_KG=/path/to/kg."
+    echo "   Note: agents do not need kg — they degrade silently without it."
     exit 1
 fi
 

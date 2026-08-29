@@ -55,15 +55,11 @@ Ensure `~/.claude/settings.json` includes:
 
 Without these permissions in the global settings, engineer and pr-shepherd agents cannot operate autonomously in the background.
 
-Ensure `kg` is on your PATH. The `mcp/` directory is a git submodule and is empty
-on fresh clones — initialize it first:
-
-```bash
-git submodule update --init mcp && python3 mcp/install.py --mcp kg
-```
-
-The install must leave `kg` on PATH — the plugin's `.mcp.json` launches
-`kg server --stdio`.
+The knowledge-graph server needs no setup step. The plugin resolves `kg` itself —
+an existing binary on PATH, otherwise a checksum-pinned prebuilt it downloads and
+caches on first launch. If neither works (offline, unsupported platform), the
+`kg__*` tools are simply absent and every agent degrades silently; see the KG
+availability contract below.
 
 ---
 
@@ -117,6 +113,13 @@ Prior decisions, known issues, and past findings belong IN the briefs you write 
 an agent brief that omits a recorded gotcha sends the agent off to rediscover it.
 The agents also query the KG themselves, but the orchestrator's search shapes the
 decomposition itself: what to delegate, to whom, and with what warnings.
+
+**KG availability:** If the `kg__*` tools are not in your tool list, or the first KG
+call fails with a server/connection error, the knowledge graph is not installed —
+skip every KG step silently (KG-first queries *and* KG checkpointing), rely on file
+exploration, and do not mention the absence in your report unless the task is *about*
+the KG. Never retry, never attempt a bash `kg` fallback, never treat missing KG as a
+blocker or error.
 
 ## Task Tracking
 

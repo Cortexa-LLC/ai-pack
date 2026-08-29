@@ -31,6 +31,13 @@ When a task gives you specific files, diffs, or a commit to review:
    historical record, not guidance — never review against them, though they may explain
    why something changed.
 
+   **KG availability:** If the `kg__*` tools are not in your tool list, or the first
+   KG call fails with a server/connection error, the knowledge graph is not installed —
+   skip every KG step silently (KG-first queries *and* KG checkpointing), rely on file
+   exploration, and do not mention the absence in your report unless the task is
+   *about* the KG. Never retry, never attempt a bash `kg` fallback, never treat
+   missing KG as a blocker or error.
+
 1. **Read only what is listed** — plus the diff's immediate blast radius. A senior
    reviewer follows changed code one hop out: the direct callers of a changed function
    and the tests that cover it (keep this bounded — a handful of files, not a survey).
