@@ -36,10 +36,22 @@ graceful degradation. To populate or bump it:
    platform (`darwin-arm64`, `darwin-x86_64`, `linux-x86_64`, `linux-arm64`).
    Each tarball must be relocatable — the binary plus its `libkuzu`, rpath
    rewritten to `@loader_path`/`$ORIGIN` (ADR-010, WB-1).
-2. Record the tag in `version`, the release download base in `base_url`, and each
-   artifact's `sha256` under its platform key. The launcher rejects a version that
-   is not a `vX.Y.Z` tag, a `base_url` that is not `https`, and any digest that is
-   not 64 hex characters — so a malformed edit fails closed rather than fetching
+2. Fill in the pin. The launcher builds `<base_url>/<version>/kg-<version>-<platform>.tar.gz`,
+   and GitHub renders a slash-containing tag as path separators — tag `kg/v1.2.3`
+   serves its assets from `.../releases/download/kg/v1.2.3/`. So the tag is split
+   across the two fields:
+
+   - `version` — the **version portion only**: `v1.2.3`, never `kg/v1.2.3`. The
+     validator rejects anything but digits and dots after the leading `v`, so the
+     full tag fails closed rather than producing a wrong URL.
+   - `base_url` — the release download base **including** the tag's `kg/` segment:
+     `https://github.com/Cortexa-LLC/mcp/releases/download/kg`. Omitting `/kg`
+     yields `.../releases/download/v1.2.3/...`, which 404s. A trailing slash is
+     tolerated.
+   - `sha256` — each artifact's digest under its platform key.
+
+   The launcher also rejects a `base_url` that is not `https` and any digest that is
+   not 64 hex characters, so a malformed edit fails closed rather than fetching
    something unverified.
 3. Ship it with a normal plugin version bump and CHANGELOG entry (steps 1–4 above).
    Users pick it up on `/plugin marketplace update ai-pack`; the launcher sees an
