@@ -97,11 +97,18 @@ names as unknown; the CLI reports the first unrecognized option, and `--max-turn
 comes first, so being named means it is gone. Parsing rejects the invalid flag before
 a session starts, so the probe costs no quota and no network.
 
+The probe self-tests first: it runs the same check against a control flag that cannot
+possibly exist and requires it to come back rejected. A probe that reports *everything*
+as accepted has silently become a no-op, and its clean bill of health on `--max-turns`
+would mean nothing — so a failed self-test downgrades to a warning instead of a
+false all-clear.
+
 | Probe outcome | Behavior |
 |---|---|
 | Flag accepted | Silent; run proceeds |
 | Flag rejected as unknown | `error:` naming the CLI version and the fix, exit 1 |
 | Neither error seen | `warning:`, run proceeds |
+| Self-test failed | `warning:`, check skipped rather than trusted |
 | `claude` not on PATH | `note:`, probe skipped (keeps `--dry-run` toolchain-free) |
 
 In CI this surfaces on the real-run leg, which installs the pinned CLI. The dry-run
@@ -109,7 +116,8 @@ leg has no `claude` and skips the probe by design.
 
 There is no supported replacement to adopt yet — as of CLI 2.1.236 the documented
 flag list has no turn cap at all (`--max-budget-usd` caps spend, not turns). When one
-lands, swap it into the two invocations in `run-harness.sh` and update the probe.
+lands, swap it in at all three sites in `run-harness.sh`: the real-run `claude`
+invocation, the dry-run diagnostic `printf` that echoes the command, and the probe.
 
 ## CI integration
 

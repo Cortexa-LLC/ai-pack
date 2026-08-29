@@ -100,11 +100,15 @@ fi
 # has no turn cap at all (`--max-budget-usd` caps spend, not turns). When one
 # lands, swap it in here and in the two invocations below.
 PROBE_FLAG="--ai-pack-flag-support-probe"
+CONTROL_FLAG="--ai-pack-flag-support-control"
 
 # 0 = accepted, 1 = rejected as unknown, 2 = indeterminate.
+# An explicit prompt argument keeps $flag in option position regardless of whether
+# -p/--print ever becomes value-taking; the probe flag trails it so that whichever
+# option the CLI names first is the answer.
 cli_flag_status() {
   local flag="$1" value="${2-}" out
-  out=$(ANTHROPIC_API_KEY="" claude -p "$flag" ${value:+"$value"} "$PROBE_FLAG" "" 2>&1 || true)
+  out=$(ANTHROPIC_API_KEY="" claude -p "probe" "$flag" ${value:+"$value"} "$PROBE_FLAG" 2>&1 || true)
   case "$out" in
     *"unknown option '$flag'"*)       return 1 ;;
     *"unknown option '$PROBE_FLAG'"*) return 0 ;;
@@ -112,7 +116,26 @@ cli_flag_status() {
   esac
 }
 
+# Self-test the probe before trusting its verdict. A flag that certainly does not
+# exist must come back "rejected"; if it comes back "accepted", the mechanism itself
+# has broken (argument-order semantics changed, say) and a clean bill of health on
+# --max-turns would be meaningless. This is the guard against the probe silently
+# degrading into an always-passes no-op.
+probe_mechanism_works() {
+  local rc=0
+  cli_flag_status "$CONTROL_FLAG" || rc=$?
+  [ "$rc" -eq 1 ]
+}
+
 assert_max_turns_supported() {
+  if ! probe_mechanism_works; then
+    echo "warning: the --max-turns support probe failed its own self-test -- a flag that" >&2
+    echo "         cannot exist ($CONTROL_FLAG) was not reported as unknown, so the CLI's" >&2
+    echo "         argument handling no longer matches what the probe assumes. Skipping the" >&2
+    echo "         check rather than trusting it; see issue #32." >&2
+    return 0
+  fi
+
   local rc=0
   cli_flag_status --max-turns 60 || rc=$?
   case "$rc" in
