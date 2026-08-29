@@ -136,7 +136,10 @@ kg__add_observation({entity_id: "<id>", content:
 4. Fix threads       — BLOCKING: must fix; SUGGESTION: fix if ≤ 5 lines
 5. Commit + push     — one commit covering all thread fixes this iteration
 6. Reply + resolve   — post reply (with $NEW_SHA) then resolve each thread
-7. Done check        — all SUCCESS + 0 open threads + verdict == APPROVED
+7. Done check        — all SUCCESS + 0 open threads + no body findings + verdict == APPROVED
+                       (two things that are NOT failures: the review gate check fails
+                       BY DESIGN on changes-requested, and COMMENTED/CHANGES_REQUESTED
+                       are terminal verdicts — fix their findings, never poll them)
    YES → write report, exit
    NO  → write state, go to step 1
 ```
@@ -246,7 +249,20 @@ VERDICT=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate \
   | jq -r --arg sha "$HEAD_SHA" \
       '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .state // "PENDING"')
 
-echo "Open threads: $OPEN_COUNT | Verdict: $VERDICT | HEAD: ${HEAD_SHA:0:7}"
+# Findings do not only arrive as inline threads. A reviewer that posts with
+# `gh pr review --body-file` submits a SINGLE top-level body and cannot attach line
+# comments, so reviewThreads is empty and every finding lives in the body. Reading
+# OPEN_COUNT alone makes that reviewer invisible: the count is permanently 0 and the
+# findings are never seen. Fetch the body from the same REST payload.
+REVIEW_BODY=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate \
+  | jq -r --arg sha "$HEAD_SHA" \
+      '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .body // ""')
+BODY_FINDINGS=0
+if [ "$VERDICT" != "APPROVED" ] && [ "$VERDICT" != "PENDING" ] && [ "${#REVIEW_BODY}" -gt 40 ]; then
+  BODY_FINDINGS=1
+fi
+
+echo "Open threads: $OPEN_COUNT | Body findings: $BODY_FINDINGS | Verdict: $VERDICT | HEAD: ${HEAD_SHA:0:7}"
 ```
 
 ---
@@ -351,7 +367,7 @@ VERDICT=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate \
   | jq -r --arg sha "$HEAD_SHA" \
       '[.[] | select(.commit_id == $sha and .user.type == "Bot")] | last | .state // "PENDING"')
 
-if [ "$ALL_OK" = "true" ] && [ "$OPEN_COUNT" -eq 0 ] && [ "$VERDICT" = "APPROVED" ]; then
+if [ "$ALL_OK" = "true" ] && [ "$OPEN_COUNT" -eq 0 ] && [ "$BODY_FINDINGS" -eq 0 ] && [ "$VERDICT" = "APPROVED" ]; then
   # Settle check: an APPROVING review can post SUGGESTION threads that land seconds
   # AFTER its verdict. Wait, re-query threads once, and only then declare done.
   sleep 30
@@ -371,7 +387,10 @@ if [ "$ALL_OK" = "true" ] && [ "$OPEN_COUNT" -eq 0 ] && [ "$VERDICT" = "APPROVED
     # write completion report (see §Completion Report) and exit
   fi
 else
-  echo "Not yet done — ALL_OK=$ALL_OK OPEN_COUNT=$OPEN_COUNT VERDICT=$VERDICT"
+  echo "Not yet done — ALL_OK=$ALL_OK OPEN_COUNT=$OPEN_COUNT BODY_FINDINGS=$BODY_FINDINGS VERDICT=$VERDICT"
+  # A COMMENTED or CHANGES_REQUESTED verdict is TERMINAL: the review ran and reached a
+  # conclusion, and it will not become APPROVED without a new push. Act on its
+  # findings (threads or body) — never wait for it to change on its own.
   # write state to KG and loop back to Step 1
   # once, reuse id
   kg__add_observation({entity_id: "<state-entity-id>", content:
