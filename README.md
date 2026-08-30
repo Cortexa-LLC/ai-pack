@@ -83,7 +83,9 @@ Four skills in `plugin/skills/` package multi-agent workflows:
 - **orchestrate** — decomposes engineering work and delegates it to the subagents. Triggers on multi-step requests like "build this feature end to end" or "investigate why X is broken then fix it".
 - **prd** — product discovery interview in the main session (subagents cannot question the user), then delegates PRD drafting to the product-manager agent. The finished PRD lands in `docs/product/`. Triggers on "create a PRD" or "help me spec this feature".
 - **pre-push** — review-and-fix loop on local commits before pushing. Spawns a reviewer against the local diff; if issues are found, spawns an engineer to fix them, amends, and re-reviews until approved. Triggers on "review my commits before I push".
-- **shepherd-pr** — drives an open GitHub PR to a green, approved, mergeable state by spawning the pr-shepherd agent. Triggers on "shepherd PR #42" or "drive my PR to green".
+- **shepherd-pr** — drives an open GitHub PR to a green, approved, mergeable state. Triggers on "shepherd PR #42" or "drive my PR to green".
+
+There are three ways to shepherd a PR — this skill, the `pr-shepherd` agent, and a repo-local deterministic workflow. [docs/SHEPHERDING.md](docs/SHEPHERDING.md) covers which to use when, and why the workflow variant cannot ship with the plugin.
 
 ---
 
