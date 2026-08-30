@@ -55,7 +55,17 @@ forget to loop, cannot stop at round 3, and cannot invent a watcher.
 
 ```
 Workflow({ name: "shepherd-pr", args: { pr: 46, branch: "fix/…" } })
+Workflow({ name: "shepherd-pr", args: { pr: 46, branch: "fix/…", repo: "owner/name" } })
 ```
+
+`repo` is optional — omitted, the round agent resolves it from the checkout with
+`gh repo view --json nameWithOwner`. Pass it explicitly when driving a PR in a
+different repository than the one you are standing in.
+
+**If you copy this file, keep it portable.** It must contain no absolute filesystem
+paths and no hardcoded `owner/name`: a copied-and-unedited script with a baked-in slug
+sends every review fetch to the original repository, and an absolute path tells each
+round agent it is somewhere it is not.
 
 Exits: `merge-ready` (clean verdict) · `blocked-on-owner` · `stuck` (no progress for
 two rounds, past the minimum) · `cap` (hard backstop).
