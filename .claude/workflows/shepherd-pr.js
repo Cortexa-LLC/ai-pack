@@ -28,7 +28,9 @@ if (!pr || !branch) throw new Error('args {pr, branch} are required')
 // shape keeps working.
 const repo = args.repo
 const HARD_CAP = args.maxRounds || 12   // runaway backstop, not a target
-const MIN_ROUNDS = 5                    // owner policy: never call fewer rounds "enough effort"
+const MIN_ROUNDS = 5                    // floor for declaring 'stuck' only — a clean
+                                        // verdict or an owner blocker still exits at
+                                        // round 1; this is not a minimum round count
 
 const ROUND_SCHEMA = {
   type: 'object',
@@ -104,7 +106,15 @@ for (let round = 1; round <= HARD_CAP; round++) {
   // Convergence: identical Critical+Major finding set with no count reduction = no progress.
   const prev = history[history.length - 2]
   if (prev) {
-    const sameTitles = prev.titles.join('||') === r.findingTitles.join('||')
+    // Sort before comparing: findingTitles comes from a model, whose ordering is not
+    // stable, so two rounds raising the SAME findings in a different order would read
+    // as progress, reset noProgress, and leave the stuck exit permanently unreachable
+    // — the loop would grind all HARD_CAP rounds, each blocking on a full CI run.
+    // JSON.stringify rather than join('||'): a title containing '||' makes
+    // ["a||b"] and ["a","b"] join identically, which is a false MATCH in the other
+    // direction.
+    const norm = (a) => JSON.stringify([...a].sort())
+    const sameTitles = norm(prev.titles) === norm(r.findingTitles)
     const notFewer = (r.criticalCount + r.majorCount) >= (prev.critical + prev.major)
     if (sameTitles && notFewer) noProgress++
     else noProgress = 0

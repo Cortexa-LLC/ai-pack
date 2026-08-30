@@ -67,8 +67,10 @@ paths and no hardcoded `owner/name`: a copied-and-unedited script with a baked-i
 sends every review fetch to the original repository, and an absolute path tells each
 round agent it is somewhere it is not.
 
-Exits: `merge-ready` (clean verdict) · `blocked-on-owner` · `stuck` (no progress for
-two rounds, past the minimum) · `cap` (hard backstop).
+Exits, as returned in `outcome`: `merge-ready` (clean verdict) · `blocked-on-owner` ·
+`stuck` (no progress for two rounds, past `MIN_ROUNDS`) · `cap-reached` (hard
+backstop) · `error` (two consecutive round agents failed). `MIN_ROUNDS` floors only
+the `stuck` exit — a clean verdict or an owner blocker still returns at round 1.
 
 **Trade-off:** it is repo-local. See below.
 
