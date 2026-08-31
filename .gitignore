@@ -11,7 +11,14 @@ Desktop.ini
 # Editor and IDE Files
 .vscode/
 .idea/
-.claude/
+# .claude/ is session runtime data and stays out of git — EXCEPT workflows/, which
+# holds the deterministic shepherd loop. Plugins cannot distribute workflows (see
+# docs/SHEPHERDING.md), so .claude/workflows/ is the only place that file can live
+# and still run, and it has to be version-controlled to be reviewable, shareable, and
+# recoverable. Note the `.claude/*` form: git does not descend into an excluded
+# DIRECTORY, so a plain `.claude/` would make the negation below unreachable.
+.claude/*
+!.claude/workflows/
 *.swp
 *.swo
 *~
